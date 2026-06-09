@@ -1,0 +1,29 @@
+{
+  "name": "casual-game-platform",
+  "version": "0.1.11",
+  "private": true,
+  "description": "피싱 셸을 수확한 TypeScript 모노레포 — 7종 캐쥬얼게임 양산 플랫폼",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "games/*"
+  ],
+  "scripts": {
+    "dev:store": "npm run dev --workspace games/store",
+    "build:store": "npm run build --workspace games/store",
+    "dev:eco01": "npm run dev --workspace games/eco01",
+    "build:eco01": "npm run build --workspace games/eco01",
+    "typecheck": "tsc -p packages/core/tsconfig.json && tsc -p games/store/tsconfig.json && tsc -p games/eco01/tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.8",
+    "typescript": "5.6.3",
+    "vite": "5.4.10",
+    "vite-plugin-pwa": "0.21.1",
+    "vitest": "2.1.8"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  }
+}
