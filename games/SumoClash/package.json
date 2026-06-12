@@ -1,0 +1,20 @@
+{
+  "name": "@casual/game-sumoclash",
+  "version": "0.1.0",
+  "private": true,
+  "description": "스모대전 — 레인 디펜스. 밀어내기 역사를 배치해 밀려오는 스모 군단을 막아낸다.",
+  "type": "module",
+  "scripts": {
+    "dev": "npx vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4196"
+  },
+  "dependencies": {
+    "@casual/core": "*",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.10",
+    "vite-plugin-pwa": "0.21.1"
+  }
+}
