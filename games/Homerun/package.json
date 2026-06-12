@@ -1,0 +1,20 @@
+{
+  "name": "@casual/game-homerun",
+  "version": "0.1.0",
+  "private": true,
+  "description": "홈런팝 — 타이밍 터치 야구. 히팅존에 맞춰 터치해 홈런을 날린다 (홈런 클래시 스타일).",
+  "type": "module",
+  "scripts": {
+    "dev": "npx vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4197"
+  },
+  "dependencies": {
+    "@casual/core": "*",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.10",
+    "vite-plugin-pwa": "0.21.1"
+  }
+}
