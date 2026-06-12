@@ -53,7 +53,7 @@ export default defineConfig({
       '@casual/core/': `${coreSrc}/`,
     },
   },
-  server: { port: 5181, host: true },
+  server: { port: 6181, host: true, strictPort: true },
   build: {
     target: 'es2020',
     sourcemap: true,

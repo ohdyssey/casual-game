@@ -1,8 +1,17 @@
 node_modules/
 dist/
+games/eco01/
 dev-dist/
 *.tsbuildinfo
 .DS_Store
 *.local
 coverage/
 .gstack/
+
+# Claude 하버스 (머신 로컬)
+.claude/
+
+# 게임 런타임 에셋 — 추후 Supabase Storage로 외부화. 지금은 git 제외. ⚠️로컬 백업 필수 (ASSETS.md 참고)
+games/*/public/assets/
+games/*/public/art/
+games/**/uploads/
