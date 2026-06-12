@@ -1,0 +1,20 @@
+{
+  "name": "@casual/game-grillking",
+  "version": "0.1.0",
+  "private": true,
+  "description": "꼬치왕 — 그릴 꼬치 3매치 정렬 퍼즐.",
+  "type": "module",
+  "scripts": {
+    "dev": "npx vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4195"
+  },
+  "dependencies": {
+    "@casual/core": "*",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.10",
+    "vite-plugin-pwa": "0.21.1"
+  }
+}

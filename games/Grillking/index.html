@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover, orientation=portrait" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#E8542A" />
+    <title>꼬치왕</title>
+    <style>
+      /* Jua/Do Hyeon — OFL 한글+라틴 둥근 게임체. P0 에선 CDN 로드(P1 셀프호스팅 전환). */
+      @import url('https://fonts.googleapis.com/css2?family=Jua&family=Do+Hyeon&display=block');
+      html, body {
+        margin: 0; padding: 0;
+        background: #2B1810;
+        color: #FFE3B3;
+        font-family: 'Jua', system-ui, sans-serif;
+        overflow: hidden;
+        width: 100vw; height: 100vh;
+        touch-action: none; user-select: none;
+        -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+        overscroll-behavior: none;
+      }
+      #game-container {
+        position: fixed; inset: 0;
+        width: 100vw; height: 100vh;
+        overflow: hidden;
+        padding: env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
+        box-sizing: border-box;
+      }
+      #game-container canvas { display: block; }
+      .loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); opacity: 0.7; }
+      .rotate-hint { display: none; }
+      @media (orientation: landscape) and (max-width: 1000px) {
+        #game-container { display: none; }
+        .rotate-hint {
+          display: flex; position: fixed; inset: 0;
+          align-items: center; justify-content: center; flex-direction: column; gap: 12px;
+          background: #C0392B; color: #fff; font-size: 18px; text-align: center; padding: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container"><div class="loading">꼬치왕 로딩 중...</div></div>
+    <div class="rotate-hint"><div style="font-size:48px">📱↻</div><strong>세로로 돌려주세요</strong></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
