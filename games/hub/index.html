@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0B1020" />
+    <title>PlayPOP Hub</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
+
+      :root {
+        --bg0: #0B1020;
+        --bg1: #141B33;
+        --card: #1A2238;
+        --line: rgba(255, 255, 255, 0.08);
+        --txt: #EAF0FF;
+        --txt-dim: #9AA7C7;
+        --live: #38E08A;
+      }
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      html, body {
+        margin: 0; padding: 0; min-height: 100%;
+        font-family: 'Jua', system-ui, sans-serif;
+        color: var(--txt);
+        background:
+          radial-gradient(1100px 520px at 12% -8%, #1E2A55 0%, transparent 55%),
+          radial-gradient(900px 480px at 100% 0%, #3A1E55 0%, transparent 50%),
+          linear-gradient(180deg, var(--bg1) 0%, var(--bg0) 60%);
+        background-attachment: fixed;
+      }
+
+      /* 헤더 */
+      header {
+        text-align: center;
+        padding: calc(env(safe-area-inset-top, 0px) + 40px) 20px 8px;
+      }
+      header .brand {
+        display: block;
+        width: 168px; height: auto; margin: 0 auto;
+        filter: drop-shadow(0 10px 28px rgba(40, 120, 255, 0.45));
+        animation: brand-float 4.5s ease-in-out infinite;
+      }
+      @keyframes brand-float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-7px); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        header .brand { animation: none; }
+      }
+      header h1 {
+        /* 접근성용 텍스트 — 시각적으로는 로고가 대체 */
+        position: absolute; width: 1px; height: 1px;
+        padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0);
+        white-space: nowrap; border: 0;
+      }
+      header p { margin: 14px 0 0; color: var(--txt-dim); font-size: 15px; letter-spacing: 0.3px; }
+
+      /* 페이지 본문 — 화면을 꽉 채우는 단일 그리드.
+         config가 live-먼저 + 장르 순서로 정렬돼 있어, 분류 헤더 없이도
+         비슷한 게임이 자연스럽게 인접하면서 빈틈 없이 채워진다. */
+      main {
+        width: 100%;
+        max-width: 1720px; margin: 0 auto;
+        padding: 22px clamp(12px, 2.4vw, 32px) 48px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 196px), 1fr));
+        gap: clamp(12px, 1.3vw, 18px);
+      }
+
+      .card {
+        position: relative;
+        display: block;
+        aspect-ratio: 9 / 14;
+        border-radius: 22px;
+        overflow: hidden;
+        text-decoration: none;
+        background: var(--card);
+        border: 1px solid var(--line);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+        transition: transform 0.16s cubic-bezier(.34,1.56,.64,1), box-shadow 0.16s ease, border-color 0.16s ease;
+      }
+      .card .art {
+        position: absolute; inset: 0;
+        width: 100%; height: 100%;
+        object-fit: cover;
+        transition: transform 0.5s ease;
+      }
+      /* 하단 스크림 — 텍스트 가독성 */
+      .card .scrim {
+        position: absolute; inset: 0;
+        background: linear-gradient(180deg, rgba(8,12,24,0) 38%, rgba(8,12,24,0.55) 64%, rgba(8,12,24,0.94) 100%);
+      }
+      /* 카드 로고 — 상단 중앙 오버레이(투명 PNG) */
+      .card .logo {
+        position: absolute; top: 30px; left: 50%;
+        transform: translateX(-50%);
+        width: 74%; max-height: 34%;
+        object-fit: contain;
+        filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+        pointer-events: none;
+      }
+      .card .meta {
+        position: absolute; left: 0; right: 0; bottom: 0;
+        padding: 14px 16px 16px;
+      }
+      .card .title { font-size: 21px; line-height: 1.15; margin: 0 0 4px; color: #fff; }
+      .card .tag { font-size: 12.5px; color: var(--txt-dim); margin: 0 0 12px; line-height: 1.35; }
+      .pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 9px 18px; border-radius: 999px;
+        font-size: 14.5px; color: #08101F;
+        background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 78%, #000));
+        box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 45%, transparent);
+      }
+      /* 상단 라이브 배지 */
+      .badge {
+        position: absolute; top: 12px; left: 12px;
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 5px 11px; border-radius: 999px;
+        font-size: 11.5px; letter-spacing: 0.5px;
+        color: #fff;
+        background: rgba(8, 12, 24, 0.6);
+        border: 1px solid var(--line);
+        backdrop-filter: blur(4px);
+      }
+      .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--live); box-shadow: 0 0 8px var(--live); }
+
+      /* 라이브 카드 hover */
+      .card.live { cursor: pointer; }
+      /* 플레이 버튼은 게임별 accent와 무관하게 초록으로 통일 */
+      .card.live .pill {
+        background: linear-gradient(180deg, #3CB54A, color-mix(in srgb, #3CB54A 78%, #000));
+        box-shadow: 0 6px 16px color-mix(in srgb, #3CB54A 45%, transparent);
+      }
+      .card:hover, .card.live:focus-visible {
+        transform: translateY(-6px);
+        border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+        box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5), 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+        outline: none;
+      }
+      .card:hover .art { transform: scale(1.06); }
+
+      /* 준비중 카드 — 아트는 선명하게 유지(꽉 찬 화면), 배지/버튼으로만 구분 */
+      .card.soon { cursor: default; }
+      .card.soon .pill { background: rgba(255,255,255,0.1); color: var(--txt-dim); box-shadow: none; }
+      .card.soon .badge { color: var(--txt-dim); }
+      .card.soon .badge .dot { background: #6B7691; box-shadow: none; }
+
+      footer { text-align: center; color: var(--txt-dim); font-size: 12px; padding: 8px 0 36px; opacity: 0.7; }
+
+      @media (max-width: 460px) {
+        header .brand { width: 132px; }
+        main { grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 18px 12px 40px; }
+        .card .title { font-size: 17px; }
+        .card .tag { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <img class="brand" src="art/playpop_logo.png" alt="PlayPOP Hub" width="168" height="161" />
+      <h1>PlayPOP Hub</h1>
+      <p>플레이할 게임을 골라보세요</p>
+    </header>
+    <main id="grid"></main>
+    <footer id="foot"></footer>
+
+    <script type="module">
+      import { GAMES, gameUrl } from './games.config.js';
+
+      // 게임 설계 해상도 720×1280 = 9:16. window.open 의 width/height 는 '바깥 창' 크기라
+      // 브라우저 툴바(타이틀+주소창)가 높이를 먹어 '내부 영역'이 더 넓은 비율이 된다.
+      // → 내부를 9:16 으로 맞추려면 외부 높이에 툴바 높이(CHROME)를 더해 보정한다.
+      const GAME_ASPECT = 720 / 1280; // 폭/높이 = 0.5625
+      const CHROME_H = 92;            // 타이틀바+주소창 대략치(브라우저별 ±). 내부 9:16 근사 보정.
+      function openGame(game) {
+        const url = gameUrl(game);
+        if (!url) return false;
+        let innerH = Math.min(900, Math.round(window.screen.availHeight * 0.86));
+        // 폭을 9:16 보다 3% 좁게 → 내부 영역이 항상 9:16 '또는 더 길쭉'(게임의 안전 범위)으로 유지.
+        let w = Math.round(innerH * GAME_ASPECT * 0.97);
+        const maxW = Math.round(window.screen.availWidth * 0.96);
+        if (w > maxW) { w = maxW; innerH = Math.round(w / GAME_ASPECT); }
+        const h = innerH + CHROME_H;                // 외부 높이 = 내부(9:16) + 툴바
+        const left = Math.max(0, Math.round((window.screen.availWidth - w) / 2));
+        const top = Math.max(0, Math.round((window.screen.availHeight - h) / 2));
+        const win = window.open(url, `casualgame_${game.id}`,
+          `popup=yes,width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=no`);
+        if (win) { win.focus(); return true; }
+        return false;
+      }
+
+      /** 게임 1개 → 카드 엘리먼트. */
+      function cardEl(game) {
+        const live = !!game.live;
+        const el = document.createElement(live ? 'a' : 'div');
+        el.className = `card ${live ? 'live' : 'soon'}`;
+        el.style.setProperty('--accent', game.accent);
+        if (live) { el.href = gameUrl(game); el.target = `casualgame_${game.id}`; }
+        el.innerHTML =
+          `<img class="art" src="${game.art}" alt="${game.title}" loading="lazy" />` +
+          `<div class="scrim"></div>` +
+          (game.logo ? `<img class="logo" src="${game.logo}" alt="${game.title} 로고" loading="lazy"${game.logoScale ? ` style="width:${(74 * game.logoScale).toFixed(1)}%;max-height:${(34 * game.logoScale).toFixed(1)}%"` : ''} />` : '') +
+          `<span class="badge"><span class="dot"></span>${live ? 'PLAY' : '준비중'}</span>` +
+          `<div class="meta">` +
+            `<h2 class="title">${game.title}</h2>` +
+            `<p class="tag">${game.tagline || ''}</p>` +
+            `<span class="pill">${live ? '▶ 플레이' : '🔒 준비중'}</span>` +
+          `</div>`;
+        if (live) {
+          el.addEventListener('click', (e) => {
+            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            if (openGame(game)) e.preventDefault();
+          });
+        }
+        return el;
+      }
+
+      // 단일 그리드에 전부 채운다. 순서는 config(=live 먼저 + 장르 묶음) 그대로.
+      const grid = document.getElementById('grid');
+      for (const game of GAMES) grid.appendChild(cardEl(game));
+
+      // 푸터 — 카드 수 동적 산출(하드코딩 금지)
+      const liveCount = GAMES.filter((g) => g.live).length;
+      document.getElementById('foot').textContent =
+        `PlayPOP Hub · v0.2.0 · 총 ${GAMES.length}종 (플레이 ${liveCount} · 준비중 ${GAMES.length - liveCount})`;
+    </script>
+  </body>
+</html>
