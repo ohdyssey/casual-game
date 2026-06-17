@@ -15,3 +15,15 @@ coverage/
 games/*/public/assets/
 games/*/public/art/
 games/**/uploads/
+# 에디터 SSOT 신규 게임이 들고 온 대용량 런타임 에셋(스프라이트 시트·오디오)과 에디터 스크래치.
+#   소스(ui/layouts·ui/flows·ui-assets.json·src/vendor)는 추적, 바이너리는 외부화.
+games/*/public/ui/sprites/
+games/*/public/audio/
+games/*/public/.staging/
+
+# 진단용 스크린샷(일회성)
+_diag*.png
+
+# 정적 배포 조립 산출물(scripts/assemble-deploy.mjs) — 커밋 금지
+/deploy/
+.vercel

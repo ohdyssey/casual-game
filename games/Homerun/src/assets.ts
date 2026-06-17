@@ -10,25 +10,15 @@ export const LOGO_KEY = 'logo';
 export const UI_LAYOUT_KEY = 'ui_layout';
 export const UI_MANIFEST_KEY = 'ui_assets';
 export const UI_MANIFEST_PATH = 'ui-assets.json';
-export const BATTER_ATLAS_KEY = 'batter_atlas';
-export const PITCHER_ATLAS_KEY = 'pitcher_atlas';
+/** 스프라이트 문서 레지스트리(에디터) — 캐릭터별 등록 애니(타자 준비/스윙/후 등) 조회용. */
+export const UI_SPRITE_INDEX_KEY = 'ui_sprite_index';
+export const UI_SPRITE_INDEX_PATH = 'ui/sprites/_index.json';
 export const BALL_KEY = 'ball';
 export const MITT_KEY = 'mitt';
 export const SPARK_KEY = 'spark';
 export const STARBURST_KEY = 'starburst';
 export const CONFETTI_KEY = 'confetti';
-
-/**
- * 캐릭터 아틀라스 — 트리밍 패킹(투명 여백 제거, d:\tmp\build_atlases.py 로 생성).
- * sourceSize 는 672×672 셀 유지 — 씬의 앵커/스위트스팟 픽셀 좌표가 시트 시절과 동일하다.
- * 타자: batter_00~33 (준비4+타격24+완료6), 피처: pitch_00~23.
- */
-export const BATTER_FRAME = { width: 672, height: 672, count: 34 } as const;
-export const PITCHER_FRAME = { width: 672, height: 672, count: 24 } as const;
-
-/** 아틀라스 프레임 이름 (zero-pad 2). */
-export const batterFrame = (i: number): string => `batter_${String(i).padStart(2, '0')}`;
-export const pitcherFrame = (i: number): string => `pitch_${String(i).padStart(2, '0')}`;
+// 타자·투수 아틀라스(batter_atlas/pitcher_atlas)는 에디터 스프라이트 클립(3동작)으로 대체되어 제거됨.
 
 /** 수비수(Ch-3) — 7개 포지션용 정적 이미지. */
 export const FIELDER_COUNT = 7;
@@ -42,18 +32,10 @@ const IMAGE_MANIFEST: ReadonlyArray<[key: string, path: string]> = [
   [MITT_KEY, 'assets/mitt.png'],
 ];
 
-const ATLAS_MANIFEST: ReadonlyArray<[key: string, png: string, json: string]> = [
-  [BATTER_ATLAS_KEY, 'assets/batter_atlas.png', 'assets/batter_atlas.json'],
-  [PITCHER_ATLAS_KEY, 'assets/pitcher_atlas.png', 'assets/pitcher_atlas.json'],
-];
-
-/** LoadScene.preload 에서 호출 — 디자인 이미지 + 캐릭터 아틀라스 + 에디터 UI 로드. */
+/** LoadScene.preload 에서 호출 — 디자인 이미지 + 수비수 + 에디터 UI 로드(타자·투수는 에디터 클립). */
 export function loadGameAssets(scene: Phaser.Scene): void {
   for (const [key, path] of IMAGE_MANIFEST) {
     if (!scene.textures.exists(key)) scene.load.image(key, path);
-  }
-  for (const [key, png, json] of ATLAS_MANIFEST) {
-    if (!scene.textures.exists(key)) scene.load.atlas(key, png, json);
   }
   // 수비수 7인 — 트리밍 정적 이미지 (1·2·3루수, 유격수, 좌·중·우익수).
   for (let i = 1; i <= FIELDER_COUNT; i++) {
@@ -64,6 +46,8 @@ export function loadGameAssets(scene: Phaser.Scene): void {
   // 에디터 UI — 레이아웃 JSON + 업로드 매니페스트(ui-assets.json)의 이미지 일괄 로드.
   scene.load.json(UI_LAYOUT_KEY, 'ui/layouts/main.json');
   scene.load.json(UI_MANIFEST_KEY, UI_MANIFEST_PATH);
+  // 스프라이트 레지스트리 — 타자 등 캐릭터의 등록 애니(준비/스윙/후) 해석용(실패해도 진행).
+  scene.load.json(UI_SPRITE_INDEX_KEY, UI_SPRITE_INDEX_PATH);
   scene.load.on(`filecomplete-json-${UI_MANIFEST_KEY}`, () => {
     const manifest = (scene.cache.json.get(UI_MANIFEST_KEY) ?? {}) as Record<string, string>;
     for (const [key, path] of Object.entries(manifest)) {

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "kind": "uiFlow",
+  "id": "main",
+  "name": "메인 플로우",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "trigger",
+      "x": 80,
+      "y": 80,
+      "name": "시작",
+      "config": {
+        "event": "gameStart"
+      }
+    },
+    {
+      "id": "screen_mqgg37qakd44",
+      "type": "screen",
+      "x": 537,
+      "y": 193,
+      "name": "화면",
+      "config": {
+        "screenDocId": "main"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_mqgg3c8to5aw",
+      "kind": "flow",
+      "from": {
+        "node": "start",
+        "port": "out"
+      },
+      "to": {
+        "node": "screen_mqgg37qakd44",
+        "port": "in"
+      }
+    }
+  ],
+  "vars": {}
+}

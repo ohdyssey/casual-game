@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 2,
+  "frame": {
+    "designW": 720,
+    "designH": 1280
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_Archery_BG_02",
+      "x": 360,
+      "y": 563,
+      "w": 838,
+      "h": 1486,
+      "depth": 1,
+      "visible": true,
+      "tintable": true
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_Archery_BG_03",
+      "x": 347,
+      "y": 615,
+      "w": 34,
+      "h": 48,
+      "depth": 2,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_4",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_Archery_UI_03_v3",
+      "x": 292,
+      "y": 785,
+      "w": 574,
+      "h": 1772,
+      "depth": 4,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true,
+      "group": "grp_1",
+      "angle": 15
+    },
+    {
+      "id": "layer_3",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_Archery_UI_04_v2",
+      "x": 92,
+      "y": 52,
+      "w": 140,
+      "h": 63,
+      "depth": 5,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_3_copy",
+      "type": "image",
+      "name": "새 레이어 복사",
+      "key": "up_Archery_UI_04-1",
+      "x": 667,
+      "y": 52,
+      "w": 64,
+      "h": 64,
+      "depth": 5,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_3_copy2",
+      "type": "image",
+      "name": "새 레이어 복사",
+      "key": "up_Archery_UI_04-2_v2",
+      "x": 669,
+      "y": 404,
+      "w": 64,
+      "h": 424,
+      "depth": 5,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_3_copy4",
+      "type": "image",
+      "name": "새 레이어 복사",
+      "key": "up_Archery_UI_04-6",
+      "x": 343,
+      "y": 1080,
+      "w": 173,
+      "h": 172,
+      "depth": 5,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_3_copy5",
+      "type": "image",
+      "name": "새 레이어 복사",
+      "key": "up_Archery_UI_04-5",
+      "x": 660,
+      "y": 729,
+      "w": 119,
+      "h": 115,
+      "depth": 5,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_3_copy6",
+      "type": "image",
+      "name": "새 레이어 복사",
+      "key": "up_Archery_UI_04-4",
+      "x": 62,
+      "y": 729,
+      "w": 119,
+      "h": 121,
+      "depth": 5,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_5",
+      "type": "text",
+      "name": "순위",
+      "text": "1/3",
+      "x": 109,
+      "y": 62,
+      "fontSize": 28,
+      "fontFamily": "Do Hyeon",
+      "color": "#ffffff",
+      "stroke": "#5a3210",
+      "strokeW": 1,
+      "align": "center",
+      "depth": 6,
+      "visible": true,
+      "fontStyle": "700"
+    },
+    {
+      "id": "layer_5_copy",
+      "type": "text",
+      "name": "순위 복사",
+      "text": "2.1",
+      "x": 64,
+      "y": 726,
+      "fontSize": 37,
+      "fontFamily": "Do Hyeon",
+      "color": "#ffffff",
+      "stroke": "#5a3210",
+      "strokeW": 1,
+      "align": "center",
+      "depth": 6,
+      "visible": true,
+      "fontStyle": "500"
+    },
+    {
+      "id": "layer_5_copy2",
+      "type": "text",
+      "name": "순위 복사",
+      "text": "12.5",
+      "x": 660,
+      "y": 726,
+      "fontSize": 37,
+      "fontFamily": "Do Hyeon",
+      "color": "#ffffff",
+      "stroke": "#5a3210",
+      "strokeW": 1,
+      "align": "center",
+      "depth": 6,
+      "visible": true,
+      "fontStyle": "500"
+    }
+  ],
+  "groups": [
+    {
+      "id": "grp_1",
+      "name": "폴더 1",
+      "anim": {
+        "type": "none",
+        "amp": 0.5,
+        "dur": 600
+      }
+    }
+  ]
+}

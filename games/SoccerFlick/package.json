@@ -1,0 +1,20 @@
+{
+  "name": "@casual/game-soccerflick",
+  "version": "0.1.0",
+  "private": true,
+  "description": "사커플릭 — 디스크를 튕겨 골을 넣는 턴제 플릭 축구 배틀 (Soccer Stars 스타일, Matter.js 물리).",
+  "type": "module",
+  "scripts": {
+    "dev": "npx vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4203"
+  },
+  "dependencies": {
+    "@casual/core": "*",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.10",
+    "vite-plugin-pwa": "0.21.1"
+  }
+}

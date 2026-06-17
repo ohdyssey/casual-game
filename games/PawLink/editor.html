@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>포링크룸 · 에셋 데이터 에디터</title>
+<!--
+  포링크룸(PawLink) 독립 에셋 데이터 에디터 — 무빌드 단일 HTML(바닐라 JS, 의존성 0).
+  file:// 로 더블클릭하거나 정적 서버로 열어 바로 사용.
+
+  목적: 게임이 소비할 에셋/레벨 데이터(JSON)를 디자이너가 직접 저작.
+        장르 = Onet/시센쇼/사천성 류 "같은 아이템 2개를 ≤2번 꺾이는 경로로 이어 제거".
+
+  산출 스키마(=게임 런타임 계약, public/data/levels.json 으로 소비 예정):
+  {
+    schema:"pawlink.assets", version:1,
+    meta:{ gameId, title, designW, designH, accent },
+    rules:{ maxTurns:2, routeOutsideBorder:true },
+    items:[ { id, name, emoji, tex, goalGroup } ],
+    boosters:{ hint, shuffle, timeStop, autoLink, bomb },   // 기본 지급 수
+    levels:[ {
+      id, name, cols, rows, timeSec,
+      stars:[s1,s2,s3],            // 별 임계(클리어 시 남은 시간 초) 오름차순
+      goals:[ { item, count } ],   // item = items[].id, count 는 짝수·보유량 이하
+      boosters:{...},              // 레벨별 부스터(미지정 시 전역 기본)
+      grid: [ [itemId|null, ...] x cols ] x rows  // 셀 점유(null=빈칸)
+    } ]
+  }
+
+  연결 판정 로직(connectable/findPath/solve/generate)은 이 파일이 SSOT 초안 —
+  이후 게임 src/logic/connect.ts 로 1:1 이관 예정(형제 게임 순수로직 패턴 계승).
+-->
+<style>
+  :root{
+    --accent:#F2A33C; --accent-d:#d98622;
+    --bg:#2a2018; --panel:#fff8ee; --panel-2:#fdeed7; --ink:#3a2c1c; --muted:#8a7a64;
+    --line:#e8d8be; --ok:#3CB54A; --bad:#E2452F; --warn:#E2A02F; --cell:#f3e6cf; --cell-edge:#e4d2b0;
+    --margin:#efe2cb;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{
+    font-family:'Jua','Segoe UI',system-ui,sans-serif;
+    background:linear-gradient(160deg,#332617,#1f1810); color:var(--ink);
+    display:flex; flex-direction:column; height:100vh; overflow:hidden;
+  }
+  header{
+    display:flex; align-items:center; gap:14px; padding:10px 16px;
+    background:linear-gradient(180deg,#fff7ea,#fbe9cd); border-bottom:3px solid var(--accent);
+    box-shadow:0 2px 10px rgba(0,0,0,.3); z-index:5;
+  }
+  header h1{ font-size:19px; margin:0; color:var(--accent-d); letter-spacing:.5px; }
+  header h1 small{ color:var(--muted); font-size:12px; font-weight:normal; margin-left:6px; }
+  header .spacer{ flex:1; }
+  .toolbar{ display:flex; gap:8px; flex-wrap:wrap; }
+  button{
+    font-family:inherit; font-size:13px; cursor:pointer; border:none; border-radius:9px;
+    padding:7px 12px; background:var(--panel-2); color:var(--ink); transition:.12s;
+    border:1px solid var(--line);
+  }
+  button:hover{ filter:brightness(.97); transform:translateY(-1px); }
+  button:active{ transform:translateY(0); }
+  button.primary{ background:var(--accent); color:#fff; border-color:var(--accent-d); }
+  button.ghost{ background:transparent; }
+  button.danger{ color:var(--bad); }
+  button.sm{ padding:4px 8px; font-size:12px; }
+  button:disabled{ opacity:.4; cursor:not-allowed; transform:none; }
+  main{ display:grid; grid-template-columns:248px 1fr 300px; flex:1; min-height:0; }
+  .col{ overflow-y:auto; padding:12px; }
+  .col.left{ background:#27201a; }
+  .col.center{ background:#1c1610; display:flex; flex-direction:column; align-items:center; }
+  .col.right{ background:#27201a; }
+  .card{ background:var(--panel); border-radius:12px; padding:11px 12px; margin-bottom:11px; box-shadow:0 1px 0 rgba(0,0,0,.04); }
+  .card h2{ font-size:13px; margin:0 0 9px; color:var(--accent-d); display:flex; align-items:center; gap:6px; }
+  .card h2 .spacer{ flex:1; }
+  label{ font-size:12px; color:var(--muted); display:block; margin:8px 0 3px; }
+  input,select{ font-family:inherit; font-size:13px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; width:100%; background:#fffdf8; color:var(--ink); }
+  input[type=number]{ width:auto; min-width:64px; }
+  .row{ display:flex; gap:8px; align-items:center; }
+  .row > *{ min-width:0; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+
+  /* 아이템 카탈로그 / 팔레트 */
+  .palette{ display:grid; grid-template-columns:repeat(auto-fill,minmax(54px,1fr)); gap:7px; }
+  .swatch{
+    position:relative; aspect-ratio:1; border-radius:11px; border:2px solid transparent;
+    background:var(--panel-2); display:flex; align-items:center; justify-content:center;
+    font-size:26px; cursor:pointer; user-select:none;
+  }
+  .swatch:hover{ border-color:var(--accent); }
+  .swatch.sel{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(242,163,60,.35); }
+  .swatch .cnt{ position:absolute; bottom:1px; right:3px; font-size:10px; color:var(--muted); font-family:system-ui; }
+  .swatch .odd{ color:var(--bad); font-weight:bold; }
+  .swatch.erase{ font-size:18px; color:var(--muted); }
+  .item-row{ display:flex; gap:6px; align-items:center; padding:5px 0; border-top:1px dashed var(--line); }
+  .item-row:first-child{ border-top:none; }
+  .item-row .emoji{ font-size:20px; width:26px; text-align:center; }
+  .item-row input.nm{ flex:1; }
+  .item-row input.em{ width:42px; text-align:center; }
+  .item-row .tex{ font-size:10px; color:var(--muted); font-family:system-ui; white-space:nowrap; }
+
+  /* 레벨 목록 */
+  .lvl-list{ max-height:200px; overflow-y:auto; }
+  .lvl-row{ display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:8px; cursor:pointer; font-size:13px; }
+  .lvl-row:hover{ background:var(--panel-2); }
+  .lvl-row.sel{ background:var(--accent); color:#fff; }
+  .lvl-row .n{ flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lvl-row .badge{ font-size:10px; opacity:.8; font-family:system-ui; }
+
+  /* 보드 */
+  .board-wrap{ background:linear-gradient(180deg,#fbe8cc,#f3d9ab); border-radius:18px; padding:10px; box-shadow:0 8px 26px rgba(0,0,0,.4); position:relative; }
+  #boardGrid{ display:grid; gap:2px; position:relative; }
+  .cell{ background:var(--cell); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:22px; cursor:pointer; user-select:none; aspect-ratio:1; border:1px solid var(--cell-edge); }
+  .cell:hover{ filter:brightness(1.06); outline:2px solid var(--accent); outline-offset:-2px; }
+  .cell.empty{ background:#ece0c8; }
+  .cell.margin{ background:transparent; border:none; cursor:default; opacity:.0; }
+  .cell.pt-sel{ outline:3px solid var(--accent-d); outline-offset:-3px; }
+  #pathSvg{ position:absolute; inset:0; pointer-events:none; overflow:visible; }
+  .boardInfo{ color:#cdbfa6; font-size:12px; margin-top:10px; text-align:center; }
+  .modebar{ display:flex; gap:8px; margin-bottom:10px; align-items:center; }
+  .pill{ font-size:11px; padding:3px 9px; border-radius:999px; background:#3a2e20; color:#e9d9bd; }
+
+  /* 검증 패널 */
+  .check{ display:flex; align-items:center; gap:8px; font-size:13px; padding:5px 0; }
+  .dot{ width:11px; height:11px; border-radius:50%; flex:none; }
+  .dot.ok{ background:var(--ok); } .dot.bad{ background:var(--bad); } .dot.warn{ background:var(--warn); }
+  .check .detail{ color:var(--muted); font-size:11px; }
+  .goal-row{ display:flex; align-items:center; gap:6px; padding:4px 0; }
+  .goal-row .emoji{ font-size:18px; }
+  .goal-row select{ flex:1; }
+  .goal-row input{ width:58px; }
+  .hint{ font-size:11px; color:var(--muted); line-height:1.5; }
+  textarea{ width:100%; height:120px; font-family:ui-monospace,Consolas,monospace; font-size:11px; border-radius:8px; border:1px solid var(--line); padding:8px; resize:vertical; }
+  .toast{ position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:#2a2018; color:#fff; padding:10px 18px; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.4); font-size:13px; opacity:0; transition:.25s; pointer-events:none; z-index:99; border:1px solid var(--accent); }
+  .toast.show{ opacity:1; bottom:28px; }
+  .kbd{ font-family:system-ui; font-size:10px; background:#efe2cb; border:1px solid var(--line); border-radius:4px; padding:1px 5px; color:var(--muted); }
+  .stars input{ width:62px; }
+  details summary{ cursor:pointer; font-size:12px; color:var(--accent-d); margin-top:6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🐾 포링크룸 <small>에셋 데이터 에디터</small></h1>
+  <div class="spacer"></div>
+  <div class="toolbar">
+    <button id="btnGen" class="primary">🎲 솔버블 자동생성</button>
+    <button id="btnPlaytest" class="ghost">▶ 플레이테스트</button>
+    <button id="btnImport">📂 가져오기</button>
+    <button id="btnCopy">📋 복사</button>
+    <button id="btnExport" class="primary">⬇ 내보내기 JSON</button>
+  </div>
+</header>
+
+<main>
+  <!-- ───────── 좌: 아이템 카탈로그 + 레벨 목록 ───────── -->
+  <section class="col left">
+    <div class="card">
+      <h2>🧩 아이템 카탈로그 <span class="spacer"></span><button id="btnAddItem" class="sm">+ 추가</button></h2>
+      <div id="itemEditor"></div>
+      <div class="hint">tex 키는 <b>up_PawLink_item_NN</b> 으로 자동. 게임은 이 키로 에디터 아트를 로드하고, 미로드 시 이모지로 폴백.</div>
+    </div>
+    <div class="card">
+      <h2>📚 레벨 <span class="spacer"></span>
+        <button id="btnAddLvl" class="sm">+ 새 레벨</button>
+        <button id="btnDupLvl" class="sm">복제</button>
+      </h2>
+      <div id="lvlList" class="lvl-list"></div>
+    </div>
+  </section>
+
+  <!-- ───────── 중앙: 보드 ───────── -->
+  <section class="col center">
+    <div class="modebar">
+      <span class="pill" id="modePill">✏️ 편집 모드</span>
+      <span class="pill">선택 <span id="curTool">—</span></span>
+      <span class="pill">크기 <span id="curSize">—</span></span>
+    </div>
+    <div class="board-wrap">
+      <div id="boardGrid"></div>
+      <svg id="pathSvg"></svg>
+    </div>
+    <div class="boardInfo" id="boardInfo">클릭/드래그로 칠하기 · 우클릭=지우개 · 외곽 여백은 경로가 통과 가능</div>
+  </section>
+
+  <!-- ───────── 우: 레벨 설정 + 검증 ───────── -->
+  <section class="col right">
+    <div class="card">
+      <h2>⚙️ 레벨 설정</h2>
+      <label>이름</label>
+      <input id="lvlName" />
+      <div class="grid2">
+        <div><label>가로(cols)</label><input id="lvlCols" type="number" min="2" max="12" /></div>
+        <div><label>세로(rows)</label><input id="lvlRows" type="number" min="2" max="16" /></div>
+      </div>
+      <div class="grid2">
+        <div><label>제한시간(초)</label><input id="lvlTime" type="number" min="10" max="600" /></div>
+        <div><label>레벨 id</label><input id="lvlId" type="number" min="1" /></div>
+      </div>
+      <label>별 임계(남은 초, 오름차순)</label>
+      <div class="row stars">
+        <input id="star1" type="number" min="0" /><input id="star2" type="number" min="0" /><input id="star3" type="number" min="0" />
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🎯 목표 <span class="spacer"></span><button id="btnAddGoal" class="sm">+ 목표</button></h2>
+      <div id="goalEditor"></div>
+      <div class="hint">목표 개수는 보드 내 보유량 이하 + 짝수 권장(연결 제거 단위=2).</div>
+    </div>
+
+    <div class="card">
+      <h2>🚀 부스터(레벨)</h2>
+      <div id="boosterEditor"></div>
+    </div>
+
+    <div class="card">
+      <h2>✅ 검증</h2>
+      <div id="validation"></div>
+      <details>
+        <summary>전역 부스터 기본값 / 메타</summary>
+        <label>게임 제목</label><input id="metaTitle" />
+        <label>accent</label><input id="metaAccent" />
+        <div id="globalBooster"></div>
+      </details>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<!-- 숨김 파일 입력 -->
+<input type="file" id="fileInput" accept="application/json,.json" style="display:none" />
+
+<script>
+"use strict";
+/* ════════════════════════════════════════════════════════════════════════
+   1) 순수 로직 — 연결 판정 / 풀이가능 / 솔버블 보드 생성 (Phaser 비의존)
+      이후 게임 src/logic/connect.ts 로 이관 예정.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * 확장 격자 점유 배열을 만든다. 보드(cols×rows)를 (cols+2)×(rows+2) 로 감싸
+ * 바깥 한 칸 링(routing margin)을 항상 빈칸으로 둔다(Onet 외곽 우회 규칙).
+ * grid[r][c] = itemId|null  →  occ[idx] = 0(빈칸) | typeNo(>0)
+ * typeOf: itemId→정수(1..) 매핑. 반환 W=cols+2, H=rows+2.
+ */
+function buildOcc(grid, cols, rows, typeOf) {
+  const W = cols + 2, H = rows + 2;
+  const occ = new Int32Array(W * H); // 0 = 빈칸
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const id = grid[r] ? grid[r][c] : null;
+      if (id != null) occ[(r + 1) * W + (c + 1)] = typeOf(id);
+    }
+  }
+  return { occ, W, H };
+}
+
+const DIRS = [[1,0],[-1,0],[0,1],[0,-1]]; // →, ←, ↓, ↑
+
+/**
+ * a→b 가 ≤maxTurns 꺾임으로 이어지는 최단 경로를 찾는다(없으면 null).
+ * 경로는 빈칸(occ===0)만 통과. 끝점 a,b 는 점유 상태여도 출발/도착 허용.
+ * a,b 는 확장 격자 인덱스. BFS over (cell, dir, turns).
+ * 반환: 확장 인덱스 배열(a..b 포함) 또는 null.
+ */
+function findPath(occ, W, H, a, b, maxTurns) {
+  if (a === b) return null;
+  // visited[cell*4 + dir] = 그 상태 도달에 쓴 최소 꺾임수+1 (0=미방문)
+  const visited = new Int8Array(W * H * 4).fill(0);
+  const parent = new Int32Array(W * H * 4).fill(-1); // state -> prev state
+  const q = [];
+  // 시작: a 에서 4방향으로 진입(턴 0)
+  for (let d = 0; d < 4; d++) {
+    const st = a * 4 + d;
+    visited[st] = 1; // turns 0 +1
+    parent[st] = -2; // 루트
+    q.push({ st, cell: a, dir: d, turns: 0 });
+  }
+  let qi = 0, foundState = -1;
+  while (qi < q.length) {
+    const cur = q[qi++];
+    const nc = cur.cell + DIRS[cur.dir][0] + DIRS[cur.dir][1] * W;
+    const ncx = nc % W;
+    // 격자 밖이면 중단(여백 링까지만 유효; 링은 occ 안에 포함되어 idx 유효)
+    if (nc < 0 || nc >= W * H) continue;
+    // 가로 wrap 방지: 좌우 이동 시 행이 바뀌면 안 됨
+    if ((cur.dir === 0 || cur.dir === 1) && Math.floor(nc / W) !== Math.floor(cur.cell / W)) continue;
+    if (nc === b) { foundState = cur.st; // b 도달(다음 칸이 목표)
+      // 목표 도달을 가짜 상태로 기록해 경로 복원
+      const goalSt = b * 4 + cur.dir;
+      if (visited[goalSt] === 0) { visited[goalSt] = cur.turns + 1; parent[goalSt] = cur.st; }
+      return reconstruct(parent, goalSt, a, W);
+    }
+    if (occ[nc] !== 0) continue;        // 빈칸만 통과
+    // 같은 방향 직진(턴 유지) + 좌우 꺾기(턴 +1)
+    for (let d = 0; d < 4; d++) {
+      const turns = cur.turns + (d === cur.dir ? 0 : 1);
+      if (turns > maxTurns) continue;
+      const st = nc * 4 + d;
+      const cost = turns + 1;
+      if (visited[st] !== 0 && visited[st] <= cost) continue;
+      visited[st] = cost; parent[st] = cur.st;
+      q.push({ st, cell: nc, dir: d, turns });
+    }
+  }
+  return null;
+}
+
+function reconstruct(parent, goalSt, a, W) {
+  // goalSt 의 cell = b. 부모 체인을 따라 a 까지 셀 인덱스 수집.
+  const cells = [];
+  let st = goalSt;
+  while (st >= 0 && parent[st] !== -2) {
+    cells.push(Math.floor(st / 4));
+    st = parent[st];
+  }
+  cells.push(a);
+  cells.reverse();
+  // 중복 인접 제거(같은 셀 연속)
+  const out = [];
+  for (const c of cells) if (out.length === 0 || out[out.length - 1] !== c) out.push(c);
+  return out;
+}
+
+function connectable(occ, W, H, a, b, maxTurns) {
+  return findPath(occ, W, H, a, b, maxTurns) !== null;
+}
+
+/**
+ * 보드가 완전히 클리어 가능한가(풀이가능)? DFS + 백트래킹(노드 예산 제한).
+ * 같은 타입의 연결 가능한 쌍을 골라 제거 → 모두 비우면 성공.
+ * 반환 { solvable:true } | { solvable:false, exhausted:bool, remaining:n }
+ */
+function solve(occ0, W, H, maxTurns, budget) {
+  budget = budget || 200000;
+  const occ = Int32Array.from(occ0);
+  let nodes = 0, exhausted = false;
+
+  function occupiedCells() {
+    const out = [];
+    for (let i = 0; i < occ.length; i++) if (occ[i] !== 0) out.push(i);
+    return out;
+  }
+  function groupByType(cells) {
+    const m = new Map();
+    for (const i of cells) { const t = occ[i]; let a = m.get(t); if (!a) { a = []; m.set(t, a); } a.push(i); }
+    return m;
+  }
+
+  /**
+   * 핵심 건전성: 연결 가능한 쌍을 제거하는 것은 단조(monotone)하다 —
+   * 타일을 없애면 다른 쌍의 경로를 막는 일은 절대 없고 열어주기만 한다.
+   * 따라서 ① 잔량이 정확히 2개인 타입의 쌍이 지금 연결 가능하면 분기 없이 즉시 확정(forced).
+   *        ② forced 가 없을 때만 연결 가능한 모든 쌍을 분기 탐색.
+   * (타입에 연결 가능한 쌍이 없다고 곧장 실패로 단정하지 않음 — 다른 타입 제거로 열릴 수 있으므로.)
+   */
+  function dfs(remaining) {
+    if (remaining === 0) return true;
+    if (++nodes > budget) { exhausted = true; return false; }
+    const cells = occupiedCells();
+    const byType = groupByType(cells);
+
+    // ① forced: 잔량 2 & 연결 가능 → 단일 확정(루프로 연쇄 확정)
+    for (const [, arr] of byType) {
+      if (arr.length === 2 && connectable(occ, W, H, arr[0], arr[1], maxTurns)) {
+        const p = arr[0], q = arr[1], sp = occ[p], sq = occ[q];
+        occ[p] = 0; occ[q] = 0;
+        const ok = dfs(remaining - 2);
+        if (!ok) { occ[p] = sp; occ[q] = sq; }
+        return ok; // forced 는 대안이 없으므로 결과 확정
+      }
+    }
+    // ② 분기: 연결 가능한 모든 쌍 시도(잔량 ≥4 타입 위주). 후보가 적은 타입부터.
+    const groups = [...byType.values()].sort((a, b) => a.length - b.length);
+    let any = false;
+    for (const arr of groups) {
+      for (let x = 0; x < arr.length; x++) for (let y = x + 1; y < arr.length; y++) {
+        if (!connectable(occ, W, H, arr[x], arr[y], maxTurns)) continue;
+        any = true;
+        const p = arr[x], q = arr[y], sp = occ[p], sq = occ[q];
+        occ[p] = 0; occ[q] = 0;
+        if (dfs(remaining - 2)) return true;
+        occ[p] = sp; occ[q] = sq;
+        if (nodes > budget) { exhausted = true; return false; }
+      }
+    }
+    return any ? false : false; // 연결 가능한 쌍이 하나도 없으면 막힘
+  }
+
+  const total = occupiedCells().length;
+  if (total % 2 !== 0) return { solvable: false, exhausted: false, remaining: total };
+  const ok = dfs(total);
+  return ok ? { solvable: true } : { solvable: false, exhausted, remaining: total };
+}
+
+/**
+ * 솔버블 보드 생성 — 역구성(reverse-construction).
+ *  - fillCells: 채울 셀 좌표 목록(확장 인덱스). 짝수개.
+ *  - typeSeq: 길이 fillCells.length/2 의 타입 배열(각 페어에 부여할 typeNo). 셔플됨.
+ *  현재 점유 기준 connectable 한 두 빈칸에 페어 배치 → 제거 순서=배치 역순이라 100% 풀이존재.
+ *  막히면 인접 빈칸(중간칸 0 → 항상 connectable) 폴백, 그래도 막히면 도미노 타일링 재시작.
+ * 반환 occ(Int32Array) | null
+ */
+function generateSolvable(W, H, fillCells, typeSeq, maxTurns, rng) {
+  rng = rng || Math.random;
+  const TRIES = 24;
+  for (let t = 0; t < TRIES; t++) {
+    const occ = new Int32Array(W * H);
+    const empty = new Set(fillCells);
+    const seq = typeSeq.slice();
+    let ok = true;
+    while (empty.size > 0) {
+      const cellsArr = [...empty];
+      // 흩어진 배치를 위해 무작위 a 선택 → connectable 한 b 탐색
+      let placed = false;
+      const order = shuffle(cellsArr.slice(), rng);
+      outer:
+      for (const a of order) {
+        const cands = shuffle(cellsArr.filter(x => x !== a), rng);
+        for (const b of cands) {
+          if (connectable(occ, W, H, a, b, maxTurns)) {
+            const ty = seq.pop();
+            occ[a] = ty; occ[b] = ty; empty.delete(a); empty.delete(b);
+            placed = true; break outer;
+          }
+        }
+      }
+      if (!placed) { ok = false; break; }
+    }
+    if (ok && seq.length === 0) return occ;
+  }
+  // 폴백: 도미노 타일링(인접 동일쌍은 항상 connectable → 무조건 풀이가능)
+  return dominoFill(W, H, fillCells, typeSeq, rng);
+}
+
+/** 인접 도미노로 fillCells 를 완전 매칭, 각 도미노에 typeSeq 부여. 매칭 실패 시 null. */
+function dominoFill(W, H, fillCells, typeSeq, rng) {
+  const set = new Set(fillCells);
+  const occ = new Int32Array(W * H);
+  const seq = typeSeq.slice();
+  // 그리디 매칭: 가장 제약 많은(인접 빈칸 적은) 셀부터
+  const remaining = new Set(fillCells);
+  const adj = (i) => [i+1, i-1, i+W, i-W].filter(j => remaining.has(j) &&
+      !((Math.abs((i%W)-(j%W))===1) && Math.floor(i/W)!==Math.floor(j/W))); // wrap 방지
+  while (remaining.size > 0) {
+    let pick = null, pn = 99;
+    for (const i of remaining) { const n = adj(i).length; if (n < pn) { pn = n; pick = i; if (n===0) break; } }
+    const ns = adj(pick);
+    if (ns.length === 0) return null; // 고립 셀 → 매칭 불가
+    const j = ns[Math.floor(rng() * ns.length)];
+    const ty = seq.pop();
+    occ[pick] = ty; occ[j] = ty; remaining.delete(pick); remaining.delete(j);
+  }
+  return occ;
+}
+
+function shuffle(arr, rng) {
+  rng = rng || Math.random;
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   2) 프로젝트 상태(스키마) + 기본값
+   ════════════════════════════════════════════════════════════════════════ */
+const BOOSTER_KEYS = [
+  { key:'hint',     label:'힌트',      emoji:'🔍' },
+  { key:'shuffle',  label:'셔플',      emoji:'🔀' },
+  { key:'timeStop', label:'시간정지',   emoji:'⏱️' },
+  { key:'autoLink', label:'자동연결',   emoji:'🐾' },
+  { key:'bomb',     label:'폭탄',      emoji:'💣' },
+];
+
+const DEFAULT_ITEMS = [
+  { id:'can_blue',   name:'강아지 통조림', emoji:'🥫', goalGroup:'can' },
+  { id:'can_purple', name:'고양이 통조림', emoji:'🍲', goalGroup:'can' },
+  { id:'yarn_pink',  name:'분홍 실타래',  emoji:'🧶', goalGroup:'yarn' },
+  { id:'slipper',    name:'슬리퍼',      emoji:'🩴', goalGroup:'slipper' },
+  { id:'bone',       name:'개껌 뼈',     emoji:'🦴', goalGroup:'bone' },
+  { id:'carrot',     name:'당근',       emoji:'🥕', goalGroup:'carrot' },
+  { id:'bowl_green', name:'물그릇',      emoji:'🥣', goalGroup:'bowl' },
+  { id:'food_bird',  name:'새 사료',     emoji:'🐤', goalGroup:'food' },
+  { id:'towel_pink', name:'분홍 수건',   emoji:'🧺', goalGroup:'towel' },
+  { id:'foodbag_red',name:'사료 봉투',   emoji:'🛍️', goalGroup:'foodbag' },
+  { id:'duck',       name:'고무 오리',   emoji:'🦆', goalGroup:'duck' },
+  { id:'brush',      name:'빗',         emoji:'🪮', goalGroup:'brush' },
+];
+
+function texFor(idx){ return 'up_PawLink_item_' + String(idx + 1).padStart(2,'0'); }
+
+function makeEmptyGrid(cols, rows){
+  return Array.from({length:rows}, () => Array.from({length:cols}, () => null));
+}
+
+function defaultLevel(id){
+  const cols = 6, rows = 7;
+  return {
+    id, name:'스테이지 ' + id, cols, rows, timeSec:120,
+    stars:[ 20, 50, 80 ],
+    goals:[],
+    boosters:{},
+    grid: makeEmptyGrid(cols, rows),
+  };
+}
+
+function defaultProject(){
+  return {
+    schema:'pawlink.assets', version:1,
+    meta:{ gameId:'pawlinkroom', title:'포링크룸', designW:720, designH:1280, accent:'#F2A33C' },
+    rules:{ maxTurns:2, routeOutsideBorder:true },
+    items: DEFAULT_ITEMS.map((it,i)=>({ ...it, tex: texFor(i) })),
+    boosters:{ hint:5, shuffle:4, timeStop:3, autoLink:3, bomb:2 },
+    levels:[ defaultLevel(1) ],
+  };
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   3) 앱 상태 + 영속(localStorage)
+   ════════════════════════════════════════════════════════════════════════ */
+const LS_KEY = 'pawlink_editor_v1';
+let project;
+let ui = { activeLevel:0, selItem:null, mode:'edit', ptSel:null };
+
+function load(){
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) { project = migrate(JSON.parse(raw)); return; }
+  } catch(e){ console.warn('load fail', e); }
+  project = defaultProject();
+}
+function migrate(p){
+  // 최소 방어: 누락 필드 보정
+  p = p || {};
+  if (!p.meta) p.meta = defaultProject().meta;
+  if (!p.rules) p.rules = { maxTurns:2, routeOutsideBorder:true };
+  if (!Array.isArray(p.items) || !p.items.length) p.items = defaultProject().items;
+  if (!p.boosters) p.boosters = defaultProject().boosters;
+  if (!Array.isArray(p.levels) || !p.levels.length) p.levels = [ defaultLevel(1) ];
+  for (const lv of p.levels){
+    lv.grid = normalizeGrid(lv.grid, lv.cols, lv.rows);
+    if (!Array.isArray(lv.stars)) lv.stars = [20,50,80];
+    if (!Array.isArray(lv.goals)) lv.goals = [];
+    if (!lv.boosters) lv.boosters = {};
+  }
+  return p;
+}
+function normalizeGrid(grid, cols, rows){
+  const g = makeEmptyGrid(cols, rows);
+  if (Array.isArray(grid)) for (let r=0;r<rows;r++) for (let c=0;c<cols;c++)
+    if (grid[r] && grid[r][c] != null) g[r][c] = grid[r][c];
+  return g;
+}
+let saveTimer = null;
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{ try{ localStorage.setItem(LS_KEY, JSON.stringify(project)); }catch(e){} }, 200);
+}
+
+/* 헬퍼 */
+const curLevel = () => project.levels[ui.activeLevel];
+const itemById = (id) => project.items.find(it => it.id === id);
+const itemIndex = (id) => project.items.findIndex(it => it.id === id);
+function typeOfMap(){ const m = {}; project.items.forEach((it,i)=> m[it.id]=i+1); return (id)=> m[id]||0; }
+function idOfType(){ const a=[null]; project.items.forEach(it=>a.push(it.id)); return (t)=>a[t]; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   4) 렌더
+   ════════════════════════════════════════════════════════════════════════ */
+const $ = (id) => document.getElementById(id);
+
+function renderAll(){
+  renderItemEditor();
+  renderPalette(); // 좌측 카탈로그가 팔레트 겸용 — 보드 위 도구 표시
+  renderLevelList();
+  renderLevelMeta();
+  renderGoals();
+  renderBoosters();
+  renderGlobal();
+  renderBoard();
+  renderValidation();
+  $('curSize').textContent = curLevel().cols + '×' + curLevel().rows;
+  $('curTool').textContent = ui.selItem ? (itemById(ui.selItem)?.emoji + ' ' + (itemById(ui.selItem)?.name||'')) : (ui.selItem===null?'지우개':'—');
+  $('modePill').textContent = ui.mode==='play' ? '▶ 플레이테스트 모드' : '✏️ 편집 모드';
+}
+
+/* --- 아이템 카탈로그 편집 + 보드 팔레트(겸용) --- */
+function renderItemEditor(){
+  const wrap = $('itemEditor'); wrap.innerHTML = '';
+  // 팔레트(선택용) — 빠른 선택 그리드
+  const pal = document.createElement('div'); pal.className='palette';
+  // 지우개
+  const er = document.createElement('div');
+  er.className = 'swatch erase' + (ui.selItem===null && ui.selItemSet ? ' sel':'');
+  er.innerHTML = '🧽'; er.title='지우개';
+  er.onclick = ()=>{ ui.selItem=null; ui.selItemSet=true; renderAll(); };
+  pal.appendChild(er);
+  const counts = itemCounts();
+  project.items.forEach((it)=>{
+    const s = document.createElement('div');
+    s.className = 'swatch' + (ui.selItem===it.id ? ' sel':'');
+    s.innerHTML = it.emoji;
+    s.title = it.name + ' ('+it.id+')';
+    const cnt = counts[it.id]||0;
+    const odd = cnt % 2 !== 0;
+    s.innerHTML += `<span class="cnt ${odd?'odd':''}">${cnt}</span>`;
+    s.onclick = ()=>{ ui.selItem=it.id; ui.selItemSet=true; renderAll(); };
+    pal.appendChild(s);
+  });
+  wrap.appendChild(pal);
+
+  // 상세 편집(접이식 행)
+  const det = document.createElement('details');
+  det.innerHTML = '<summary>아이템 속성 편집</summary>';
+  project.items.forEach((it, i)=>{
+    const row = document.createElement('div'); row.className='item-row';
+    row.innerHTML = `<span class="emoji">${it.emoji}</span>`;
+    const em = document.createElement('input'); em.className='em'; em.value=it.emoji; em.maxLength=4;
+    em.oninput = ()=>{ it.emoji=em.value; save(); renderPalette(); };
+    em.onblur = ()=> renderAll();
+    const nm = document.createElement('input'); nm.className='nm'; nm.value=it.name;
+    nm.oninput = ()=>{ it.name=nm.value; save(); };
+    const tex = document.createElement('span'); tex.className='tex'; tex.textContent=it.tex;
+    const del = document.createElement('button'); del.className='sm danger'; del.textContent='✕';
+    del.onclick = ()=>{ removeItem(it.id); };
+    row.append(em, nm, tex, del);
+    det.appendChild(row);
+  });
+  wrap.appendChild(det);
+}
+function renderPalette(){ renderItemEditor(); }
+
+function removeItem(id){
+  if (project.items.length <= 1){ toast('최소 1개 아이템 필요'); return; }
+  if (!confirm('아이템 삭제? 모든 레벨에서 이 아이템이 놓인 칸이 비워집니다.')) return;
+  project.items = project.items.filter(it=>it.id!==id);
+  project.items.forEach((it,i)=> it.tex = texFor(i)); // tex 재정렬
+  for (const lv of project.levels){
+    for (let r=0;r<lv.rows;r++) for (let c=0;c<lv.cols;c++) if (lv.grid[r][c]===id) lv.grid[r][c]=null;
+    lv.goals = lv.goals.filter(g=>g.item!==id);
+  }
+  if (ui.selItem===id) ui.selItem=null;
+  save(); renderAll();
+}
+
+/* --- 레벨 목록 --- */
+function renderLevelList(){
+  const wrap = $('lvlList'); wrap.innerHTML='';
+  project.levels.forEach((lv, i)=>{
+    const row = document.createElement('div');
+    row.className = 'lvl-row' + (i===ui.activeLevel ? ' sel':'');
+    const filled = countFilled(lv);
+    row.innerHTML = `<span class="n">${lv.name}</span><span class="badge">${lv.cols}×${lv.rows}·${filled}칸</span>`;
+    const del = document.createElement('button'); del.className='sm danger'; del.textContent='✕';
+    del.style.padding='2px 6px';
+    del.onclick = (e)=>{ e.stopPropagation(); deleteLevel(i); };
+    row.appendChild(del);
+    row.onclick = ()=>{ ui.activeLevel=i; ui.ptSel=null; renderAll(); };
+    wrap.appendChild(row);
+  });
+}
+function deleteLevel(i){
+  if (project.levels.length<=1){ toast('최소 1개 레벨 필요'); return; }
+  if (!confirm('이 레벨을 삭제할까요?')) return;
+  project.levels.splice(i,1);
+  ui.activeLevel = Math.max(0, Math.min(ui.activeLevel, project.levels.length-1));
+  save(); renderAll();
+}
+
+/* --- 레벨 메타 --- */
+function renderLevelMeta(){
+  const lv = curLevel();
+  $('lvlName').value = lv.name;
+  $('lvlCols').value = lv.cols;
+  $('lvlRows').value = lv.rows;
+  $('lvlTime').value = lv.timeSec;
+  $('lvlId').value = lv.id;
+  $('star1').value = lv.stars[0]; $('star2').value = lv.stars[1]; $('star3').value = lv.stars[2];
+}
+
+/* --- 목표 --- */
+function renderGoals(){
+  const lv = curLevel(); const wrap = $('goalEditor'); wrap.innerHTML='';
+  const counts = itemCounts();
+  lv.goals.forEach((g, gi)=>{
+    const row = document.createElement('div'); row.className='goal-row';
+    const it = itemById(g.item);
+    const em = document.createElement('span'); em.className='emoji'; em.textContent = it? it.emoji : '❓';
+    const sel = document.createElement('select');
+    project.items.forEach(item=>{
+      const o = document.createElement('option'); o.value=item.id; o.textContent=item.name;
+      if (item.id===g.item) o.selected=true; sel.appendChild(o);
+    });
+    sel.onchange = ()=>{ g.item=sel.value; save(); renderGoals(); renderValidation(); };
+    const cnt = document.createElement('input'); cnt.type='number'; cnt.min='0'; cnt.value=g.count;
+    cnt.oninput = ()=>{ g.count=+cnt.value||0; save(); renderValidation(); };
+    const avail = document.createElement('span'); avail.className='detail';
+    avail.style.fontSize='10px'; avail.style.color='var(--muted)';
+    avail.textContent = '/'+(counts[g.item]||0);
+    const del = document.createElement('button'); del.className='sm danger'; del.textContent='✕';
+    del.onclick = ()=>{ lv.goals.splice(gi,1); save(); renderGoals(); renderValidation(); };
+    row.append(em, sel, cnt, avail, del);
+    wrap.appendChild(row);
+  });
+  if (!lv.goals.length) wrap.innerHTML = '<div class="hint">목표 없음 — 전체 제거가 클리어 조건이 됩니다.</div>';
+}
+
+/* --- 부스터(레벨) --- */
+function renderBoosters(){
+  const lv = curLevel(); const wrap = $('boosterEditor'); wrap.innerHTML='';
+  const g = document.createElement('div'); g.className='grid2';
+  BOOSTER_KEYS.forEach(bk=>{
+    const d = document.createElement('div');
+    const val = (lv.boosters[bk.key] ?? project.boosters[bk.key] ?? 0);
+    d.innerHTML = `<label>${bk.emoji} ${bk.label}</label>`;
+    const inp = document.createElement('input'); inp.type='number'; inp.min='0'; inp.value=val; inp.style.width='100%';
+    inp.oninput = ()=>{ lv.boosters[bk.key] = +inp.value||0; save(); };
+    d.appendChild(inp); g.appendChild(d);
+  });
+  wrap.appendChild(g);
+}
+function renderGlobal(){
+  $('metaTitle').value = project.meta.title;
+  $('metaAccent').value = project.meta.accent;
+  const wrap = $('globalBooster'); wrap.innerHTML='';
+  const g = document.createElement('div'); g.className='grid2';
+  BOOSTER_KEYS.forEach(bk=>{
+    const d=document.createElement('div'); d.innerHTML=`<label>${bk.emoji} ${bk.label} 기본</label>`;
+    const inp=document.createElement('input'); inp.type='number'; inp.min='0'; inp.value=project.boosters[bk.key]??0; inp.style.width='100%';
+    inp.oninput=()=>{ project.boosters[bk.key]=+inp.value||0; save(); };
+    d.appendChild(inp); g.appendChild(d);
+  });
+  wrap.appendChild(g);
+}
+
+/* --- 보드 --- */
+function renderBoard(){
+  const lv = curLevel();
+  const grid = $('boardGrid');
+  const W = lv.cols + 2, H = lv.rows + 2;
+  const maxBoard = 540;
+  const cell = Math.max(20, Math.min(48, Math.floor(maxBoard / W)));
+  grid.style.gridTemplateColumns = `repeat(${W}, ${cell}px)`;
+  grid.style.gridTemplateRows = `repeat(${H}, ${cell}px)`;
+  grid.innerHTML='';
+  grid.style.fontSize = Math.floor(cell*0.55)+'px';
+  for (let er=0; er<H; er++){
+    for (let ec=0; ec<W; ec++){
+      const d = document.createElement('div');
+      const isMargin = (er===0||ec===0||er===H-1||ec===W-1);
+      if (isMargin){ d.className='cell margin'; grid.appendChild(d); continue; }
+      const r = er-1, c = ec-1;
+      const id = lv.grid[r][c];
+      d.className = 'cell' + (id==null ? ' empty':'');
+      d.textContent = id==null ? '' : (itemById(id)?.emoji || '❓');
+      d.dataset.r = r; d.dataset.c = c;
+      if (ui.mode==='play' && ui.ptSel && ui.ptSel.r===r && ui.ptSel.c===c) d.classList.add('pt-sel');
+      grid.appendChild(d);
+    }
+  }
+  // SVG 오버레이 크기 맞춤
+  const svg = $('pathSvg');
+  svg.setAttribute('width', W*cell + (W-1)*2);
+  svg.setAttribute('height', H*cell + (H-1)*2);
+  svg.style.width = (W*cell + (W-1)*2)+'px';
+  svg.style.height = (H*cell + (H-1)*2)+'px';
+  svg.innerHTML='';
+  grid._cell = cell; grid._W = W; grid._H = H;
+}
+
+/* 보드 입력 — 이벤트 위임 + 드래그 페인팅 */
+let painting = false, paintErase = false;
+function attachBoardEvents(){
+  const grid = $('boardGrid');
+  grid.addEventListener('contextmenu', e=> e.preventDefault());
+  grid.addEventListener('pointerdown', (e)=>{
+    const t = e.target.closest('.cell'); if (!t || t.classList.contains('margin')) return;
+    const r=+t.dataset.r, c=+t.dataset.c;
+    if (ui.mode==='play'){ playtestClick(r,c); return; }
+    painting = true; paintErase = (e.button===2);
+    paintCell(r,c, paintErase);
+    grid.setPointerCapture(e.pointerId);
+  });
+  grid.addEventListener('pointermove', (e)=>{
+    if (!painting || ui.mode==='play') return;
+    const t = document.elementFromPoint(e.clientX, e.clientY);
+    if (!t) return; const cell = t.closest('.cell'); if (!cell || cell.classList.contains('margin')) return;
+    paintCell(+cell.dataset.r, +cell.dataset.c, paintErase);
+  });
+  window.addEventListener('pointerup', ()=>{ if (painting){ painting=false; save(); renderValidation(); renderLevelList(); } });
+}
+function paintCell(r,c, erase){
+  const lv = curLevel();
+  const val = erase ? null : (ui.selItem!==undefined ? ui.selItem : null);
+  if (lv.grid[r][c] === val) return;
+  lv.grid[r][c] = val;
+  // 부분 렌더(성능): 해당 셀만 갱신
+  const W = lv.cols+2;
+  const grid = $('boardGrid');
+  const idx = (r+1)*W + (c+1);
+  const node = grid.children[idx];
+  if (node){
+    node.className = 'cell' + (val==null?' empty':'');
+    node.textContent = val==null ? '' : (itemById(val)?.emoji||'❓');
+  }
+}
+
+/* --- 검증 패널 --- */
+function renderValidation(){
+  const lv = curLevel(); const wrap = $('validation'); wrap.innerHTML='';
+  const counts = itemCounts();
+  const filled = countFilled(lv);
+  // 1) 짝수 패리티
+  const odds = Object.entries(counts).filter(([id,n])=> n%2!==0);
+  addCheck(wrap, odds.length===0 && filled>0, filled===0?'warn':null,
+    '짝수 패리티', odds.length? ('홀수: '+odds.map(([id,n])=> (itemById(id)?.emoji||id)+'×'+n).join(', '))
+      : (filled===0?'빈 보드':'모든 종류 짝수 ('+filled+'칸)'));
+  // 2) 풀이가능(solvable)
+  if (filled>0 && filled%2===0){
+    const { occ, W, H } = buildOcc(lv.grid, lv.cols, lv.rows, typeOfMap());
+    const res = solve(occ, W, H, project.rules.maxTurns, 120000);
+    addCheck(wrap, res.solvable, res.exhausted?'warn':null, '풀이가능',
+      res.solvable? '완전 클리어 경로 존재' : (res.exhausted? '예산 내 미증명(보드 큼)':'클리어 불가 — 막힌 배치'));
+  } else {
+    addCheck(wrap, false, 'warn', '풀이가능', '짝수·비어있지 않아야 검사');
+  }
+  // 3) 목표 도달 가능
+  let goalOk = true, goalMsg=[];
+  for (const g of lv.goals){
+    const av = counts[g.item]||0;
+    if (g.count > av){ goalOk=false; goalMsg.push((itemById(g.item)?.emoji||g.item)+' '+g.count+'>'+av); }
+    else if (g.count % 2 !== 0){ goalMsg.push((itemById(g.item)?.emoji||g.item)+' 홀수'); }
+  }
+  addCheck(wrap, goalOk, goalMsg.length&&goalOk?'warn':null, '목표 도달성',
+    lv.goals.length? (goalMsg.length? goalMsg.join(', '): '모든 목표 보유량 이하') : '목표 없음(전체 제거)');
+  // 4) 별 임계 오름차순
+  const s = lv.stars;
+  addCheck(wrap, s[0]<=s[1] && s[1]<=s[2], null, '별 임계', `${s[0]} ≤ ${s[1]} ≤ ${s[2]} 초`);
+  // 요약
+  const sum = document.createElement('div'); sum.className='hint'; sum.style.marginTop='8px';
+  sum.innerHTML = `채운 칸 <b>${filled}</b> / 전체 ${lv.cols*lv.rows} · 종류 ${Object.keys(counts).length}`;
+  wrap.appendChild(sum);
+}
+function addCheck(wrap, ok, override, title, detail){
+  const cls = override || (ok?'ok':'bad');
+  const row = document.createElement('div'); row.className='check';
+  row.innerHTML = `<span class="dot ${cls}"></span><b>${title}</b><span class="detail">${detail}</span>`;
+  wrap.appendChild(row);
+}
+
+/* 카운트/통계 */
+function itemCounts(){
+  const lv = curLevel(); const m = {};
+  for (let r=0;r<lv.rows;r++) for (let c=0;c<lv.cols;c++){ const id=lv.grid[r][c]; if (id!=null) m[id]=(m[id]||0)+1; }
+  return m;
+}
+function countFilled(lv){
+  let n=0; for (let r=0;r<lv.rows;r++) for (let c=0;c<lv.cols;c++) if (lv.grid[r][c]!=null) n++;
+  return n;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   5) 자동 생성 / 플레이테스트
+   ════════════════════════════════════════════════════════════════════════ */
+function autoGenerate(){
+  const lv = curLevel();
+  // 채울 셀 = 전체(짝수 보장 위해 1칸 비울 수 있음)
+  const total = lv.cols * lv.rows;
+  let fillCount = total - (total % 2);   // 짝수로
+  // 사용할 아이템: 카탈로그 전체에서 적절히. 목표가 있으면 목표 아이템 우선.
+  const items = project.items.map(it=>it.id);
+  if (!items.length){ toast('아이템이 없습니다'); return; }
+  const tmap = typeOfMap();
+  // 타입 페어 시퀀스 구성: 목표 먼저 채우고 나머지는 균등 분배
+  const pairs = fillCount/2;
+  const seqTypes = []; // typeNo per pair
+  const goalPairs = {};
+  for (const g of lv.goals){ const need = Math.ceil(g.count/2); goalPairs[g.item]=(goalPairs[g.item]||0)+need; }
+  let used = 0;
+  for (const [id, np] of Object.entries(goalPairs)){
+    for (let k=0;k<np && used<pairs;k++){ seqTypes.push(tmap(id)); used++; }
+  }
+  // 나머지: 아이템 라운드로빈
+  let ri=0;
+  while (used < pairs){ seqTypes.push(tmap(items[ri % items.length])); ri++; used++; }
+  shuffle(seqTypes, Math.random);
+
+  // 채울 셀 좌표(확장 인덱스): 전체에서 fillCount 개 선택(중앙 우선 채움 → 흩어진 빈칸)
+  const W = lv.cols+2, H = lv.rows+2;
+  const allCells = [];
+  for (let r=0;r<lv.rows;r++) for (let c=0;c<lv.cols;c++) allCells.push((r+1)*W+(c+1));
+  shuffle(allCells, Math.random);
+  const fillCells = allCells.slice(0, fillCount);
+
+  const occ = generateSolvable(W, H, fillCells, seqTypes, project.rules.maxTurns, Math.random);
+  if (!occ){ toast('생성 실패 — 크기/아이템 조정'); return; }
+  // occ → grid
+  const idOf = idOfType();
+  lv.grid = makeEmptyGrid(lv.cols, lv.rows);
+  for (let r=0;r<lv.rows;r++) for (let c=0;c<lv.cols;c++){
+    const t = occ[(r+1)*W+(c+1)]; if (t) lv.grid[r][c] = idOf(t);
+  }
+  save(); renderAll(); toast('✓ 솔버블 보드 생성 ('+fillCount+'칸)');
+}
+
+function togglePlaytest(){
+  ui.mode = ui.mode==='play' ? 'edit' : 'play';
+  ui.ptSel = null;
+  $('pathSvg').innerHTML='';
+  $('boardInfo').textContent = ui.mode==='play'
+    ? '플레이테스트: 같은 아이템 2개를 클릭해 연결(≤'+project.rules.maxTurns+'꺾임). 성공 시 제거.'
+    : '클릭/드래그로 칠하기 · 우클릭=지우개 · 외곽 여백은 경로가 통과 가능';
+  renderAll();
+}
+function playtestClick(r,c){
+  const lv = curLevel();
+  if (lv.grid[r][c]==null){ ui.ptSel=null; $('pathSvg').innerHTML=''; renderBoard(); return; }
+  if (!ui.ptSel){ ui.ptSel={r,c}; renderBoard(); return; }
+  if (ui.ptSel.r===r && ui.ptSel.c===c){ ui.ptSel=null; renderBoard(); return; }
+  const a=ui.ptSel, b={r,c};
+  if (lv.grid[a.r][a.c] !== lv.grid[b.r][b.c]){ toast('다른 아이템'); ui.ptSel=b; renderBoard(); return; }
+  const W=lv.cols+2, H=lv.rows+2;
+  const { occ } = buildOcc(lv.grid, lv.cols, lv.rows, typeOfMap());
+  const ai=(a.r+1)*W+(a.c+1), bi=(b.r+1)*W+(b.c+1);
+  const path = findPath(occ, W, H, ai, bi, project.rules.maxTurns);
+  if (!path){ toast('연결 경로 없음'); ui.ptSel=b; renderBoard(); return; }
+  drawPath(path, W);
+  // 제거
+  setTimeout(()=>{
+    lv.grid[a.r][a.c]=null; lv.grid[b.r][b.c]=null;
+    ui.ptSel=null; save(); renderBoard(); renderValidation();
+    $('pathSvg').innerHTML='';
+    if (countFilled(lv)===0) toast('🎉 클리어!');
+  }, 320);
+}
+function drawPath(path, W){
+  const grid = $('boardGrid'); const cell = grid._cell; const gap=2;
+  const svg = $('pathSvg');
+  const pts = path.map(idx=>{
+    const ec = idx % W, er = Math.floor(idx / W);
+    const x = ec*(cell+gap) + cell/2;
+    const y = er*(cell+gap) + cell/2;
+    return x+','+y;
+  }).join(' ');
+  svg.innerHTML = `<polyline points="${pts}" fill="none" stroke="${project.meta.accent}" stroke-width="5" stroke-linejoin="round" stroke-linecap="round" opacity="0.95"/>`;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   6) 입출력
+   ════════════════════════════════════════════════════════════════════════ */
+function exportJSON(){
+  const data = JSON.stringify(project, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'pawlink.levels.json';
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('내보냄: pawlink.levels.json');
+}
+async function copyJSON(){
+  const data = JSON.stringify(project, null, 2);
+  try{ await navigator.clipboard.writeText(data); toast('클립보드에 복사됨'); }
+  catch(e){ window.prompt('복사하세요(Ctrl+C):', data); }
+}
+function importJSON(){
+  $('fileInput').click();
+}
+function onFile(e){
+  const f = e.target.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const p = migrate(JSON.parse(reader.result));
+      project = p; ui.activeLevel=0; ui.selItem=null;
+      save(); renderAll(); toast('가져오기 완료');
+    }catch(err){ toast('JSON 파싱 실패'); console.error(err); }
+  };
+  reader.readAsText(f);
+  e.target.value='';
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   7) 이벤트 배선
+   ════════════════════════════════════════════════════════════════════════ */
+function bindMeta(){
+  $('lvlName').oninput = e=>{ curLevel().name=e.target.value; save(); renderLevelList(); };
+  $('lvlTime').oninput = e=>{ curLevel().timeSec=+e.target.value||0; save(); };
+  $('lvlId').oninput   = e=>{ curLevel().id=+e.target.value||0; save(); renderLevelList(); };
+  $('star1').oninput=e=>{ curLevel().stars[0]=+e.target.value||0; save(); renderValidation(); };
+  $('star2').oninput=e=>{ curLevel().stars[1]=+e.target.value||0; save(); renderValidation(); };
+  $('star3').oninput=e=>{ curLevel().stars[2]=+e.target.value||0; save(); renderValidation(); };
+  const resize=()=>{
+    const lv=curLevel();
+    const cols=Math.max(2,Math.min(12,+$('lvlCols').value||lv.cols));
+    const rows=Math.max(2,Math.min(16,+$('lvlRows').value||lv.rows));
+    const ng=makeEmptyGrid(cols,rows);
+    for (let r=0;r<Math.min(rows,lv.rows);r++) for (let c=0;c<Math.min(cols,lv.cols);c++) ng[r][c]=lv.grid[r][c];
+    lv.cols=cols; lv.rows=rows; lv.grid=ng; ui.ptSel=null;
+    save(); renderAll();
+  };
+  $('lvlCols').onchange=resize; $('lvlRows').onchange=resize;
+  $('metaTitle').oninput=e=>{ project.meta.title=e.target.value; save(); };
+  $('metaAccent').oninput=e=>{ project.meta.accent=e.target.value; save(); };
+
+  $('btnAddItem').onclick=()=>{
+    const n=project.items.length+1;
+    const id='item_'+n;
+    project.items.push({ id, name:'아이템'+n, emoji:'⭐', goalGroup:id, tex:texFor(project.items.length) });
+    save(); renderAll();
+  };
+  $('btnAddLvl').onclick=()=>{
+    const maxId=Math.max(0,...project.levels.map(l=>l.id||0));
+    project.levels.push(defaultLevel(maxId+1));
+    ui.activeLevel=project.levels.length-1; save(); renderAll();
+  };
+  $('btnDupLvl').onclick=()=>{
+    const src=curLevel();
+    const maxId=Math.max(0,...project.levels.map(l=>l.id||0));
+    const copy=JSON.parse(JSON.stringify(src)); copy.id=maxId+1; copy.name=src.name+' 복제';
+    project.levels.splice(ui.activeLevel+1,0,copy); ui.activeLevel++; save(); renderAll();
+  };
+  $('btnAddGoal').onclick=()=>{
+    const counts=itemCounts();
+    const cand = project.items.find(it=> !curLevel().goals.some(g=>g.item===it.id)) || project.items[0];
+    curLevel().goals.push({ item:cand.id, count: Math.min(counts[cand.id]||0, 4) });
+    save(); renderGoals(); renderValidation();
+  };
+  $('btnGen').onclick=autoGenerate;
+  $('btnPlaytest').onclick=togglePlaytest;
+  $('btnExport').onclick=exportJSON;
+  $('btnCopy').onclick=copyJSON;
+  $('btnImport').onclick=importJSON;
+  $('fileInput').onchange=onFile;
+  // 키보드: 숫자키로 아이템 선택, E=지우개, P=플레이테스트
+  window.addEventListener('keydown', (e)=>{
+    if (e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.tagName==='TEXTAREA') return;
+    if (e.key==='e'||e.key==='E'){ ui.selItem=null; ui.selItemSet=true; renderAll(); }
+    else if (e.key==='p'||e.key==='P'){ togglePlaytest(); }
+    else if (/^[1-9]$/.test(e.key)){ const it=project.items[(+e.key)-1]; if (it){ ui.selItem=it.id; ui.selItemSet=true; renderAll(); } }
+  });
+}
+
+let toastTimer=null;
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   8) 부팅
+   ════════════════════════════════════════════════════════════════════════ */
+load();
+ui.selItem = project.items[0]?.id ?? null;
+renderAll();
+attachBoardEvents();
+bindMeta();
+// 전역 디버그 핸들(콘솔 점검용)
+window.__pawlink = { project, get level(){return curLevel();}, connectable, findPath, solve, generateSolvable, buildOcc };
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "@casual/game-pawlink",
+  "version": "0.1.0",
+  "private": true,
+  "description": "포링크룸 — 같은 펫 아이템 2개를 ≤2번 꺾이는 경로로 이어 짝을 맞춰 제거하는 라인 퍼즐(Onet/사천성 류).",
+  "type": "module",
+  "scripts": {
+    "dev": "npx vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4205"
+  },
+  "dependencies": {
+    "@casual/core": "*",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.10",
+    "vite-plugin-pwa": "0.21.1"
+  }
+}

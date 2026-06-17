@@ -30,6 +30,18 @@ let ctx: AudioContext | null = null;
 let sfxOn = loadSave().sfx;
 let ambienceStarted = false;
 
+// ── 실제 북 샘플(MP4/AAC) — 터치 북소리(좌/우) + 172BPM 배경 루프. 미로드 시 합성으로 폴백. ──
+const AUDIO_BASE = `${(import.meta.env?.BASE_URL as string | undefined) ?? '/'}audio/`;
+const SAMPLE_URLS = {
+  buk_left: `${AUDIO_BASE}buk_left.m4a`, // 강박/좌 — grand_buk_deep_temple
+  buk_right: `${AUDIO_BASE}buk_right.m4a`, // 약박/우 — grand_buk_battle_accent
+  bgm: `${AUDIO_BASE}bgm.m4a`, // 172BPM buk 드럼 게임 루프
+} as const;
+type SampleKey = keyof typeof SAMPLE_URLS;
+const buffers: Partial<Record<SampleKey, AudioBuffer>> = {};
+let bgmSource: AudioBufferSourceNode | null = null;
+let loadingPromise: Promise<void> | null = null;
+
 function ac(): AudioContext | null {
   try {
     if (!ctx) {
@@ -149,16 +161,60 @@ function crowdRoar(intensity: number): void {
   fxNoise(1.3, { pink: true, vol: 0.08 * intensity, type: 'bandpass', freq: 1400, q: 0.7, at: 0.15, attack: 0.18 });
 }
 
+/** 로드된 북 샘플 1회 재생 — 성공 시 true, 미로드면 false(합성 폴백 신호). */
+function playSample(key: SampleKey, vol = 1): boolean {
+  const a = ac();
+  const buf = buffers[key];
+  if (!a || !buf) return false;
+  try {
+    const src = a.createBufferSource();
+    src.buffer = buf;
+    const gain = a.createGain();
+    gain.gain.value = vol;
+    src.connect(gain).connect(a.destination);
+    src.start();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 북 샘플(좌/우/BGM) 프리로드 — fetch + decode. LoadScene 에서 호출(실패해도 합성 폴백으로 진행). */
+export async function preloadAudio(): Promise<void> {
+  const a = ac();
+  if (!a) return;
+  if (loadingPromise) return loadingPromise;
+  loadingPromise = (async () => {
+    await Promise.all(
+      (Object.keys(SAMPLE_URLS) as SampleKey[]).map(async (k) => {
+        if (buffers[k]) return;
+        try {
+          const res = await fetch(SAMPLE_URLS[k]);
+          const arr = await res.arrayBuffer();
+          buffers[k] = await a.decodeAudioData(arr);
+        } catch {
+          /* 샘플 로드/디코드 실패 — 합성 폴백 */
+        }
+      }),
+    );
+  })();
+  return loadingPromise;
+}
+
 const PLAYERS: Record<SfxName, () => void> = {
   dum: () => {
-    // 용선 북 강박 — 저역 멤브레인 슬라이드 + 가죽 두께감 노이즈
-    tone(150, 0.22, { type: 'sine', vol: 0.32, slide: -95 });
-    fxNoise(0.05, { vol: 0.16, type: 'lowpass', freq: 700 });
+    // 좌 북 — 실제 grand_buk 샘플(deep_temple). 미로드 시 합성 타이코 폴백.
+    if (playSample('buk_left', 0.95)) return;
+    tone(104, 0.52, { type: 'sine', vol: 0.46, slide: -52 });
+    tone(58, 0.6, { type: 'sine', vol: 0.34, slide: -18 });
+    fxNoise(0.07, { vol: 0.24, type: 'lowpass', freq: 820 });
   },
   tak: () => {
-    // 북 림 약박 — 높은 멤브레인 + 클릭 트랜지언트
-    tone(240, 0.12, { type: 'sine', vol: 0.2, slide: -110 });
-    fxNoise(0.025, { vol: 0.18, type: 'highpass', freq: 2600 });
+    // 우 북 — 실제 grand_buk 샘플(battle_accent). 미로드 시 합성 폴백.
+    if (playSample('buk_right', 0.9)) return;
+    tone(176, 0.3, { type: 'sine', vol: 0.32, slide: -66 });
+    tone(98, 0.32, { type: 'sine', vol: 0.18, slide: -24 });
+    fxNoise(0.03, { vol: 0.16, type: 'highpass', freq: 2300 });
   },
   perfect: () => {
     tone(880, 0.08, { type: 'triangle', vol: 0.1 });
@@ -215,13 +271,34 @@ export function setSfxOn(on: boolean): void {
 }
 
 /**
- * 강변 앰비언스 — 잔잔한 물결(핑크노이즈 저역 + 느린 LFO 출렁임) 상시 루프.
- * 첫 사용자 제스처에서 시작(autoplay 정책).
+ * 배경음악 — 172BPM buk 드럼 게임 루프(MP4). 첫 사용자 제스처에서 시작(autoplay 정책).
+ * 샘플 미로드 시 합성 강변 앰비언스로 폴백. loopStart/End 로 AAC 프라이밍을 트림해 이음새 최소화.
  */
 export function startBgm(): void {
   const a = ac();
   if (!a || ambienceStarted) return;
   ambienceStarted = true;
+
+  const buf = buffers.bgm;
+  if (buf) {
+    try {
+      const src = a.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.loopStart = 0.02; // AAC 인코더 프라이밍 스킵(루프 이음새 최소화)
+      src.loopEnd = Math.max(0.04, buf.duration - 0.02);
+      const gain = a.createGain();
+      gain.gain.value = 0.5; // BGM 음량
+      src.connect(gain).connect(a.destination);
+      src.start();
+      bgmSource = src;
+    } catch {
+      /* noop */
+    }
+    return;
+  }
+
+  // 폴백: 합성 강변 앰비언스(핑크노이즈 저역 + 느린 LFO).
   try {
     const src = a.createBufferSource();
     src.buffer = pinkNoise(a);
@@ -232,7 +309,6 @@ export function startBgm(): void {
     filter.Q.value = 0.5;
     const gain = a.createGain();
     gain.gain.value = 0.03;
-    // 느린 LFO — 물결이 파도처럼 출렁인다.
     const lfo = a.createOscillator();
     const lfoGain = a.createGain();
     lfo.frequency.value = 0.11;
@@ -247,5 +323,11 @@ export function startBgm(): void {
 }
 
 export function stopBgm(): void {
-  // 앰비언스 노드는 컨텍스트와 함께 정리 — 간단 구현(추후 음원 교체 시 재설계).
+  try {
+    bgmSource?.stop();
+  } catch {
+    /* 이미 정지/미시작 */
+  }
+  bgmSource = null;
+  ambienceStarted = false;
 }

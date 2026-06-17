@@ -9,10 +9,10 @@
  */
 import type { PaddleSide, StrokeJudgement, StrokeOutcome } from './types.js';
 
-/** 판정 윈도우 반경 (박자 주기 정규화 단위). */
+/** 판정 윈도우 반경 (박자 주기 정규화 단위). 캐쥬얼 친화로 넉넉하게(난이도↓). */
 export const STROKE_WINDOWS = {
-  perfect: 0.12,
-  good: 0.28,
+  perfect: 0.15,
+  good: 0.36,
 } as const;
 
 /** 등급별 기본 점수 (콤보 보너스 적용 전). */
@@ -115,6 +115,37 @@ export function resolveStroke(side: PaddleSide, beatIndex: number, offset: numbe
     impulse: IMPULSE_TABLE[judgement],
     combo: nextCombo,
     boostDelta: BOOST_FILL[judgement],
+  };
+}
+
+/**
+ * 타임드 노트 1개 타격 해석 — 사이드는 이미 매칭됐다는 전제(차트 노트 기반 판정).
+ * @param offset 노트 도착시각 대비 정규화 오프셋((탭-도착)/주기, +면 늦음)
+ * @param combo  타격 직전 콤보
+ */
+export function resolveTimedHit(offset: number, combo: number): StrokeOutcome {
+  const judgement = judgeOffset(offset); // perfect | good | miss
+  const prevCombo = Number.isFinite(combo) ? Math.max(0, Math.floor(combo)) : 0;
+  const nextCombo = judgement === 'miss' ? 0 : prevCombo + 1;
+  return {
+    judgement,
+    label: JUDGEMENT_LABELS[judgement],
+    score: strokeScore(judgement, prevCombo),
+    impulse: IMPULSE_TABLE[judgement],
+    combo: nextCombo,
+    boostDelta: BOOST_FILL[judgement],
+  };
+}
+
+/** 반대쪽 북을 친 헛타(매칭 노트 없음·반대 사이드 노트만 임박) — 콤보 단절, 추진 없음. */
+export function resolveWrong(): StrokeOutcome {
+  return {
+    judgement: 'wrong',
+    label: JUDGEMENT_LABELS.wrong,
+    score: 0,
+    impulse: 0,
+    combo: 0,
+    boostDelta: 0,
   };
 }
 

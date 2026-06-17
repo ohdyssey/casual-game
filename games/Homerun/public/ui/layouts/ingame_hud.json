@@ -1,0 +1,87 @@
+{
+  "frame": {
+    "designW": 720,
+    "designH": 1280
+  },
+  "nodes": [
+    {
+      "id": "t1",
+      "type": "text",
+      "name": "점수",
+      "x": 100,
+      "y": 70,
+      "text": "0",
+      "fontSize": 44,
+      "color": "#ffffff",
+      "stroke": "",
+      "strokeW": 0,
+      "align": "left",
+      "depth": 3,
+      "visible": true,
+      "role": "score"
+    },
+    {
+      "id": "r2",
+      "type": "rect",
+      "name": "체력바",
+      "x": 360,
+      "y": 70,
+      "w": 360,
+      "h": 40,
+      "fill": "#16a45f",
+      "stroke": "",
+      "strokeW": 0,
+      "radius": 20,
+      "depth": 1,
+      "visible": true,
+      "role": "hp"
+    },
+    {
+      "id": "r3",
+      "type": "rect",
+      "name": "일시정지",
+      "x": 650,
+      "y": 70,
+      "w": 84,
+      "h": 84,
+      "fill": "#0008",
+      "stroke": "",
+      "strokeW": 0,
+      "radius": 42,
+      "depth": 2,
+      "visible": true,
+      "role": "pause"
+    },
+    {
+      "id": "t4",
+      "type": "text",
+      "name": "일시정지_라벨",
+      "x": 650,
+      "y": 70,
+      "text": "⏸",
+      "fontSize": 36,
+      "color": "#ffffff",
+      "stroke": "",
+      "strokeW": 0,
+      "align": "center",
+      "depth": 3,
+      "visible": true
+    },
+    {
+      "id": "t5",
+      "type": "text",
+      "name": "가이드",
+      "x": 360,
+      "y": 1180,
+      "text": "— 인게임 영역 —",
+      "fontSize": 26,
+      "color": "#5d6b7a",
+      "stroke": "",
+      "strokeW": 0,
+      "align": "center",
+      "depth": 3,
+      "visible": true
+    }
+  ],
+  "groups": []
+}

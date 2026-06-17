@@ -1,13 +1,16 @@
 {
   "name": "@casual/hub",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "캐쥬얼게임 허브 — 게임 선택 입구(순수 HTML 한 장).",
+  "description": "PlayPOP 허브 — 게임 선택 입구 + 포털 계정/경제(지갑·하트·상점·스핀·데일리) 관리자.",
   "type": "module",
   "scripts": {
     "dev": "vite --port 5180 --host",
     "build": "vite build",
     "preview": "vite preview --port 4180"
+  },
+  "dependencies": {
+    "@casual/core": "*"
   },
   "devDependencies": {
     "vite": "5.4.10"

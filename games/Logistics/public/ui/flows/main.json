@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "kind": "uiFlow",
+  "id": "main",
+  "name": "메인 플로우",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "trigger",
+      "x": 80,
+      "y": 80,
+      "name": "시작",
+      "config": {
+        "event": "gameStart"
+      }
+    },
+    {
+      "id": "screen_mqgr1pokmjiq",
+      "type": "screen",
+      "x": 260,
+      "y": 150,
+      "name": "광고 불러오는 중",
+      "config": {
+        "screenDocId": "ad_loading",
+        "kind": "popup"
+      }
+    },
+    {
+      "id": "screen_mqgr204e45d2",
+      "type": "screen",
+      "x": 260,
+      "y": 150,
+      "name": "광고 보상 제안",
+      "config": {
+        "screenDocId": "popup_ad_3",
+        "kind": "popup"
+      }
+    }
+  ],
+  "edges": [],
+  "vars": {}
+}

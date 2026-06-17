@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "kind": "uiFlow",
+  "id": "main",
+  "name": "메인 플로우",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "trigger",
+      "x": 80,
+      "y": 80,
+      "name": "시작",
+      "config": {
+        "event": "gameStart"
+      }
+    },
+    {
+      "id": "screen_mqff6l3p7pqc",
+      "type": "screen",
+      "x": 864,
+      "y": 142,
+      "name": "화면",
+      "config": {
+        "screenDocId": "main"
+      }
+    },
+    {
+      "id": "screen_mqfftisogkxm",
+      "type": "screen",
+      "x": 418,
+      "y": 250,
+      "name": "배경스토리(컷신)",
+      "config": {
+        "screenDocId": "story_cutscene",
+        "kind": "full"
+      }
+    },
+    {
+      "id": "screen_mqffv5ri6p7c",
+      "type": "screen",
+      "x": 1301,
+      "y": 745,
+      "name": "챕터 표지",
+      "config": {
+        "screenDocId": "story_chapter",
+        "kind": "full"
+      }
+    },
+    {
+      "id": "screen_mqffvnejdjun",
+      "type": "screen",
+      "x": 840,
+      "y": 1123,
+      "name": "대화 장면",
+      "config": {
+        "screenDocId": "story_dialogue",
+        "kind": "full"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_mqffu9qp6ncd",
+      "kind": "flow",
+      "from": {
+        "node": "screen_mqfftisogkxm",
+        "port": "out"
+      },
+      "to": {
+        "node": "screen_mqff6l3p7pqc",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_mqffuekvzu1o",
+      "kind": "flow",
+      "from": {
+        "node": "start",
+        "port": "out"
+      },
+      "to": {
+        "node": "screen_mqfftisogkxm",
+        "port": "in"
+      }
+    }
+  ],
+  "vars": {}
+}

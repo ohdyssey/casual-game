@@ -1,0 +1,14 @@
+{
+  "flows": [
+    {
+      "id": "main",
+      "name": "메인 플로우",
+      "file": "ui/flows/main.json"
+    },
+    {
+      "id": "flow_mqd09q49bg9v",
+      "name": "테스트",
+      "file": "ui/flows/flow_mqd09q49bg9v.json"
+    }
+  ]
+}

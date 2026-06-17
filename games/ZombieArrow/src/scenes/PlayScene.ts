@@ -106,6 +106,12 @@ const ZOMBIE_FOOT_FRAC = 0.42; // 발(그림자) 위치 = 중심 + 표시높이 
 const FIRE_COOLDOWN = 220; // ms 연사 제한
 const STREAK_TIMEOUT = 3000; // ms 콤보 유지
 
+// ── 호흡 — 숨 들이쉬고 내쉬는 템포로 게임 "월드"(배경+좀비+화살)만 미세하게 확대↔축소. ──
+// 카메라 줌이 아니라 world 컨테이너만 스케일한다 → HUD/활/조준 컨트롤(월드 밖)은 고정 = 인터페이스 안 움직임.
+// 명중 판정은 world-로컬 좌표라 컨테이너 변형과 무관(게임플레이 영향 없음).
+const BREATH_PERIOD = 5.2; // 한 호흡(들숨+날숨) 주기(초). 편안한 호흡 ≈ 분당 11~12회.
+const BREATH_AMP = 0.018; // 줌 진폭(1.0 → 1.018). 미세하게.
+
 type Phase = 'playing' | 'over';
 
 /** 좀비 몸에 꽂힌 화살(옆모습 ARROW_KEY) — 좀비 표시 크기 기준 오프셋(fx,fy)·임팩트 각도·크기비로 따라 이동·확대. */
@@ -212,6 +218,7 @@ export class PlayScene extends Phaser.Scene {
   private aimX = 360;
   private aimY = AIM_Y_NEAR;
   private drawAmt = 0;
+  private breathT = 0; // 호흡 위상 누적(초) — 화면 전체 미세 줌 진동
 
   constructor() {
     super('play');
@@ -879,6 +886,19 @@ export class PlayScene extends Phaser.Scene {
   // ── 매 프레임 ─────────────────────────────────────────────────
 
   update(_time: number, delta: number): void {
+    // 호흡 — 조준(드로우) 중이 아닐 때, 월드(배경+좀비+화살)만 들숨↔날숨처럼 화면 중심 기준 미세 확대/축소.
+    // HUD/활/흰 조준 핸들은 월드 밖이라 그대로 = 인터페이스는 움직이지 않는다.
+    // 0.5-0.5cos: 양 극단에서 부드럽게 멈춰 자연스러운 호흡감(선형 톱니 아님).
+    // 드로우 중에는 겨냥 확대(world 스케일)가 월드 변형을 점유하므로 호흡은 멈춘다(충돌·피드백 방지).
+    this.breathT += delta / 1000;
+    if (!this.drawing) {
+      const breath = 0.5 - 0.5 * Math.cos(this.breathT * ((Math.PI * 2) / BREATH_PERIOD));
+      const s = 1 + BREATH_AMP * breath;
+      const cx = this.scale.width / 2;
+      const cy = this.scale.height / 2;
+      this.world.setScale(s).setPosition(cx * (1 - s), cy * (1 - s));
+    }
+
     if (this.phase !== 'playing') return;
     const dt = delta / 1000;
 

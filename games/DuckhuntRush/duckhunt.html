@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Duckhunt Rush — 프로토타입</title>
+<style>
+  :root { --hud-scale: 1; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: #0b1722; overflow: hidden; font-family: 'Segoe UI', 'Apple SD Gothic Neo', system-ui, sans-serif; }
+  #stage {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 30%, #18324a, #0b1722 70%);
+  }
+  #game {
+    position: relative; aspect-ratio: 540 / 960; height: 100%; max-width: 100%;
+    box-shadow: 0 0 60px rgba(0,0,0,.6); overflow: hidden; cursor: none;
+    border-radius: 6px;
+  }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  /* ---------- HUD ---------- */
+  .hud { position: absolute; inset: 0; pointer-events: none; user-select: none; }
+  .hud .panel {
+    position: absolute; pointer-events: auto;
+    background: linear-gradient(#1f3d57, #16293b);
+    border: 2px solid #0c1824; border-radius: 14px;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.12), 0 3px 0 rgba(0,0,0,.35);
+    color: #fff; font-weight: 800; text-shadow: 0 2px 2px rgba(0,0,0,.4);
+  }
+  .label { font-size: 12px; letter-spacing: 1px; color: #9fd0ff; text-align: center; }
+
+  /* score */
+  #score { left: 2.5%; top: 2.2%; width: 25%; padding: 6px 8px 9px; }
+  #score .label { background:#5fc24a; color:#163a10; border-radius:8px; padding:2px 0; margin-bottom:4px; font-size:11px;}
+  #score .val { font-size: 26px; text-align: center; letter-spacing: 2px; line-height: 1; }
+  #stars { display:flex; justify-content:center; gap:4px; margin:5px 0 4px; }
+  #stars span { font-size: 17px; color:#3a5066; filter: drop-shadow(0 1px 1px rgba(0,0,0,.4)); }
+  #stars span.on { color:#ffce3d; }
+  .pbar { height:6px; background:#0c1824; border-radius:4px; overflow:hidden; }
+  .pbar > i { display:block; height:100%; width:30%; background:linear-gradient(#9be86b,#54b62f); transition:width .3s; }
+
+  /* mission */
+  #mission { left: 28.5%; top: 2.2%; width: 40%; padding: 5px 7px 7px; }
+  #mission .label { margin-bottom: 4px; }
+  #mrow { display:flex; gap:6px; }
+  .mcell { flex:1; background:rgba(8,18,28,.55); border-radius:9px; padding:4px 2px 3px; text-align:center; position:relative; }
+  .mcell canvas { position: static; width:38px; height:30px; margin:0 auto; }
+  .mcell .cnt { font-size:13px; margin-top:1px; }
+  .mcell.done { box-shadow: inset 0 0 0 2px #6fe04a; }
+  .mcell.done::after{ content:"✓"; position:absolute; top:-6px; right:-4px; background:#54b62f; color:#fff; width:16px; height:16px; border-radius:50%; font-size:11px; line-height:16px; }
+
+  /* combo */
+  #combo { right: 12.5%; top: 2.6%; width: 16.5%; padding: 5px 6px 7px; text-align:center;
+           background: linear-gradient(#c1531f,#8a330d); border-color:#4a1c06; transition: transform .12s; }
+  #combo .label { color:#ffd9b0; }
+  #combo .val { font-size: 24px; line-height:1; }
+  #combo .arrows { color:#ffd9b0; font-size:11px; letter-spacing:1px; }
+  #combo.pulse { transform: scale(1.18); }
+  #combo.hide { opacity:.45; }
+
+  /* pause */
+  #pause { right: 2.5%; top: 2.6%; width: 9%; aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size: 20px; }
+
+  /* ammo */
+  #ammo { left: 2.5%; bottom: 2.5%; width: 33%; padding: 7px 9px 9px; }
+  #ammo .label { color:#ffd9b0; margin-bottom:6px; }
+  #shells { display:flex; gap:4px; justify-content:center; }
+  .shell { flex:1; height:30px; position:relative; }
+  .shell i { position:absolute; inset:0; border-radius:3px 3px 2px 2px;
+             background:linear-gradient(#e0443a,#a8231b); border:1px solid #6e1410; }
+  .shell i::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:38%;
+             background:linear-gradient(#f2c14e,#c9962a); border-radius:0 0 2px 2px; }
+  .shell.empty i { background:#243646; border-color:#16252f; }
+  .shell.empty i::after{ background:#1a2937; }
+  #reloadHint { text-align:center; font-size:11px; color:#ffd24a; margin-top:5px; height:13px; }
+
+  /* powerups */
+  #powers { position:absolute; right: 2.5%; bottom: 2.5%; display:flex; gap:10px; pointer-events:none; }
+  .power { pointer-events:auto; width:64px; text-align:center; cursor:pointer; }
+  .power .btn { width:60px; height:60px; border-radius:50%; margin:0 auto; position:relative;
+                border:3px solid #0c1824; box-shadow: inset 0 3px 0 rgba(255,255,255,.18), 0 3px 0 rgba(0,0,0,.4);
+                display:flex; align-items:center; justify-content:center; font-size:27px; }
+  #pCall .btn { background:radial-gradient(circle at 40% 30%, #7be86b, #2f9b32); }
+  #pDecoy .btn { background:radial-gradient(circle at 40% 30%, #67c6ff, #2f7bc6); }
+  .power .cap { color:#fff; font-size:11px; font-weight:800; margin-top:3px; text-shadow:0 1px 2px #000; }
+  .power .badge { position:absolute; top:-6px; right:-6px; min-width:22px; height:22px; border-radius:11px;
+                  background:#1f3d57; border:2px solid #0c1824; color:#fff; font-size:12px; line-height:18px; }
+  .power.dim { opacity:.4; filter:grayscale(.6); }
+  .power:active .btn { transform: translateY(2px); }
+
+  /* overlays */
+  #overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+             pointer-events:auto; background:rgba(6,14,22,.72); backdrop-filter: blur(2px); }
+  #overlay.hidden { display:none; }
+  .card { width:78%; max-width:380px; background:linear-gradient(#1f3d57,#142536); border:3px solid #0c1824;
+          border-radius:20px; padding:26px 22px; text-align:center; color:#fff; box-shadow:0 10px 0 rgba(0,0,0,.4); }
+  .card h1 { font-size:30px; letter-spacing:1px; margin-bottom:6px; text-shadow:0 3px 0 rgba(0,0,0,.4); }
+  .card h1 small { display:block; font-size:13px; color:#9fd0ff; font-weight:600; letter-spacing:2px; margin-bottom:8px;}
+  .card p { color:#bcd6ee; font-size:14px; line-height:1.5; margin:10px 0 18px; }
+  .card .big { font-size:40px; color:#ffce3d; margin:6px 0; }
+  .btnP { display:inline-block; pointer-events:auto; cursor:pointer; margin-top:6px;
+          background:linear-gradient(#9be86b,#54b62f); color:#143a10; font-weight:900; font-size:18px;
+          padding:12px 30px; border-radius:14px; border:none; box-shadow:0 4px 0 #2f7a1e; }
+  .btnP:active { transform: translateY(3px); box-shadow:0 1px 0 #2f7a1e; }
+  .ovstars { font-size:34px; margin:8px 0 4px; }
+  .ovstars span{ color:#3a5066; } .ovstars span.on{ color:#ffce3d; }
+  .mini { position:absolute; right:2.5%; top:13.5%; pointer-events:auto; cursor:pointer; color:#9fd0ff;
+          font-size:12px; background:rgba(8,18,28,.5); padding:5px 9px; border-radius:10px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="game">
+    <canvas id="cv" width="540" height="960"></canvas>
+
+    <div class="hud" id="hud">
+      <div class="panel" id="score">
+        <div class="label">SCORE</div>
+        <div class="val" id="scoreVal">00000</div>
+        <div id="stars"><span>★</span><span>★</span><span>★</span></div>
+        <div class="pbar"><i id="scoreBar"></i></div>
+      </div>
+
+      <div class="panel" id="mission">
+        <div class="label">MISSION</div>
+        <div id="mrow"></div>
+      </div>
+
+      <div class="panel" id="combo">
+        <div class="label">COMBO</div>
+        <div class="val" id="comboVal">x1</div>
+        <div class="arrows">»»»»»</div>
+      </div>
+
+      <div class="panel" id="pause">⏸</div>
+
+      <div class="panel" id="ammo">
+        <div class="label">AMMO</div>
+        <div id="shells"></div>
+        <div id="reloadHint"></div>
+      </div>
+
+      <div id="powers">
+        <div class="power" id="pCall"><div class="btn">📣<span class="badge">3</span></div><div class="cap">DUCK CALL</div></div>
+        <div class="power" id="pDecoy"><div class="btn">🦆<span class="badge">2</span></div><div class="cap">DECOY</div></div>
+      </div>
+
+      <div class="mini" id="soundToggle">🔊 SOUND</div>
+    </div>
+
+    <div id="overlay" class="hud">
+      <div class="card" id="card"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+// ============================================================ setup
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+const GROUND_Y = 700;          // top of the grass / foreground line
+const $ = id => document.getElementById(id);
+
+// ---- duck species -----------------------------------------------------------
+const SPECIES = {
+  mallard: { name:'청둥오리', body:'#cdbfa3', belly:'#efe6d2', head:'#1f8f57', headHi:'#2fb46d',
+             chest:'#7a4a2a', wing:'#5a4a36', beak:'#f5a623', score:100, speed:1.0, hp:1, rare:0.62 },
+  female:  { name:'암컷오리', body:'#a87a4c', belly:'#d8b483', head:'#8a5a30', headHi:'#a87246',
+             chest:'#8a5a30', wing:'#6e4524', beak:'#e89a2c', score:150, speed:1.28, hp:1, rare:0.27 },
+  special: { name:'황금오리', body:'#e9ecf5', belly:'#ffffff', head:'#6a3bd0', headHi:'#8a5cf0',
+             chest:'#3b3fb0', wing:'#2f37c8', beak:'#f5a623', score:300, speed:1.55, hp:1, rare:0.11 },
+};
+const SP_KEYS = Object.keys(SPECIES);
+
+// ============================================================ game state
+let G;
+function newGame(round = 1, carryScore = 0) {
+  G = {
+    round, score: carryScore,
+    ducks: [], feathers: [], floats: [], splashes: [],
+    ammoMax: 6, ammo: 6, reloading: false, reloadT: 0,
+    combo: 0, bestCombo: 0,
+    powers: { call: 3, decoy: 2 },
+    decoyT: 0,                       // slow-motion timer
+    mission: makeMission(round),
+    spawnT: 0, time: roundTime(round), elapsed: 0,
+    state: 'play',                   // play | paused | clear | over
+    aim: { x: W/2, y: H*0.42 },
+    muzzle: 0, recoil: 0, shake: 0, t: 0,
+  };
+  syncHUD(); buildMissionHUD(); buildShells();
+}
+function roundTime(r){ return 60 + r*5; }
+function makeMission(round){
+  // each round: a target count per species, scaling with round
+  const base = { mallard: 8, female: 5, special: 2 };
+  const m = {};
+  for (const k of SP_KEYS) m[k] = { need: base[k] + Math.floor((round-1)*1.5*(k==='special'?0.5:1)), got: 0 };
+  return m;
+}
+function missionDone(){ return SP_KEYS.every(k => G.mission[k].got >= G.mission[k].need); }
+
+// ============================================================ HUD wiring
+function buildMissionHUD(){
+  const row = $('mrow'); row.innerHTML = '';
+  for (const k of SP_KEYS){
+    const cell = document.createElement('div');
+    cell.className = 'mcell'; cell.dataset.k = k;
+    const c = document.createElement('canvas'); c.width = 76; c.height = 60;
+    drawDuckIcon(c.getContext('2d'), k);
+    const cnt = document.createElement('div'); cnt.className = 'cnt';
+    cell.appendChild(c); cell.appendChild(cnt); row.appendChild(cell);
+  }
+  refreshMissionHUD();
+}
+function refreshMissionHUD(){
+  document.querySelectorAll('.mcell').forEach(cell=>{
+    const m = G.mission[cell.dataset.k];
+    cell.querySelector('.cnt').textContent = `${Math.min(m.got,m.need)}/${m.need}`;
+    cell.classList.toggle('done', m.got >= m.need);
+  });
+}
+function buildShells(){
+  const box = $('shells'); box.innerHTML = '';
+  for (let i=0;i<G.ammoMax;i++){ const s=document.createElement('div'); s.className='shell'; s.innerHTML='<i></i>'; box.appendChild(s); }
+  refreshShells();
+}
+function refreshShells(){
+  const els = document.querySelectorAll('.shell');
+  els.forEach((s,i)=> s.classList.toggle('empty', i >= G.ammo));
+  $('reloadHint').textContent = G.reloading ? '재장전 중…' : (G.ammo===0 ? '탭하여 재장전' : '');
+}
+function syncHUD(){
+  $('scoreVal').textContent = String(G.score).padStart(5,'0');
+  const stars = starCount(G.score);
+  document.querySelectorAll('#stars span').forEach((s,i)=> s.classList.toggle('on', i<stars));
+  $('scoreBar').style.width = Math.min(100, (G.score % STAR_STEP)/STAR_STEP*100) + '%';
+  $('comboVal').textContent = 'x'+Math.max(1,G.combo);
+  $('combo').classList.toggle('hide', G.combo<2);
+  $('pCall').querySelector('.badge').textContent = G.powers.call;
+  $('pDecoy').querySelector('.badge').textContent = G.powers.decoy;
+  $('pCall').classList.toggle('dim', G.powers.call<=0);
+  $('pDecoy').classList.toggle('dim', G.powers.decoy<=0);
+}
+const STAR_STEP = 2500;
+function starCount(s){ return Math.min(3, Math.floor(s/STAR_STEP)); }
+
+// ============================================================ audio (tiny synth, no assets)
+let AC=null, soundOn=true;
+function ac(){ if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return AC; }
+function beep(freq, dur, type='square', vol=0.18, slideTo=null){
+  if(!soundOn) return; const a=ac(); if(!a) return;
+  const o=a.createOscillator(), g=a.createGain();
+  o.type=type; o.frequency.setValueAtTime(freq,a.currentTime);
+  if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, a.currentTime+dur);
+  g.gain.setValueAtTime(vol,a.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, a.currentTime+dur);
+  o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime+dur);
+}
+const sShot   = ()=>{ beep(220,0.08,'square',0.22,90); beep(60,0.12,'sawtooth',0.18); };
+const sHit    = ()=>{ beep(720,0.07,'square',0.16,1100); };
+const sQuack  = ()=>{ beep(380,0.10,'sawtooth',0.14,260); };
+const sEmpty  = ()=>{ beep(120,0.05,'square',0.10); };
+const sReload = ()=>{ beep(180,0.06,'square',0.12); setTimeout(()=>beep(260,0.06,'square',0.12),90); };
+const sClear  = ()=>{ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,0.16,'triangle',0.2),i*120)); };
+
+// ============================================================ ducks
+function spawnDuck(forceType=null, fromCall=false){
+  let type = forceType;
+  if(!type){
+    const r = Math.random(); let acc=0;
+    for(const k of SP_KEYS){ acc+=SPECIES[k].rare; if(r<=acc){ type=k; break; } }
+    type = type || 'mallard';
+  }
+  const sp = SPECIES[type];
+  const dir = Math.random()<0.5 ? 1 : -1;            // travel direction
+  const x = dir===1 ? -60 : W+60;
+  const y = 120 + Math.random()*(GROUND_Y-220);
+  const baseSpeed = (1.1 + G.round*0.08) * sp.speed * (fromCall?1.2:1);
+  G.ducks.push({
+    type, x, y, dir,
+    vx: dir * baseSpeed * (0.9+Math.random()*0.5),
+    baseY: y, amp: 18+Math.random()*34, freq: 0.02+Math.random()*0.03, phase: Math.random()*6.3,
+    r: type==='special'?30: type==='female'?27:30,
+    flap: Math.random()*6.3, flapSpd: 0.28+Math.random()*0.1,
+    state:'fly', vyFall:0, rot:0, alpha:1, scored:false,
+  });
+}
+
+function update(dt){
+  G.t += dt;
+  if(G.state!=='play') return;
+
+  // timers
+  G.elapsed += dt;
+  if(G.muzzle>0) G.muzzle-=dt;
+  if(G.recoil>0) G.recoil=Math.max(0,G.recoil-dt*4);
+  if(G.shake>0) G.shake=Math.max(0,G.shake-dt*3);
+  if(G.decoyT>0) G.decoyT-=dt;
+  const slow = G.decoyT>0 ? 0.38 : 1;
+
+  // reload
+  if(G.reloading){ G.reloadT-=dt; if(G.reloadT<=0){ G.ammo=G.ammoMax; G.reloading=false; refreshShells(); } }
+
+  // spawning
+  G.spawnT -= dt;
+  const maxDucks = 4 + Math.floor(G.round/2);
+  if(G.spawnT<=0 && G.ducks.filter(d=>d.state==='fly').length < maxDucks){
+    spawnDuck(); G.spawnT = Math.max(0.5, 1.6 - G.round*0.08);
+  }
+
+  // ducks
+  for(const d of G.ducks){
+    d.flap += d.flapSpd;
+    if(d.state==='fly'){
+      d.x += d.vx*60*dt*slow;
+      d.y = d.baseY + Math.sin(G.t*d.freq*60 + d.phase)*d.amp;
+      if(G.decoyT>0){ d.baseY += Math.sin(G.t*2+d.phase)*0.4; } // bob toward decoy
+      if(d.x < -90 || d.x > W+90){ d.dead=true; }              // escaped
+    } else if(d.state==='fall'){
+      d.vyFall += 900*dt; d.y += d.vyFall*dt;
+      d.rot += dt*8*d.dir; d.x += d.dir*20*dt;
+      if(d.y > GROUND_Y+40){ d.dead=true; if(d.y<H) addSplash(d.x, GROUND_Y+30); }
+    }
+  }
+  G.ducks = G.ducks.filter(d=>!d.dead);
+
+  // particles
+  for(const f of G.feathers){ f.vy+=420*dt; f.x+=f.vx*dt; f.y+=f.vy*dt; f.rot+=f.vr*dt; f.life-=dt; f.vx*=0.99; }
+  G.feathers = G.feathers.filter(f=>f.life>0);
+  for(const t of G.floats){ t.y -= 40*dt; t.life-=dt; }
+  G.floats = G.floats.filter(t=>t.life>0);
+  for(const s of G.splashes){ s.life-=dt; s.r += 80*dt; }
+  G.splashes = G.splashes.filter(s=>s.life>0);
+
+  // round end
+  if(missionDone()){ winRound(); }
+  else if(G.elapsed >= G.time){ endRound(false); }
+}
+
+// ============================================================ shooting
+function shootAt(px, py){
+  if(G.state!=='play') return;
+  if(G.reloading) return;
+  if(G.ammo<=0){ doReload(); return; }
+  G.ammo--; refreshShells();
+  G.muzzle = 0.09; G.recoil = 1; G.shake = 1; sShot();
+
+  // hit test: nearest duck within radius
+  let hit=null, hd=1e9;
+  for(const d of G.ducks){ if(d.state!=='fly') continue;
+    const dist = Math.hypot(d.x-px, d.y-py);
+    if(dist < d.r+14 && dist<hd){ hd=dist; hit=d; }
+  }
+  if(hit){
+    hit.state='fall'; hit.vyFall=-60; hit.scored=true;
+    G.combo++; G.bestCombo=Math.max(G.bestCombo,G.combo);
+    const sp = SPECIES[hit.type];
+    const mult = 1 + Math.floor(G.combo/3);
+    const pts = sp.score*mult;
+    G.score += pts;
+    G.mission[hit.type].got++;
+    spawnFeathers(hit.x, hit.y, sp);
+    G.floats.push({ x:hit.x, y:hit.y, txt:'+'+pts, life:0.9, col: mult>1?'#ffce3d':'#fff' });
+    sHit(); if(Math.random()<0.6) sQuack();
+    pulseCombo();
+    refreshMissionHUD(); syncHUD();
+  } else {
+    // miss
+    if(G.combo>0){ G.combo=0; syncHUD(); }
+  }
+  if(G.ammo<=0){ setTimeout(()=>{ if(G.ammo<=0 && !G.reloading) doReload(); }, 550); refreshShells(); }
+}
+function doReload(){ if(G.reloading||G.ammo>=G.ammoMax) return; G.reloading=true; G.reloadT=1.0; sReload(); refreshShells(); }
+function pulseCombo(){ const c=$('combo'); c.classList.add('pulse'); setTimeout(()=>c.classList.remove('pulse'),130); }
+
+function spawnFeathers(x,y,sp){
+  const cols=[sp.body, sp.belly, sp.head, sp.wing];
+  for(let i=0;i<14;i++){
+    const a=Math.random()*6.3, s=60+Math.random()*180;
+    G.feathers.push({ x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s-80,
+      rot:Math.random()*6.3, vr:(Math.random()-0.5)*10, life:0.6+Math.random()*0.6,
+      col:cols[i%cols.length], sz:3+Math.random()*4 });
+  }
+}
+function addSplash(x,y){ G.splashes.push({x,y,r:4,life:0.5}); }
+
+// ============================================================ powerups
+function useCall(){
+  if(G.state!=='play'||G.powers.call<=0) return;
+  G.powers.call--; syncHUD(); sQuack();
+  const n = 3+Math.floor(Math.random()*3);
+  for(let i=0;i<n;i++) setTimeout(()=>{ if(G.state==='play') spawnDuck(null,true); }, i*180);
+}
+function useDecoy(){
+  if(G.state!=='play'||G.powers.decoy<=0) return;
+  G.powers.decoy--; G.decoyT=5; syncHUD(); sQuack();
+}
+
+// ============================================================ rendering
+function render(){
+  ctx.save();
+  if(G.shake>0){ const s=G.shake*8; ctx.translate((Math.random()-0.5)*s,(Math.random()-0.5)*s); }
+  drawBackground();
+  // ducks behind foreground grass tips but above water
+  for(const d of G.ducks) drawDuck(ctx, d);
+  drawSplashes();
+  drawForeground();
+  drawDog();
+  drawTower();
+  drawShotgun();
+  drawFeathers();
+  drawFloats();
+  if(G.decoyT>0) drawDecoyTint();
+  ctx.restore();
+  drawCrosshair();
+}
+
+function drawBackground(){
+  // sky
+  const sky = ctx.createLinearGradient(0,0,0,GROUND_Y);
+  sky.addColorStop(0,'#7fd0f7'); sky.addColorStop(0.55,'#56b8ef'); sky.addColorStop(1,'#aee3f6');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,W,GROUND_Y);
+  // clouds (parallax drift)
+  const dx = (G.t*6)%(W+300);
+  drawCloud(120-dx*0.2+0, 150, 1.1); drawCloud(420-dx*0.15, 230, 0.8);
+  drawCloud(60-dx*0.1+300, 320, 0.9); drawCloud(360-dx*0.18+120, 110, 0.7);
+  // distant tree line
+  ctx.fillStyle='#7fb84e';
+  drawHill(GROUND_Y-30, 40, '#86c14f');
+  drawHill(GROUND_Y-10, 60, '#6fae44');
+}
+function drawCloud(x,y,s){
+  ctx.save(); ctx.translate(x,y); ctx.scale(s,s); ctx.fillStyle='rgba(255,255,255,.9)';
+  for(const [cx,cy,r] of [[0,0,34],[40,8,28],[-38,10,26],[10,-18,26],[-12,14,30],[34,18,24]]){
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawHill(y,h,col){
+  ctx.fillStyle=col; ctx.beginPath(); ctx.moveTo(0,y+h);
+  for(let x=0;x<=W;x+=40){ ctx.lineTo(x, y - Math.sin(x*0.01)*14 + (x%80?0:6)); }
+  ctx.lineTo(W,y+h); ctx.closePath(); ctx.fill();
+}
+
+function drawForeground(){
+  // grass band
+  const g=ctx.createLinearGradient(0,GROUND_Y-20,0,H);
+  g.addColorStop(0,'#67b83f'); g.addColorStop(0.4,'#4f9e2f'); g.addColorStop(1,'#3c7c22');
+  ctx.fillStyle=g; ctx.fillRect(0,GROUND_Y-10,W,H-GROUND_Y+10);
+  // lake
+  ctx.save();
+  ctx.beginPath(); ctx.ellipse(W/2,GROUND_Y+95,200,70,0,0,7); ctx.clip();
+  const lake=ctx.createLinearGradient(0,GROUND_Y+20,0,GROUND_Y+170);
+  lake.addColorStop(0,'#3aa9e0'); lake.addColorStop(1,'#1f6fae');
+  ctx.fillStyle=lake; ctx.fillRect(W/2-220,GROUND_Y+20,440,180);
+  // ripples
+  ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=2;
+  for(let i=0;i<4;i++){ const yy=GROUND_Y+60+i*22+Math.sin(G.t+i)*3;
+    ctx.beginPath(); ctx.moveTo(W/2-120,yy); ctx.quadraticCurveTo(W/2,yy+6,W/2+120,yy); ctx.stroke(); }
+  ctx.restore();
+  // lily pads
+  ctx.fillStyle='#2f8f3a';
+  for(const [px,py] of [[W/2-90,GROUND_Y+120],[W/2+70,GROUND_Y+100],[W/2+10,GROUND_Y+150]]){
+    ctx.beginPath(); ctx.arc(px,py,12,0.4,6.0); ctx.lineTo(px,py); ctx.fill();
+  }
+  // tree (left)
+  drawTree(70, GROUND_Y-2);
+  // cattails
+  drawCattail(150,GROUND_Y+40); drawCattail(168,GROUND_Y+52);
+  drawCattail(W-120,GROUND_Y+60); drawCattail(W-104,GROUND_Y+48);
+  // foreground grass blades
+  ctx.fillStyle='#3c7c22';
+  for(let x=-10;x<W;x+=26){ const hh=26+((x*7)%18);
+    ctx.beginPath(); ctx.moveTo(x,H); ctx.quadraticCurveTo(x+6,H-hh, x+2,H-hh-8); ctx.quadraticCurveTo(x+12,H-hh, x+18,H); ctx.fill(); }
+}
+function drawTree(x,y){
+  ctx.fillStyle='#6b4a2a'; ctx.fillRect(x-12,y-150,24,150);
+  ctx.fillStyle='#5a3e22'; ctx.fillRect(x+2,y-150,8,150);
+  ctx.fillStyle='#3f8f33';
+  for(const [cx,cy,r] of [[x,y-200,70],[x-55,y-170,52],[x+55,y-170,52],[x-25,y-235,48],[x+30,y-235,48]]){
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.fill();
+  }
+  ctx.fillStyle='#56b03f';
+  for(const [cx,cy,r] of [[x-30,y-210,30],[x+25,y-205,28],[x,y-245,26]]){ ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.fill(); }
+}
+function drawCattail(x,y){
+  ctx.strokeStyle='#4a7a2a'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x,y-70); ctx.stroke();
+  ctx.fillStyle='#7a4a1f'; ctx.beginPath(); ctx.roundRect(x-5,y-92,10,26,5); ctx.fill();
+  ctx.strokeStyle='#5a8f33'; ctx.beginPath(); ctx.moveTo(x,y-50); ctx.lineTo(x-12,y-86); ctx.stroke();
+}
+function drawTower(){
+  const x=W-78, y=GROUND_Y-6;
+  ctx.strokeStyle='#6b4a2a'; ctx.lineWidth=7;
+  ctx.beginPath(); ctx.moveTo(x-30,y); ctx.lineTo(x-16,y-90); ctx.moveTo(x+30,y); ctx.lineTo(x+16,y-90);
+  ctx.moveTo(x-26,y-30); ctx.lineTo(x+26,y-30); ctx.moveTo(x-22,y-60); ctx.lineTo(x+22,y-60); ctx.stroke();
+  ctx.fillStyle='#7a5430'; ctx.fillRect(x-34,y-126,68,40);
+  ctx.fillStyle='#5a3e22'; ctx.fillRect(x-34,y-100,68,8);
+  ctx.fillStyle='#3a2a18'; ctx.fillRect(x-22,y-120,18,20); ctx.fillRect(x+6,y-120,18,20);
+  ctx.fillStyle='#8a5e36'; ctx.beginPath(); ctx.moveTo(x-44,y-126); ctx.lineTo(x,y-160); ctx.lineTo(x+44,y-126); ctx.closePath(); ctx.fill();
+}
+
+// ---- dog --------------------------------------------------------------------
+function drawDog(){
+  const x=92, y=GROUND_Y+78, s=1.0;
+  const bob = Math.sin(G.t*2)*1.5;
+  ctx.save(); ctx.translate(x,y+bob); ctx.scale(s,s);
+  // tail
+  ctx.fillStyle='#caa06a'; ctx.save(); ctx.rotate(Math.sin(G.t*6)*0.25);
+  ctx.beginPath(); ctx.ellipse(36,-30,8,20,0.6,0,7); ctx.fill(); ctx.restore();
+  // body
+  ctx.fillStyle='#e7c79a'; ctx.beginPath(); ctx.ellipse(8,-8,34,30,0,0,7); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(0,4,22,22,0,0,7); ctx.fill(); // chest
+  // front legs
+  ctx.fillStyle='#fff'; ctx.fillRect(-12,12,12,26); ctx.fillRect(6,12,12,26);
+  ctx.fillStyle='#e7c79a'; ctx.fillRect(-12,12,12,8); ctx.fillRect(6,12,12,8);
+  // head
+  ctx.save(); ctx.translate(-26,-34);
+  ctx.fillStyle='#e7c79a'; ctx.beginPath(); ctx.ellipse(0,0,24,22,0,0,7); ctx.fill();
+  // ears
+  ctx.fillStyle='#8a5e34'; ctx.beginPath(); ctx.ellipse(-18,2,9,20,0.3,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(16,2,9,20,-0.3,0,7); ctx.fill();
+  // muzzle
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(-2,10,15,12,0,0,7); ctx.fill();
+  ctx.fillStyle='#2a2a2a'; ctx.beginPath(); ctx.ellipse(-2,6,5,4,0,0,7); ctx.fill(); // nose
+  // tongue
+  ctx.fillStyle='#ef6f7a'; ctx.beginPath(); ctx.ellipse(-2,18,5,8,0,0,7); ctx.fill();
+  // eyes
+  ctx.fillStyle='#2a2a2a'; ctx.beginPath(); ctx.arc(-10,-4,3.2,0,7); ctx.arc(8,-4,3.2,0,7); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(-9,-5,1.1,0,7); ctx.arc(9,-5,1.1,0,7); ctx.fill();
+  // collar tag
+  ctx.restore();
+  ctx.fillStyle='#2f8f3a'; ctx.fillRect(-22,-16,18,7);
+  ctx.fillStyle='#ffce3d'; ctx.beginPath(); ctx.arc(-13,-7,4,0,7); ctx.fill();
+  ctx.restore();
+}
+
+// ---- shotgun ----------------------------------------------------------------
+function drawShotgun(){
+  const recoil = G.recoil*26;
+  const cx = W/2;
+  ctx.save(); ctx.translate(cx, H+recoil);
+  // wooden stock
+  ctx.fillStyle='#7a4a22'; ctx.beginPath();
+  ctx.moveTo(-70,40); ctx.lineTo(70,40); ctx.lineTo(40,-130); ctx.lineTo(-40,-130); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#8f5a2c'; ctx.beginPath();
+  ctx.moveTo(-46,10); ctx.lineTo(46,10); ctx.lineTo(34,-130); ctx.lineTo(-34,-130); ctx.closePath(); ctx.fill();
+  // double barrel
+  const barrelTop = -360;
+  const bg=ctx.createLinearGradient(-40,0,40,0);
+  bg.addColorStop(0,'#2a2f36'); bg.addColorStop(0.5,'#6a737d'); bg.addColorStop(1,'#23272d');
+  ctx.fillStyle=bg; ctx.beginPath(); ctx.roundRect(-40, barrelTop, 80, 240, 14); ctx.fill();
+  ctx.fillStyle='#1a1d22'; ctx.fillRect(-3, barrelTop, 6, 240); // seam
+  // muzzle ring
+  ctx.fillStyle='#3a3f46'; ctx.beginPath(); ctx.roundRect(-44, barrelTop-8, 88, 16, 6); ctx.fill();
+  // front bead sight
+  ctx.fillStyle='#e0443a'; ctx.beginPath(); ctx.arc(0, barrelTop-6, 6, 0,7); ctx.fill();
+  // muzzle flash
+  if(G.muzzle>0){
+    const a=G.muzzle/0.09;
+    ctx.fillStyle=`rgba(255,210,80,${a})`;
+    ctx.beginPath(); for(let i=0;i<10;i++){ const ang=i/10*6.28; const r=i%2?14:42*a+18;
+      ctx.lineTo(Math.cos(ang)*r, barrelTop-6+Math.sin(ang)*r); } ctx.closePath(); ctx.fill();
+    ctx.fillStyle=`rgba(255,255,255,${a})`; ctx.beginPath(); ctx.arc(0,barrelTop-6,16*a,0,7); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ---- generic duck -----------------------------------------------------------
+function drawDuck(ctx, d){
+  const sp=SPECIES[d.type];
+  ctx.save();
+  ctx.translate(d.x, d.y);
+  if(d.state==='fall'){ ctx.rotate(d.rot); ctx.globalAlpha=Math.max(0,Math.min(1,1)); }
+  ctx.scale(d.dir, 1);                      // face direction of travel
+  const k = d.r/30;                          // size factor
+  ctx.scale(k,k);
+  const flapping = d.state==='fly';
+  const wing = flapping ? Math.sin(d.flap) : -0.6;   // -1..1
+  duckShape(ctx, sp, wing, d.state==='fall');
+  ctx.restore();
+}
+function duckShape(ctx, sp, wing, dead){
+  // tail
+  ctx.fillStyle=sp.wing; ctx.beginPath();
+  ctx.moveTo(-28,-2); ctx.lineTo(-44,-12); ctx.lineTo(-30,4); ctx.closePath(); ctx.fill();
+  // body
+  ctx.fillStyle=sp.body; ctx.beginPath(); ctx.ellipse(-4,0,28,20,0,0,7); ctx.fill();
+  // belly highlight
+  ctx.fillStyle=sp.belly; ctx.beginPath(); ctx.ellipse(-2,8,22,11,0,0,7); ctx.fill();
+  // chest band
+  ctx.fillStyle=sp.chest; ctx.beginPath(); ctx.ellipse(16,2,12,14,0,0,7); ctx.fill();
+  // far wing (behind body)
+  ctx.save(); ctx.fillStyle=sp.wing; ctx.globalAlpha=0.7;
+  ctx.translate(-6,-2); ctx.rotate(-wing*0.5 - 0.2);
+  ctx.beginPath(); ctx.ellipse(-6,-18,12,30,0,0,7); ctx.fill(); ctx.restore();
+  // near wing (flaps)
+  ctx.save(); ctx.translate(-2,-4); ctx.rotate(-wing*0.7 - 0.1);
+  const wg=ctx.createLinearGradient(0,-40,0,6); wg.addColorStop(0,sp.wing); wg.addColorStop(1,sp.body);
+  ctx.fillStyle=wg; ctx.beginPath(); ctx.ellipse(-2,-22,15,36,0,0,7); ctx.fill();
+  ctx.fillStyle=sp.belly; ctx.beginPath(); ctx.ellipse(-2,-40,7,12,0,0,7); ctx.fill(); // wing tip
+  ctx.restore();
+  // neck + head
+  ctx.fillStyle=sp.head; ctx.beginPath(); ctx.ellipse(24,-4,9,11,0,0,7); ctx.fill(); // neck
+  ctx.beginPath(); ctx.ellipse(32,-14,13,12,0,0,7); ctx.fill();                       // head
+  ctx.fillStyle=sp.headHi; ctx.beginPath(); ctx.ellipse(29,-18,8,6,0,0,7); ctx.fill();// head highlight
+  // collar ring for mallard/special
+  if(sp.head!==sp.chest){ ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=2.4;
+    ctx.beginPath(); ctx.arc(26,-6,9,-0.6,1.9); ctx.stroke(); }
+  // beak
+  ctx.fillStyle=sp.beak; ctx.beginPath();
+  ctx.moveTo(42,-14); ctx.lineTo(58,-12); ctx.lineTo(58,-7); ctx.lineTo(42,-9); ctx.closePath(); ctx.fill();
+  // eye
+  if(dead){ ctx.strokeStyle='#222'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(33,-19); ctx.lineTo(39,-13); ctx.moveTo(39,-19); ctx.lineTo(33,-13); ctx.stroke(); }
+  else { ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(36,-16,3.4,0,7); ctx.fill();
+         ctx.fillStyle='#1a1a1a'; ctx.beginPath(); ctx.arc(37,-16,1.8,0,7); ctx.fill(); }
+}
+// small icon for HUD mission cells
+function drawDuckIcon(c, type){
+  c.clearRect(0,0,76,60); c.save(); c.translate(38,34); c.scale(1.05,1.05);
+  duckShape(c, SPECIES[type], -0.5, false); c.restore();
+}
+
+function drawSplashes(){
+  for(const s of G.splashes){ ctx.strokeStyle=`rgba(255,255,255,${s.life*1.5})`; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.ellipse(s.x,s.y,s.r,s.r*0.4,0,0,7); ctx.stroke(); }
+}
+function drawFeathers(){
+  for(const f of G.feathers){ ctx.save(); ctx.translate(f.x,f.y); ctx.rotate(f.rot);
+    ctx.globalAlpha=Math.min(1,f.life*1.6); ctx.fillStyle=f.col;
+    ctx.beginPath(); ctx.ellipse(0,0,f.sz,f.sz*0.45,0,0,7); ctx.fill(); ctx.restore(); }
+  ctx.globalAlpha=1;
+}
+function drawFloats(){
+  for(const t of G.floats){ ctx.save(); ctx.globalAlpha=Math.min(1,t.life*1.4);
+    ctx.font='bold 26px Segoe UI'; ctx.textAlign='center'; ctx.lineWidth=4; ctx.strokeStyle='#000';
+    ctx.strokeText(t.txt,t.x,t.y); ctx.fillStyle=t.col; ctx.fillText(t.txt,t.x,t.y); ctx.restore(); }
+  ctx.globalAlpha=1;
+}
+function drawDecoyTint(){
+  ctx.fillStyle=`rgba(80,160,255,${0.12*Math.min(1,G.decoyT)})`; ctx.fillRect(0,0,W,GROUND_Y);
+}
+function drawCrosshair(){
+  const {x,y}=G.aim;
+  ctx.save(); ctx.translate(x,y); ctx.strokeStyle='#fff'; ctx.lineWidth=4; ctx.lineCap='round';
+  ctx.shadowColor='rgba(0,0,0,.5)'; ctx.shadowBlur=4;
+  ctx.beginPath(); ctx.arc(0,0,26,0,7); ctx.stroke();
+  for(const a of [0,1.57,3.14,4.71]){ ctx.beginPath();
+    ctx.moveTo(Math.cos(a)*16,Math.sin(a)*16); ctx.lineTo(Math.cos(a)*34,Math.sin(a)*34); ctx.stroke(); }
+  ctx.beginPath(); ctx.arc(0,0,2.5,0,7); ctx.fillStyle='#fff'; ctx.fill();
+  ctx.restore();
+}
+
+// ============================================================ overlays
+function showOverlay(html){ $('card').innerHTML=html; $('overlay').classList.remove('hidden'); }
+function hideOverlay(){ $('overlay').classList.add('hidden'); }
+
+function startScreen(){
+  G ? null : newGame();
+  G.state='paused';
+  showOverlay(`
+    <h1>DUCKHUNT<small>RUSH · 프로토타입</small></h1>
+    <p>날아가는 오리를 조준해 탭/클릭으로 사격하세요.<br>
+    미션을 모두 완료하면 라운드 클리어!<br>
+    탄약이 떨어지면 탭하여 재장전합니다.</p>
+    <button class="btnP" id="startBtn">게임 시작</button>`);
+  $('startBtn').onclick=()=>{ ac(); newGame(); G.state='play'; hideOverlay(); };
+}
+function pauseGame(){
+  if(G.state!=='play') return; G.state='paused';
+  showOverlay(`<h1>일시정지</h1><p>최고 콤보 x${G.bestCombo} · 점수 ${G.score}</p>
+    <button class="btnP" id="resumeBtn">계속하기</button>`);
+  $('resumeBtn').onclick=()=>{ G.state='play'; hideOverlay(); };
+}
+function winRound(){
+  if(G.state!=='play') return; G.state='clear'; sClear();
+  const bonus = Math.max(0, Math.ceil(G.time-G.elapsed))*10 + G.bestCombo*20;
+  G.score += bonus; syncHUD();
+  const st = starCount(G.score);
+  showOverlay(`<h1>라운드 ${G.round} 클리어!<small>ROUND CLEAR</small></h1>
+    <div class="ovstars">${[0,1,2].map(i=>`<span class="${i<st?'on':''}">★</span>`).join('')}</div>
+    <p>시간/콤보 보너스 <b>+${bonus}</b><br>누적 점수 <b>${G.score}</b></p>
+    <button class="btnP" id="nextBtn">다음 라운드 ▶</button>`);
+  $('nextBtn').onclick=()=>{ newGame(G.round+1, G.score); G.state='play'; hideOverlay(); };
+}
+function endRound(){
+  G.state='over';
+  const st=starCount(G.score);
+  showOverlay(`<h1>시간 종료<small>TIME UP</small></h1>
+    <div class="ovstars">${[0,1,2].map(i=>`<span class="${i<st?'on':''}">★</span>`).join('')}</div>
+    <p>라운드 ${G.round} · 점수 <span class="big">${G.score}</span><br>최고 콤보 x${G.bestCombo}</p>
+    <button class="btnP" id="retryBtn">다시 시작</button>`);
+  $('retryBtn').onclick=()=>{ newGame(); G.state='play'; hideOverlay(); };
+}
+
+// ============================================================ input
+function canvasPos(e){
+  const r=cv.getBoundingClientRect();
+  const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  const cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+  return { x: cx/r.width*W, y: cy/r.height*H };
+}
+function isHudHit(e){ // ignore taps that started on HUD buttons
+  const t=e.target; return t && (t.closest('#powers')||t.closest('#pause')||t.closest('#overlay')||t.closest('#soundToggle'));
+}
+cv.addEventListener('pointermove', e=>{ const p=canvasPos(e); G.aim.x=p.x; G.aim.y=p.y; });
+const gameEl=$('game');
+gameEl.addEventListener('pointerdown', e=>{
+  if(isHudHit(e)) return;
+  const p=canvasPos(e); G.aim.x=p.x; G.aim.y=p.y; shootAt(p.x,p.y);
+});
+$('pause').addEventListener('click', e=>{ e.stopPropagation(); G.state==='play'?pauseGame():null; });
+$('pCall').addEventListener('click', e=>{ e.stopPropagation(); useCall(); });
+$('pDecoy').addEventListener('click', e=>{ e.stopPropagation(); useDecoy(); });
+$('soundToggle').addEventListener('click', e=>{ e.stopPropagation(); soundOn=!soundOn;
+  $('soundToggle').textContent = soundOn?'🔊 SOUND':'🔇 MUTE'; });
+window.addEventListener('keydown', e=>{
+  if(e.code==='KeyP') G.state==='play'?pauseGame():(G.state==='paused'&&!$('overlay').classList.contains('hidden')?null:null);
+  if(e.code==='KeyR') doReload();
+  if(e.code==='Digit1') useCall();
+  if(e.code==='Digit2') useDecoy();
+});
+// prevent context menu / scrolling
+gameEl.addEventListener('contextmenu', e=>e.preventDefault());
+document.addEventListener('touchmove', e=>e.preventDefault(), {passive:false});
+
+// ============================================================ main loop
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  update(dt); render();
+  requestAnimationFrame(loop);
+}
+newGame();
+startScreen();
+requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>

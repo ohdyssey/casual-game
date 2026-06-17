@@ -3,7 +3,7 @@
  *   에디터가 이 폴더를 열 때 자동 생성했습니다. 게임 src 는 건드리지 않은 자체 완결형 파일입니다.
  *   필요하면 자유롭게 수정하세요(문서 추가, 커스텀 노드 등록, 키 의미화 등).
  */
-import { makeAssetCatalog } from '@ohdyssey/phaser-ui-editor';
+import { makeAssetCatalog } from './src/vendor/phaser-ui-editor/index.js';
 
 // 'public/' 에서 스캔한 이미지 (키 = 파일명 기반). 게임 런타임 키와 다를 수 있음.
 const ASSETS = {

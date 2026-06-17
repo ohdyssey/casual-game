@@ -49,17 +49,30 @@ const GAMES = [
   { id: 'eco01',      title: 'Ocean Puzzle', tagline: '수중 매치-3 퍼즐',             genre: 'puzzle',   art: 'art/ocean_game.png',   logo: 'art/ocean_logo.png', accent: '#2D9CDB', live: true,  devPort: 6190, prodUrl: '../eco01/' },
   { id: 'bubblepong', title: '버블퐁',       tagline: '같은 색 버블을 맞춰 터트리기', genre: 'puzzle',   art: 'art/BubblePong_Game.png', logo: 'art/BubblePong_logo_t.png', accent: '#4BBFE6', live: true,  devPort: 6191, prodUrl: '../bubblepong/' },
   { id: 'fishing',    title: 'Fish & Go',    tagline: '세로 낚시 — 타이밍 맞춰 낚아채기', genre: 'puzzle', art: 'art/fishing_game.png', logo: 'art/fishing_logo.png', logoScale: 0.8, accent: '#1E88C7', live: true,  devPort: 5175, prodUrl: '../fishing/' },
+  { id: 'archerystars',title: '아처리스타즈', tagline: '바람을 읽고 과녁 정중앙을 노려라', genre: 'shooting', art: 'art/ArcheryStars_Game.png',logo: 'art/ArcheryStars_logo_t.png',accent: '#2F6FE0', live: true,  devPort: 6199, prodUrl: '../archery/' },
   { id: 'homerunpop', title: '홈런팝',       tagline: '타이밍 터치 야구 — 홈런 타격 액션', genre: 'sports', art: 'art/HomerunPOP_Game.png', logo: 'art/HomerunPOP_logo_t.png', accent: '#E23B3B', live: true,  devPort: 6197, prodUrl: '../homerun/' },
   { id: 'dragonbeat', title: '드래곤비트',   tagline: '용선 리듬 레이스',              genre: 'rhythm',   art: 'art/DragonBeat_Game.png', logo: 'art/DragonBeat_logo_t.png', accent: '#18A0C9', live: true,  devPort: 6198, prodUrl: '../dragonbeat/' },
+  { id: 'zombiearrow', title: '좀비애로우러시', tagline: '활시위를 당겨 몰려오는 좀비 웨이브를 막아라', genre: 'shooting', art: 'art/ZombieArrow_Game.png', logo: 'art/ZombieArrow_logo_t.png', accent: '#74C13A', live: true,  devPort: 6200, prodUrl: '../zombiearrow/' },
+  { id: 'duckhuntrush',title: '덕헌트러시',   tagline: '날아오르는 오리를 정조준 사격',     genre: 'shooting', art: 'art/DuckhuntRush_Game.png', logo: 'art/DuckhuntRush_logo_t.png', accent: '#5BB031', live: true,  devPort: 6201, prodUrl: '../duckhuntrush/' },
+  { id: 'parcelpoprush',title: '배송대작전',  tagline: '주문한 상품을 모아 트럭에 싣고 출발', genre: 'puzzle',   art: 'art/ParcelPopRush_Game.png', logo: 'art/ParcelPopRush_logo_t.png', accent: '#F2B705', live: true,  devPort: 6202, prodUrl: '../logistics/' },
+  // SoccerFlick·PathRush: 신규 라이브(빌드 완료). 서비스 순서(devPort)대로 live 말미 배치. 로고는 scripts/logo-keyout.py 로 키아웃(녹색/흰색 배경 자동).
+  { id: 'soccerflick',title: '사커플릭',     tagline: '디스크를 튕겨 골 넣는 플릭 축구 배틀', genre: 'sports',  art: 'art/SoccerFlick_Game.png',logo: 'art/SoccerFlick_logo_t.png', accent: '#2F80ED', live: true,  devPort: 6203, prodUrl: '../soccerflick/' },
+  { id: 'pathrush',   title: '패스러시',     tagline: '모든 타일을 채우며 한 붓으로 길 잇기',   genre: 'puzzle',   art: 'art/PathRush_Game.png',  logo: 'art/PathRush_logo_t.png', accent: '#F2719C', live: true,  devPort: 6204, prodUrl: '../pathrush/' },
+  // PawlinkRoom: 로고 제공됨(이미 투명 PNG → 크로마 불필요, 그대로 _logo_t.png 로 사용). devPort 6205 = live 말미.
+  { id: 'pawlinkroom',title: '포링크룸',     tagline: '같은 펫 아이템을 이어 짝 맞추는 라인 퍼즐', genre: 'puzzle', art: 'art/PawlinkRoom_Game.png', logo: 'art/PawlinkRoom_logo_t.png', accent: '#F2A33C', live: true,  devPort: 6205, prodUrl: '../pawlink/' },
 
   // ───────── 준비중 — 퍼즐·캐주얼 ─────────
   { id: 'omakase',    title: '오마카세매치', tagline: '초밥 매치 퍼즐',               genre: 'puzzle',   art: 'art/omakase_game.png',    logo: 'art/omakase_logo_t.png',    accent: '#F2994A', live: false },
   { id: 'aquaslot',   title: '아쿠아슬롯',   tagline: '수중 테마 슬롯',               genre: 'puzzle',   art: 'art/AquaSlot_Game.png',   logo: 'art/AquaSlot_logo_t.png',   accent: '#7C5CFF', live: false },
   { id: 'colorsplash',title: '컬러스플래시', tagline: '색을 채우는 캐주얼 퍼즐',       genre: 'puzzle',   art: 'art/ColorSplash_Game.png',logo: 'art/ColorSplash_logo_t.png',accent: '#FF7AB6', live: false },
+  // 한식 요리 시리즈(KimbabRoll·Samgyeop·Tteokbokki): 로고 미제공 → logo 필드 생략(제목 텍스트만). 추후 로고 제공 시 _logo_t.png 추가하고 logo 필드 채우면 됨.
+  { id: 'kimbabroll', title: '김밥롤 마스터', tagline: '재료를 올려 김밥을 말아 완성',     genre: 'puzzle',   art: 'art/KimbabRoll_Game.png', accent: '#3E9B6B', live: false },
+  { id: 'samgyeop',   title: '삼겹살 마스터', tagline: '지글지글 노릇하게 타이밍 맞춰 굽기', genre: 'puzzle',   art: 'art/Samgyeop_Game.png',  accent: '#C0612E', live: false },
+  { id: 'tteokbokki', title: '떡볶이 마스터', tagline: '매콤 양념에 쫄깃한 떡을 볶아 완성',   genre: 'puzzle',   art: 'art/Tteokbokki_Game.png',accent: '#E2452F', live: false },
+  // PickmeUp: 로고 이미 투명 PNG → 키아웃 불필요, 그대로 _logo_t.png 로 사용. 아트는 타이틀 미포함 깨끗한 화면이라 크롭 불필요.
+  { id: 'pickmeup',   title: '픽미업',       tagline: '승객을 색 맞춰 버스에 태우는 정렬 퍼즐', genre: 'puzzle',   art: 'art/PickmeUp_Game.png',  logo: 'art/PickmeUp_logo_t.png', accent: '#E5703A', live: false },
 
   // ───────── 준비중 — 슈팅·조준 ─────────
-  { id: 'archerystars',title: '아처리스타즈', tagline: '바람을 읽고 과녁 정중앙을 노려라', genre: 'shooting', art: 'art/ArcheryStars_Game.png',logo: 'art/ArcheryStars_logo_t.png',accent: '#2F6FE0', live: false },
-  { id: 'duckhuntrush',title: '덕헌트러시',   tagline: '날아오르는 오리를 정조준 사격',   genre: 'shooting', art: 'art/DuckhuntRush_Game.png',logo: 'art/DuckhuntRush_logo_t.png',accent: '#5BB031', live: false },
   // ShootingArena: 로고 미제공 → logo 필드 생략(제목 텍스트만). 추후 로고 제공 시 _logo_t.png 추가하고 logo 필드 채우면 됨.
   { id: 'shootingarena',title: '슈팅아레나',  tagline: '조준·줌·부스트로 표적 명중',     genre: 'shooting', art: 'art/ShootingArena_Game.png',accent: '#3FA9C4', live: false },
 
@@ -75,7 +88,12 @@ const GAMES = [
 /** live 게임의 현재 환경 진입 URL. */
 export function gameUrl(game) {
   if (!game.live) return null;
-  return DEV ? `http://localhost:${game.devPort}/` : game.prodUrl;
+  if (!DEV) return game.prodUrl;
+  // dev: 게임 포트는 허브를 '연 호스트'를 그대로 따라간다.
+  //   데스크탑 → localhost, 같은 네트워크 모바일/타기기 → 허브 IP(예: 192.168.x.x).
+  //   localhost 하드코딩이면 모바일의 localhost = 폰 자신을 가리켜 게임이 안 열린다.
+  const host = (typeof window !== 'undefined' && window.location?.hostname) || 'localhost';
+  return `http://${host}:${game.devPort}/`;
 }
 
 export { GAMES, DEV, GENRE_LABELS, GENRE_ORDER };

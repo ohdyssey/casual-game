@@ -2,19 +2,28 @@
  * 에디터 레이아웃 로더 — phaser-ui-editor 가 저장한 ui/layouts/main.json 을 런타임에
  * 그대로 해석해 Phaser 객체로 생성한다. 에디터 디자인이 단일 진실 공급원(SSOT).
  *
- * 노드 좌표/크기는 전부 중심 기준(center-anchored). 지원 타입: image / rect / text.
+ * 노드 좌표/크기는 전부 중심 기준(center-anchored). 지원 타입: image / rect / text
+ *   + (벤더 런타임) spriteDocClip(스프라이트 애니: 노젓기·춤추는 캐릭터) · polygon/원/사각 + fillClip/fillImage.
  */
 import Phaser from 'phaser';
+// 벤더된 에디터 런타임 — 스프라이트 클립(노젓기/춤) · 도형 채움 렌더. JS(무타입) → @ts-ignore.
+// @ts-ignore
+import { loadSpriteClip, clipNativeSize } from '../vendor/phaser-ui-editor/anim/clip/spriteClipRuntime.js';
+// @ts-ignore
+import { clipToShape } from '../vendor/phaser-ui-editor/render/shapeMask.js';
+// @ts-ignore
+import { pointsBounds } from '../vendor/phaser-ui-editor/schema/shapeGeometry.js';
 
 export interface LayoutNode {
   readonly id: string;
-  readonly type: 'image' | 'rect' | 'text';
+  readonly type: 'image' | 'rect' | 'text' | 'spriteDocClip' | 'polygon' | 'circle';
   readonly name?: string;
   readonly key?: string;
   readonly x: number;
   readonly y: number;
   readonly w?: number;
   readonly h?: number;
+  readonly r?: number;
   readonly depth?: number;
   readonly visible?: boolean;
   readonly alpha?: number;
@@ -32,6 +41,18 @@ export interface LayoutNode {
   readonly stroke?: string;
   readonly strokeW?: number;
   readonly binding?: string;
+  // polygon / 도형 채움
+  readonly points?: ReadonlyArray<{ x: number; y: number }>;
+  readonly fillImage?: string;
+  readonly fillClip?: string;
+  // spriteDocClip(스프라이트 애니)
+  readonly spriteDocFile?: string;
+  readonly spriteDocId?: string;
+  readonly clipId?: string;
+  readonly autoPlay?: boolean;
+  readonly anchor?: { x: number; y: number };
+  /** 캐릭터 식별자 — 레지스트리(_index.json)에서 같은 캐릭터의 다른 동작 조회용. */
+  readonly characterId?: string;
 }
 
 export interface LayoutDoc {
@@ -39,7 +60,11 @@ export interface LayoutDoc {
   readonly nodes: ReadonlyArray<LayoutNode>;
 }
 
-export type LayoutObject = Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle | Phaser.GameObjects.Text;
+export type LayoutObject =
+  | Phaser.GameObjects.Image
+  | Phaser.GameObjects.Rectangle
+  | Phaser.GameObjects.Text
+  | Phaser.GameObjects.Container;
 
 export interface LayoutEntry {
   readonly node: LayoutNode;
@@ -99,10 +124,128 @@ function makeText(scene: Phaser.Scene, n: LayoutNode): Phaser.GameObjects.Text {
   return t;
 }
 
+type BBox = { w: number; h: number; cx: number; cy: number };
+
+function shapeBBox(n: LayoutNode): BBox {
+  if (n.type === 'polygon' && n.points && n.points.length) {
+    const b = pointsBounds(n.points as Array<{ x: number; y: number }>);
+    return { w: Math.max(2, b.w), h: Math.max(2, b.h), cx: b.cx, cy: b.cy };
+  }
+  if (n.type === 'circle') {
+    const d = (n.r ?? 50) * 2;
+    return { w: d, h: d, cx: 0, cy: 0 };
+  }
+  return { w: n.w ?? 10, h: n.h ?? 10, cx: 0, cy: 0 };
+}
+
+/** 도형 배경(채움색) — 채움 애니/이미지의 투명부 뒤에 비치는 판. 로컬좌표(컨테이너 기준). */
+function drawShapeBg(scene: Phaser.Scene, n: LayoutNode, bb: BBox): Phaser.GameObjects.Graphics {
+  const g = scene.add.graphics();
+  g.fillStyle(Phaser.Display.Color.HexStringToColor(n.fill ?? '#000000').color, n.fillAlpha ?? 1);
+  if (n.type === 'polygon' && n.points && n.points.length >= 3) {
+    g.beginPath();
+    g.moveTo(n.points[0].x, n.points[0].y);
+    for (let i = 1; i < n.points.length; i++) g.lineTo(n.points[i].x, n.points[i].y);
+    g.closePath();
+    g.fillPath();
+  } else if (n.type === 'circle') {
+    g.fillCircle(0, 0, n.r ?? 50);
+  } else {
+    g.fillRoundedRect(-bb.w / 2, -bb.h / 2, bb.w, bb.h, n.radius ?? 0);
+  }
+  return g;
+}
+
+/**
+ * 스프라이트 애니 · 도형 채움 노드 — 벤더 런타임으로 렌더. 컨테이너 1개 반환.
+ *   실패하면 null → 해당 노드만 스킵(기존 HUD 보존). 스프라이트 문서의 텍스처는 런타임이 on-demand 로드.
+ */
+function buildAdvancedNode(scene: Phaser.Scene, n: LayoutNode): Phaser.GameObjects.Container | null {
+  try {
+    if (n.type === 'spriteDocClip' && (n.spriteDocFile || n.spriteDocId)) {
+      const c = scene.add.container(n.x, n.y);
+      // 앵커: 노드에 명시되면 그걸, 없으면 undefined 로 넘겨 스프라이트 문서의 meta.anchor
+      // (예: 춤추는 캐릭터 발밑 {0.53,0.93})를 그대로 쓴다. {0.5,0.5} 강제하면 발이 아닌 몸통이
+      // 노드 좌표에 와 캐릭터가 밀린다.
+      loadSpriteClip(scene, n.spriteDocFile || n.spriteDocId, {
+        container: c,
+        clipId: n.clipId || '',
+        autoPlay: n.autoPlay !== false,
+        anchor: n.anchor,
+      })
+        .then((h: { doc?: unknown } | null) => {
+          if (h && n.w && n.h) {
+            const ns = clipNativeSize(h.doc || {});
+            if (ns.w > 0 && ns.h > 0) c.setScale((n.w as number) / ns.w, (n.h as number) / ns.h);
+          }
+        })
+        .catch(() => {
+          /* 클립 로드 실패 — 빈 컨테이너 */
+        });
+      return c;
+    }
+    if ((n.type === 'polygon' || n.type === 'rect' || n.type === 'circle') && (n.fillClip || n.fillImage)) {
+      const bb = shapeBBox(n);
+      const c = scene.add.container(n.x, n.y);
+      if (n.fill) c.add(drawShapeBg(scene, n, bb));
+      let content: Phaser.GameObjects.GameObject | null = null;
+      if (n.fillClip) {
+        const sub = scene.add.container(bb.cx, bb.cy);
+        loadSpriteClip(scene, n.fillClip, { container: sub, autoPlay: true, anchor: { x: 0.5, y: 0.5 } })
+          .then((h: { doc?: unknown } | null) => {
+            if (h) {
+              const ns = clipNativeSize(h.doc || {});
+              if (ns.w > 0 && ns.h > 0 && bb.w > 0 && bb.h > 0) sub.setScale(Math.max(bb.w / ns.w, bb.h / ns.h));
+            }
+          })
+          .catch(() => {
+            /* */
+          });
+        content = sub;
+      } else if (n.fillImage && scene.textures.exists(n.fillImage)) {
+        const img = scene.add.image(bb.cx, bb.cy, n.fillImage);
+        const si = scene.textures.get(n.fillImage).getSourceImage() as { width: number; height: number };
+        const sc = Math.max(bb.w / (si.width || 1), bb.h / (si.height || 1));
+        img.setDisplaySize((si.width || 1) * sc, (si.height || 1) * sc);
+        content = img;
+      }
+      if (content) {
+        c.add(content);
+        clipToShape(scene, content, {
+          type: n.type,
+          cx: n.x,
+          cy: n.y,
+          w: bb.w,
+          h: bb.h,
+          radius: n.radius,
+          points: n.points as Array<{ x: number; y: number }>,
+          angle: n.angle,
+        });
+      }
+      return c;
+    }
+  } catch (e) {
+    if (import.meta.env?.DEV) console.warn(`[layout] advanced node 실패 ${n.id}:`, e);
+  }
+  return null;
+}
+
 /** main.json 문서를 씬에 생성. 텍스처 누락 노드는 건너뛴다(DEV 에서만 경고). */
 export function buildLayout(scene: Phaser.Scene, doc: LayoutDoc): LayoutIndex {
   const index = new LayoutIndex(doc);
   for (const n of doc.nodes) {
+    // 스프라이트 애니 · 도형 채움 — 벤더 런타임(컨테이너). 실패 시 스킵(기존 HUD 보존).
+    if (n.type === 'spriteDocClip' || ((n.type === 'polygon' || n.type === 'rect' || n.type === 'circle') && (n.fillClip || n.fillImage))) {
+      const adv = buildAdvancedNode(scene, n);
+      if (adv) {
+        adv.setDepth(n.depth ?? 0);
+        if (n.angle) adv.setAngle(n.angle);
+        if (n.alpha !== undefined) adv.setAlpha(n.alpha);
+        if (n.visible === false) adv.setVisible(false);
+        index.add({ node: n, obj: adv });
+      }
+      continue;
+    }
     let obj: LayoutObject | null = null;
     if (n.type === 'image' && n.key) {
       if (scene.textures.exists(n.key)) {

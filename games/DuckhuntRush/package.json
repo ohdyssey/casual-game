@@ -1,0 +1,20 @@
+{
+  "name": "@casual/game-duckhuntrush",
+  "version": "0.1.0",
+  "private": true,
+  "description": "덕헌트러시 — 날아오르는 오리를 정조준 사격하는 1인칭 덕헌트 (조준·콤보·미션).",
+  "type": "module",
+  "scripts": {
+    "dev": "npx vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4201"
+  },
+  "dependencies": {
+    "@casual/core": "*",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.10",
+    "vite-plugin-pwa": "0.21.1"
+  }
+}

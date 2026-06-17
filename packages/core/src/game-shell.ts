@@ -16,12 +16,23 @@ export interface GameModule {
   scenes: Phaser.Types.Scenes.SceneType[];
   /** 캔버스 배경 (letterbox 톤). 기본 편의점 바닥 핑크. */
   backgroundColor?: string;
+  /**
+   * 고정 디자인 높이(px). 설정하면 화면비별 동적 산출 대신 이 값으로 고정 →
+   * 720×N 디자인(예: UI 에디터 720×1280)을 화면비와 무관하게 1:1 재현(FIT 레터박스).
+   * 미설정 시 기존처럼 화면비에 맞춰 동적 산출(letterbox 제거).
+   */
+  designHeight?: number;
   /** 게임별 brand 색 override. */
   theme?: { brand?: string };
   // ── P2 에서 코어가 소비할 메타(P1 엔 게임-로컬 구현) ──
   hud?: Partial<Record<'coins' | 'gems' | 'timer' | 'combo' | 'lives', boolean>>;
   liveops?: { shop?: boolean; spin?: boolean; daily?: boolean };
   powerups?: string[];
+  /**
+   * Phaser 물리 설정 override. 미설정 시 기본 arcade(무중력).
+   * 사커플릭 등 강체 충돌이 필요한 게임은 Matter 를 지정한다(Phaser 3 내장).
+   */
+  physics?: Phaser.Types.Core.PhysicsConfig;
 }
 
 /** 화면 비율에 맞춰 design height 동적 산출 — FIT 모드 letterbox 제거(피싱 계승). */
@@ -53,7 +64,8 @@ async function preloadFonts(): Promise<void> {
 export async function createCasualGame(mod: GameModule): Promise<Phaser.Game> {
   await preloadFonts();
 
-  const designHeight = computeDesignHeight();
+  // 게임이 고정 높이를 지정하면 그대로(에디터 디자인 1:1 재현), 아니면 화면비 동적 산출.
+  const designHeight = mod.designHeight ?? computeDesignHeight();
   const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
     parent: 'game-container',
@@ -68,7 +80,7 @@ export async function createCasualGame(mod: GameModule): Promise<Phaser.Game> {
       width: GAME_WIDTH,
       height: designHeight,
     },
-    physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },
+    physics: mod.physics ?? { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },
     scene: mod.scenes,
   };
 

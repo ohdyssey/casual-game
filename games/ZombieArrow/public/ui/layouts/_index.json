@@ -1,0 +1,43 @@
+{
+  "screens": [
+    {
+      "id": "story_cutscene",
+      "name": "배경스토리(컷신)",
+      "file": "ui/layouts/story_cutscene.json",
+      "category": "narrative",
+      "roles": [
+        "next",
+        "skip",
+        "auto",
+        "log"
+      ],
+      "template": "story_cutscene"
+    },
+    {
+      "id": "story_chapter",
+      "name": "챕터 표지",
+      "file": "ui/layouts/story_chapter.json",
+      "category": "narrative",
+      "roles": [
+        "next",
+        "skip"
+      ],
+      "template": "story_chapter"
+    },
+    {
+      "id": "story_dialogue",
+      "name": "대화 장면",
+      "file": "ui/layouts/story_dialogue.json",
+      "category": "narrative",
+      "roles": [
+        "choice_0",
+        "choice_1",
+        "next",
+        "skip",
+        "auto",
+        "log"
+      ],
+      "template": "story_dialogue"
+    }
+  ]
+}

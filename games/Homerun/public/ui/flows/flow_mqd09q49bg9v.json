@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "kind": "serverFlow",
+  "id": "flow_mqd09q49bg9v",
+  "name": "테스트",
+  "nodes": [
+    {
+      "id": "auth_mqd0byji71pa",
+      "type": "auth",
+      "x": 1222,
+      "y": 994,
+      "name": "인증",
+      "config": {
+        "op": "require"
+      }
+    },
+    {
+      "id": "data_mqd0cbg3obhs",
+      "type": "data",
+      "x": 1543,
+      "y": 998,
+      "name": "데이터",
+      "config": {
+        "op": "get",
+        "entity": "",
+        "id": "$auth.uid",
+        "as": "result"
+      }
+    },
+    {
+      "id": "rank_mqd0vt7tn7ps",
+      "type": "rank",
+      "x": 1519,
+      "y": 733,
+      "name": "랭킹",
+      "config": {
+        "op": "submit",
+        "board": "",
+        "field": "score",
+        "id": "$auth.uid",
+        "value": "$body.score"
+      }
+    },
+    {
+      "id": "economy_mqd0vvdhijqi",
+      "type": "economy",
+      "x": 1839,
+      "y": 877,
+      "name": "재화",
+      "config": {
+        "op": "grant",
+        "entity": "",
+        "id": "$auth.uid",
+        "currency": "coins",
+        "amount": 10
+      }
+    },
+    {
+      "id": "data_mqd0vzll65x9",
+      "type": "data",
+      "x": 1505,
+      "y": 1320,
+      "name": "데이터",
+      "config": {
+        "op": "get",
+        "entity": "",
+        "id": "$auth.uid",
+        "as": "result"
+      }
+    },
+    {
+      "id": "condition_mqd0w4brd9uk",
+      "type": "condition",
+      "x": 1126,
+      "y": 1385,
+      "name": "갈림길",
+      "config": {
+        "var": "$vars.result",
+        "op": ">=",
+        "value": 0
+      }
+    },
+    {
+      "id": "trigger_mqd0w9275p6x",
+      "type": "trigger",
+      "x": 975,
+      "y": 758,
+      "name": "시작",
+      "config": {
+        "event": "http",
+        "method": "POST",
+        "path": "/"
+      }
+    },
+    {
+      "id": "response_mqd0whmqyzpb",
+      "type": "response",
+      "x": 1870,
+      "y": 1262,
+      "name": "응답",
+      "config": {
+        "status": 200,
+        "body": {
+          "ok": true
+        }
+      }
+    },
+    {
+      "id": "schedule_mqd0wjbcgmyg",
+      "type": "schedule",
+      "x": 2004,
+      "y": 1062,
+      "name": "스케줄",
+      "config": {
+        "cron": "0 * * * *"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_mqd0x0v3bony",
+      "kind": "flow",
+      "from": {
+        "node": "trigger_mqd0w9275p6x",
+        "port": "out"
+      },
+      "to": {
+        "node": "auth_mqd0byji71pa",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_mqd0xd6ld3ci",
+      "kind": "flow",
+      "from": {
+        "node": "auth_mqd0byji71pa",
+        "port": "out"
+      },
+      "to": {
+        "node": "data_mqd0cbg3obhs",
+        "port": "in"
+      }
+    }
+  ],
+  "vars": {}
+}

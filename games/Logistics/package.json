@@ -1,0 +1,20 @@
+{
+  "name": "@casual/game-logistics",
+  "version": "0.1.0",
+  "private": true,
+  "description": "배송대작전 — 주문한 상품을 모아 트럭에 가득 싣고 출발시키는 물류 분류 퍼즐(젠/오더 충족형).",
+  "type": "module",
+  "scripts": {
+    "dev": "npx vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4202"
+  },
+  "dependencies": {
+    "@casual/core": "*",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.10",
+    "vite-plugin-pwa": "0.21.1"
+  }
+}

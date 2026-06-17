@@ -1,0 +1,100 @@
+{
+  "frame": {
+    "designW": 720,
+    "designH": 1280
+  },
+  "nodes": [
+    {
+      "id": "t1",
+      "type": "text",
+      "name": "제목",
+      "x": 360,
+      "y": 130,
+      "text": "점검 중",
+      "fontSize": 60,
+      "color": "#ffffff",
+      "stroke": "",
+      "strokeW": 6,
+      "align": "center",
+      "depth": 6,
+      "visible": true
+    },
+    {
+      "id": "r2",
+      "type": "rect",
+      "name": "패널",
+      "x": 360,
+      "y": 660,
+      "w": 600,
+      "h": 560,
+      "fill": "#1f2733",
+      "stroke": "",
+      "strokeW": 0,
+      "radius": 24,
+      "depth": 0,
+      "visible": true
+    },
+    {
+      "id": "t3",
+      "type": "text",
+      "name": "아이콘",
+      "x": 360,
+      "y": 500,
+      "text": "🛠",
+      "fontSize": 90,
+      "color": "#ffffff",
+      "stroke": "",
+      "strokeW": 0,
+      "align": "center",
+      "depth": 3,
+      "visible": true
+    },
+    {
+      "id": "t4",
+      "type": "text",
+      "name": "안내",
+      "x": 360,
+      "y": 700,
+      "text": "서버 점검이 진행 중입니다.\n잠시 후 다시 시도해 주세요.",
+      "fontSize": 32,
+      "color": "#c4cedb",
+      "stroke": "",
+      "strokeW": 0,
+      "align": "center",
+      "depth": 3,
+      "visible": true
+    },
+    {
+      "id": "r5",
+      "type": "rect",
+      "name": "확인",
+      "x": 360,
+      "y": 880,
+      "w": 360,
+      "h": 92,
+      "fill": "#3a72d8",
+      "stroke": "#5b8cff",
+      "strokeW": 2,
+      "radius": 18,
+      "depth": 2,
+      "visible": true,
+      "role": "close"
+    },
+    {
+      "id": "t6",
+      "type": "text",
+      "name": "확인_라벨",
+      "x": 360,
+      "y": 880,
+      "text": "확인",
+      "fontSize": 34,
+      "color": "#ffffff",
+      "stroke": "",
+      "strokeW": 0,
+      "align": "center",
+      "depth": 3,
+      "visible": true
+    }
+  ],
+  "groups": []
+}

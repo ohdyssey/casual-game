@@ -85,10 +85,10 @@ describe('speedKmh', () => {
 });
 
 describe('RACES 구성 무결성', () => {
-  it('3판 구성 — 템포·거리·AI 페이스가 단조 상승', () => {
+  it('3판 구성 — 템포는 BGM(172BPM) 고정, 거리·AI 페이스는 단조 상승', () => {
     expect(RACES).toHaveLength(3);
+    for (const r of RACES) expect(r.bpm).toBe(172); // 음악 리듬게임 — 곡 템포(172) 고정, 난이도는 차트 밀도로.
     for (let i = 1; i < RACES.length; i++) {
-      expect(RACES[i].bpm).toBeGreaterThan(RACES[i - 1].bpm);
       expect(RACES[i].distanceM).toBeGreaterThan(RACES[i - 1].distanceM);
       expect(RACES[i].baseAiSpeed).toBeGreaterThan(RACES[i - 1].baseAiSpeed);
     }

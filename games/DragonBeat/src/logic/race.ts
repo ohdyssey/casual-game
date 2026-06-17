@@ -32,12 +32,12 @@ export const FIRST_PLACE_GEMS = 5;
 /** 점수 → 보너스 코인 환산 (200점당 1코인). */
 export const SCORE_PER_COIN = 200;
 
-/** 3판 레이스 구성 — 템포·거리·AI 페이스가 판마다 상승. */
+/** 3판 레이스 구성 — 템포는 BGM(172BPM)에 고정, 거리·AI 페이스·차트 밀도가 판마다 상승. */
 export const RACES: ReadonlyArray<RaceConfig> = [
   {
     id: 1,
     title: '연못 스프린트',
-    bpm: 90,
+    bpm: 172,
     distanceM: 300,
     baseAiSpeed: 4.6,
     ai: [
@@ -49,7 +49,7 @@ export const RACES: ReadonlyArray<RaceConfig> = [
   {
     id: 2,
     title: '강물 랠리',
-    bpm: 104,
+    bpm: 172,
     distanceM: 400,
     baseAiSpeed: 5.2,
     ai: [
@@ -61,7 +61,7 @@ export const RACES: ReadonlyArray<RaceConfig> = [
   {
     id: 3,
     title: '대운하 결승',
-    bpm: 118,
+    bpm: 172,
     distanceM: 500,
     baseAiSpeed: 5.8,
     ai: [

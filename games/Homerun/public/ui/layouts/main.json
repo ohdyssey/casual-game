@@ -4,87 +4,97 @@
     "designW": 720,
     "designH": 1280
   },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
   "nodes": [
     {
       "id": "layer_1",
       "type": "image",
-      "name": "새 레이어",
+      "name": "헤더_좌패널",
       "key": "up_Homerun_UI_01",
       "x": 150,
       "y": 68,
       "w": 277,
       "h": 92,
-      "depth": 2,
+      "depth": 19,
       "visible": true,
       "tintable": true,
-      "lockAspect": true
+      "lockAspect": true,
+      "group": "grp_2"
     },
     {
       "id": "layer_1_copy2",
       "type": "image",
-      "name": "새 레이어 복사",
+      "name": "헤더_중앙",
       "key": "up_Homerun_UI_02",
       "x": 360,
       "y": 66,
       "w": 173,
       "h": 85,
-      "depth": 3,
+      "depth": 16,
       "visible": true,
       "tintable": true,
-      "lockAspect": true
+      "lockAspect": true,
+      "group": "grp_3"
     },
     {
       "id": "layer_1_copy",
       "type": "image",
-      "name": "새 레이어 복사",
+      "name": "헤더_우패널",
       "key": "up_Homerun_UI_03_v2",
       "x": 572,
       "y": 69,
       "w": 277,
       "h": 89,
-      "depth": 1,
+      "depth": 12,
       "visible": true,
       "tintable": true,
-      "lockAspect": true
+      "lockAspect": true,
+      "group": "grp_4"
     },
     {
       "id": "layer_1_copy3",
       "type": "image",
-      "name": "새 레이어 복사",
+      "name": "헤더_좌_프로필",
       "key": "up_Homerun_UI_01-1",
       "x": 53,
       "y": 65,
       "w": 70,
       "h": 74,
-      "depth": 3,
+      "depth": 22,
       "visible": true,
       "tintable": true,
-      "lockAspect": true
+      "lockAspect": true,
+      "group": "grp_2",
+      "binding": "프로필 이미지"
     },
     {
       "id": "layer_1_copy4",
       "type": "image",
-      "name": "새 레이어 복사",
+      "name": "헤더_우_프로필",
       "key": "up_Homerun_UI_03-1",
       "x": 671,
       "y": 65,
       "w": 70,
       "h": 74,
-      "depth": 3,
+      "depth": 15,
       "visible": true,
       "tintable": true,
-      "lockAspect": true
+      "lockAspect": true,
+      "group": "grp_4"
     },
     {
       "id": "layer_1_copy5",
       "type": "image",
-      "name": "새 레이어 복사",
+      "name": "메뉴_시즌패스_좌하단",
       "key": "up_Homerun_UI_08",
       "x": 134,
       "y": 1214,
       "w": 218,
       "h": 96,
-      "depth": 2,
+      "depth": 6,
       "visible": true,
       "tintable": true,
       "lockAspect": true
@@ -92,13 +102,13 @@
     {
       "id": "layer_1_copy6",
       "type": "image",
-      "name": "새 레이어 복사",
+      "name": "메뉴_아이템_중앙하단",
       "key": "up_Homerun_UI_09",
       "x": 380,
       "y": 1226,
       "w": 242,
       "h": 72,
-      "depth": 2,
+      "depth": 4,
       "visible": true,
       "tintable": true,
       "lockAspect": true
@@ -106,13 +116,13 @@
     {
       "id": "layer_1_copy7",
       "type": "image",
-      "name": "새 레이어 복사",
+      "name": "메뉴_우하",
       "key": "up_Homerun_UI_10",
-      "x": 624,
-      "y": 1154,
-      "w": 148,
-      "h": 192,
-      "depth": 2,
+      "x": 604,
+      "y": 1173,
+      "w": 118,
+      "h": 153,
+      "depth": 3,
       "visible": true,
       "tintable": true,
       "lockAspect": true
@@ -120,21 +130,22 @@
     {
       "id": "layer_1_copy9",
       "type": "image",
-      "name": "새 레이어 복사",
+      "name": "메뉴_콤보",
       "key": "up_Homerun_UI_07",
       "x": 639,
       "y": 206,
       "w": 133,
       "h": 109,
-      "depth": 2,
+      "depth": 8,
       "visible": true,
       "tintable": true,
-      "lockAspect": true
+      "lockAspect": true,
+      "group": "grp_5"
     },
     {
       "id": "layer_2",
       "type": "text",
-      "name": "새 텍스트",
+      "name": "헤더_좌_네임",
       "text": "ROOKIE27",
       "x": 137,
       "y": 47,
@@ -144,13 +155,15 @@
       "stroke": "#5a3210",
       "strokeW": 2,
       "align": "center",
-      "depth": 4,
-      "visible": true
+      "depth": 21,
+      "visible": true,
+      "group": "grp_2",
+      "binding": "name"
     },
     {
       "id": "layer_2_copy",
       "type": "text",
-      "name": "새 텍스트 복사",
+      "name": "헤더_우_네임",
       "text": "SLUGGER89",
       "x": 574,
       "y": 47,
@@ -160,13 +173,15 @@
       "stroke": "#5a3210",
       "strokeW": 2,
       "align": "center",
-      "depth": 4,
-      "visible": true
+      "depth": 14,
+      "visible": true,
+      "group": "grp_4",
+      "binding": "name"
     },
     {
       "id": "layer_2_copy2",
       "type": "text",
-      "name": "새 텍스트 복사",
+      "name": "헤더_좌_점수",
       "text": "1,835",
       "x": 141,
       "y": 68,
@@ -176,13 +191,15 @@
       "stroke": "#5a3210",
       "strokeW": 1,
       "align": "center",
-      "depth": 4,
-      "visible": true
+      "depth": 20,
+      "visible": true,
+      "group": "grp_2",
+      "binding": "value"
     },
     {
       "id": "layer_2_copy3",
       "type": "text",
-      "name": "새 텍스트 복사",
+      "name": "헤더_우_점수",
       "text": "1,620",
       "x": 571,
       "y": 68,
@@ -192,45 +209,52 @@
       "stroke": "#5a3210",
       "strokeW": 1,
       "align": "center",
-      "depth": 4,
-      "visible": true
+      "depth": 13,
+      "visible": true,
+      "group": "grp_4",
+      "binding": "value"
     },
     {
       "id": "layer_2_copy4",
       "type": "text",
-      "name": "새 텍스트 복사",
+      "name": "헤더_중앙_시간",
       "text": "01:20",
-      "x": 360,
-      "y": 72,
-      "fontSize": 28,
+      "x": 299,
+      "y": 141,
+      "fontSize": 20,
       "fontFamily": "Do Hyeon",
       "color": "#ffffff",
       "stroke": "#5a3210",
       "strokeW": 2,
       "align": "center",
-      "depth": 4,
-      "visible": true
+      "depth": 17,
+      "visible": true,
+      "group": "grp_3",
+      "binding": "time",
+      "wrapW": 52,
+      "wrapH": 45
     },
     {
       "id": "layer_2_copy5",
       "type": "text",
-      "name": "새 텍스트 복사",
+      "name": "헤더_중앙_네임",
       "text": "TIME LEFT",
       "x": 360,
       "y": 49,
-      "fontSize": 17,
+      "fontSize": 8,
       "fontFamily": "Jua",
       "color": "#ffd500",
       "stroke": "#5a3210",
       "strokeW": 1,
       "align": "center",
-      "depth": 4,
-      "visible": true
+      "depth": 18,
+      "visible": true,
+      "group": "grp_3"
     },
     {
       "id": "layer_2_copy6",
       "type": "text",
-      "name": "새 텍스트 복사",
+      "name": "메뉴_콤보_네임",
       "text": "COMBO",
       "x": 638,
       "y": 175,
@@ -240,13 +264,14 @@
       "stroke": "#ffffff",
       "strokeW": 1,
       "align": "center",
-      "depth": 4,
-      "visible": true
+      "depth": 11,
+      "visible": true,
+      "group": "grp_5"
     },
     {
       "id": "layer_2_copy7",
       "type": "text",
-      "name": "새 텍스트 복사",
+      "name": "메뉴_콤보_배수",
       "text": "3",
       "x": 638,
       "y": 204,
@@ -256,13 +281,15 @@
       "stroke": "#ffffff",
       "strokeW": 1,
       "align": "center",
-      "depth": 4,
-      "visible": true
+      "depth": 10,
+      "visible": true,
+      "group": "grp_5",
+      "binding": "combo"
     },
     {
       "id": "layer_2_copy8",
       "type": "text",
-      "name": "새 텍스트 복사",
+      "name": "메뉴_콤보_x",
       "text": "x",
       "x": 621,
       "y": 204,
@@ -272,40 +299,166 @@
       "stroke": "#ffffff",
       "strokeW": 1,
       "align": "center",
-      "depth": 4,
-      "visible": true
+      "depth": 9,
+      "visible": true,
+      "group": "grp_5"
     },
     {
       "id": "layer_2_copy9",
       "type": "text",
-      "name": "새 텍스트 복사",
+      "name": "메뉴_시즌패스_네임",
       "text": "SEASON PASS",
-      "x": 134,
-      "y": 1189,
-      "fontSize": 18,
+      "x": 145,
+      "y": 1190,
+      "fontSize": 7,
       "fontFamily": "Do Hyeon",
       "color": "#ffea00",
       "stroke": "#5a3210",
-      "strokeW": 2,
-      "align": "center",
-      "depth": 4,
-      "visible": true
+      "strokeW": 0,
+      "align": "left",
+      "depth": 7,
+      "visible": true,
+      "wrapW": 133,
+      "wrapH": 28
     },
     {
       "id": "layer_2_copy10",
       "type": "text",
-      "name": "새 텍스트 복사",
+      "name": "메뉴_아이템_중앙하단_네임",
       "text": "HIT 5 HOMRUNS",
-      "x": 363,
-      "y": 1209,
-      "fontSize": 18,
+      "x": 360,
+      "y": 1212,
+      "fontSize": 7,
       "fontFamily": "Do Hyeon",
       "color": "#ffffff",
       "stroke": "#5a3210",
-      "strokeW": 2,
-      "align": "center",
-      "depth": 4,
-      "visible": true
+      "strokeW": 0,
+      "align": "left",
+      "depth": 5,
+      "visible": true,
+      "wrapW": 169,
+      "wrapH": 31
+    },
+    {
+      "id": "layer_3",
+      "type": "image",
+      "name": "게임_배경1",
+      "key": "up_Homerun_BG_05",
+      "x": 424,
+      "y": 639,
+      "w": 2275,
+      "h": 1280,
+      "depth": 1,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true,
+      "locked": true
+    },
+    {
+      "id": "layer_4",
+      "type": "spriteDocClip",
+      "name": "캐릭터: 타자1",
+      "x": 161,
+      "y": 1089,
+      "spriteDocFile": "ui/sprites/1/1_sprite_mqd1aw1gm3b8.json",
+      "spriteDocId": "1_sprite_mqd1aw1gm3b8",
+      "characterId": "1",
+      "clipId": "",
+      "autoPlay": true,
+      "depth": 23,
+      "visible": true,
+      "w": 713,
+      "h": 646
+    },
+    {
+      "id": "layer_5",
+      "x": 426,
+      "y": 324,
+      "fill": "#00152e",
+      "fillAlpha": 1,
+      "stroke": "#ffffff",
+      "strokeW": 0,
+      "depth": 2,
+      "visible": true,
+      "type": "polygon",
+      "name": "전광판 이펙트",
+      "points": [
+        {
+          "x": 137.89,
+          "y": -95
+        },
+        {
+          "x": 130.89,
+          "y": 96.09
+        },
+        {
+          "x": -71.11,
+          "y": 95.09
+        },
+        {
+          "x": -134.11,
+          "y": 96
+        },
+        {
+          "x": -138,
+          "y": -97
+        }
+      ],
+      "fillClip": "ui/sprites/char_mqd873pc49d0/char_mqd873pc49d0_sprite_mqd873pd0azw.json"
+    },
+    {
+      "id": "layer_6",
+      "type": "spriteDocClip",
+      "name": "캐릭터: 투수1",
+      "x": 425,
+      "y": 657,
+      "spriteDocFile": "ui/sprites/1_mqdkgdjm58z6/1_mqdkgdjm58z6_sprite_mqdm75cipkiw.json",
+      "spriteDocId": "1_mqdkgdjm58z6_sprite_mqdm75cipkiw",
+      "characterId": "1_mqdkgdjm58z6",
+      "clipId": "",
+      "autoPlay": true,
+      "depth": 24,
+      "visible": true,
+      "w": 139,
+      "h": 147
+    }
+  ],
+  "groups": [
+    {
+      "id": "grp_2",
+      "name": "헤더_좌",
+      "anim": {
+        "type": "none",
+        "amp": 0.5,
+        "dur": 600
+      }
+    },
+    {
+      "id": "grp_3",
+      "name": "헤더_중앙",
+      "anim": {
+        "type": "none",
+        "amp": 0.5,
+        "dur": 600
+      }
+    },
+    {
+      "id": "grp_4",
+      "name": "헤더_우",
+      "anim": {
+        "type": "none",
+        "amp": 0.5,
+        "dur": 600
+      }
+    },
+    {
+      "id": "grp_5",
+      "name": "콤보메뉴",
+      "anim": {
+        "type": "none",
+        "amp": 0.5,
+        "dur": 600
+      }
     }
   ]
 }

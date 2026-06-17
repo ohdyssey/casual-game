@@ -12,6 +12,9 @@ export const HomerunGame: GameModule = {
   title: '홈런팝',
   scenes: [BootScene, LoadScene, PlayScene],
   backgroundColor: '#1565C0',
+  // UI 에디터 디자인(720×1280)을 화면비와 무관하게 1:1 재현 — 캔버스 높이 고정(FIT 레터박스).
+  // 동적 높이면 HUD(절대좌표)와 배경(cover)이 1280 기준에서 어긋나 에디터와 안 맞는다.
+  designHeight: 1280,
   theme: { brand: '#1E88E5' },
   hud: { combo: true },
   liveops: { shop: true, daily: true },

@@ -10,24 +10,21 @@
  */
 import Phaser from 'phaser';
 import { FONT } from '@casual/core';
-import { getDisplayBounds, placeCover } from '@casual/core';
+import { getDisplayBounds } from '@casual/core';
 import {
   BALL_KEY,
-  BATTER_ATLAS_KEY,
-  BATTER_FRAME,
-  batterFrame,
   BG_KEY,
   CONFETTI_KEY,
   fielderKey,
   MITT_KEY,
-  PITCHER_ATLAS_KEY,
-  PITCHER_FRAME,
-  pitcherFrame,
   SPARK_KEY,
   STARBURST_KEY,
   UI_LAYOUT_KEY,
+  UI_SPRITE_INDEX_KEY,
 } from '../assets.js';
-import { buildLayout, type LayoutDoc } from '../ui/layoutLoader.js';
+import { buildLayout, type LayoutDoc, type LayoutNode } from '../ui/layoutLoader.js';
+import { resolveCharacterMotions, type SpriteIndex } from '../ui/spriteRegistry.js';
+import { CharacterRig } from '../ui/characterRig.js';
 import { sfx, startBgm } from '../audio.js';
 import { PITCH_END_PROGRESS, resolveAccuracySwing, resolveTake, resolveWhiff } from '../logic/judge.js';
 import type { SwingOutcome } from '../logic/types.js';
@@ -36,13 +33,26 @@ import type { SwingOutcome } from '../logic/types.js';
 const PITCH_MS = 520;
 /** 새 투구 준비 → 릴리스(투구 시작)까지의 시간(ms) — 투구 간 ~5초 텀의 본체. */
 const ZONE_PREVIEW_MS = 3800;
+/**
+ * 타자 3동작(에디터 등록: 타격준비/스윙/타격 후) 구동 파라미터.
+ *  - 준비(ready): 투구 대기 중 반복.  - 스윙(action): 매 투구 1회.  - 후(after): 스윙 후 반복.
+ * 스윙 시트 실측: 24프레임 중 frame 17 에서 배트가 전방 최대 신장(컨택). viewMs 로 압축 재생.
+ */
+const BATTER_RIG = { viewMs: 600, frames: 24, keyFrame: 17 } as const;
+/** 스윙 시작 → 컨택 프레임까지의 시간(ms). 공 도달(pitchStartAt+PITCH_MS)에서 이만큼 빼 스윙 시작. */
+const SWING_CONTACT_LEAD_MS = (BATTER_RIG.viewMs * BATTER_RIG.keyFrame) / BATTER_RIG.frames;
+/**
+ * 투수 3동작(에디터 등록: 투수_준비동작/투수_투구동작/투수_투구후 동작) 구동 파라미터.
+ *  - 준비(ready): 투구 예고 중 반복.  - 투구(action): 매 투구 1회.  - 후(after): 투구 후 반복.
+ * 투구 시트 실측: 48프레임 중 frame 31 에서 팔 전방 최대 신장(릴리스=공이 손을 떠남). viewMs 로 압축 재생.
+ */
+const PITCHER_RIG = { viewMs: 1800, frames: 48, keyFrame: 31 } as const;
+/** 투구 시작 → 릴리스 프레임까지의 시간(ms). 공 릴리스(throwPitch=ZONE_PREVIEW_MS)에서 이만큼 빼 투구 시작. */
+const PITCH_RELEASE_LEAD_MS = (PITCHER_RIG.viewMs * PITCHER_RIG.keyFrame) / PITCHER_RIG.frames;
+/** 투수 손(릴리스) 높이 — 노드 발밑(앵커) 기준 위로 노드 높이의 이 비율. 공 출발점 산정. */
+const PITCHER_HAND_Y_RATIO = 0.55;
 /** 타격 인디케이터가 릴리스보다 먼저 나타나는 리드(ms). */
 const INDICATOR_LEAD_MS = 200;
-/** 타자 손잡이 — 우타자('R')는 카메라 중심을 좌로, 좌타자('L')는 우로 살짝 이동. */
-const BATTER_HAND: 'R' | 'L' = 'R';
-/** 손잡이별 카메라 중심 가로 오프셋(px). */
-const CAM_HAND_SHIFT = 42;
-const CAM_OFFSET_X = BATTER_HAND === 'R' ? -CAM_HAND_SHIFT : CAM_HAND_SHIFT;
 /**
  * 늦은 탭 유예(ms) — 공 통과 후 이 시간 안의 탭은 무시 대신 "헛스윙 풀스윙"으로 처리.
  * 투구 트윈 종료(PITCH_MS×1.25=650ms)보다 짧아야 스윙취소 타이머가 먼저 동작한다.
@@ -65,8 +75,6 @@ const PITCHES_PER_GAME = 10;
 const ZONE_RADIUS = 70;
 /** 타격 시 카메라 줌 배율 — 타구 방향으로 강하게 확대. */
 const HIT_ZOOM = 1.5;
-/** 배경 cover 스케일에 곱할 축소 배율 — 필드를 더 많이 보여준다. */
-const BG_ZOOM = 0.90;
 /** 관중석 컨페티 색상 (흰 조각 tint). */
 const CHEER_TINTS = [0xffd147, 0xff6b6b, 0x7cd5ff, 0x8dff9e, 0xffffff, 0xff9ff3];
 /** 관중석 분출 지점 (W·H 비율) — 좌우 스탠드만 (경기장·전광판 위는 제외). */
@@ -94,95 +102,21 @@ const CAM_RESET_MS = 400;
 
 /** 화면 비율 좌표 (배경 cover 크롭 기준. x 는 720 디자인 px, y 는 height 비율). */
 const POS = {
-  zoneXRatio: 0.50,  // 스트라이크존 — 홈플레이트 중심 (BG_ZOOM 0.90 기준 플레이트 ≈50%)
+  zoneXRatio: 0.50,  // 스트라이크존 — 홈플레이트 중심 (화면 중앙)
   zoneY: 0.67,
-  batterFrameH: 0.62, // 시트 프레임(672×672) 표시 높이 (h 비율, BG_ZOOM 0.90 에 맞게 조정)
   resultY: 0.27,     // 결과 라벨
 } as const;
 
-/**
- * 타자 발 앵커 — BG_05 "원본(1920×1080) 좌표". 좌타석 흰 박스 실측:
- * x 576~876 / y 740(상단)~980(하단 라인). 박스 안 우측 중앙에 선다.
- * cover 크롭이 화면비마다 달라 런타임에 배경 스케일로 환산해야 정확히 박스 안에 위치한다.
- */
-/**
- * 좌타석 박스 BG 원본 좌표 — 흰 라인 픽셀 실측(2026-06-12):
- * 박스 중간높이(y=860)에서 x 585~852, 세로 y 750(상단)~930(하단). 중하단 중앙에 선다.
- */
-const BATTER_SRC = { x: 775, footY: 905 } as const;
-/** 배경 원본 해상도. */
+/** 배경 원본 해상도 (수비수·홈플레이트 BG 원본 좌표 환산용). */
 const BG_SRC = { width: 1920, height: 1080 } as const;
 
 /**
- * 스윙 안무 — Chr-2 34프레임을 3단계로 분할:
- *  · 준비(0~3, 4f): 투구 예고 구간에 천천히 장전. 완료 후 웨글 루프로 대기.
- *  · 타격(4~27, 24f): 탭 순간 재생 — 빠른 FPS로 임팩트 감.
- *  · 완료(28~33, 6f): 스윙 후 자연스러운 팔로스루.
- * 스윙하지 않으면 준비를 역재생해 스탠스로 되감는다.
+ * 에디터 레이아웃의 "배경" 노드 판별 — 키에 BG 가 들어가거나 프레임 폭 이상으로 꽉 찬 이미지.
+ * 배경은 월드에서 cover 로 직접 배치하므로(물리 앵커 보존) HUD 레이아웃 빌드에서는 제외한다.
  */
-const PREP_ANIM = 'batter-prep';
-const SWING_ANIM = 'batter-swing';
-const FINISH_ANIM = 'batter-finish';
-const WAGGLE_ANIM = 'batter-waggle';
-const PREP_FRAME_END = 3;      // 준비: 0 ~ 3
-const SWING_FRAME_START = 4;   // 타격: 4 ~ 27
-const SWING_FRAME_END = 27;
-const FINISH_FRAME_START = 28; // 완료: 28 ~ 33
-const FINISH_FRAME_END = 33;
-const PREP_FPS = 6;            // 4프레임 → 0.67s — 타격전 동작은 여유 있게
-const SWING_FPS = 36;          // 24프레임 → 0.67s
-const FINISH_FPS = 10;         // 6프레임 → 0.6s
-const WAGGLE_FPS = 4;          // 대기 왕복 — 느긋한 템포
-const WAGGLE_START_FRAME = 1;  // 준비 1~3 왕복
-/** 타격후 대기 루프 — 팔로스루 끝 3프레임(31~33) 왕복으로 다음 투구까지 살아있는 모션. */
-const FINISH_LOOP_ANIM = 'batter-finish-loop';
-const FINISH_LOOP_START = 31;
-const FINISH_LOOP_FPS = 4;
-/**
- * SWING_ANIM 중 배트가 컨택 존을 통과하는 프레임(0-based) — 시트 픽셀 실측:
- * 전역 17번(스윙 13번째)에서 배트가 수평 최대 확장(스위트스팟 = 프레임 525,376).
- */
-const BAT_IMPACT_FRAME = 13;
-/** 스윙 시작 → 배트 임팩트까지 지연(ms). 자동 스윙은 PITCH_MS - 이 값 시점에 시작된다. */
-const BAT_IMPACT_DELAY_MS = Math.round((BAT_IMPACT_FRAME / SWING_FPS) * 1000); // ≈361ms
-/**
- * 스윙 시작 리드(ms) — 애니 프레임 양자화(27.8ms/프레임) 보정.
- * 자동 플레이 실측: 리드 없이는 컨택 순간 프레임 16(임팩트 17보다 1프레임 전)이 표시됨.
- */
-const SWING_START_LEAD_MS = 20;
-/**
- * 배트 스위트스팟 — 임팩트 프레임(전역 17)의 672×672 셀 내 픽셀 좌표 실측값.
- * 스프라이트 앵커(origin 0.5,1 = 336,672)로부터의 오프셋으로 환산해 월드 컨택 포인트를 만든다.
- * 붉은원(타격점)이 항상 이 지점에 출현 → 배트와 공이 정확히 그 자리에서 만난다.
- */
-const BAT_SWEET_SPOT = { x: 525, y: 376 } as const;
-const BATTER_ANCHOR = { x: 336, y: 672 } as const;
-/** 스윙 회전축(손 위치, 672 셀 좌표) — 회전 스위시 이펙트의 중심. */
-const SWING_PIVOT = { x: 330, y: 330 } as const;
-/**
- * 스윙 스위시 — 타자를 감싸는 납작한 타원 디스크(레퍼런스: 흰 반투명, 꼬리로 갈수록 옅음).
- * yScale 로 원근 눌림, 머리(임팩트 방향 +15°)에서 꼬리로 300° 휩쓸며 알파가 잦아든다.
- */
-const SWING_SWISH = { headDeg: 15, sweepDeg: 300, yScale: 0.42, innerRatio: 0.62, segments: 8 } as const;
-/**
- * 프레임 하단 투명 여백(px) — 672 셀에서 캐릭터 가시 하단은 y≈583 (알파 bbox 실측).
- * origin(0.5,1) 앵커는 셀 바닥이므로 이만큼 내려야 "보이는 발"이 footY 에 닿는다.
- */
-const FRAME_FOOT_PAD = 672 - 583;
-const PREP_COMPLETE_EVT = `${Phaser.Animations.Events.ANIMATION_COMPLETE_KEY}${PREP_ANIM}`;
-const SWING_COMPLETE_EVT = `${Phaser.Animations.Events.ANIMATION_COMPLETE_KEY}${SWING_ANIM}`;
-const FINISH_COMPLETE_EVT = `${Phaser.Animations.Events.ANIMATION_COMPLETE_KEY}${FINISH_ANIM}`;
-
-/**
- * 피처 투구 안무 — Pitch_01 24프레임: 글러브 세트(0) → 와인드업 → 릴리스(20) → 팔로스루(23).
- * 릴리스 프레임 표시 시각이 투구 시작(throwPitch)과 일치하도록 역산해 재생을 시작한다.
- */
-const PITCHER_ANIM = 'pitcher-throw';
-const PITCHER_FPS = 18;
-const PITCHER_RELEASE_FRAME = 20; // 0-based — 공이 손을 떠나는 프레임
-const PITCHER_RELEASE_MS = Math.round((PITCHER_RELEASE_FRAME / PITCHER_FPS) * 1000); // ≈1111ms
-/** 피처 배치 — 투수판(마운드 정상, 중앙보다 약간 뒤) 위. 원근상 타자보다 작게. */
-const PITCHER_POS = { xRatio: 0.5, footY: 0.528, frameH: 0.16 } as const;
+function isBackgroundNode(n: LayoutNode, designW: number): boolean {
+  return n.type === 'image' && (/bg/i.test(n.key ?? '') || (n.w ?? 0) >= designW);
+}
 
 /**
  * 수비 포지션 — 의사 3D 월드 좌표(x3=좌우 px, z=깊이). 타구 물리와 동일 투영으로
@@ -206,10 +140,6 @@ const FIELDER_POSITIONS: ReadonlyArray<FielderPos> = [
  * 내야(p≈0.16) ≈ 68px, 외야(p≈0.11) ≈ 48px — 거리에 따른 크기 차 유지.
  */
 const FIELDER_BASE_H = 0.34;
-/** 릴리스 순간 공 중심 픽셀(672 셀 좌표) — Pitch_01-21(pitch_20) 실측. */
-const PITCHER_RELEASE_PX = { x: 180, y: 102 } as const;
-/** 피처 셀 앵커 (origin 0.5,1). */
-const PITCHER_CELL_ANCHOR = { x: 336, y: 672 } as const;
 
 /**
  * 포수 미트 — 공이 "도착하는 순간에만" 잠깐 나타나 포구 후 사라진다 (타격 시 미등장).
@@ -343,8 +273,11 @@ export class PlayScene extends Phaser.Scene {
   private hudLayer!: Phaser.GameObjects.Container;
   private ball!: Phaser.GameObjects.Image;
   private mitt!: Phaser.GameObjects.Image;
-  private batter!: Phaser.GameObjects.Sprite;
-  private pitcher!: Phaser.GameObjects.Sprite;
+  /** 타자·투수 3동작 리그(에디터 등록 준비/액션/후) — 게임 상태에 맞춰 구동. 미배포 시 undefined. */
+  private batterRig?: CharacterRig;
+  private pitcherRig?: CharacterRig;
+  /** 투수 노드(에디터 레이아웃) — 투구 시 공 릴리스 지점 산정에 사용. */
+  private pitcherNode?: LayoutNode;
   private zoneFill!: Phaser.GameObjects.Arc;
   private timingRing!: Phaser.GameObjects.Arc;
   private redDot!: Phaser.GameObjects.Arc;
@@ -399,16 +332,20 @@ export class PlayScene extends Phaser.Scene {
     this.worldLayer = this.add.container(0, 0);
     this.hudLayer = this.add.container(0, 0);
 
-    const bg = this.buildWorld(w, h);
-    this.buildHud(w, h);
+    // 에디터 레이아웃(main.json)이 화면 구성의 단일 진실 공급원(SSOT):
+    // 배경·타자 캐릭터·전광판 이펙트·HUD 가 모두 여기서 온다. 투수/수비수는 아직
+    // 에디터에 없어 코드로 그린다(추후 에디터에서 추가·배치 예정).
+    const doc = (this.cache.json.get(UI_LAYOUT_KEY) ?? null) as LayoutDoc | null;
+    const bg = this.buildWorld(w, h, doc);
+    this.buildHud(w, h, doc);
 
     // 카메라 분리 — 메인(월드, 줌 대상) / HUD(고정).
     // 메인 카메라 bounds 는 캔버스가 아닌 "배경 이미지 실제 폭" — cover 배경이 좌우로
     // 훨씬 넓어서, 그 안에서는 멀리 패닝해도 배경 밖이 노출되지 않는다.
     const bgBounds = getDisplayBounds(bg);
     this.cameras.main.setBounds(Math.floor(bgBounds.left), 0, Math.ceil(bgBounds.w), h);
-    // 손잡이별 카메라 중심 — 우타자는 좌측으로, 좌타자는 우측으로 살짝 이동.
-    this.cameras.main.centerOn(w / 2 + CAM_OFFSET_X, h / 2);
+    // 휴식 시 카메라는 identity — 디자인 좌표(에디터)와 1:1. 타구 시에만 줌/팬, 끝나면 복귀.
+    this.cameras.main.centerOn(w / 2, h / 2);
     this.cameras.main.ignore(this.hudLayer);
     const hudCam = this.cameras.add(0, 0, w, h);
     hudCam.ignore(this.worldLayer);
@@ -421,14 +358,26 @@ export class PlayScene extends Phaser.Scene {
 
   // ── 구성 ──────────────────────────────────────────────────────────
 
-  /** 월드 구성 — 카메라 bounds 산정을 위해 배경 이미지를 반환. */
-  private buildWorld(w: number, h: number): Phaser.GameObjects.Image {
-    const bg = placeCover(this, BG_KEY, w / 2, h / 2, w, h);
-    bg.setScale(bg.scale * BG_ZOOM); // 배경 축소 — cover 풀스케일보다 약 10% 작게
-    // 상하 빈 띠 방지 — 줌아웃해도 배경이 화면을 항상 완전히 덮도록 클램프.
-    // (원본 1920×1080 은 세로 여유가 없어 세로 모드에선 사실상 cover 스케일로 고정된다.)
-    const coverMin = Math.max(w / bg.width, h / bg.height);
-    if (bg.scale < coverMin) bg.setScale(coverMin);
+  /**
+   * 월드 구성 — 카메라 bounds 산정을 위해 배경 이미지를 반환.
+   * 배경은 에디터 레이아웃 노드(layer_3)의 **정확한 위치·크기**로 배치한다(SSOT). cover 가 아니라
+   * 디자인 좌표 그대로라 에디터 미리보기와 1:1 정렬되고, 같은 좌표계의 타자·전광판 이펙트와도 맞는다.
+   * 카메라는 휴식 시 identity(scroll 0, zoom 1)라 월드 노드가 HUD 노드와 동일 좌표에서 겹친다.
+   */
+  private buildWorld(w: number, h: number, doc: LayoutDoc | null): Phaser.GameObjects.Image {
+    const designW = doc?.frame?.designW ?? w;
+    const bgNode = doc?.nodes?.find((n) => isBackgroundNode(n, designW));
+    const bgKey = bgNode?.key && this.textures.exists(bgNode.key) ? bgNode.key : BG_KEY;
+    const bg = this.add.image(bgNode?.x ?? w / 2, bgNode?.y ?? h / 2, bgKey).setOrigin(0.5, 0.5);
+    if (bgNode?.w && bgNode?.h) bg.setDisplaySize(bgNode.w, bgNode.h);
+    else bg.setScale(Math.max(w / bg.width, h / bg.height)); // 노드 미지정 시 cover 폴백
+    // 캔버스보다 작으면(에디터 1280 설계 < 실제 더 긴 캔버스) 키워 빈 띠 방지.
+    const coverScale = Math.max(1, w / bg.displayWidth, h / bg.displayHeight);
+    if (coverScale > 1) bg.setDisplaySize(bg.displayWidth * coverScale, bg.displayHeight * coverScale);
+    // 위치 클램프 — 에디터 프레이밍(x)은 유지하되 배경이 화면 상·하·좌·우를 항상 덮도록
+    // (배경 중심이 설계상 화면 중앙보다 위면 하단에 빈 띠가 생기는 것을 방지).
+    bg.x = Phaser.Math.Clamp(bg.x, w - bg.displayWidth / 2, bg.displayWidth / 2);
+    bg.y = Phaser.Math.Clamp(bg.y, h - bg.displayHeight / 2, bg.displayHeight / 2);
     this.worldLayer.add(bg);
     // 수비수 7인 — 야구 포지션(1·2·3루수/유격수/외야 3인) 배치. ⚠️ 투수보다 아래 레이어.
     // bg 앵커(사용자 지정)는 화면 좌표→원근 p 역산, 월드 좌표는 투영으로 산출.
@@ -456,72 +405,17 @@ export class PlayScene extends Phaser.Scene {
       img.setScale(Math.min((h * FIELDER_BASE_H * f.p) / img.height, (h * 0.13) / img.height));
       this.worldLayer.add(img);
     }
-    // 피처 — 수비수들 위, 공·존보다 아래 레이어 (투구 릴리스와 동기화 재생).
-    this.pitcher = this.add
-      .sprite(w * PITCHER_POS.xRatio, h * PITCHER_POS.footY, PITCHER_ATLAS_KEY, pitcherFrame(0))
-      .setOrigin(0.5, 1)
-      .setScale((h * PITCHER_POS.frameH) / PITCHER_FRAME.height);
-    this.worldLayer.add(this.pitcher);
-    // 타자 — 배경 실제 표시 범위(bgLeft/bgTop)로부터 정확히 타석 박스 안에 배치.
-    // (이전 방식: footY/bgH * screenH 는 BG_ZOOM < 1 일 때 Y 오차 발생)
+    // 투수는 에디터 캐릭터(layer_6, 3동작 리그)로 buildHud 에서 별도 구성된다(아틀라스 피처 제거).
+    // 홈플레이트 꼭지점 — 투구가 최종적으로 꽂히는 포구 지점 (BG 좌표 → 화면 환산).
     const bgLeft = bg.x - bg.displayWidth / 2;
     const bgTop = bg.y - bg.displayHeight / 2;
-    const batterX = bgLeft + (BATTER_SRC.x / BG_SRC.width) * bg.displayWidth;
-    const batterFootY = bgTop + (BATTER_SRC.footY / BG_SRC.height) * bg.displayHeight;
-    const batterScale = (h * POS.batterFrameH) / BATTER_FRAME.height;
-    // 앵커는 셀 바닥 — 프레임 하단 투명 여백만큼 내려 "보이는 발"을 footY(박스 안)에 맞춘다.
-    const batterAnchorY = batterFootY + FRAME_FOOT_PAD * batterScale;
-    this.batter = this.add
-      .sprite(batterX, batterAnchorY, BATTER_ATLAS_KEY, batterFrame(0))
-      .setOrigin(0.5, 1)
-      .setScale(batterScale);
-    // 컨택 포인트 — 임팩트 프레임의 스위트스팟 픽셀을 월드 좌표로 환산.
-    // 붉은원·존·공 도달점이 모두 이 지점 기준이라 배트와 공이 정확히 여기서 만난다.
-    this.batContactX = batterX + (BAT_SWEET_SPOT.x - BATTER_ANCHOR.x) * batterScale;
-    this.batContactY = batterAnchorY + (BAT_SWEET_SPOT.y - BATTER_ANCHOR.y) * batterScale;
-    // 홈플레이트 꼭지점 — 투구가 최종적으로 꽂히는 포구 지점 (BG 좌표 → 화면 환산).
     this.plateApexX = bgLeft + (PLATE_APEX_SRC.x / BG_SRC.width) * bg.displayWidth;
     this.plateApexY = bgTop + (PLATE_APEX_SRC.y / BG_SRC.height) * bg.displayHeight;
-    if (!this.anims.exists(PREP_ANIM)) {
-      const batterFrames = (start: number, end: number) =>
-        this.anims.generateFrameNames(BATTER_ATLAS_KEY, { prefix: 'batter_', start, end, zeroPad: 2 });
-      this.anims.create({ key: PREP_ANIM, frames: batterFrames(0, PREP_FRAME_END), frameRate: PREP_FPS });
-      this.anims.create({
-        key: SWING_ANIM,
-        frames: batterFrames(SWING_FRAME_START, SWING_FRAME_END),
-        frameRate: SWING_FPS,
-      });
-      this.anims.create({
-        key: FINISH_ANIM,
-        frames: batterFrames(FINISH_FRAME_START, FINISH_FRAME_END),
-        frameRate: FINISH_FPS,
-      });
-      this.anims.create({
-        key: WAGGLE_ANIM,
-        frames: batterFrames(WAGGLE_START_FRAME, PREP_FRAME_END),
-        frameRate: WAGGLE_FPS,
-        yoyo: true,
-        repeat: -1,
-      });
-      this.anims.create({
-        key: FINISH_LOOP_ANIM,
-        frames: batterFrames(FINISH_LOOP_START, FINISH_FRAME_END),
-        frameRate: FINISH_LOOP_FPS,
-        yoyo: true,
-        repeat: -1,
-      });
-      this.anims.create({
-        key: PITCHER_ANIM,
-        frames: this.anims.generateFrameNames(PITCHER_ATLAS_KEY, {
-          prefix: 'pitch_',
-          start: 0,
-          end: PITCHER_FRAME.count - 1,
-          zeroPad: 2,
-        }),
-        frameRate: PITCHER_FPS,
-      });
-    }
-    this.worldLayer.add(this.batter);
+    // 컨택 포인트(붉은원·인디케이터·임팩트 이펙트 기준점) — 타자는 에디터 캐릭터로 대체돼
+    // 아틀라스 스위트스팟 픽셀이 없으므로 스트라이크존 중심을 컨택 지점으로 사용한다.
+    // 공이 도달하는 존과 일치하므로 타격 판정·이펙트가 같은 지점에서 일어난다.
+    this.batContactX = w * POS.zoneXRatio;
+    this.batContactY = h * POS.zoneY;
 
     // 타격 인디케이터 — 외곽선 없는 반투명 원. 릴리스와 동시 등장, 둥둥 떠 있는 부유 모션.
     this.zoneFill = this.add.circle(0, 0, ZONE_RADIUS, 0xffffff, 0.18).setVisible(false);
@@ -566,32 +460,59 @@ export class PlayScene extends Phaser.Scene {
       emitting: false,
     });
     this.worldLayer.add([this.zoneFill, this.timingRing, this.redDot, this.tracer, this.ball, this.mitt, this.sparks, this.confetti]);
-    // 타자는 월드 최상위 — 공이 (뒤로 튀지 않는 한) 타자 등 뒤로 보이지 않는다.
-    this.worldLayer.bringToTop(this.batter);
+    // 에디터 타자 캐릭터는 buildHud 에서 월드 레이어 최상위로 올린다(공이 타자 뒤로 안 가도록).
     return bg;
   }
 
   /**
-   * HUD 구성 — 독립 에디터(phaser-ui-editor)가 저장한 ui/layouts/main.json 이
-   * 단일 진실 공급원. 레이아웃이 있으면 그대로 생성해 HUD 레이어에 올리고,
-   * 점수/투구수 텍스트를 중앙 전광판 패널(layer_1_copy2) 위에 얹는다.
+   * 화면 구성 적용 — 에디터(phaser-ui-editor)의 ui/layouts/main.json 을 그대로 생성해
+   * 노드를 두 레이어로 라우팅한다:
+   *   · 캐릭터(spriteDocClip, 타자/투수) → 월드 레이어. 3동작 리그(buildCharacterRig)로 별도 구성.
+   *   · 도형+채움 전광판 이펙트 → 월드 레이어(배경과 함께 줌/팬).
+   *   · 그 외 패널/텍스트 → HUD 레이어(고정, 필드가 비치도록 살짝 디밍).
+   * 배경(layer_3)·캐릭터는 buildLayout 에서 제외하고 별도 처리한다.
+   * 점수/투구수 텍스트는 중앙 전광판 패널(layer_1_copy2) 위에 얹는다.
    * 레이아웃이 없으면 기존 캡슐 HUD 로 폴백(디자인 미배포 단계 방어).
    */
-  private buildHud(w: number, h: number): void {
-    const doc = (this.cache.json.get(UI_LAYOUT_KEY) ?? null) as LayoutDoc | null;
-    const hasDesign = !!doc && Array.isArray(doc.nodes) && doc.nodes.length > 0;
-
+  private buildHud(w: number, h: number, doc: LayoutDoc | null): void {
     let scoreAnchor = { x: 36, y: 44, origin: 0, size: 28 };
     let pitchAnchor = { x: w - 86, y: 44, size: 28 };
-    if (hasDesign) {
-      const layout = buildLayout(this, doc);
+    if (doc && Array.isArray(doc.nodes) && doc.nodes.length > 0) {
+      const designW = doc.frame?.designW ?? w;
+      // 배경(월드 cover)·캐릭터(3동작 컨트롤러)는 제외하고 나머지만 일반 빌드.
+      const layoutDoc: LayoutDoc = {
+        ...doc,
+        nodes: doc.nodes.filter((n) => !isBackgroundNode(n, designW) && n.type !== 'spriteDocClip'),
+      };
+      const layout = buildLayout(this, layoutDoc);
       // 컨테이너는 자식 depth 를 자동 정렬하지 않음 — depth 순으로 추가.
       const sorted = layout.entries().sort((a, b) => (a.node.depth ?? 0) - (b.node.depth ?? 0));
-      this.hudLayer.add(sorted.map((e) => e.obj));
-      // 전체 UI 투명도 30% — 필드가 비치도록. 캐릭터 아바타 이미지만 원본 불투명 유지.
       for (const e of sorted) {
-        const isAvatar = e.node.type === 'image' && UI_AVATAR_KEYS.has(e.node.key ?? '');
-        if (!isAvatar) e.obj.setAlpha((e.node.alpha ?? 1) * UI_DIM_ALPHA);
+        // 좌표공간 — 에디터가 넘긴 space 를 우선 적용, 없으면 기존 휴리스틱(채움 도형=월드)으로 폴백(하위호환).
+        //   'world' = 배경과 같은 좌표계 → 카메라 줌/팬을 함께 받음(전광판). 'screen' = 고정 카메라(HUD).
+        const space = e.node.space ?? ((e.node.fillClip || e.node.fillImage) ? 'world' : 'screen');
+        if (space === 'world') {
+          this.worldLayer.add(e.obj);
+        } else {
+          // HUD 패널/텍스트 — 고정 카메라. 필드가 비치도록 살짝 디밍.
+          this.hudLayer.add(e.obj);
+          const isAvatar = e.node.type === 'image' && UI_AVATAR_KEYS.has(e.node.key ?? '');
+          if (!isAvatar) e.obj.setAlpha((e.node.alpha ?? 1) * UI_DIM_ALPHA);
+        }
+      }
+      // 캐릭터(spriteDocClip) — 타자/투수를 각각 3동작 리그로 구성(에디터 등록 준비/액션/후).
+      // ⚠️ depth 오름차순으로 생성 → 컨테이너가 depth 순으로 worldLayer 에 추가돼 z-order 가 결정적이고
+      //    에디터 depth(투수 24 > 타자 23 등)에 충실하다(비동기 로드 순서에 흔들리지 않음).
+      const charNodes = doc.nodes
+        .filter((n) => n.type === 'spriteDocClip')
+        .sort((a, b) => (a.depth ?? 0) - (b.depth ?? 0));
+      for (const node of charNodes) {
+        if ((node.name ?? '').includes('투수')) {
+          this.pitcherNode = node;
+          this.pitcherRig = this.buildCharacterRig(node, PITCHER_RIG.viewMs);
+        } else {
+          this.batterRig = this.buildCharacterRig(node, BATTER_RIG.viewMs);
+        }
       }
       // 중앙 전광판 패널 — 점수(상단)·투구수(하단) 텍스트 앵커.
       const board = layout.tryById<Phaser.GameObjects.Image>('layer_1_copy2');
@@ -632,6 +553,19 @@ export class PlayScene extends Phaser.Scene {
     this.hudLayer.add([this.scoreText, this.pitchText, this.resultText]);
   }
 
+  // ── 캐릭터 3동작 리그 (에디터 등록: 준비/액션/후) ────────────────────────
+
+  /**
+   * 캐릭터(타자/투수) 3동작 리그 생성 — 레지스트리(_index.json)에서 같은 캐릭터의 준비/액션/후를
+   * 찾아 노드 위치·발밑 앵커·노드 높이 균일 스케일로 로드한다. 모두 월드 레이어(배경과 함께 줌/팬).
+   * 액션 발동(triggerAction) 시점은 startPitch/throwPitch 가 키 프레임(컨택·릴리스)에 맞춰 스케줄한다.
+   */
+  private buildCharacterRig(node: LayoutNode, viewMs: number): CharacterRig {
+    const index = (this.cache.json.get(UI_SPRITE_INDEX_KEY) ?? null) as SpriteIndex | null;
+    const files = resolveCharacterMotions(index, node.characterId, node.spriteDocFile);
+    return new CharacterRig(this, this.worldLayer, node, files, viewMs);
+  }
+
   // ── 투구 루프 ──────────────────────────────────────────────────────
 
   /** 투구 예고 — 랜덤 위치에 흰 반투명 존 출현, ZONE_PREVIEW_MS 뒤 투구. */
@@ -645,23 +579,17 @@ export class PlayScene extends Phaser.Scene {
 
     this.updateHud();
 
-    // 새 투구 — 스탠스에서 준비 시작, 장전 완료 후엔 웨글 루프(모션 정지 방지).
-    this.batter.stop();
-    this.batter.off(PREP_COMPLETE_EVT);
-    this.batter.off(SWING_COMPLETE_EVT);
-    this.batter.off(FINISH_COMPLETE_EVT);
-    this.batter.setFrame(batterFrame(0));
-    this.batter.play(PREP_ANIM);
-    this.batter.once(PREP_COMPLETE_EVT, () => this.batter.play(WAGGLE_ANIM));
+    // 타자 — 새 투구 시작 시 "타격준비" 반복(스윙은 throwPitch 에서 컨택 타이밍에 맞춰 발동).
+    this.batterRig?.playReady();
 
-    // 피처 — 글러브 세트로 리셋 후, 릴리스 프레임이 투구 시작과 일치하도록 역산 재생.
-    this.pitcher.stop();
-    this.pitcher.setFrame(pitcherFrame(0));
-    this.time.delayedCall(ZONE_PREVIEW_MS - PITCHER_RELEASE_MS, () => {
-      if (this.state !== 'over') this.pitcher.play(PITCHER_ANIM);
+    // 투수 — "준비동작" 반복 후, 투구동작의 릴리스 프레임이 공 릴리스(throwPitch=ZONE_PREVIEW_MS)와
+    // 정확히 일치하도록 ZONE_PREVIEW_MS - PITCH_RELEASE_LEAD_MS 시점에 투구동작을 발동한다.
+    this.pitcherRig?.playReady();
+    this.time.delayedCall(Math.max(0, ZONE_PREVIEW_MS - PITCH_RELEASE_LEAD_MS), () => {
+      if (this.state !== 'over') this.pitcherRig?.triggerAction();
     });
 
-    // 인디케이터(반투명 큰 원) 중심 = 배트 스위트스팟 실측점 ± 소폭 편차.
+    // 인디케이터(반투명 큰 원) 중심 = 스트라이크존 컨택 지점 ± 소폭 편차.
     this.indicatorX = this.batContactX + Phaser.Math.FloatBetween(-ZONE_JITTER.x, ZONE_JITTER.x);
     this.indicatorY = this.batContactY + Phaser.Math.FloatBetween(-ZONE_JITTER.y, ZONE_JITTER.y);
     // 붉은 타격점 = 인디케이터 원 "안"의 랜덤 위치 (원 경계를 벗어나지 않게 반경 제한).
@@ -700,43 +628,16 @@ export class PlayScene extends Phaser.Scene {
     this.tweens.add({ targets: this.redDot, alpha: 1, scale: 1, duration: 130, ease: 'Back.easeOut' });
   }
 
-  /** 진행 중인 자동 스윙 취소 — 나간 만큼 역재생으로 스탠스에 되돌아간다. */
-  private cancelSwing(): void {
-    this.batter.off(SWING_COMPLETE_EVT);
-    this.batter.off(FINISH_COMPLETE_EVT);
-    if (this.batter.anims.getName() === SWING_ANIM && this.batter.anims.isPlaying) {
-      this.batter.anims.reverse();
-      this.batter.once(SWING_COMPLETE_EVT, () => {
-        this.batter.stop();
-        this.batter.setFrame(batterFrame(0));
-      });
-    } else {
-      this.batter.stop();
-      this.batter.setFrame(batterFrame(0));
-    }
-  }
-
-  /** 스윙 재생 → 팔로스루 → 타격후 대기 루프(다음 투구까지 반복 모션). */
-  private playSwingChain(): void {
-    this.batter.off(SWING_COMPLETE_EVT);
-    this.batter.off(FINISH_COMPLETE_EVT);
-    this.batter.play(SWING_ANIM);
-    this.batter.once(SWING_COMPLETE_EVT, () => {
-      this.batter.play(FINISH_ANIM);
-      this.batter.once(FINISH_COMPLETE_EVT, () => this.batter.play(FINISH_LOOP_ANIM));
-    });
-  }
-
   /** 150km/h 초고속 투구 — 마운드 릴리스(z=Z_MOUND)에서 원근 투영으로 정확히 접근. */
   private throwPitch(): void {
     if (this.state === 'over') return;
     const w = this.scale.width;
     const h = this.scale.height;
 
-    // 릴리스 지점 = 피처 손끝(릴리스 프레임의 공 픽셀 실측) — 화면 좌표를 월드로 역투영.
-    const ps = this.pitcher.scale;
-    const releaseScreenX = this.pitcher.x + (PITCHER_RELEASE_PX.x - PITCHER_CELL_ANCHOR.x) * ps;
-    const releaseScreenY = this.pitcher.y + (PITCHER_RELEASE_PX.y - PITCHER_CELL_ANCHOR.y) * ps;
+    // 릴리스 지점 = 에디터 투수 노드의 손 높이(발밑 앵커 위로 노드 높이 비율) — 화면 좌표를 월드로 역투영.
+    // 투수 노드가 없으면(미배포) 마운드 중앙 폴백.
+    const releaseScreenX = this.pitcherNode?.x ?? w / 2;
+    const releaseScreenY = (this.pitcherNode?.y ?? h * 0.53) - (this.pitcherNode?.h ?? 0) * PITCHER_HAND_Y_RATIO;
     const pMound = PROJ_FOCAL / (PROJ_FOCAL + Z_MOUND);
     const groundYMound = h * GROUND_HORIZON_Y + h * (GROUND_PLATE_Y - GROUND_HORIZON_Y) * pMound;
     // 월드 좌표(타구 시뮬과 동일 법칙): z 등속 접근, 높이는 릴리스→존으로 중력 처짐.
@@ -818,68 +719,23 @@ export class PlayScene extends Phaser.Scene {
     this.state = 'pitch';
     this.pitchStartAt = this.time.now;
 
-    // ── 자동 스윙 ──────────────────────────────────────────────────────
-    // 공이 존에 도달(PITCH_MS)할 때 배트 임팩트 프레임이 정확히 일치하도록
-    // PITCH_MS - BAT_IMPACT_DELAY_MS 시점에 SWING_ANIM 을 자동 시작한다.
-    // 플레이어가 탭하지 않아도 방망이는 항상 앞으로 나간다.
-    this.time.delayedCall(PITCH_MS - BAT_IMPACT_DELAY_MS - SWING_START_LEAD_MS, () => {
-      if (this.state !== 'pitch') return;
-      this.playSwingChain();
+    // ── 타자 스윙 발동 ─────────────────────────────────────────────────
+    // 스윙 컨택 프레임(17/24)이 공 도달 순간(pitchStartAt + PITCH_MS)과 정확히 일치하도록
+    // PITCH_MS - SWING_CONTACT_LEAD_MS 시점에 스윙을 시작한다(매 투구 자동, 탭 무관).
+    this.time.delayedCall(Math.max(0, PITCH_MS - SWING_CONTACT_LEAD_MS), () => {
+      if (this.state === 'pitch') this.batterRig?.triggerAction();
     });
+
     // ── 공 도달 체크 ───────────────────────────────────────────────────
-    // 유예까지 탭이 없으면(state='pitch' 유지) 스윙 취소 — 역재생으로 되돌아간다.
-    // 유예 안의 늦은 탭은 onTap 에서 헛스윙 풀스윙으로 처리된다.
+    // 유예까지 탭이 없으면(state='pitch' 유지) 루킹 처리.
+    // 유예 안의 늦은 탭은 onTap 에서 헛스윙으로 처리된다.
     this.time.delayedCall(PITCH_MS + LATE_TAP_GRACE_MS, () => {
       if (this.state !== 'pitch') return;
       this.state = 'resolve';
       this.hideZone();
-      this.cancelSwing();
       // 공은 그대로 포수 미트까지 — 포구 연출(catchBall)이 미트와 함께 정리한다.
       this.applyOutcome(resolveTake());
       this.time.delayedCall(1000, () => this.nextPitch());
-    });
-  }
-
-  /**
-   * 스윙 스위시 이펙트 — 타자를 감싸는 납작한 타원 디스크(레퍼런스 연출).
-   * 방망이 회전반경을 따라 머리(임팩트 방향)에서 꼬리로 300° 휩쓸며,
-   * 세그먼트별 알파 그라데이션으로 꼬리가 부드럽게 잦아드는 모션 블러 느낌을 만든다.
-   */
-  private swingArcFx(): void {
-    const s = this.batter.scale;
-    const px = this.batter.x + (SWING_PIVOT.x - BATTER_ANCHOR.x) * s;
-    const py = this.batter.y + (SWING_PIVOT.y - BATTER_ANCHOR.y) * s;
-    const radius =
-      Phaser.Math.Distance.Between(SWING_PIVOT.x, SWING_PIVOT.y, BAT_SWEET_SPOT.x, BAT_SWEET_SPOT.y) *
-      s *
-      1.08;
-    const g = this.add.graphics({ x: px, y: py });
-    g.setScale(1, SWING_SWISH.yScale); // 원근 눌림 — 타자를 감싸는 타원 디스크
-    const head = Phaser.Math.DegToRad(SWING_SWISH.headDeg);
-    const sweep = Phaser.Math.DegToRad(SWING_SWISH.sweepDeg);
-    const segs = SWING_SWISH.segments;
-    // 꼬리(옅음) → 머리(진함) 순으로 밴드 세그먼트 적층.
-    for (let i = 0; i < segs; i++) {
-      const a0 = head - sweep + (sweep * i) / segs;
-      const a1 = head - sweep + (sweep * (i + 1)) / segs;
-      const alpha = 0.05 + (i / (segs - 1)) * 0.4;
-      g.fillStyle(0xffffff, alpha);
-      g.beginPath();
-      g.arc(0, 0, radius, a0, a1 + 0.02, false);
-      g.arc(0, 0, radius * SWING_SWISH.innerRatio, a1 + 0.02, a0, true);
-      g.closePath();
-      g.fillPath();
-    }
-    this.worldLayer.add(g);
-    this.worldLayer.bringToTop(g);
-    this.tweens.add({
-      targets: g,
-      alpha: 0,
-      scaleX: 1.12,
-      scaleY: SWING_SWISH.yScale * 1.12,
-      duration: 380,
-      ease: 'Cubic.easeOut',
-      onComplete: () => g.destroy(),
     });
   }
 
@@ -917,7 +773,6 @@ export class PlayScene extends Phaser.Scene {
     if (this.state !== 'pitch') return;
     this.state = 'resolve';
     this.hideZone();
-    this.cancelSwing();
     this.applyOutcome(resolveTake());
     this.time.delayedCall(1000, () => this.nextPitch());
   }
@@ -940,16 +795,7 @@ export class PlayScene extends Phaser.Scene {
         ? resolveAccuracySwing(1 - tapDist / touchRadius, progress, lateral)
         : resolveWhiff();
 
-    // 스윙 — 탭하면 무조건 풀스윙. 자동 스윙이 정주행 중이면 그대로 잇고,
-    // 아직 시작 전·역재생(취소)·정지 상태면 즉시 앞으로 끝까지 휘두른다.
-    const anims = this.batter.anims;
-    const anim = anims.getName();
-    const forwardSwinging =
-      (anim === SWING_ANIM && anims.isPlaying && !anims.inReverse) ||
-      anim === FINISH_ANIM ||
-      anim === FINISH_LOOP_ANIM;
-    if (!forwardSwinging) this.playSwingChain();
-
+    // 타자 스윙 비주얼은 에디터 캐릭터(정적)로 대체됨 — 판정·이펙트만 진행한다.
     this.state = 'resolve';
     this.hideZone();
 
@@ -1000,7 +846,7 @@ export class PlayScene extends Phaser.Scene {
     this.tweens.killTweensOf(this.mitt);
     this.mitt.setVisible(false).setAlpha(0);
 
-    // 만화풍 임팩트(크게) — 스타버스트 팝 + 금색 확산 링 + 스윙 회전 아크.
+    // 만화풍 임팩트(크게) — 스타버스트 팝 + 금색 확산 링.
     const burst = this.add
       .image(fxX, fxY, STARBURST_KEY)
       .setScale(0.8)
@@ -1008,9 +854,9 @@ export class PlayScene extends Phaser.Scene {
       .setAlpha(0.95);
     const ring = this.add.circle(fxX, fxY, 22).setStrokeStyle(3, 0xffd147, 0.9);
     this.worldLayer.add([ring, burst]);
-    this.worldLayer.bringToTop(this.batter);
+    // 타자 동작(월드 최상위)을 임팩트 위로 — 현재 표시 중인 동작 컨테이너를 올림.
+    this.batterRig?.bringToTop();
     this.worldLayer.bringToTop(burst); // 임팩트는 타자 위에 보이도록
-    this.swingArcFx();
     this.tweens.add({
       targets: burst,
       scale: 2.6,
@@ -1314,7 +1160,7 @@ export class PlayScene extends Phaser.Scene {
     const h = this.scale.height;
     this.time.delayedCall(450, () => {
       this.cameras.main.stopFollow();
-      this.cameras.main.pan(w / 2 + CAM_OFFSET_X, h / 2, CAM_RESET_MS, 'Sine.easeInOut');
+      this.cameras.main.pan(w / 2, h / 2, CAM_RESET_MS, 'Sine.easeInOut');
       this.cameras.main.zoomTo(1, CAM_RESET_MS, 'Sine.easeInOut');
       this.time.delayedCall(CAM_RESET_MS + 50, () => this.nextPitch());
     });
@@ -1392,6 +1238,10 @@ export class PlayScene extends Phaser.Scene {
     this.sim = undefined;
     this.time.removeAllEvents();
     this.tweens.killAll();
+    // 캐릭터 리그를 준비동작으로 복귀 — removeAllEvents 가 액션→후 전환 타이머를 취소해
+    // 액션 포즈로 굳는 것을 방지(게임오버 오버레이 아래 정지 포즈 방지).
+    this.batterRig?.playReady();
+    this.pitcherRig?.playReady();
     this.cameras.main.stopFollow();
     this.cameras.main.setZoom(1);
     this.cameras.main.centerOn(w / 2, h / 2);

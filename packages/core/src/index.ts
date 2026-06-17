@@ -11,3 +11,4 @@ export * from './systems/haptics.js';
 export * from './systems/pwa.js';
 export * from './game-shell.js';
 export type { GameModule } from './game-shell.js';
+export * from './liveops/index.js';

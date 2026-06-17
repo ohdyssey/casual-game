@@ -48,10 +48,12 @@ function devKillServiceWorker(): PluginOption {
 export default defineConfig({
   base: './',
   resolve: {
-    alias: {
-      '@casual/core': `${coreSrc}/index.ts`,
-      '@casual/core/': `${coreSrc}/`,
-    },
+    // 정규식으로 정확 매칭 — '@casual/core'(배럴)와 '@casual/core/x'(서브패스)를 구분한다.
+    // (객체형 prefix 매칭은 '@casual/core/liveops' 를 '…/index.ts/liveops' 로 잘못 치환함.)
+    alias: [
+      { find: /^@casual\/core$/, replacement: `${coreSrc}/index.ts` },
+      { find: /^@casual\/core\//, replacement: `${coreSrc}/` },
+    ],
   },
   server: { port: 6181, host: true, strictPort: true },
   build: {

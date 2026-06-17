@@ -4,6 +4,7 @@
  */
 import Phaser from 'phaser';
 import { ensureGeneratedTextures, loadGameAssets, LOGO_KEY, preloadKoreanFonts } from '../assets.js';
+import { preloadAudio } from '../audio.js';
 
 export class LoadScene extends Phaser.Scene {
   private percentText!: Phaser.GameObjects.Text;
@@ -35,8 +36,9 @@ export class LoadScene extends Phaser.Scene {
   create(): void {
     ensureGeneratedTextures(this);
     void (async () => {
-      await preloadKoreanFonts();
-      this.scene.start('race');
+      // 폰트 + 북 샘플(MP4) 선로딩 — 실패해도 폴백으로 진행.
+      await Promise.all([preloadKoreanFonts(), preloadAudio()]);
+      this.scene.start('home');
     })();
   }
 }

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "fx_uhdp9ye6o",
+  "name": "물보라",
+  "texture": "dot",
+  "emitting": false,
+  "frequency": -1,
+  "quantity": 20,
+  "maxParticles": 40,
+  "lifespan": {
+    "min": 400,
+    "max": 800
+  },
+  "speed": {
+    "min": 120,
+    "max": 260
+  },
+  "scale": {
+    "start": 0.45,
+    "end": 0.1
+  },
+  "alpha": {
+    "start": 0.9,
+    "end": 0
+  },
+  "rotate": {
+    "start": 0,
+    "end": 0
+  },
+  "angle": {
+    "min": 200,
+    "max": 340
+  },
+  "gravityX": 0,
+  "gravityY": 600,
+  "accelerationX": 0,
+  "accelerationY": 0,
+  "blendMode": "SCREEN",
+  "tint": [
+    12577279,
+    8042751
+  ]
+}

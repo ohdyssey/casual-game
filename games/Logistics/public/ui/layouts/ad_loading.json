@@ -1,0 +1,86 @@
+{
+  "frame": {
+    "designW": 720,
+    "designH": 1280
+  },
+  "nodes": [
+    {
+      "id": "r1",
+      "type": "rect",
+      "name": "어둠막",
+      "x": 360,
+      "y": 640,
+      "w": 720,
+      "h": 1280,
+      "fill": "#000000",
+      "stroke": "",
+      "strokeW": 0,
+      "radius": 0,
+      "depth": 0,
+      "visible": true,
+      "alpha": 0.6
+    },
+    {
+      "id": "t2",
+      "type": "text",
+      "name": "아이콘",
+      "x": 360,
+      "y": 600,
+      "text": "🎬",
+      "fontSize": 90,
+      "color": "#ffffff",
+      "stroke": "",
+      "strokeW": 0,
+      "align": "center",
+      "depth": 3,
+      "visible": true
+    },
+    {
+      "id": "t3",
+      "type": "text",
+      "name": "안내",
+      "x": 360,
+      "y": 720,
+      "text": "광고를 불러오는 중…",
+      "fontSize": 30,
+      "color": "#c4cedb",
+      "stroke": "",
+      "strokeW": 0,
+      "align": "center",
+      "depth": 3,
+      "visible": true
+    },
+    {
+      "id": "r4",
+      "type": "rect",
+      "name": "바_홈",
+      "x": 360,
+      "y": 800,
+      "w": 360,
+      "h": 14,
+      "fill": "#0e1620",
+      "stroke": "",
+      "strokeW": 0,
+      "radius": 7,
+      "depth": 3,
+      "visible": true
+    },
+    {
+      "id": "r5",
+      "type": "rect",
+      "name": "바",
+      "x": 252,
+      "y": 800,
+      "w": 144,
+      "h": 14,
+      "fill": "#16a45f",
+      "stroke": "",
+      "strokeW": 0,
+      "radius": 7,
+      "depth": 4,
+      "visible": true,
+      "role": "progress"
+    }
+  ],
+  "groups": []
+}
