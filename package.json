@@ -10,7 +10,8 @@
   ],
   "scripts": {
     "dev": "concurrently -n hub,store,eco01,bubble,fish,grill,sumo,homerun,dragon,archery,zombie,duck,logi,soccer,path,paw -c green,magenta,cyan,yellow,blue,red,redBright,blueBright,cyanBright,yellowBright,greenBright,magentaBright,white,blueBright,magentaBright,yellowBright \"npm:dev:hub\" \"npm:dev:store\" \"npm:dev:eco01\" \"npm:dev:bubblepong\" \"npm:dev:fishing\" \"npm:dev:grillking\" \"npm:dev:sumoclash\" \"npm:dev:homerun\" \"npm:dev:dragonbeat\" \"npm:dev:archery\" \"npm:dev:zombiearrow\" \"npm:dev:duckhuntrush\" \"npm:dev:logistics\" \"npm:dev:soccerflick\" \"npm:dev:pathrush\" \"npm:dev:pawlink\"",
-    "dev:fishing": "npm --prefix ../fishing run dev",
+    "dev:fishing": "npm --prefix ../fishing run dev -- --host",
+    "build:fishing": "npm --prefix ../fishing run build",
     "dev:hub": "npm run dev --workspace games/hub",
     "build:hub": "npm run build --workspace games/hub",
     "dev:store": "npm run dev --workspace games/store",
@@ -41,7 +42,7 @@
     "build:pathrush": "npm run build --workspace games/PathRush",
     "dev:pawlink": "npm run dev --workspace games/PawLink",
     "build:pawlink": "npm run build --workspace games/PawLink",
-    "build:all": "npm run build:hub && npm run build:store && npm run build:eco01 && npm run build:bubblepong && npm run build:grillking && npm run build:sumoclash && npm run build:homerun && npm run build:dragonbeat && npm run build:archery && npm run build:zombiearrow && npm run build:duckhuntrush && npm run build:logistics && npm run build:soccerflick && npm run build:pathrush && npm run build:pawlink",
+    "build:all": "npm run build:hub && npm run build:store && npm run build:eco01 && npm run build:bubblepong && npm run build:grillking && npm run build:sumoclash && npm run build:homerun && npm run build:dragonbeat && npm run build:archery && npm run build:zombiearrow && npm run build:duckhuntrush && npm run build:logistics && npm run build:soccerflick && npm run build:pathrush && npm run build:pawlink && npm run build:fishing",
     "deploy:assemble": "node scripts/assemble-deploy.mjs",
     "deploy:static": "npm run build:all && npm run deploy:assemble",
     "typecheck": "tsc -p packages/core/tsconfig.json && tsc -p games/hub/tsconfig.json && tsc -p games/store/tsconfig.json && tsc -p games/eco01/tsconfig.json && tsc -p games/bubblepong/tsconfig.json && tsc -p games/Grillking/tsconfig.json && tsc -p games/SumoClash/tsconfig.json && tsc -p games/Homerun/tsconfig.json && tsc -p games/DragonBeat/tsconfig.json && tsc -p games/Archery/tsconfig.json && tsc -p games/ZombieArrow/tsconfig.json && tsc -p games/DuckhuntRush/tsconfig.json && tsc -p games/Logistics/tsconfig.json && tsc -p games/SoccerFlick/tsconfig.json && tsc -p games/PathRush/tsconfig.json && tsc -p games/PawLink/tsconfig.json",

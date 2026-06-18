@@ -19,9 +19,14 @@ import { GAMES } from '../games/hub/games.config.js';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = resolve(ROOT, 'deploy');
 
-/** 배포 폴더명(prodUrl 기준) → 소스 워크스페이스 디렉터리. fishing 은 외부 레포라 제외. */
+/**
+ * 배포 폴더명(prodUrl 기준) → 소스 디렉터리(ROOT 상대).
+ * 대부분 games/* 워크스페이스. fishing 만 모노레포 외부 형제 레포(../fishing)라
+ * '../fishing' 로 가리킨다 → copyDist 가 ../fishing/dist 를 deploy/fishing/ 로 복사.
+ */
 const SRC_DIR = {
   store: 'games/store',
+  fishing: '../fishing',
   grillking: 'games/Grillking',
   eco01: 'games/eco01',
   bubblepong: 'games/bubblepong',
