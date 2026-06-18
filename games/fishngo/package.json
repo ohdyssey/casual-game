@@ -1,0 +1,33 @@
+{
+  "name": "@casual/game-fishngo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Vertical fishing game — Phaser 3 + Vite (portrait 720×1280)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4180",
+    "resize-bg": "node scripts/resize-bg.cjs",
+    "ui:introspect": "node scripts/ui-introspect.cjs",
+    "ui:convert": "node scripts/convert-ui.cjs",
+    "ui:shot": "node scripts/shot.cjs",
+    "ui:verify-card": "node scripts/verify-card.cjs",
+    "ui:seed-layout": "node scripts/seed-layout.mjs",
+    "ui:editor-test": "node scripts/editor-test.cjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@ohdyssey/phaser-ui-editor": "git+https://github.com/ohdyssey/phaser-ui-editor.git#v0.2.0",
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "patch-package": "^8.0.1",
+    "playwright": "^1.60.0",
+    "sharp": "^0.34.5",
+    "vite": "^5.4.0",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^4.1.8"
+  }
+}

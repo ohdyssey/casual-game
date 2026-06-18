@@ -20,13 +20,13 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = resolve(ROOT, 'deploy');
 
 /**
- * 배포 폴더명(prodUrl 기준) → 소스 디렉터리(ROOT 상대).
- * 대부분 games/* 워크스페이스. fishing 만 모노레포 외부 형제 레포(../fishing)라
- * '../fishing' 로 가리킨다 → copyDist 가 ../fishing/dist 를 deploy/fishing/ 로 복사.
+ * 배포 폴더명(prodUrl 기준) → 소스 워크스페이스 디렉터리(ROOT 상대).
+ * 배포 폴더명(prodUrl '../fishing/' → 'fishing')과 소스 폴더명(games/fishngo)이 다른 점에 유의:
+ *   허브의 공개 경로는 /fishing/ 그대로 두고, 소스만 games/fishngo 워크스페이스에서 가져온다.
  */
 const SRC_DIR = {
   store: 'games/store',
-  fishing: '../fishing',
+  fishing: 'games/fishngo',
   grillking: 'games/Grillking',
   eco01: 'games/eco01',
   bubblepong: 'games/bubblepong',

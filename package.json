@@ -9,9 +9,10 @@
     "games/*"
   ],
   "scripts": {
+    "postinstall": "patch-package --patch-dir games/fishngo/patches",
     "dev": "concurrently -n hub,store,eco01,bubble,fish,grill,sumo,homerun,dragon,archery,zombie,duck,logi,soccer,path,paw -c green,magenta,cyan,yellow,blue,red,redBright,blueBright,cyanBright,yellowBright,greenBright,magentaBright,white,blueBright,magentaBright,yellowBright \"npm:dev:hub\" \"npm:dev:store\" \"npm:dev:eco01\" \"npm:dev:bubblepong\" \"npm:dev:fishing\" \"npm:dev:grillking\" \"npm:dev:sumoclash\" \"npm:dev:homerun\" \"npm:dev:dragonbeat\" \"npm:dev:archery\" \"npm:dev:zombiearrow\" \"npm:dev:duckhuntrush\" \"npm:dev:logistics\" \"npm:dev:soccerflick\" \"npm:dev:pathrush\" \"npm:dev:pawlink\"",
-    "dev:fishing": "npm --prefix ../fishing run dev -- --host",
-    "build:fishing": "npm --prefix ../fishing run build",
+    "dev:fishing": "npm run dev --workspace games/fishngo -- --host",
+    "build:fishing": "npm run build --workspace games/fishngo",
     "dev:hub": "npm run dev --workspace games/hub",
     "build:hub": "npm run build --workspace games/hub",
     "dev:store": "npm run dev --workspace games/store",

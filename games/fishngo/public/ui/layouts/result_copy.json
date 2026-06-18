@@ -1,0 +1,36 @@
+{
+  "frame": {
+    "designW": 720,
+    "designH": 1280
+  },
+  "nodes": [
+    {
+      "id": "bg",
+      "type": "image",
+      "name": "배경",
+      "key": "bg_result",
+      "x": 360,
+      "y": 640,
+      "w": 720,
+      "h": 1280,
+      "depth": 0,
+      "visible": true,
+      "tintable": true
+    },
+    {
+      "id": "title",
+      "type": "text",
+      "name": "제목",
+      "text": "RESULT",
+      "x": 360,
+      "y": 150,
+      "fontSize": 60,
+      "color": "#ffffff",
+      "stroke": "#15324f",
+      "strokeW": 8,
+      "align": "center",
+      "depth": 5,
+      "visible": true
+    }
+  ]
+}

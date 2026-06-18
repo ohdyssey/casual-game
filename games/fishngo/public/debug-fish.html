@@ -1,0 +1,51 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  body { margin: 0; background: #1a3; font-family: monospace; color: white; padding: 10px; }
+  .row { display: flex; gap: 8px; margin: 6px 0; }
+  .cell { position: relative; border: 1px solid red; }
+  .cell .lbl { position: absolute; left: 4px; top: 2px; background: rgba(0,0,0,0.7); padding: 2px 5px; font-size: 11px; color: yellow; }
+  .cell .head-marker { position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
+    width: 20px; height: 6px; background: #ff0; color: #000; font-size: 10px;
+    border-radius: 3px; text-align: center; line-height: 6px; }
+  .cell .tail-marker { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+    width: 20px; height: 6px; background: #0ff; color: #000; font-size: 10px;
+    border-radius: 3px; text-align: center; line-height: 6px; }
+</style></head>
+<body>
+  <h3 style="margin:4px 0;">Clownfish — 8 cells, ↑=head marker / ↓=tail marker assumption</h3>
+  <div id="cf"></div>
+  <h3 style="margin:4px 0;">Bluetang — same</h3>
+  <div id="bt"></div>
+  <script>
+    const SIZE = 200;
+    function buildSheet(src, container) {
+      const img = new Image();
+      img.onload = () => {
+        const cellW = img.naturalWidth / 4;
+        const cellH = img.naturalHeight / 2;
+        for (let r = 0; r < 2; r++) {
+          const row = document.createElement('div');
+          row.className = 'row';
+          for (let c = 0; c < 4; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.style.width = `${SIZE}px`;
+            cell.style.height = `${SIZE}px`;
+            cell.style.backgroundImage = `url(${src})`;
+            cell.style.backgroundPosition = `-${c * SIZE}px -${r * SIZE}px`;
+            cell.style.backgroundSize = `${SIZE * 4}px ${SIZE * 2}px`;
+            cell.innerHTML = `<div class="lbl">f${r * 4 + c}</div>
+              <div class="head-marker">HEAD?</div>
+              <div class="tail-marker">TAIL?</div>`;
+            row.appendChild(cell);
+          }
+          container.appendChild(row);
+        }
+      };
+      img.src = src;
+    }
+    buildSheet('/sprites/clownfish_swim.webp', document.getElementById('cf'));
+    buildSheet('/sprites/bluetang_swim.webp', document.getElementById('bt'));
+  </script>
+</body></html>

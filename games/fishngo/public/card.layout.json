@@ -1,0 +1,263 @@
+{
+  "schemaVersion": 2,
+  "frame": {
+    "designW": 408,
+    "designH": 645
+  },
+  "nodes": [
+    {
+      "id": "frame",
+      "type": "image",
+      "name": "프레임",
+      "key": "card_up_popup_02-1",
+      "x": 205,
+      "y": 322,
+      "w": 408,
+      "h": 645,
+      "depth": 1,
+      "visible": true,
+      "tintable": true
+    },
+    {
+      "id": "art",
+      "type": "art",
+      "name": "아트창",
+      "binding": "artKey",
+      "key": "card_art_01",
+      "x": 204,
+      "y": 161,
+      "w": 347,
+      "h": 221,
+      "depth": 2,
+      "visible": true,
+      "topRadius": 20,
+      "botRadius": 20,
+      "borderColor": 14922602,
+      "borderWidth": 2.5
+    },
+    {
+      "id": "header",
+      "type": "image",
+      "name": "헤더 배너",
+      "key": "card_up_popup_01-2_v5",
+      "x": 202,
+      "y": -14,
+      "w": 445,
+      "h": 98,
+      "depth": 10,
+      "visible": true,
+      "tintable": true,
+      "anim": {
+        "category": "particle",
+        "trigger": "idle",
+        "delay": 0,
+        "spring": {
+          "prop": "scale",
+          "to": 1.12,
+          "stiffness": 120,
+          "damping": 12,
+          "mass": 1
+        },
+        "particle": {
+          "effect": "sparkle",
+          "tint": "#ffe28a",
+          "quantity": 2,
+          "frequency": 220,
+          "maxParticles": 40,
+          "continuous": true
+        }
+      }
+    },
+    {
+      "id": "header.title",
+      "type": "text",
+      "name": "낚시터명",
+      "binding": "title",
+      "x": 203,
+      "y": -3,
+      "fontSize": 24,
+      "color": "#ffffff",
+      "stroke": "#7a401a",
+      "strokeW": 6,
+      "align": "center",
+      "depth": 11,
+      "visible": true,
+      "fontFamily": "Jua",
+      "anim": {
+        "category": "none",
+        "trigger": "idle",
+        "delay": 0,
+        "tween": {
+          "ease": "Sine.easeInOut",
+          "duration": 600,
+          "yoyo": true,
+          "repeat": -1,
+          "props": {}
+        }
+      }
+    },
+    {
+      "id": "panel_b.stars",
+      "type": "starRow",
+      "name": "난이도 별",
+      "binding": "difficulty",
+      "x": 319,
+      "y": 75,
+      "starH": 24,
+      "gap": 5,
+      "count": 3,
+      "onKey": "card_star_on",
+      "offKey": "card_star_off",
+      "depth": 9,
+      "visible": true
+    },
+    {
+      "id": "panel_c",
+      "type": "image",
+      "name": "4슬롯 패널",
+      "key": "card_panel_c",
+      "x": 205,
+      "y": 442,
+      "w": 352,
+      "h": 120,
+      "depth": 4,
+      "visible": true,
+      "tintable": true
+    },
+    {
+      "id": "panel_c.slots",
+      "type": "slotRow",
+      "name": "아이템 슬롯",
+      "key": "card_slot",
+      "x": 206,
+      "y": 451,
+      "slotH": 63,
+      "gap": 16,
+      "count": 4,
+      "depth": 8,
+      "visible": true
+    },
+    {
+      "id": "bar",
+      "type": "image",
+      "name": "보상 바",
+      "key": "card_bar",
+      "x": 203,
+      "y": 531,
+      "w": 352,
+      "h": 48,
+      "depth": 3,
+      "visible": true,
+      "tintable": true
+    },
+    {
+      "id": "bar.label",
+      "type": "text",
+      "name": "보상 라벨",
+      "text": "획득 보상",
+      "x": 119,
+      "y": 533,
+      "fontSize": 20,
+      "color": "#cf6b15",
+      "stroke": "#ffffff",
+      "strokeW": 2,
+      "align": "center",
+      "depth": 7,
+      "visible": true
+    },
+    {
+      "id": "bar.value",
+      "type": "text",
+      "name": "보상 값",
+      "binding": "reward",
+      "x": 225,
+      "y": 532,
+      "fontSize": 20,
+      "color": "#5a3210",
+      "stroke": "#ffffff",
+      "strokeW": 3,
+      "align": "left",
+      "depth": 5,
+      "visible": true
+    },
+    {
+      "id": "panel_a.label_copy",
+      "type": "text",
+      "name": "스테이지 설명",
+      "text": "# 스테이지 설명",
+      "x": 204,
+      "y": 329,
+      "fontSize": 18,
+      "color": "#9b663b",
+      "stroke": "#ffffff",
+      "strokeW": 0,
+      "align": "left",
+      "depth": 13,
+      "visible": true,
+      "fontFamily": "Noto Sans KR",
+      "wrapW": 337,
+      "wrapH": 89,
+      "binding": "description"
+    },
+    {
+      "id": "layer_1",
+      "type": "image",
+      "name": "코인",
+      "key": "card_up_popup_11_v3",
+      "x": 176,
+      "y": 531,
+      "w": 27,
+      "h": 27,
+      "depth": 12,
+      "visible": true,
+      "tintable": true,
+      "anim": {
+        "category": "particle",
+        "trigger": "idle",
+        "delay": 0,
+        "tween": {
+          "props": {
+            "scale": {
+              "to": "*=1.1"
+            }
+          },
+          "ease": "Sine.easeInOut",
+          "duration": 600,
+          "yoyo": true,
+          "repeat": -1
+        },
+        "spring": {
+          "prop": "angle",
+          "to": 1.12,
+          "stiffness": 120,
+          "damping": 12,
+          "mass": 1
+        },
+        "particle": {
+          "effect": "sparkle",
+          "tint": "#fbf541",
+          "quantity": 2,
+          "frequency": 220,
+          "maxParticles": 40,
+          "continuous": true
+        }
+      }
+    },
+    {
+      "id": "panel_a.label_copy2",
+      "type": "text",
+      "name": "추천어종 라벨 복사",
+      "text": "추천 아이템",
+      "x": 210,
+      "y": 405,
+      "fontSize": 20,
+      "color": "#cf6b15",
+      "stroke": "#ffffff",
+      "strokeW": 2,
+      "align": "center",
+      "depth": 6,
+      "visible": true,
+      "fontFamily": "Jua"
+    }
+  ]
+}

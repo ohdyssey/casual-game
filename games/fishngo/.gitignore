@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.vite/
+.env
+.env.local
+*.tsbuildinfo
+
+# debug screenshots / dev artifacts
+.snapshots/
+.gstack/
+
+.vercel
+
+# UI 정밀 검증 스크린샷 산출물 (scripts/shot.cjs, verify-card.cjs)
+tmp/

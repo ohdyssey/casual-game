@@ -1,0 +1,18 @@
+diff --git a/node_modules/@ohdyssey/phaser-ui-editor/src/editor/UiEditorScene.js b/node_modules/@ohdyssey/phaser-ui-editor/src/editor/UiEditorScene.js
+index 89a2866..45eb552 100644
+--- a/node_modules/@ohdyssey/phaser-ui-editor/src/editor/UiEditorScene.js
++++ b/node_modules/@ohdyssey/phaser-ui-editor/src/editor/UiEditorScene.js
+@@ -1226,8 +1226,11 @@ export class UiEditorScene extends Phaser.Scene {
+   _textControlsHTML(node) {
+     if (node.type !== 'text') return '';
+     const hex6 = (c) => { let s = String(c || '#ffffff').replace('#', ''); if (s.length === 3) s = s.split('').map((x) => x + x).join(''); return '#' + (s + '000000').slice(0, 6); };
+-    const FONTS = ['Jua', 'Bowlby One', 'Black Ops One', 'Russo One', 'system-ui'];
+-    const cur = node.fontFamily || 'Jua';
++    // 호스트 주입(config.fontFamilies) 우선 — 없으면 기본 5종. (게임: fonts.config.js UI_FONT_FAMILIES)
++    const FONTS = (this._cfg.fontFamilies && this._cfg.fontFamilies.length)
++      ? this._cfg.fontFamilies.map((f) => (typeof f === 'string' ? f : f.family))
++      : ['Jua', 'Bowlby One', 'Black Ops One', 'Russo One', 'system-ui'];
++    const cur = node.fontFamily || FONTS[0] || 'Jua';
+     const fontOpts = FONTS.map((f) => `<option value="${f}"${f === cur ? ' selected' : ''}>${f}</option>`).join('');
+     let html = '<div class="uie-asec">텍스트 / 폰트</div>';
+     if (!node.binding) html += `<label class="uie-full">내용<input type="text" data-str="text" value="${(node.text || '').replace(/"/g, '&quot;')}"></label>`;

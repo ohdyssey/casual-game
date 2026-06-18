@@ -1,0 +1,2 @@
+# patch-package 패치 파일은 모든 플랫폼에서 LF 유지 — CRLF 변환 시 패치 적용 실패 방지.
+patches/**/*.patch text eol=lf
