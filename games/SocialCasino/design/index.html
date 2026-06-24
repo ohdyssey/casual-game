@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>슬롯매치 — 에셋 디자인 보드</title>
+<style>
+  :root { --pp:#9B5DE5; --gold:#F5B400; --bg:#1A1030; --panel:#2e2150; --panel2:#352766; --ink:#F4ECFF; --sub:#cdbceb; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#120a26; color:var(--ink); font-family:'Segoe UI',system-ui,sans-serif; line-height:1.5; }
+  header { padding:24px 20px; background:linear-gradient(135deg,#2e2150,#120a26); border-bottom:2px solid var(--gold); }
+  h1 { margin:0 0 4px; font-size:26px; }
+  h1 small { color:var(--gold); font-weight:600; }
+  .lead { color:var(--sub); max-width:880px; }
+  .wrap { display:grid; grid-template-columns: 360px 1fr; gap:28px; padding:28px 20px; align-items:start; }
+  @media (max-width:840px){ .wrap{ grid-template-columns:1fr; } }
+  /* 스크린 블루프린트 (1080×2400 → 360×800 축소 ÷3) */
+  .frame { width:360px; height:800px; background:var(--bg); border:3px solid var(--gold); border-radius:22px; position:relative; overflow:hidden; box-shadow:0 12px 40px rgba(0,0,0,.5); }
+  .region { position:absolute; left:10px; right:10px; border:2px solid rgba(255,217,122,.5); border-radius:8px; background:rgba(53,39,102,.55); padding:6px 8px; }
+  .region b { display:block; font-size:12px; color:#ffe9b8; }
+  .region span { font-size:10px; color:var(--sub); }
+  .legend { font-size:13px; }
+  section { background:#1c1336; border:1px solid #3a2a66; border-radius:14px; padding:18px 20px; margin-bottom:18px; }
+  section h2 { margin:0 0 12px; font-size:18px; color:var(--gold); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { padding:5px 12px; border-radius:999px; font-size:13px; font-weight:600; background:var(--panel); border:1px solid #4a3a7a; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  td,th { text-align:left; padding:6px 8px; border-bottom:1px solid #2e2150; }
+  th { color:var(--gold); }
+  code { background:#2e2150; padding:2px 6px; border-radius:5px; font-size:12px; color:#ffe1a8; }
+  ul { margin:6px 0; padding-left:20px; } li { margin:3px 0; }
+  .swatch { display:inline-block; width:14px; height:14px; border-radius:4px; vertical-align:middle; margin-right:6px; border:1px solid rgba(255,255,255,.3); }
+</style>
+</head>
+<body>
+<header>
+  <h1>슬롯매치 <small>SocialCasino — 퍼즐 + 슬롯 하이브리드</small></h1>
+  <p class="lead">하단 <b>매치-3</b>에서 3매치 → 스핀 적립(MATCH = 1 SPIN), 상단 <b>슬롯머신(5릴×3행)</b> 레버로 스핀 → 코인·잭팟. 소셜(TOP SPINNERS·INVITE·잭팟) + 베팅 배율.
+  프레임 <b>1080×2400 HD 세로</b> · accent <span class="swatch" style="background:#9B5DE5"></span><code>#9B5DE5</code> · 골드 <span class="swatch" style="background:#F5B400"></span><code>#F5B400</code>.</p>
+</header>
+
+<div class="wrap">
+  <!-- 로비(메인) 화면 블루프린트 — 1080×2400 좌표를 ÷3 으로 축소 배치 -->
+  <div>
+    <div class="frame" id="frame"></div>
+    <p class="legend" style="margin-top:10px;color:var(--sub)">▲ 로비(<code>blank_2.json</code>) 메인 플레이 화면 — 영역 청사진(1080×2400 ÷3 축소)</p>
+  </div>
+
+  <div>
+    <section>
+      <h2>화면 (에디터 _index.json)</h2>
+      <table>
+        <tr><th>화면</th><th>파일</th><th>용도</th></tr>
+        <tr><td>진입화면</td><td><code>blank.json</code></td><td>스플래시 / 시작</td></tr>
+        <tr><td><b>로비</b></td><td><code>blank_2.json</code></td><td><b>메인 플레이</b>(좌측 청사진)</td></tr>
+        <tr><td>팝업화면</td><td><code>blank_copy.json</code></td><td>일반 팝업</td></tr>
+        <tr><td>광고 보상 제안</td><td><code>popup_ad_3.json</code></td><td>리워드 광고 오퍼</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>카탈로그</h2>
+      <p style="margin:0 0 6px;color:var(--sub)">슬롯 심볼(상단 릴)</p>
+      <div class="chips"><span class="chip">cherry</span><span class="chip">bell</span><span class="chip">crown</span><span class="chip">seven</span><span class="chip">star</span><span class="chip">bonus</span><span class="chip">coin</span></div>
+      <p style="margin:14px 0 6px;color:var(--sub)">매치 타일(하단 보드 · 식료품)</p>
+      <div class="chips"><span class="chip">apple</span><span class="chip">broccoli</span><span class="chip">cheese</span><span class="chip">soap</span><span class="chip">tissue</span><span class="chip">chips</span><span class="chip">coin</span><span class="chip">★ star=컬러밤</span></div>
+      <p style="margin:14px 0 6px;color:var(--sub)">파워업(4종)</p>
+      <div class="chips"><span class="chip">🔨 hammer</span><span class="chip">🚀 rowBlast</span><span class="chip">🔁 swap</span><span class="chip">🌈 colorBomb</span></div>
+    </section>
+
+    <section>
+      <h2>네이밍 규약</h2>
+      <ul>
+        <li>업로드 키 접두 <code>up_SC_</code> (예: <code>up_SC_Slot_01-1_v2</code>)</li>
+        <li>분해 키: 심볼 <code>up_SC_SYM_&lt;id&gt;</code> · 타일 <code>up_SC_TILE_&lt;id&gt;</code> · 파워업 <code>up_SC_PU_&lt;id&gt;</code> · 배경 <code>up_SC_BG_01</code></li>
+        <li>매니페스트 <code>public/ui-assets.json</code> (에디터 자동 갱신)</li>
+        <li>로딩: <code>public/loading/{bg,logo,start_on,start_off}.png</code></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>에셋 체크리스트</h2>
+      <ul>
+        <li>☑ <code>up_SC_Slot_01</code> 슬롯머신 본체 (업로드됨)</li>
+        <li>☐ 릴 심볼 7종 · 레버 · 잭팟 게이지 · 보물상자 · TOP SPINNERS 프레임</li>
+        <li>☐ 매치 타일 7종(~140×140) · 보드 판 · 특수타일(별)</li>
+        <li>☐ 파워업 4종 아이콘 · SPIN 버튼 · 베팅 −/＋ · MAX BET</li>
+        <li>☐ 로딩 bg/logo/start_on/start_off</li>
+      </ul>
+      <p style="color:var(--sub);font-size:13px">내보내기: 한 변 ≤2048px · 표시 크기 2배 이내 · 투명 PNG (export 후 개발자가 WebP 최적화).</p>
+    </section>
+  </div>
+</div>
+
+<script>
+  // 1080×2400 좌표(ASSETS.md)를 ÷3 으로 축소해 블루프린트 영역을 배치.
+  var S = 1/3;
+  var regions = [
+    [30,30,1020,150,'상단 HUD','레벨·코인·경험치·에너지·☰'],
+    [30,210,1020,800,'슬롯머신 (5릴×3행)','MATCH=1 SPIN·레버·TOP SPINNERS·잭팟·보물상자'],
+    [30,1040,1020,120,'안내 배너','MAKE 3 MATCHES → GET 1 SPIN!'],
+    [30,1190,1020,800,'매치-3 보드','식료품 타일 스왑 → 스핀 적립'],
+    [30,2020,1020,170,'파워업 + SPIN','망치·로우블래스트·[SPIN!]·스왑·컬러밤'],
+    [30,2220,1020,150,'베팅 바','− 1,000 🪙 ＋  MAX BET'],
+  ];
+  var f = document.getElementById('frame');
+  regions.forEach(function(r){
+    var d = document.createElement('div');
+    d.className = 'region';
+    d.style.top = (r[1]*S)+'px';
+    d.style.height = (r[3]*S)+'px';
+    d.innerHTML = '<b>'+r[4]+'</b><span>'+r[5]+'</span>';
+    f.appendChild(d);
+  });
+</script>
+</body>
+</html>

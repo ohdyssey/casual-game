@@ -1,0 +1,34 @@
+{
+  "screens": [
+    {
+      "id": "blank",
+      "name": "진입화면",
+      "file": "ui/layouts/blank.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_copy",
+      "name": "팝업화면",
+      "file": "ui/layouts/blank_copy.json",
+      "category": "custom"
+    },
+    {
+      "id": "popup_ad_3",
+      "name": "광고 보상 제안",
+      "file": "ui/layouts/popup_ad_3.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_2",
+      "name": "로비",
+      "file": "ui/layouts/blank_2.json",
+      "category": "custom"
+    },
+    {
+      "id": "splash",
+      "name": "게임로딩",
+      "file": "ui/layouts/splash.json",
+      "category": "custom"
+    }
+  ]
+}

@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 2,
+  "frame": {
+    "designW": 1080,
+    "designH": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "r5",
+      "type": "rect",
+      "name": "로딩바",
+      "x": 450,
+      "y": 1734,
+      "w": 286,
+      "h": 43,
+      "fill": "#ffc800",
+      "stroke": "",
+      "strokeW": 0,
+      "radius": 21,
+      "depth": 6,
+      "visible": true,
+      "role": "progress"
+    },
+    {
+      "id": "t6",
+      "type": "text",
+      "name": "로딩",
+      "x": 540,
+      "y": 1786,
+      "text": "리소스를 불러오는 중… 64%",
+      "fontSize": 24,
+      "color": "#000000",
+      "stroke": "",
+      "strokeW": 0,
+      "align": "center",
+      "depth": 3,
+      "visible": true,
+      "binding": "loadStatus"
+    },
+    {
+      "id": "t7",
+      "type": "text",
+      "name": "저작권",
+      "x": 540,
+      "y": 2319,
+      "text": "Ver 1.0.0  ·  © 2026 예시소프트",
+      "fontSize": 24,
+      "color": "#000000",
+      "stroke": "",
+      "strokeW": 0,
+      "align": "center",
+      "depth": 2,
+      "visible": true
+    },
+    {
+      "id": "layer_1",
+      "type": "image",
+      "name": "배경이미지",
+      "key": "up_Stage_Loading_02_v4",
+      "x": 540,
+      "y": 1200,
+      "w": 1080,
+      "h": 2400,
+      "depth": 1,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "name": "캐릭터",
+      "key": "up_Stage_Loading_01-1_v3",
+      "x": 730,
+      "y": 1100,
+      "w": 480,
+      "h": 764,
+      "depth": 7,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_3",
+      "type": "image",
+      "name": "로고",
+      "key": "up_MatchSlot_Logo_v2",
+      "x": 526,
+      "y": 435,
+      "w": 626,
+      "h": 349,
+      "depth": 8,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_4",
+      "type": "image",
+      "name": "로딩바 홈",
+      "key": "up_SC_UI_18_v2",
+      "x": 527,
+      "y": 1735,
+      "w": 459,
+      "h": 57,
+      "depth": 5,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    }
+  ]
+}

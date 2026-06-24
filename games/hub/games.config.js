@@ -70,7 +70,11 @@ const GAMES = [
   { id: 'samgyeop',   title: '삼겹살 마스터', tagline: '지글지글 노릇하게 타이밍 맞춰 굽기', genre: 'puzzle',   art: 'art/Samgyeop_Game.png',  accent: '#C0612E', live: false },
   { id: 'tteokbokki', title: '떡볶이 마스터', tagline: '매콤 양념에 쫄깃한 떡을 볶아 완성',   genre: 'puzzle',   art: 'art/Tteokbokki_Game.png',accent: '#E2452F', live: false },
   // PickmeUp: 로고 이미 투명 PNG → 키아웃 불필요, 그대로 _logo_t.png 로 사용. 아트는 타이틀 미포함 깨끗한 화면이라 크롭 불필요.
-  { id: 'pickmeup',   title: '픽미업',       tagline: '승객을 색 맞춰 버스에 태우는 정렬 퍼즐', genre: 'puzzle',   art: 'art/PickmeUp_Game.png',  logo: 'art/PickmeUp_logo_t.png', accent: '#E5703A', live: false },
+  //   스캐폴드 완료(games/Pickmeup, devPort 6206). 에셋·로직 준비되면 live:true 로 전환만 하면 됨(dev/배포 매핑 배선 완료).
+  { id: 'pickmeup',   title: '픽미업',       tagline: '승객을 색 맞춰 버스에 태우는 정렬 퍼즐', genre: 'puzzle',   art: 'art/PickmeUp_Game.png',  logo: 'art/PickmeUp_logo_t.png', accent: '#E5703A', live: false, devPort: 6206, prodUrl: '../pickmeup/' },
+  // 슬롯매치(SocialCasino): 퍼즐+슬롯 하이브리드(매치=스핀). 스캐폴드 완료(games/SocialCasino, devPort 6207,
+  //   1080×2400 HD 세로). 에셋·로직 준비되면 live:true 로 전환만 하면 됨(dev/배포 매핑 배선 완료). 로고/아트 제공 시 art/ 채우면 됨.
+  { id: 'socialcasino', title: 'MATCHSLOT CITY', tagline: '매치로 스핀을 모아 잭팟을 터뜨리는 소셜 퍼즐슬롯', genre: 'puzzle', art: 'art/SocialCasino_Game.png', accent: '#9B5DE5', live: true,  devPort: 6207, prodUrl: '../socialcasino/' }, // 내부 id=socialcasino 유지, 표시명만 MATCHSLOT CITY
 
   // ───────── 준비중 — 슈팅·조준 ─────────
   // ShootingArena: 로고 미제공 → logo 필드 생략(제목 텍스트만). 추후 로고 제공 시 _logo_t.png 추가하고 logo 필드 채우면 됨.

@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 2,
+  "frame": {
+    "designW": 1080,
+    "designH": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "name": "팝업배경",
+      "key": "up_Popup_panel_01_v2",
+      "x": 540,
+      "y": 1075,
+      "w": 1076,
+      "h": 1518,
+      "depth": 1,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_2",
+      "x": 403,
+      "y": 1092,
+      "fill": "#000000",
+      "fillAlpha": 0,
+      "stroke": "#ffffff",
+      "strokeW": 0,
+      "depth": 2,
+      "visible": true,
+      "type": "rect",
+      "name": "아이템배치1",
+      "w": 245,
+      "h": 252,
+      "radius": 40
+    },
+    {
+      "id": "layer_2_copy",
+      "x": 694,
+      "y": 1092,
+      "fill": "#000000",
+      "fillAlpha": 0,
+      "stroke": "#ffffff",
+      "strokeW": 0,
+      "depth": 3,
+      "visible": true,
+      "type": "rect",
+      "name": "아이템배치2",
+      "w": 245,
+      "h": 252,
+      "radius": 40
+    },
+    {
+      "id": "layer_2_copy2",
+      "x": 403,
+      "y": 1396,
+      "fill": "#000000",
+      "fillAlpha": 0,
+      "stroke": "#ffffff",
+      "strokeW": 0,
+      "depth": 4,
+      "visible": true,
+      "type": "rect",
+      "name": "아이템배치3",
+      "w": 245,
+      "h": 252,
+      "radius": 40
+    },
+    {
+      "id": "layer_2_copy3",
+      "x": 694,
+      "y": 1396,
+      "fill": "#000000",
+      "fillAlpha": 0,
+      "stroke": "#ffffff",
+      "strokeW": 0,
+      "depth": 5,
+      "visible": true,
+      "type": "rect",
+      "name": "아이템배치4",
+      "w": 245,
+      "h": 252,
+      "radius": 40
+    },
+    {
+      "id": "layer_3",
+      "x": 950,
+      "y": 976,
+      "fill": "#ffea00",
+      "fillAlpha": 1,
+      "stroke": "#ffffff",
+      "strokeW": 0,
+      "depth": 6,
+      "visible": true,
+      "type": "circle",
+      "name": "원",
+      "w": 26,
+      "h": 27
+    }
+  ]
+}
