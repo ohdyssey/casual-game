@@ -45,7 +45,7 @@ const SCORE_R_FRAC = 0.42; // 득점 반지름 = 과녁 폭 × 이 비율
 
 // ── 드로우(활시위) ──
 const HANDLE_R = 46;
-const HANDLE_TRAVEL = 252; // 흰 원 시작점 → 파란 원까지의 세로 거리(px). 시작 30px 위로 — 더 길게 당김(텐션↑)
+const HANDLE_TRAVEL = 300; // 흰 원 시작점 → 파란 원까지의 세로 거리(px). 시작점을 더 위로 — 더 길게 당김(텐션↑·천천히 당길 여유↑)
 const OVER_TRAVEL = 96; // 파란 원 아래로 더 당길 수 있는 거리(오버드로우)
 const START_ZONE_Y = 660;
 const DRAW_MIN = 0.9; // 발사 가능한 최소 드로우(흔들림 사각지대 없도록 WOBBLE_START_D 이후)
@@ -57,6 +57,18 @@ const WOBBLE_START_D = 0.78; // 이 드로우부터 진폭 램프인 시작(임�
 const AIM_DESCEND_AMP = 0.35; // × 득점반경: 세로 조준 스윙 기본 진폭
 const AIM_DESCEND_OVERDRAW = 0.35; // × 득점반경: 오버드로우 추가 진폭
 const AIM_DESCEND_FREQ = 2.0; // 오르내리는 진동 각속도(rad/s) — 중심 교차 시 명중
+
+// ── 드로우 속도 → 떨림 ──
+// 시위를 빨리(또는 들쭉날쭉) 당길수록 최종 떨림 진폭이 커지고, 천천히 '일정한 속도'로
+// 당길수록 떨림이 최소화된다. 순간 드로우 속도(초당 curD)를 추종해 흔들림 계수(drawShake)를
+// 빠르게 올리고 천천히 가라앉힌다(peak-hold) → 빨리 당긴 대가가 발사 직전까지 남는다.
+const DRAW_SPEED_SMOOTH = 12; // 순간 드로우 속도 추종 속도(클수록 민감)
+const DRAW_SPEED_CALM = 0.7; // 이 속도(초당 curD) 이하 = '편안한' 당김 → 추가 떨림 없음
+const DRAW_SPEED_MAX = 3.2; // 이 속도 이상이면 떨림 최대
+const SHAKE_RISE = 9; // 빠른 당김 시 흔들림 계수가 차오르는 속도(즉각 반응)
+const SHAKE_DECAY = 0.9; // 멈추면 천천히 가라앉음(빨리 당긴 대가가 한동안 남음)
+const SHAKE_MIN = 0.18; // 완벽히 천천히 일정하게 당김 → 진폭 배수 하한(거의 흔들림 없음)
+const SHAKE_MAX = 1.7; // 최대 흔들림 시 진폭 배수
 
 // ── 바람 / 오버드로우 보상 ──
 const WIND_ENABLED = false; // (임시) 바람 끔 — 조준선 정렬에 집중. 나중에 true 로 재활성.
@@ -87,11 +99,27 @@ const GAUGE_SMOOTH = 7; // 스무스 따라가기 속도(클수록 빠름) — �
 const BREATH_PERIOD = 5.2; // 한 호흡(들숨+날숨) 주기(초). 편안한 호흡 ≈ 분당 11~12회.
 const BREATH_AMP = 0.018; // 줌 진폭(1.0 → 1.018). 미세하게.
 
+// ── 반응형 화면(긴 화면/플립폰) ──
+// 본편도 로딩처럼 캔버스를 창 전체로 확장(FIT 레터박스 제거) → 중앙배치 어긋남 해소.
+// 배경은 화면을 cover(끝부분까지), 상단 메뉴는 상단 가장자리, 하단 컨트롤/활/다이얼은 바닥에 정렬.
+const DESIGN_W = 720; // 에디터 디자인 폭(고정)
+const DESIGN_H = 1280; // 에디터 디자인 밴드 높이
+const MAX_FILL_H = 2400; // 캔버스 세로 확장 상한(9:22+ 폰 수용)
+// 하단 정렬 그룹 — 화면이 길면 'extra'(=canvasH-1280)만큼 아래로 내려 화면 바닥에 붙는다.
+// (활 layer_4 는 별도 처리. 여기엔 D패드·바람/타이머 다이얼·그 수치 텍스트.)
+const BOTTOM_NODE_IDS = ['layer_3_copy4', 'layer_3_copy5', 'layer_5_copy2', 'layer_3_copy6', 'layer_5_copy'] as const;
+
 const lerp = Phaser.Math.Linear;
 const easeOut = (t: number): number => 1 - Math.pow(1 - t, 3);
 
 export class PlayScene extends Phaser.Scene {
   private layout!: LayoutIndex;
+
+  // 반응형 화면(창 채움) — 캔버스 높이/여백/배경 cover 변환.
+  private canvasH = DESIGN_H;
+  private extra = 0; // 디자인 밴드(1280) 초과분 — 하단 그룹을 이만큼 내린다.
+  private coverScale = 1; // world(배경+과녁) 기본 배율(배경이 캔버스를 덮도록)
+  private coverPos = { x: 0, y: 0 }; // world 기본 위치(줌=0일 때)
 
   // 필드 줌 컨테이너(배경+과녁+박힌 화살)
   private world!: Phaser.GameObjects.Container;
@@ -141,6 +169,9 @@ export class PlayScene extends Phaser.Scene {
   private curD = 0;
   private curO = 0;
   private wobbleT = 0;
+  private prevD = 0; // 직전 프레임 드로우 진행도 — 드로우 속도 산출용
+  private drawSpeed = 0; // 스무스 순간 드로우 속도(초당 curD)
+  private drawShake = 0; // 0~1 누적 흔들림 계수(드로우 속도/들쭉날쭉 기반)
   private breathT = 0; // 호흡 위상 누적(초) — 화면 전체 미세 줌 진동
   private wind = { x: 0, y: 0 };
   private windOffNow = { x: 0, y: 0 }; // 현재 바람 편차(px) — 녹색 십자선=aim+이것=실제 착탄점
@@ -170,27 +201,21 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
 
+    // 0) 본편도 창 전체를 채우게 캔버스 확장(로딩과 동일) — 레터박스 제거 → 중앙배치 어긋남 해소.
+    this.canvasH = this.fillViewport();
+
     // 1) 에디터 디자인(SSOT) 렌더.
     this.layout = buildLayout(this, doc);
 
     const bgImg = this.layout.tryById<Phaser.GameObjects.Image>(NODE.bg);
     const targetImg = this.layout.tryById<Phaser.GameObjects.Image>(NODE.target);
 
-    // 과녁 중심(aim) = 줌 축 = 화살이 향하는 곳. 실측 불스아이(노란 중심) 위치로 보정.
-    if (targetImg) {
-      this.aim = {
-        x: targetImg.x + targetImg.displayWidth * BULLSEYE_DX,
-        y: targetImg.y - targetImg.displayHeight * BULLSEYE_UP,
-      };
-      this.restScoreR = targetImg.displayWidth * SCORE_R_FRAC;
-    }
-
-    // 배경+과녁을 world 컨테이너로 묶는다(함께 줌). 자식 순서: 배경→과녁.
+    // 배경+과녁을 world 컨테이너로 묶는다(함께 줌·cover). 자식 순서: 배경→과녁.
     this.world = this.add.container(0, 0).setDepth(2);
     if (bgImg) this.world.add(bgImg);
     if (targetImg) this.world.add(targetImg);
 
-    // 활 — 에디터가 조정한 시작 위치/각도(예: 260,765,15°). 완전 드로우 시 수직(0°).
+    // 활 — 에디터가 조정한 시작 위치/각도. 완전 드로우 시 수직(0°). (Y 위치/완전드로우는 layoutResponsive 에서.)
     this.bowImg = this.layout.tryById<Phaser.GameObjects.Image>(NODE.bow);
     if (this.bowImg) {
       this.bowBaseX = this.bowImg.x;
@@ -198,18 +223,9 @@ export class PlayScene extends Phaser.Scene {
       this.bowBaseAngle = this.bowImg.angle;
       this.bowBaseScaleX = this.bowImg.scaleX;
       this.bowBaseScaleY = this.bowImg.scaleY;
-      // 완전 드로우 시 활 위치: 사이트(SIGHT_FX/FY)가 조준점(aim) 위에 오도록 역산.
-      const fz = 1 + BOW_ZOOM;
-      this.bowFullX = this.aim.x - (SIGHT_FX - 0.5) * this.bowImg.width * this.bowBaseScaleX * fz;
-      this.bowFullY = this.aim.y - (SIGHT_FY - 0.5) * this.bowImg.height * this.bowBaseScaleY * fz;
     }
 
-    // 파란 원(앵커) = D패드 노드 중심, 흰 원 시작점은 그 위.
-    const dpad = this.layout.nodeById(NODE.dpad);
-    this.anchor = { x: dpad ? dpad.x : 343, y: dpad ? dpad.y : 1080 };
-    this.handleStart = { x: this.anchor.x, y: this.anchor.y - HANDLE_TRAVEL };
-
-    // 드로우 게이지 기하.
+    // 드로우 게이지 기하(상단 정렬 — 이동 없음).
     const gNode = this.layout.nodeById(NODE.gauge);
     if (gNode && gNode.w && gNode.h) {
       this.gaugeX = gNode.x;
@@ -293,6 +309,15 @@ export class PlayScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.liveRank?.destroy());
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.liveRank?.destroy());
 
+    // 5b) 반응형 배치 — 배경 cover + aim/활/앵커/프롬프트 위치 확정(긴 화면 대응).
+    this.layoutResponsive();
+    window.addEventListener('resize', this.onResize);
+    window.addEventListener('orientationchange', this.onOrientation);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener('resize', this.onResize);
+      window.removeEventListener('orientationchange', this.onOrientation);
+    });
+
     // 6) 시작.
     this.round = 1;
     this.arrowInRound = 0;
@@ -326,7 +351,7 @@ export class PlayScene extends Phaser.Scene {
     this.anchorRing.setVisible(true);
     this.drawKnob.setVisible(false);
     this.aimReticle.setVisible(true);
-    this.promptText.setText('흰 원을 ↓ 파란 원으로 당겨 활시위를 당기세요');
+    this.promptText.setText('흰 원을 ↓ 파란 원으로 천천히 일정하게 당기세요');
     this.updateRoundHud();
   }
 
@@ -356,6 +381,9 @@ export class PlayScene extends Phaser.Scene {
     this.resetTween?.stop();
     this.phase = 'draw';
     this.wobbleT = 0;
+    this.prevD = 0;
+    this.drawSpeed = 0;
+    this.drawShake = 0;
     this.updateDrawFromPointer(p);
   }
 
@@ -381,19 +409,107 @@ export class PlayScene extends Phaser.Scene {
         ? '오버드로우 — 바람↓ 속도↑ (떨림↑)'
         : this.curD >= DRAW_MIN
           ? '중앙을 겨냥해 손을 떼세요!'
-          : '끝까지 당기세요',
+          : '천천히 일정하게 끝까지 당기세요',
     );
   }
 
   // ── 줌(필드 전체) / 활 ────────────────────────────────────────
 
-  /** world 컨테이너를 과녁 중심(aim)을 축으로 줌 d(0~1) + 드리프트로 변환. */
+  /** world 컨테이너를 과녁 중심(aim)을 축으로 줌 d(0~1) + 드리프트로 변환.
+   *  기본 배율/위치는 cover(coverScale/coverPos) — 배경이 캔버스를 덮은 상태가 줌=0. */
   private setZoom(d: number, driftX: number, driftY: number): void {
-    const Z = lerp(1, ZOOM_FULL, easeOut(d));
-    this.world.setScale(Z);
-    this.world.setPosition(this.aim.x * (1 - Z) - driftX, this.aim.y * (1 - Z) - driftY);
-    this.scoreR = this.restScoreR * Z;
+    const k = lerp(1, ZOOM_FULL, easeOut(d)); // cover 기준 추가 줌 배율
+    this.world.setScale(this.coverScale * k);
+    this.world.setPosition(
+      this.aim.x - driftX - k * (this.aim.x - this.coverPos.x),
+      this.aim.y - driftY - k * (this.aim.y - this.coverPos.y),
+    );
+    this.scoreR = this.restScoreR * k; // restScoreR 은 cover 반영 화면반경
     this.gaugeTarget = d * GAUGE_CAP; // 게이지 목표(스무스 따라감은 update 에서)
+  }
+
+  /** 본편 캔버스를 창 비율로 늘려 화면을 꽉 채운다(FIT 레터박스 제거). 반환=적용 높이. */
+  private fillViewport(): number {
+    const vw = (typeof window !== 'undefined' && window.innerWidth) || DESIGN_W;
+    const vh = (typeof window !== 'undefined' && window.innerHeight) || DESIGN_H;
+    const h = Phaser.Math.Clamp(Math.round((DESIGN_W * vh) / vw), DESIGN_H, MAX_FILL_H);
+    this.scale.setGameSize(DESIGN_W, h);
+    this.scale.refresh();
+    return h;
+  }
+
+  private onResize = (): void => {
+    this.canvasH = this.fillViewport();
+    // 순위표는 단계 무관 항상 캔버스에 맞춰 재배치(캔버스 리사이즈 직후 → 정확한 rect 로 추종).
+    this.liveRank?.reposition();
+    // 활성 드로우/비행 중 재배치는 조준을 흔드므로, 안정 단계에서만 전체 재배치.
+    if (this.phase === 'ready' || this.phase === 'gameover') this.layoutResponsive();
+  };
+
+  private onOrientation = (): void => {
+    setTimeout(() => this.onResize(), 100);
+  };
+
+  /** 반응형 배치(멱등) — 디자인 노드 원본좌표 기준으로 매번 다시 계산.
+   *  · 배경(world)=캔버스 cover  · 상단 HUD=상단 고정  · 하단 컨트롤/활/다이얼=바닥 정렬. */
+  private layoutResponsive(): void {
+    this.canvasH = this.scale.height;
+    this.extra = Math.max(0, this.canvasH - DESIGN_H);
+
+    // 하단 그룹 — 디자인 Y + extra(노드 원본좌표 기준이라 여러 번 호출해도 안전).
+    for (const id of BOTTOM_NODE_IDS) {
+      const o = this.layout.tryById<Phaser.GameObjects.Image | Phaser.GameObjects.Text>(id);
+      const n = this.layout.nodeById(id);
+      if (o && n) o.setY(n.y + this.extra);
+    }
+
+    // 배경 cover — bg 가 캔버스(DESIGN_W×canvasH)를 덮도록 world 기본 배율/위치 산출.
+    const bgImg = this.layout.tryById<Phaser.GameObjects.Image>(NODE.bg);
+    const targetImg = this.layout.tryById<Phaser.GameObjects.Image>(NODE.target);
+    if (bgImg) {
+      this.coverScale = Math.max(DESIGN_W / bgImg.displayWidth, this.canvasH / bgImg.displayHeight);
+      this.coverPos = {
+        x: DESIGN_W / 2 - this.coverScale * bgImg.x,
+        y: this.canvasH / 2 - this.coverScale * bgImg.y,
+      };
+    }
+
+    // 과녁 중심(aim) + 득점반경 — cover 변환 후 화면좌표.
+    if (targetImg) {
+      const lx = targetImg.x + targetImg.displayWidth * BULLSEYE_DX;
+      const ly = targetImg.y - targetImg.displayHeight * BULLSEYE_UP;
+      this.aim = { x: this.coverPos.x + this.coverScale * lx, y: this.coverPos.y + this.coverScale * ly };
+      this.restScoreR = targetImg.displayWidth * this.coverScale * SCORE_R_FRAC;
+    }
+
+    // 활 — 바닥 정렬(디자인 Y + extra) + 완전드로우 사이트→aim.
+    if (this.bowImg) {
+      const bowNode = this.layout.nodeById(NODE.bow);
+      this.bowBaseY = (bowNode ? bowNode.y : this.bowImg.y) + this.extra;
+      this.bowImg.setY(this.bowBaseY);
+      const fz = 1 + BOW_ZOOM;
+      this.bowFullX = this.aim.x - (SIGHT_FX - 0.5) * this.bowImg.width * this.bowBaseScaleX * fz;
+      this.bowFullY = this.aim.y - (SIGHT_FY - 0.5) * this.bowImg.height * this.bowBaseScaleY * fz;
+    }
+
+    // 파란 원(앵커)=바닥 정렬 D패드 중심, 흰 원 시작점은 그 위.
+    const dpadO = this.layout.tryById<Phaser.GameObjects.Image>(NODE.dpad);
+    this.anchor = { x: dpadO ? dpadO.x : 343, y: dpadO ? dpadO.y : 1080 + this.extra };
+    this.handleStart = { x: this.anchor.x, y: this.anchor.y - HANDLE_TRAVEL };
+    this.anchorRing?.setPosition(this.anchor.x, this.anchor.y);
+
+    // 프롬프트 — 화면 하단 가장자리.
+    this.promptText?.setPosition(DESIGN_W / 2, this.canvasH - 78);
+
+    // 안정 단계면 줌/조준/흰 원을 cover 기준 휴식 상태로 갱신.
+    if (this.phase === 'ready') {
+      this.setZoom(0, 0, 0);
+      this.handle?.setPosition(this.handleStart.x, this.handleStart.y);
+      this.drawAimReticle();
+    }
+
+    // 좌상단 순위표도 같은 흐름에서 캔버스에 맞춰 재배치(반응형).
+    this.liveRank?.reposition();
   }
 
   private setBow(d: number): void {
@@ -463,15 +579,18 @@ export class PlayScene extends Phaser.Scene {
     this.bowFollowThrough();
 
     const flightMs = FLIGHT_MS * (1 - o * SPEED_BONUS);
+    // 화살 출발점 — 활이 바닥 정렬로 내려간 만큼(extra) 함께 내린다.
+    const originX = ARROW_ORIGIN.x;
+    const originY = ARROW_ORIGIN.y + this.extra;
     const arrow = this.add
-      .image(ARROW_ORIGIN.x, ARROW_ORIGIN.y, ARROW_KEY)
+      .image(originX, originY, ARROW_KEY)
       .setOrigin(0.5, 0.02) // 촉 끝이 피벗
       .setDepth(15)
       .setScale(ARROW_FLIGHT_START);
     // 부드러운 2차 포물선: 직선 보간 + 4·arcH·t·(1-t) 호. 선형 속도, 접선 방향 회전.
     const arcH = 200;
-    const dx0 = landing.x - ARROW_ORIGIN.x;
-    const dy0 = landing.y - ARROW_ORIGIN.y;
+    const dx0 = landing.x - originX;
+    const dy0 = landing.y - originY;
     const holder = { t: 0 };
     this.tweens.add({
       targets: holder,
@@ -480,8 +599,8 @@ export class PlayScene extends Phaser.Scene {
       ease: 'Linear',
       onUpdate: () => {
         const t = holder.t;
-        const x = ARROW_ORIGIN.x + dx0 * t;
-        const y = ARROW_ORIGIN.y + dy0 * t - 4 * arcH * t * (1 - t);
+        const x = originX + dx0 * t;
+        const y = originY + dy0 * t - 4 * arcH * t * (1 - t);
         // 접선(속도) 방향으로 코 정렬 — 발사 시 위, 정점 수평, 낙하 시 과녁으로.
         const vx = dx0;
         const vy = dy0 - 4 * arcH * (1 - 2 * t);
@@ -661,11 +780,27 @@ export class PlayScene extends Phaser.Scene {
 
     if (this.phase !== 'draw') return;
 
+    // 드로우 속도 추적 — 시위를 빨리/들쭉날쭉 당길수록 drawShake↑, 천천히 일정하게 당길수록 ↓.
+    const dt = delta / 1000;
+    const dD = this.curD - this.prevD;
+    this.prevD = this.curD;
+    const inst = dt > 1e-4 ? Math.abs(dD) / dt : 0; // 순간 드로우 속도(초당 curD)
+    this.drawSpeed = lerp(this.drawSpeed, inst, Math.min(1, dt * DRAW_SPEED_SMOOTH));
+    const speedF = Phaser.Math.Clamp(
+      (this.drawSpeed - DRAW_SPEED_CALM) / (DRAW_SPEED_MAX - DRAW_SPEED_CALM),
+      0,
+      1,
+    );
+    // 빠르게 차오르고(RISE) 천천히 가라앉음(DECAY) — 빨리 당긴 대가가 발사 직전까지 남는다.
+    const k = speedF > this.drawShake ? SHAKE_RISE : SHAKE_DECAY;
+    this.drawShake = lerp(this.drawShake, speedF, Math.min(1, dt * k));
+    const shakeMul = lerp(SHAKE_MIN, SHAKE_MAX, this.drawShake);
+
     // 내려오는 조준 — 드로우 진행도(curD)에 따라 진폭을 0에서 부드럽게 램프인(켜짐/꺼짐·톡 튐 없음).
-    // 세로가 중심(0)을 지날 때 손을 떼야 명중. 오버드로우로 진폭↑.
-    this.wobbleT += delta / 1000;
+    // 세로가 중심(0)을 지날 때 손을 떼야 명중. 오버드로우 + 드로우 속도(shakeMul)로 진폭↑.
+    this.wobbleT += dt;
     const ramp = Phaser.Math.Clamp((this.curD - WOBBLE_START_D) / (1 - WOBBLE_START_D), 0, 1);
-    const amp = this.scoreR * (AIM_DESCEND_AMP + this.curO * AIM_DESCEND_OVERDRAW) * ramp;
+    const amp = this.scoreR * (AIM_DESCEND_AMP + this.curO * AIM_DESCEND_OVERDRAW) * ramp * shakeMul;
     const tremY = -amp * Math.cos(this.wobbleT * AIM_DESCEND_FREQ);
     const tremX = Math.sin(this.wobbleT * 4.2) * amp * 0.4;
 

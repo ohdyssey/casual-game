@@ -61,6 +61,7 @@ export default defineConfig({
     devKillServiceWorker(),
     VitePWA({
       registerType: 'autoUpdate',
+      selfDestroying: true, // 게임 SW 폐기 — 배포 즉시 반영(허브가 설치형 PWA)
       manifest: {
         name: '스모대전',
         short_name: '스모대전',

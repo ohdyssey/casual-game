@@ -41,7 +41,7 @@ const DEPTH_TRAY = 33;
 const LOCK_TEXT_STYLE = { fontFamily: '"Do Hyeon", "Jua", sans-serif', color: '#ffffff', align: 'center' } as const;
 
 export class GrillView {
-  private readonly body: Phaser.GameObjects.Image;
+  private body?: Phaser.GameObjects.Image;
   private fire?: Phaser.GameObjects.Graphics;
   private fireTween?: Phaser.Tweens.Tween;
   private trayItems: Phaser.GameObjects.Image[] = [];
@@ -52,16 +52,15 @@ export class GrillView {
     readonly x: number,
     readonly y: number,
     readonly locked: boolean,
+    lockLabel?: string,
+    readonly absent = false,
   ) {
+    // 비활성 칸(이 레벨엔 그릴 없음) — 아무것도 그리지 않는다. 로직상 locked 처럼 취급.
+    if (absent) return;
     if (locked) {
       this.body = scene.add.image(x, y, GRILL_LOCKED_KEY).setDisplaySize(BODY_W, 172).setDepth(DEPTH_BODY);
       scene.add
-        .text(x, y + 10, '잠금해제', { ...LOCK_TEXT_STYLE, fontSize: '22px' })
-        .setStroke('#5a3210', 4)
-        .setOrigin(0.5)
-        .setDepth(DEPTH_GRATE);
-      scene.add
-        .text(x, y + 36, 'Lv 30', { ...LOCK_TEXT_STYLE, fontSize: '20px' })
+        .text(x, y, lockLabel ?? '🔒', { ...LOCK_TEXT_STYLE, fontSize: '24px', lineSpacing: 2 })
         .setStroke('#5a3210', 4)
         .setOrigin(0.5)
         .setDepth(DEPTH_GRATE);
@@ -116,7 +115,7 @@ export class GrillView {
 
   /** 드래그 오버 하이라이트. */
   setHighlight(on: boolean): void {
-    if (this.locked) return;
+    if (this.locked || !this.body) return;
     if (on) this.body.setTint(0xffd9a0);
     else this.body.clearTint();
   }

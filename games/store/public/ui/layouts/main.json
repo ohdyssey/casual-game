@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 2,
+  "frame": {
+    "designW": 720,
+    "designH": 1280
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": []
+}

@@ -39,26 +39,33 @@ export function toast(msg: string): void {
   window.setTimeout(() => el.remove(), 2500);
 }
 
-/** 계정/경제 바를 주어진 컨테이너에 마운트. */
-export function mountAccountHub(bar: HTMLElement): void {
+/** 마운트된 계정 바 핸들 — 외부(런처)에서 지갑을 다시 읽어오게 한다. */
+export interface AccountHubHandle {
+  /** localStorage 의 최신 프로필을 다시 읽어 표시 갱신(게임에서 코인 소비 후 복귀 시). */
+  reload(): void;
+}
+
+/**
+ * 계정/경제 UI 마운트.
+ *   walletEl  — 지갑(코인/젬/하트) 칩. 화면 좌상단 작게.
+ *   actionsEl — 랭킹/상점/스핀/데일리 버튼. 작게.
+ */
+export function mountAccountHub(walletEl: HTMLElement, actionsEl: HTMLElement): AccountHubHandle {
   // 진입 시 하트 재생 1회 반영 + 저장(이후 표시는 availableLives 로 read-only 갱신).
   let profile = syncLives(loadProfile(), Date.now());
   saveProfile(profile);
 
-  bar.innerHTML =
-    `<div class="wallet">` +
+  walletEl.innerHTML =
     `<span class="chip coin"><i>🪙</i><b id="acc-coins">0</b></span>` +
     `<span class="chip gem"><i>💎</i><b id="acc-gems">0</b></span>` +
-    `<span class="chip heart"><i>❤</i><b id="acc-hearts">0</b><small id="acc-heart-timer"></small></span>` +
-    `</div>` +
-    `<div class="acc-actions">` +
+    `<span class="chip heart"><i>❤</i><b id="acc-hearts">0</b><small id="acc-heart-timer"></small></span>`;
+  actionsEl.innerHTML =
     `<button class="acc-btn" id="acc-rank">🏆 랭킹</button>` +
     `<button class="acc-btn" id="acc-shop">🛒 상점</button>` +
     `<button class="acc-btn" id="acc-spin">🎡 스핀</button>` +
-    `<button class="acc-btn" id="acc-daily">🎁 데일리<span class="dot-new" id="acc-daily-dot" hidden></span></button>` +
-    `</div>`;
+    `<button class="acc-btn" id="acc-daily">🎁 데일리<span class="dot-new" id="acc-daily-dot" hidden></span></button>`;
 
-  const pick = (id: string): HTMLElement => bar.querySelector<HTMLElement>(`#${id}`)!;
+  const pick = (id: string): HTMLElement => document.getElementById(id)!;
   const coinsEl = pick('acc-coins');
   const gemsEl = pick('acc-gems');
   const heartsEl = pick('acc-hearts');
@@ -105,4 +112,14 @@ export function mountAccountHub(bar: HTMLElement): void {
   refresh();
   // 하트 재생 타이머/데일리 가용 표시 1초 갱신.
   window.setInterval(refresh, 1000);
+
+  return {
+    reload(): void {
+      // 게임이 같은 출처(prod)면 localStorage 공유 → 최신 프로필을 다시 읽어 반영.
+      // (dev 는 게임이 다른 포트=다른 출처라 공유 안 됨 — 문서화된 한계.)
+      profile = syncLives(loadProfile(), Date.now());
+      saveProfile(profile);
+      refresh();
+    },
+  };
 }

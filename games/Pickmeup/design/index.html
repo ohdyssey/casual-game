@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>픽미업 · 에셋 디자인 보드</title>
+<!--
+  픽미업(Pick Me Up!) 에셋 디자인 보드 — 무빌드 단일 HTML(바닐라, 의존성 0).
+  file:// 로 더블클릭하거나 dev 서버에서 /design/ 로 열어 바로 본다.
+
+  목적: "어떤 에셋을, 어디에, 어떤 크기/이름으로" 만들지 디자이너가 한눈에 보고 착수.
+  ─ 게임 화면(720×1280 FIT)의 영역 청사진
+  ─ 색 카탈로그(색 정렬 퍼즐의 축)
+  ─ 에셋 체크리스트(키 이름·크기·수량·메모)
+  ─ 네이밍 규약 + 내보내기 규칙(EDITOR_GUIDE 계승)
+
+  ⚠️ 실제 화면 레이아웃의 SSOT 는 phaser-ui-editor(이 폴더 auto-adopt) → public/ui/layouts/main.json.
+     이 보드는 "무엇을 그릴지" 사양서, 에디터는 "어디에 놓을지" 저작 도구다.
+-->
+<style>
+  :root{
+    --accent:#E5703A; --accent-d:#c25522;
+    --bg:#241910; --panel:#fff8ee; --ink:#2c2014; --muted:#8a7a64;
+    --line:#e8d8be; --ok:#3CB54A; --todo:#E2A02F;
+    --blue:#3f7fe0; --red:#e24b3b; --yellow:#f2c12e; --green:#4caf50; --pink:#e85aa0; --orange:#E5703A;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; }
+  body{
+    font-family:'Jua','Segoe UI',system-ui,sans-serif;
+    background:linear-gradient(160deg,#2c2013,#1a120a); color:#f3e7d6;
+    min-height:100vh; padding:24px; line-height:1.5;
+  }
+  h1{ font-size:26px; margin:0; }
+  h2{ font-size:19px; margin:28px 0 12px; color:#ffd9a0; border-bottom:2px solid var(--accent); padding-bottom:6px; }
+  .sub{ color:#bda98c; font-size:14px; margin-top:4px; }
+  .wrap{ max-width:1180px; margin:0 auto; }
+  header{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .pill{ background:var(--accent); color:#241910; font-weight:700; padding:3px 12px; border-radius:999px; font-size:13px; }
+  .grid2{ display:grid; grid-template-columns:380px 1fr; gap:28px; align-items:start; }
+  @media (max-width:880px){ .grid2{ grid-template-columns:1fr; } }
+
+  /* ── 화면 청사진(720×1280 → 0.5 스케일 360×640) ── */
+  .frame{
+    width:360px; height:640px; background:#3a2a1c; border:3px solid var(--accent);
+    border-radius:14px; position:relative; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+  .zone{
+    position:absolute; border:1.5px dashed rgba(255,217,160,.55); border-radius:8px;
+    background:rgba(74,53,34,.45); padding:6px 8px;
+  }
+  .zone b{ display:block; font-size:12px; color:#ffe9c8; }
+  .zone span{ display:block; font-size:10px; color:#cdb89a; }
+  .chips{ position:absolute; display:flex; gap:4px; }
+  .chip{ width:20px; height:20px; border-radius:50%; border:1.5px solid rgba(255,255,255,.6); }
+  .slot{ width:30px; height:38px; border-radius:6px; border:1.5px solid rgba(255,255,255,.5); display:flex; align-items:center; justify-content:center; font-size:13px; }
+  .lock{ background:rgba(0,0,0,.3); color:#000; }
+  .board{ position:absolute; display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+  .car{ aspect-ratio:1; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:9px; color:#fff; }
+  .bbar{ position:absolute; display:flex; gap:6px; }
+  .booster{ flex:1; height:42px; background:#2f80ed; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; border:1.5px solid rgba(255,255,255,.4); }
+
+  /* ── 카드/표 ── */
+  .card{ background:rgba(255,248,238,.06); border:1px solid rgba(255,217,160,.2); border-radius:12px; padding:16px 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th,td{ text-align:left; padding:7px 9px; border-bottom:1px solid rgba(255,217,160,.14); vertical-align:top; }
+  th{ color:#ffd9a0; font-weight:700; }
+  code{ background:rgba(0,0,0,.35); color:#ffd9a0; padding:1px 6px; border-radius:5px; font-family:Consolas,monospace; font-size:12.5px; }
+  .grp{ color:var(--accent); font-weight:700; }
+  .tag{ font-size:11px; padding:1px 7px; border-radius:999px; font-weight:700; }
+  .t-todo{ background:rgba(226,160,47,.2); color:#ffcf73; border:1px solid #E2A02F; }
+  .t-have{ background:rgba(60,181,74,.2); color:#9be3a5; border:1px solid var(--ok); }
+  .pal{ display:flex; gap:14px; flex-wrap:wrap; margin-top:6px; }
+  .pal .c{ text-align:center; font-size:12px; }
+  .pal .c .sw{ width:48px; height:48px; border-radius:12px; border:2px solid rgba(255,255,255,.5); margin-bottom:4px; }
+  ul.rules{ margin:6px 0 0; padding-left:18px; }
+  ul.rules li{ margin:4px 0; font-size:13.5px; }
+  .note{ background:rgba(226,160,47,.12); border-left:3px solid var(--todo); padding:10px 14px; border-radius:8px; font-size:13.5px; margin-top:10px; }
+  a{ color:#ffd9a0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>픽미업 <span style="color:var(--accent)">Pick Me Up!</span></h1>
+    <span class="pill">에셋 디자인 보드</span>
+    <span class="pill" style="background:#2f80ed;color:#fff">디자인 프레임 720 × 1280 (세로 · FIT)</span>
+    <span class="pill" style="background:#3a2a1c;color:#ffd9a0">accent #E5703A</span>
+  </header>
+  <p class="sub">색 정렬 주차장 퍼즐 — 보드의 색깔 차량을 탭하면 같은 색 <b>픽업 슬롯</b>으로 이동, 버스가 같은 색으로 차면 출발(승객 픽업)하고 슬롯이 비워진다. 슬롯 수 제한이 곧 난이도. 보드를 다 비우면 클리어.</p>
+
+  <div class="grid2">
+    <!-- ── 좌: 화면 청사진 ── -->
+    <div>
+      <h2 style="margin-top:18px">화면 영역 청사진</h2>
+      <div class="frame" id="frame"></div>
+      <p class="sub">점선 영역 = 에셋이 들어갈 자리. 실제 좌표/크기는 phaser-ui-editor 에서 확정.<br>(아래 픽셀값은 720×1280 기준 권장 시작값)</p>
+    </div>
+
+    <!-- ── 우: 색 카탈로그 + 체크리스트 ── -->
+    <div>
+      <h2 style="margin-top:18px">색 카탈로그 (퍼즐의 축)</h2>
+      <div class="card">
+        <p class="sub" style="margin-top:0">차량·버스·승객·슬롯은 같은 색끼리 매칭된다. 코어 6색(스크린샷 기준). 색을 늘리면 난이도↑.</p>
+        <div class="pal" id="pal"></div>
+        <p class="sub">키 접미사: <code>blue red yellow green pink orange</code> — <code>ui-assets.json</code> 매니페스트 키와 1:1.</p>
+      </div>
+
+      <h2>에셋 체크리스트</h2>
+      <div class="card">
+        <table id="assets"></table>
+      </div>
+    </div>
+  </div>
+
+  <h2>네이밍 규약 &amp; 내보내기 규칙</h2>
+  <div class="grid2">
+    <div class="card">
+      <b style="color:#ffd9a0">키 네이밍</b>
+      <ul class="rules">
+        <li>업로드 이미지 키 접두 <code>up_</code> (에디터 규약). 예) <code>up_Pickmeup_CAR_blue</code></li>
+        <li>차량 <code>up_Pickmeup_CAR_&lt;색&gt;</code> · 버스 <code>up_Pickmeup_BUS_&lt;색&gt;</code> · 승객 <code>up_Pickmeup_PAX_&lt;색&gt;</code></li>
+        <li>UI 공통 <code>up_Pickmeup_UI_&lt;NN&gt;</code> · 배경 <code>up_Pickmeup_BG_01</code></li>
+        <li>매니페스트 <code>public/ui-assets.json</code> 에 <code>"키":"ui/uploads/파일.png"</code> 로 등록(에디터가 자동 갱신).</li>
+        <li>로딩 화면은 고정 파일명: <code>public/loading/{bg,logo,start_on,start_off}.png</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <b style="color:#ffd9a0">내보내기 (에디터가 자동으로 안 지켜줌)</b>
+      <ul class="rules">
+        <li>스프라이트 시트 한 변 <b>≤ 2048px</b> (구형/저가 모바일 안전).</li>
+        <li>GPU 메모리 = 가로 × 세로 × 4 (파일 용량과 무관!) → 화면 표시 크기에 맞춰 최소화.</li>
+        <li>업로드 이미지는 표시 크기의 <b>2배 해상도 이내</b>. 과대 이미지 금지.</li>
+        <li>투명 배경 PNG. 차량/버스는 진행방향 ▲ 위(north) 기준으로 통일.</li>
+        <li>export 후 개발자가 PNG→WebP 최적화. PNG 재내보내면 최적화 재실행 필요.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>작업 흐름</b> — ① 이 보드로 "무엇을" 그릴지 확인 → ② 이미지 제작 → ③ phaser-ui-editor 로 이 폴더를 열어
+    업로드·배치(SSOT <code>public/ui/layouts/main.json</code>) → ④ 게임 dev 서버(<code>npm run dev:pickmeup</code>, 포트 6206)
+    새로고침으로 즉시 확인. 레이아웃이 비어 있는 동안은 게임이 <b>라벨 플레이스홀더</b>를 보여준다(부팅 OK).
+  </div>
+
+  <p class="sub" style="margin-top:24px">픽미업 · PlayPOP 캐주얼게임 플랫폼 · 형제 게임(PawLink/PathRush) 기술 패턴 계승</p>
+</div>
+
+<script>
+  const COLORS = [
+    ['blue','#3f7fe0'],['red','#e24b3b'],['yellow','#f2c12e'],
+    ['green','#4caf50'],['pink','#e85aa0'],['orange','#E5703A'],
+  ];
+
+  // ── 색 카탈로그 ──
+  document.getElementById('pal').innerHTML = COLORS.map(([n,h]) =>
+    `<div class="c"><div class="sw" style="background:${h}"></div>${n}<br><small style="color:#bda98c">${h}</small></div>`
+  ).join('');
+
+  // ── 화면 청사진(0.5 스케일: 720×1280 → 360×640) ──
+  const S = 0.5;
+  const px = v => (v*S)+'px';
+  const frame = document.getElementById('frame');
+  function zone(x,y,w,h,title,sub,extra){
+    const d=document.createElement('div'); d.className='zone'+(extra?' '+extra:'');
+    d.style.left=px(x); d.style.top=px(y); d.style.width=px(w); d.style.height=px(h);
+    d.innerHTML=`<b>${title}</b><span>${sub}</span>`; frame.appendChild(d); return d;
+  }
+  // 영역(720×1280 기준 권장 시작 좌표)
+  zone(20,20,680,120,'상단 HUD','레벨 · 승객 30/40 · 보드 남음 · ⚙');
+  zone(20,156,680,96,'승객 대기 큐','색깔 승객 줄(픽업 목표)');
+  zone(20,268,680,168,'픽업 슬롯','열린 5 + 잠금 3');
+  zone(20,452,680,56,'도로','출발 버스 통과 연출');
+  zone(20,524,680,596,'차량 보드 (퍼즐)','색깔 차량 — 탭 → 같은 색 슬롯');
+  zone(20,1136,680,124,'부스터 바','슬롯추가·셔플·터보·VIP보드');
+
+  // 승객 큐 색칩
+  const q=document.createElement('div'); q.className='chips';
+  q.style.left=px(40); q.style.top=px(196);
+  q.innerHTML=COLORS.map(([n,h])=>`<div class="chip" style="background:${h}"></div>`).join('').repeat(1);
+  frame.appendChild(q);
+
+  // 픽업 슬롯(열린 5 + 잠금 3)
+  const sl=document.createElement('div'); sl.className='chips'; sl.style.left=px(40); sl.style.top=px(300);
+  let slh='';
+  for(let i=0;i<8;i++){ const open=i<5; const c=open?COLORS[i][1]:'transparent';
+    slh+=`<div class="slot ${open?'':'lock'}" style="background:${open?c:'rgba(0,0,0,.3)'}">${open?'':'🔒'}</div>`; }
+  sl.innerHTML=slh; frame.appendChild(sl);
+
+  // 차량 보드(미니 7×8)
+  const bd=document.createElement('div'); bd.className='board';
+  bd.style.left=px(60); bd.style.top=px(560); bd.style.width=px(600);
+  let bh=''; for(let i=0;i<56;i++){ const c=COLORS[i%COLORS.length][1]; bh+=`<div class="car" style="background:${c}">▲</div>`; }
+  bd.innerHTML=bh; frame.appendChild(bd);
+
+  // 부스터 바
+  const bb=document.createElement('div'); bb.className='bbar'; bb.style.left=px(40); bb.style.top=px(1160); bb.style.width=px(640);
+  bb.innerHTML=['슬롯추가','셔플','터보','VIP보드'].map(t=>`<div class="booster">${t}</div>`).join('');
+  frame.appendChild(bb);
+
+  // ── 에셋 체크리스트 ──
+  const ASSETS = [
+    ['그룹','브랜드 · 로딩'],
+    ['로딩 배경','loading/bg.png','720×1280','1','풀스크린 배경(상단 cover)','todo'],
+    ['로고','loading/logo.png','~520w','1','타이틀 로고(투명 PNG). 허브 PickmeUp_logo_t.png 재사용 가능','have'],
+    ['START 버튼','loading/start_on / start_off.png','~308w','2','활성/비활성 2종','todo'],
+    ['그룹','상단 HUD'],
+    ['HUD 패널','up_Pickmeup_UI_hud','~680×120','1','레벨·승객·보드 남음 배경 프레임','todo'],
+    ['설정 버튼','up_Pickmeup_UI_settings','88×88','1','⚙ 아이콘 버튼','todo'],
+    ['승객 카운터','up_Pickmeup_UI_paxbadge','~200×72','1','👤 30/40 뱃지','todo'],
+    ['그룹','게임플레이 (색 × 6)'],
+    ['차량(보드 타일)','up_Pickmeup_CAR_&lt;색&gt;','~120×120','6','보드에 놓이는 색깔 차. 진행방향 ▲ 통일','todo'],
+    ['버스(픽업)','up_Pickmeup_BUS_&lt;색&gt;','~140×96','6','슬롯에 들어찬 픽업 버스(채움 단계 표현 권장)','todo'],
+    ['승객','up_Pickmeup_PAX_&lt;색&gt;','~48×72','6','대기 큐 색깔 승객','todo'],
+    ['빈 슬롯','up_Pickmeup_UI_slot','~120×150','1','픽업 슬롯 바닥(빈 칸)','todo'],
+    ['잠금 슬롯','up_Pickmeup_UI_slot_lock','~120×150','1','🔒 UNLOCK 슬롯','todo'],
+    ['보드 배경','up_Pickmeup_BG_board','~680×600','1','차량이 깔리는 판(앵커)','todo'],
+    ['배경','up_Pickmeup_BG_01','720×1280','1','놀이방/책상 톤 전체 배경','todo'],
+    ['그룹','부스터 (4종)'],
+    ['슬롯추가','up_Pickmeup_UI_bst_addslot','~150×100','1','+슬롯','todo'],
+    ['셔플','up_Pickmeup_UI_bst_shuffle','~150×100','1','보드 섞기','todo'],
+    ['터보','up_Pickmeup_UI_bst_turbo','~150×100','1','×2 배속','todo'],
+    ['VIP보드','up_Pickmeup_UI_bst_vip','~150×100','1','임시 추가 보드','todo'],
+    ['그룹','FX (코드 생성 가능 — 선택)'],
+    ['픽업 반짝임','(런타임 Graphics)','—','—','버스 출발/승객 탑승 파티클은 코드로 생성 가능','have'],
+  ];
+  const t = document.getElementById('assets');
+  let rows = '<tr><th>에셋</th><th>키 / 파일</th><th>권장 크기</th><th>수량</th><th>메모</th><th>상태</th></tr>';
+  for(const a of ASSETS){
+    if(a[0]==='그룹'){ rows+=`<tr><td colspan="6" class="grp">▸ ${a[1]}</td></tr>`; continue; }
+    const [name,key,size,qty,note,st]=a;
+    const tag = st==='have' ? '<span class="tag t-have">있음/대체가능</span>' : '<span class="tag t-todo">제작</span>';
+    rows+=`<tr><td><b>${name}</b></td><td><code>${key}</code></td><td>${size}</td><td>${qty}</td><td style="color:#cdb89a">${note}</td><td>${tag}</td></tr>`;
+  }
+  t.innerHTML = rows;
+</script>
+</body>
+</html>

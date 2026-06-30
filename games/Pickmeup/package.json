@@ -1,0 +1,20 @@
+{
+  "name": "@casual/game-pickmeup",
+  "version": "0.1.0",
+  "private": true,
+  "description": "픽미업(Pick Me Up!) — 보드의 색깔 차량을 같은 색 슬롯으로 보내 버스를 채워 승객을 태우는 색 정렬 주차장 퍼즐.",
+  "type": "module",
+  "scripts": {
+    "dev": "npx vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4206"
+  },
+  "dependencies": {
+    "@casual/core": "*",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.10",
+    "vite-plugin-pwa": "0.21.1"
+  }
+}

@@ -1,3 +1,5 @@
+import type Phaser from 'phaser';
+
 /**
  * 에셋 매니페스트 — 텍스처 키 ↔ 경로. public/assets/store/ (Vite root 서빙).
  * P1: PNG 직접 로드. M3: WebP 변환 + 매니페스트 자동생성.
@@ -72,3 +74,25 @@ export const STORE_ASSETS: Record<string, string> = {
   item_26: 'assets/store/CG_ST_item_26.png',
   item_27: 'assets/store/CG_ST_item_27.png',
 };
+
+/**
+ * 진입화면(HomeScene) UI — phaser-ui-editor 산출물을 SSOT 로 로드.
+ *   · 레이아웃 JSON: ui/layouts/blank.json (에디터 화면명 "진입화면")
+ *   · 업로드 이미지 매니페스트: ui-assets.json (키 → ui/uploads/*.png)
+ */
+export const UI_HOME_LAYOUT_KEY = 'ui_home_layout';
+export const UI_HOME_LAYOUT_PATH = 'ui/layouts/blank.json';
+export const UI_MANIFEST_KEY = 'ui_assets';
+export const UI_MANIFEST_PATH = 'ui-assets.json';
+
+/** preload — 진입화면 레이아웃 + 업로드 이미지 매니페스트를 로드(이미지는 매니페스트 완료 시 큐잉). */
+export function loadHomeUi(scene: Phaser.Scene): void {
+  scene.load.json(UI_HOME_LAYOUT_KEY, UI_HOME_LAYOUT_PATH);
+  scene.load.json(UI_MANIFEST_KEY, UI_MANIFEST_PATH);
+  scene.load.on(`filecomplete-json-${UI_MANIFEST_KEY}`, () => {
+    const manifest = (scene.cache.json.get(UI_MANIFEST_KEY) ?? {}) as Record<string, string>;
+    for (const [key, path] of Object.entries(manifest)) {
+      if (key && path && !scene.textures.exists(key)) scene.load.image(key, path);
+    }
+  });
+}

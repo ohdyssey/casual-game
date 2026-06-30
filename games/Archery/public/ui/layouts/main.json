@@ -15,12 +15,13 @@
       "name": "새 레이어",
       "key": "up_Archery_BG_02",
       "x": 360,
-      "y": 563,
-      "w": 838,
-      "h": 1486,
+      "y": 561,
+      "w": 868,
+      "h": 1540,
       "depth": 1,
       "visible": true,
-      "tintable": true
+      "tintable": true,
+      "lockAspect": true
     },
     {
       "id": "layer_2",

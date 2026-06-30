@@ -1,0 +1,25 @@
+{
+  "name": "@playpop/api",
+  "version": "0.0.1",
+  "private": true,
+  "description": "PlayPOP 게임 백엔드 API (Fastify 모듈러 모놀리스). P0 골격 — 인메모리 저장소.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "fastify": "^5.2.0",
+    "kysely": "^0.27.5",
+    "pg": "^8.13.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2"
+  }
+}

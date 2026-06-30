@@ -9,36 +9,58 @@ import {
   BOMB_COLOR,
   RAINBOW_COLOR,
   MAX_GAME_ROW,
+  START_COLOR_COUNT,
   colsForRow,
   randomColor,
   initGrid,
+  colorsInGrid,
   getNeighbors,
   findConnected,
   findFloatingBubbles,
   addBubble,
   removeCells,
 } from '../logic/bubbleGrid.js';
+import { advanceWithReflection, type ReflectBounds } from '../logic/reflect.js';
+import { nearestEmptyNeighbor } from '../logic/landing.js';
 
-/** 발사 큐 색상 — 10% 폭탄, 5% 무지개, 85% 일반 */
-function randomBubbleColor(): BubbleColor {
+/**
+ * 발사 큐 색상 — 10% 폭탄, 5% 무지개, 85% 일반.
+ * 일반 색상은 가능하면 '현재 보드에 남아있는 색'에서만 뽑아(palette),
+ * 매치 불가능한 죽은 색이 큐에 나오지 않게 한다 → 초반 난이도 완화.
+ */
+function randomBubbleColor(palette?: readonly Color[]): BubbleColor {
   const r = Math.random();
   if (r < 0.10) return BOMB_COLOR;
   if (r < 0.15) return RAINBOW_COLOR;
+  if (palette && palette.length > 0) {
+    return palette[Math.floor(Math.random() * palette.length)];
+  }
   return randomColor();
 }
 
-// ── 레이아웃 상수 (main.json 좌표 기준) ──────────────────────────────────────
+// ── 레이아웃 상수 ────────────────────────────────────────────────────────────
+// 그리드가 720 폭을 꽉 채우도록 10/9열 배치 + 좌우 30px 대칭 여백.
+//   짝수행 10열: 63 + col*66 → 63..657 (가장자리 30..690)
+//   홀수행  9열: 96 + col*66 → 96..624
 const GW          = 720;
 const COL_SPACING = 66;
 const ROW_SPACING = 57;
-const EVEN_START_X = 145;
-const ODD_START_X  = 178;
+const EVEN_START_X = 63;   // 짝수행 col0 중심 (가장자리 30px)
+const ODD_START_X  = 96;   // 홀수행 col0 중심 (= EVEN_START_X + 반칸 33)
 const GRID_TOP_Y   = 135;
 const BUBBLE_DISPLAY = 66;
 const BUBBLE_R       = 33;
 const LAUNCH_X       = 365;
 const LAUNCH_Y       = 877;
 const SHOOT_SPEED    = 900; // px/s
+/**
+ * 공 '중심'이 거울 반사되는 좌/우 벽 = 화면(배경) 양 끝.
+ *
+ * 공 가장자리가 배경 끝(x=0 / x=720)에 닿는 순간 튕긴다(= 중심이 반지름만큼 안쪽,
+ * 33 / 687). 10열 그리드는 양끝 30px 여백을 두지만, 반사 후 공은 곧바로 안쪽(열
+ * 방향)으로 이동하며 버블에 닿으므로 그 작은 여백에서 멈춰 어긋나는 일은 없다.
+ */
+const WALL_BOUNDS: ReflectBounds = { left: BUBBLE_R, right: GW - BUBBLE_R };
 /**
  * 총알 이동 서브스텝(px). 프레임 시간을 8px 단위로 쪼개 이동시켜
  * 프레임 드랍 시에도 터널링·"벽반사+충돌 동시 발생"으로 인한
@@ -88,11 +110,11 @@ export class GameScene extends Phaser.Scene {
   // ── create ─────────────────────────────────────────────────────────────────
   create(): void {
     // scene.restart() 시 클래스 프로퍼티가 유지되므로 명시적 초기화
-    this.grid         = initGrid();
+    this.grid         = initGrid(START_COLOR_COUNT);
     this.gridSprites  = new Map();
     this.shotsLeft    = 25;
-    this.currentColor = randomBubbleColor();
-    this.nextColor    = randomBubbleColor();
+    this.currentColor = this.queueColor();
+    this.nextColor    = this.queueColor();
     this.state        = 'aiming';
     this.isPointerDown = false;
     this.bvx = 0;
@@ -202,17 +224,20 @@ export class GameScene extends Phaser.Scene {
       // 이 스텝 시작 위치 = 마지막으로 확인된 열린 공간 (배치 기준점)
       const openX = this.bulletSprite.x;
       const openY = this.bulletSprite.y;
-      let nx = openX + (this.bvx / SHOOT_SPEED) * MOVE_STEP;
-      let ny = openY + (this.bvy / SHOOT_SPEED) * MOVE_STEP;
 
-      // 좌우 벽 반사 (+ 스파크/사운드)
-      if (nx < BUBBLE_R) {
-        nx = BUBBLE_R; this.bvx = Math.abs(this.bvx);
-        this.fx.wallSpark(BUBBLE_R, ny, wallTint); Sfx.bounce();
-      }
-      if (nx > GW - BUBBLE_R) {
-        nx = GW - BUBBLE_R; this.bvx = -Math.abs(this.bvx);
-        this.fx.wallSpark(GW - BUBBLE_R, ny, wallTint); Sfx.bounce();
+      // 좌우 벽 거울 반사 — 조준선 예측(traceTrajectory)과 동일 함수 사용.
+      const r = advanceWithReflection(
+        openX, openY,
+        this.bvx / SHOOT_SPEED, this.bvy / SHOOT_SPEED,
+        MOVE_STEP, WALL_BOUNDS,
+      );
+      const nx = r.x;
+      const ny = r.y;
+      this.bvx = r.ux * SHOOT_SPEED;
+      this.bvy = r.uy * SHOOT_SPEED;
+      if (r.bounced) {
+        this.fx.wallSpark(r.contactX, r.contactY, wallTint);
+        Sfx.bounce();
       }
 
       this.bulletSprite.setPosition(nx, ny);
@@ -343,21 +368,24 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < 500; i++) {
       const openX = px;
       const openY = py;
-      px += vx * MOVE_STEP;
-      py += vy * MOVE_STEP;
 
-      let bounce = false;
-      if (px < BUBBLE_R)      { px = BUBBLE_R;      vx =  Math.abs(vx); bounce = true; }
-      if (px > GW - BUBBLE_R) { px = GW - BUBBLE_R; vx = -Math.abs(vx); bounce = true; }
+      // 실시간 비행(update)과 완전히 동일한 거울 반사 스텝.
+      const r = advanceWithReflection(px, py, vx, vy, MOVE_STEP, WALL_BOUNDS);
+      px = r.x;
+      py = r.y;
+      vx = r.ux;
+      vy = r.uy;
+      const bounce = r.bounced;
 
-      // 천장 도달 — update와 동일한 기준점 (nx, GRID_TOP_Y)
+      // 천장 도달 — update와 동일한 기준점·동일 착지 해석기
       if (py <= GRID_TOP_Y) {
-        return { points, land: this.pickLandingCell(px, GRID_TOP_Y) };
+        return { points, land: this.resolveLanding(px, GRID_TOP_Y, -1, -1) };
       }
 
-      // 그리드 충돌 — update와 동일하게 스텝 시작점(열린 공간) 기준
-      if (this.collisionAt(px, py)) {
-        return { points, land: this.pickLandingCell(openX, openY) };
+      // 그리드 충돌 — update와 동일하게 스텝 시작점(열린 공간)·충돌 버블 기준
+      const hit = this.collisionAt(px, py);
+      if (hit) {
+        return { points, land: this.resolveLanding(openX, openY, hit.row, hit.col) };
       }
 
       // 표시용 점: 24px 간격 샘플 + 벽 반사 지점
@@ -406,7 +434,7 @@ export class GameScene extends Phaser.Scene {
     this.bulletDecorCleanup = () => {};
     this.state = 'settling';
 
-    const cell = this.pickLandingCell(bx, by);
+    const cell = this.resolveLanding(bx, by, hitRow, hitCol);
     if (!cell) { this.advance(); return; }
 
     const [lr, lc] = cell;
@@ -465,8 +493,11 @@ export class GameScene extends Phaser.Scene {
     if (hitRow >= 0 && hitCell && hitCell >= 1 && hitCell <= 6) {
       matchColor = hitCell as Color;
     } else {
-      // 상단 벽이나 인접 버블 없는 경우 — 이웃 중 가장 많은 색상
-      matchColor = this.dominantNeighborColor(lr, lc) ?? randomColor();
+      // 상단 벽이나 인접 버블 없는 경우 — 이웃 중 가장 많은 색상,
+      // 그마저 없으면 보드에 실재하는 색 중 하나(죽은 색 방지)
+      matchColor = this.dominantNeighborColor(lr, lc)
+        ?? colorsInGrid(this.grid)[0]
+        ?? randomColor();
     }
 
     // 무지개 스프라이트 잠깐 표시 후 matchColor 로 전환
@@ -527,11 +558,31 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * 착지 셀 해석 — 보이는 궤적의 끝점과 실제 착지를 일치시키는 핵심 로직.
+   *
+   * 버블 충돌 시: 충돌 버블(hitRow,hitCol)의 '빈 이웃 칸' 중 접근 지점
+   * (refX,refY = 정지 직전 열린 공간)에 가장 가까운 칸에 붙인다. 그러면
+   * 착지가 항상 공이 닿은 버블 바로 옆·날아온 방향 쪽이 되어, 벽 반사 후에도
+   * 조준선이 가리킨 지점에 그대로 박힌다.
+   *
+   * 천장 착지(hitRow<0)나 이웃이 모두 찬 예외는 전역 최근접 빈칸으로 폴백.
+   * 실시간 비행(update)·예측(traceTrajectory) 모두 이 함수만 사용한다.
+   */
+  private resolveLanding(
+    refX: number, refY: number, hitRow: number, hitCol: number,
+  ): [number, number] | null {
+    if (hitRow >= 0) {
+      const n = nearestEmptyNeighbor(this.grid, hitRow, hitCol, refX, refY, cellToWorld);
+      if (n) return [n.row, n.col];
+    }
+    return this.pickLandingCell(refX, refY);
+  }
+
+  /**
    * 착지 셀 선택 — 기준점(refX, refY)에 가장 가까운 "배치 가능한 빈 셀".
    *
    * 배치 가능한 빈 셀 = 점유 셀에 인접하거나 최상단(row 0)인 빈 셀.
-   * 기준점은 총알이 정지하기 직전의 열린 공간 좌표라서, 벽 반사 여부와
-   * 무관하게 시각적으로 가장 가까운 빈칸에 자연스럽게 배치된다.
+   * 천장 착지·이웃이 모두 찬 폴백 용도. (버블 충돌 착지는 resolveLanding)
    */
   private pickLandingCell(refX: number, refY: number): [number, number] | null {
     let best: [number, number] | null = null;
@@ -570,13 +621,18 @@ export class GameScene extends Phaser.Scene {
     return (this.grid[row]?.[col] ?? 0) === 0;
   }
 
+  /** 보드에 남은 색 기준으로 다음 발사 색을 뽑는다 (특수 버블 확률 포함) */
+  private queueColor(): BubbleColor {
+    return randomBubbleColor(colorsInGrid(this.grid));
+  }
+
   // ── 다음 버블 준비 ──────────────────────────────────────────────────────────
   private advance(): void {
     // 모든 버블 제거 시 승리
     if (this.isGridEmpty()) { this.winGame(); return; }
 
     this.currentColor = this.nextColor;
-    this.nextColor    = randomBubbleColor();
+    this.nextColor    = this.queueColor();
     this.currentColorImg.setTexture(bubbleKey(this.currentColor)).setVisible(true);
     this.nextColorImg.setTexture(bubbleKey(this.nextColor));
 

@@ -43,6 +43,9 @@ export function createGame(cfg: LevelCfg, rng: Rng): GameState {
     nextSerial: serial,
     dispatched: 0,
     goal: cfg.goal,
+    reqMin: cfg.reqMin,
+    reqMax: cfg.reqMax,
+    timeLimitMs: cfg.timeLimitMs,
   };
 }
 

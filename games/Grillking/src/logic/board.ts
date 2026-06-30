@@ -28,6 +28,9 @@ export function shuffled<T>(arr: ReadonlyArray<T>, rng: Rng): T[] {
   return out;
 }
 
+/** 그리드는 항상 3열(levels.GRID_COLS 와 동일) — 순환 import 회피용 로컬 상수. */
+const GRID_COLS = 3;
+
 function replaceGrill(board: BoardState, grill: GrillState): BoardState {
   return { ...board, grills: board.grills.map((g) => (g.id === grill.id ? grill : g)) };
 }
@@ -38,12 +41,37 @@ export function grillAt(board: BoardState, id: number): GrillState {
   return g;
 }
 
+/** 슬롯 i 가 고정 꼬치인가. */
+export function slotPinned(g: GrillState, i: number): boolean {
+  return g.pinned?.[i] === true;
+}
+
+/** 슬롯 i 의 숯 단계(0=없음). */
+export function slotChar(g: GrillState, i: number): number {
+  return g.char?.[i] ?? 0;
+}
+
+/** 직교 인접 그릴 id 목록(3열 그리드). */
+export function neighborsOf(id: number, total: number): number[] {
+  const col = id % GRID_COLS;
+  const out: number[] = [];
+  if (id - GRID_COLS >= 0) out.push(id - GRID_COLS); // 위
+  if (id + GRID_COLS < total) out.push(id + GRID_COLS); // 아래
+  if (col > 0) out.push(id - 1); // 좌
+  if (col < GRID_COLS - 1 && id + 1 < total) out.push(id + 1); // 우
+  return out;
+}
+
 export function slotItemCount(slots: Slots): number {
   return slots.filter((s) => s !== null).length;
 }
 
-export function firstFreeSlot(slots: Slots): number {
-  return slots.findIndex((s) => s === null);
+/** 꼬치를 놓을 수 있는 첫 빈 슬롯(숯으로 막힌 슬롯 제외). 없으면 -1. */
+export function firstFreeSlot(g: GrillState): number {
+  for (let i = 0; i < g.slots.length; i++) {
+    if (g.slots[i] === null && slotChar(g, i) === 0) return i;
+  }
+  return -1;
 }
 
 /** from 그릴의 fromSlot 꼬치를 to 그릴로 옮길 수 있는가. */
@@ -53,7 +81,8 @@ export function canMove(board: BoardState, fromId: number, fromSlot: number, toI
   const to = grillAt(board, toId);
   if (from.locked || to.locked) return false;
   if (from.slots[fromSlot] === null || from.slots[fromSlot] === undefined) return false;
-  return firstFreeSlot(to.slots) !== -1;
+  if (slotPinned(from, fromSlot)) return false; // 고정 꼬치는 빼낼 수 없음
+  return firstFreeSlot(to) !== -1;
 }
 
 /** 꼬치 이동 — canMove 전제. 새 보드와 목적지 슬롯 인덱스 반환. */
@@ -62,7 +91,7 @@ export function moveSkewer(board: BoardState, fromId: number, fromSlot: number, 
   const from = grillAt(board, fromId);
   const to = grillAt(board, toId);
   const item = from.slots[fromSlot] as ItemType;
-  const toSlot = firstFreeSlot(to.slots);
+  const toSlot = firstFreeSlot(to);
 
   const fromSlots = from.slots.map((s, i) => (i === fromSlot ? null : s));
   const toSlots = to.slots.map((s, i) => (i === toSlot ? item : s));
@@ -81,36 +110,79 @@ export function findMatchGrill(board: BoardState): number {
   return -1;
 }
 
-/** 매치 해소 — 그릴 비우고 served/dishes 증가. */
+/** 매치 해소 — 그릴 비우고(고정 플래그도 해제) served/dishes 증가. */
 export function resolveMatch(board: BoardState, grillId: number): MatchResult {
   const g = grillAt(board, grillId);
   const itemType = g.slots[0];
   if (itemType === null || g.slots.some((s) => s !== itemType)) throw new Error(`grill ${grillId} is not a match`);
-  const next = replaceGrill(board, { ...g, slots: [null, null, null] });
+  // 매치는 슬롯 3개가 전부 꼬치라야 성립 → 그 그릴엔 숯이 없다. 고정 플래그만 비우면 된다.
+  const next = replaceGrill(board, { ...g, slots: [null, null, null], pinned: undefined });
   return { board: { ...next, served: next.served + SLOT_COUNT, dishes: next.dishes + 1 }, itemType };
 }
 
 /**
- * 리필 — "완전히 빈" 그릴만 큐에서 최대 3개 올린다(쟁반→그릴).
+ * 리필 — "꼬치가 하나도 없는" 그릴만 큐에서 채운다(쟁반→그릴). 숯으로 막힌 슬롯은 건너뛴다.
+ * (숯은 항상 오른쪽 슬롯을 점유하므로 빈 슬롯은 항상 앞쪽 prefix → items 순서가 슬롯 순서와 일치.)
  * 빈 그릴이 여러 개면 모두 처리. 이벤트 목록으로 애니메이션 정보 제공.
  */
 export function refillEmptyGrills(board: BoardState): RefillResult {
   const refills: Array<{ grillId: number; items: ItemType[] }> = [];
   const grills = board.grills.map((g) => {
     if (g.locked || g.queue.length === 0 || slotItemCount(g.slots) > 0) return g;
-    const take = Math.min(SLOT_COUNT, g.queue.length);
+    const freeIdx: number[] = [];
+    for (let i = 0; i < SLOT_COUNT; i++) if (slotChar(g, i) === 0) freeIdx.push(i);
+    const take = Math.min(freeIdx.length, g.queue.length);
+    if (take === 0) return g;
     const items = g.queue.slice(0, take);
     refills.push({ grillId: g.id, items: [...items] });
-    const slots = [...items, ...Array<null>(SLOT_COUNT - take).fill(null)];
+    const slots = [...g.slots];
+    freeIdx.slice(0, take).forEach((idx, k) => (slots[idx] = items[k]));
     return { ...g, slots, queue: g.queue.slice(take) };
   });
   return { board: { ...board, grills }, refills };
 }
 
-/** 교착 — 매치도 빈 슬롯도 없으면 이동 불가. (빈 슬롯이 하나라도 있으면 항상 수가 있다.) */
+/**
+ * 숯 냉각 — grillId 에서 매치가 난 직후 호출. 직교 인접 그릴의 숯 단계를 1씩 줄이고,
+ * 0이 된 슬롯을 해제한다. 해제된 슬롯 정보(애니메이션용)를 함께 반환.
+ */
+export function coolNeighborChar(
+  board: BoardState,
+  grillId: number,
+): { board: BoardState; cleared: Array<{ grillId: number; slot: number }> } {
+  const cleared: Array<{ grillId: number; slot: number }> = [];
+  const neighbors = new Set(neighborsOf(grillId, board.grills.length));
+  const grills = board.grills.map((g) => {
+    if (!neighbors.has(g.id) || !g.char || g.char.every((c) => c === 0)) return g;
+    const char = g.char.map((c, i) => {
+      if (c <= 0) return 0;
+      const next = c - 1;
+      if (next === 0) cleared.push({ grillId: g.id, slot: i });
+      return next;
+    });
+    return { ...g, char: char.some((c) => c > 0) ? char : undefined };
+  });
+  return { board: { ...board, grills }, cleared };
+}
+
+/** 가능한 이동이 하나라도 있는가 — 옮길 수 있는(고정 아님) 꼬치 + 다른 그릴의 빈 슬롯. */
+function hasAnyMove(board: BoardState): boolean {
+  const open = board.grills.filter((g) => !g.locked);
+  const hasFreeElsewhere = (exceptId: number): boolean =>
+    open.some((g) => g.id !== exceptId && firstFreeSlot(g) !== -1);
+  for (const from of open) {
+    for (let i = 0; i < from.slots.length; i++) {
+      if (from.slots[i] === null || slotPinned(from, i)) continue;
+      if (hasFreeElsewhere(from.id)) return true;
+    }
+  }
+  return false;
+}
+
+/** 교착 — 매치도 가능한 이동도 없는 상태. (숯/고정으로 빈 슬롯·이동 꼬치가 모두 막힐 수 있어 명시 판정.) */
 export function isDeadlocked(board: BoardState): boolean {
   if (findMatchGrill(board) !== -1) return false;
-  return board.grills.every((g) => g.locked || firstFreeSlot(g.slots) === -1);
+  return !hasAnyMove(board);
 }
 
 /** 남은 꼬치 총량(슬롯+큐). */
@@ -135,38 +207,72 @@ export function anyMatchPossible(board: BoardState): boolean {
 }
 
 /**
- * 셔플(구출) — 보드 위 모든 꼬치를 모아 그릴당 최대 2개씩 재배치, 넘치는 건 큐 앞에 끼운다.
- * 그릴당 2개 제한이라 즉시 3-매치가 생기지 않고 빈 슬롯이 보장돼 교착이 풀린다.
+ * 셔플(구출) — 이동 가능한(고정 아님) 꼬치만 모아 재배치한다. 고정 꼬치는 제자리, 숯 슬롯도 유지.
+ * 그릴당 꼬치 ≤2(고정 포함) 한도라 즉시 3-매치가 안 생기고 빈 슬롯이 확보돼 교착이 풀린다.
  */
 export function shuffleBoard(board: BoardState, rng: Rng): BoardState {
   const playable = board.grills.filter((g) => !g.locked);
+  const order = playable.map((g) => g.id);
+
+  // 이동 가능한 꼬치만 풀에 모은다(고정/숯은 그대로 둔다).
   const pool: ItemType[] = [];
-  for (const g of playable) for (const s of g.slots) if (s !== null) pool.push(s);
+  for (const g of playable) {
+    for (let i = 0; i < g.slots.length; i++) {
+      const s = g.slots[i];
+      if (s !== null && !slotPinned(g, i)) pool.push(s);
+    }
+  }
   const mixed = shuffled(pool, rng);
 
-  const dealt: ItemType[][] = playable.map(() => []);
+  // 그릴별: 유지할 고정 꼬치, 채울 수 있는 슬롯(숯·고정 제외), 추가 배치 한도.
+  const kept = new Map<number, Array<{ idx: number; type: ItemType }>>();
+  const fillable = new Map<number, number[]>();
+  const cap = new Map<number, number>();
+  const dealt = new Map<number, Array<{ idx: number; type: ItemType }>>();
+  for (const g of playable) {
+    const k: Array<{ idx: number; type: ItemType }> = [];
+    const f: number[] = [];
+    for (let i = 0; i < g.slots.length; i++) {
+      const s = g.slots[i];
+      if (s !== null && slotPinned(g, i)) k.push({ idx: i, type: s });
+      else if (slotChar(g, i) === 0) f.push(i);
+    }
+    kept.set(g.id, k);
+    fillable.set(g.id, f);
+    cap.set(g.id, Math.max(0, Math.min(2 - k.length, f.length)));
+    dealt.set(g.id, []);
+  }
+
   const leftover: ItemType[] = [];
   let gi = 0;
   for (const item of mixed) {
     let scanned = 0;
-    while (dealt[gi].length >= 2 && scanned < dealt.length) {
-      gi = (gi + 1) % dealt.length;
+    while (scanned < order.length && (dealt.get(order[gi]) as []).length >= (cap.get(order[gi]) as number)) {
+      gi = (gi + 1) % order.length;
       scanned++;
     }
-    if (dealt[gi].length >= 2) {
+    const gid = order[gi];
+    const d = dealt.get(gid) as Array<{ idx: number; type: ItemType }>;
+    if (d.length >= (cap.get(gid) as number)) {
       leftover.push(item);
       continue;
     }
-    dealt[gi].push(item);
-    gi = (gi + 1) % dealt.length;
+    d.push({ idx: (fillable.get(gid) as number[])[d.length], type: item });
+    gi = (gi + 1) % order.length;
   }
 
   const grills = board.grills.map((g) => {
     if (g.locked) return g;
-    const idx = playable.findIndex((p) => p.id === g.id);
-    const extra = leftover.filter((_, i) => i % playable.length === idx);
-    const slots = [...dealt[idx], ...Array<null>(SLOT_COUNT - dealt[idx].length).fill(null)];
-    return { ...g, slots, queue: [...extra, ...g.queue] };
+    const slots: (ItemType | null)[] = [null, null, null];
+    const pinned = [false, false, false];
+    for (const k of kept.get(g.id) as Array<{ idx: number; type: ItemType }>) {
+      slots[k.idx] = k.type;
+      pinned[k.idx] = true;
+    }
+    for (const d of dealt.get(g.id) as Array<{ idx: number; type: ItemType }>) slots[d.idx] = d.type;
+    const idx = order.indexOf(g.id);
+    const extra = leftover.filter((_, i) => i % order.length === idx);
+    return { ...g, slots, pinned: pinned.some(Boolean) ? pinned : undefined, queue: [...extra, ...g.queue] };
   });
   return { ...board, grills };
 }

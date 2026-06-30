@@ -1,55 +1,28 @@
 {
   "screens": [
     {
-      "id": "popup_ad",
-      "name": "광고 시청 제안",
-      "file": "ui/layouts/popup_ad.json",
-      "category": "popup",
-      "roles": [
-        "watch",
-        "close"
-      ],
-      "template": "popup_ad"
+      "id": "blank",
+      "name": "진입화면",
+      "file": "ui/layouts/blank.json",
+      "category": "custom"
     },
     {
-      "id": "popup_ad_2",
-      "name": "광고 보상 제안",
-      "file": "ui/layouts/popup_ad_2.json",
-      "category": "popup",
-      "roles": [
-        "watch",
-        "close"
-      ],
-      "template": "popup_ad"
-    },
-    {
-      "id": "ad_reward",
-      "name": "광고 보상 획득",
-      "file": "ui/layouts/ad_reward.json",
-      "category": "results",
-      "roles": [
-        "claim"
-      ],
-      "template": "ad_reward"
-    },
-    {
-      "id": "ad_loading",
-      "name": "광고 불러오는 중",
-      "file": "ui/layouts/ad_loading.json",
-      "category": "popup",
-      "roles": [],
-      "template": "ad_loading"
+      "id": "blank_copy",
+      "name": "팝업화면",
+      "file": "ui/layouts/blank_copy.json",
+      "category": "custom"
     },
     {
       "id": "popup_ad_3",
       "name": "광고 보상 제안",
       "file": "ui/layouts/popup_ad_3.json",
-      "category": "popup",
-      "roles": [
-        "watch",
-        "close"
-      ],
-      "template": "popup_ad"
+      "category": "custom"
+    },
+    {
+      "id": "blank_2",
+      "name": "로비",
+      "file": "ui/layouts/blank_2.json",
+      "category": "custom"
     }
   ]
 }

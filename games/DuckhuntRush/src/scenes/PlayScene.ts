@@ -15,6 +15,7 @@
 import Phaser from 'phaser';
 import { FEATHER_KEY, SPARK_KEY, UI_LAYOUT_KEY } from '../assets.js';
 import { buildLayout, type LayoutDoc, type LayoutIndex } from '../ui/layoutLoader.js';
+import { fillCoverLayout } from '@casual/core';
 import {
   bumpMission,
   comboMultiplier,
@@ -127,6 +128,8 @@ export class PlayScene extends Phaser.Scene {
 
     // 1) 에디터 디자인(SSOT) 렌더.
     this.layout = buildLayout(this, doc);
+    // 반응형 — 창 높이로 채우고 배경 cover + 하단 컨트롤(탄약/총) 바닥정렬(FIT 레터박스 제거).
+    fillCoverLayout(this, this.layout);
 
     // 2) 정적 오리 placeholder + 탄피 노드 숨김(동적 스폰/생성으로 대체).
     for (const id of [NODE.duckMallard, NODE.duckFemale, NODE.duckSpecial, NODE.bullet]) {

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "frame": {
-    "designW": 720,
-    "designH": 1280
+    "designW": 1080,
+    "designH": 2400
   },
   "render": {
     "fit": "fit",
@@ -14,24 +14,25 @@
       "type": "image",
       "name": "새 레이어",
       "key": "up_ZombieA_BG_01_v2",
-      "x": 360,
-      "y": 640,
-      "w": 720,
-      "h": 1280,
+      "x": 540,
+      "y": 1200,
+      "w": 1351,
+      "h": 2403,
       "depth": 1,
       "visible": true,
-      "tintable": true
+      "tintable": true,
+      "lockAspect": true
     },
     {
       "id": "layer_4",
       "type": "image",
       "name": "새 레이어",
       "key": "up_ZombieA_UI_11",
-      "x": 360,
-      "y": 737,
-      "w": 574,
-      "h": 1772,
-      "depth": 8,
+      "x": 407,
+      "y": 1440,
+      "w": 1146,
+      "h": 3540,
+      "depth": 9,
       "visible": true,
       "tintable": true,
       "lockAspect": true,
@@ -46,7 +47,7 @@
       "y": 59,
       "w": 67,
       "h": 68,
-      "depth": 19,
+      "depth": 20,
       "visible": true,
       "tintable": true,
       "lockAspect": true
@@ -60,7 +61,7 @@
       "y": 56,
       "w": 184,
       "h": 45,
-      "depth": 18,
+      "depth": 19,
       "visible": true,
       "tintable": true,
       "lockAspect": true
@@ -70,11 +71,11 @@
       "type": "image",
       "name": "새 레이어 복사",
       "key": "up_Archery_UI_04-6",
-      "x": 343,
-      "y": 1080,
+      "x": 560,
+      "y": 1996,
       "w": 173,
       "h": 172,
-      "depth": 17,
+      "depth": 18,
       "visible": true,
       "tintable": true,
       "lockAspect": true
@@ -92,7 +93,7 @@
       "stroke": "#5a3210",
       "strokeW": 1,
       "align": "center",
-      "depth": 23,
+      "depth": 24,
       "visible": true,
       "fontStyle": "700"
     },
@@ -109,7 +110,7 @@
       "stroke": "#000000",
       "strokeW": 1,
       "align": "center",
-      "depth": 22,
+      "depth": 23,
       "visible": true,
       "fontStyle": "700"
     },
@@ -122,7 +123,7 @@
       "y": 57,
       "w": 98,
       "h": 85,
-      "depth": 16,
+      "depth": 17,
       "visible": true,
       "tintable": true,
       "lockAspect": true
@@ -136,7 +137,7 @@
       "y": 55,
       "w": 151,
       "h": 45,
-      "depth": 15,
+      "depth": 16,
       "visible": true,
       "tintable": true,
       "lockAspect": true
@@ -150,7 +151,7 @@
       "y": 135,
       "w": 151,
       "h": 52,
-      "depth": 14,
+      "depth": 15,
       "visible": true,
       "tintable": true,
       "lockAspect": true
@@ -164,7 +165,7 @@
       "y": 133,
       "w": 177,
       "h": 44,
-      "depth": 13,
+      "depth": 14,
       "visible": true,
       "tintable": true,
       "lockAspect": true
@@ -178,7 +179,7 @@
       "y": 137,
       "w": 67,
       "h": 68,
-      "depth": 12,
+      "depth": 13,
       "visible": true,
       "tintable": true,
       "lockAspect": true
@@ -188,11 +189,11 @@
       "type": "image",
       "name": "새 레이어 복사",
       "key": "up_ZombieA_UI_10",
-      "x": 643,
-      "y": 1195,
-      "w": 115,
-      "h": 116,
-      "depth": 10,
+      "x": 926,
+      "y": 2261,
+      "w": 191,
+      "h": 192,
+      "depth": 11,
       "visible": true,
       "tintable": true,
       "lockAspect": true
@@ -202,11 +203,11 @@
       "type": "image",
       "name": "새 레이어 복사",
       "key": "up_ZombieA_UI_08",
-      "x": 83,
-      "y": 1193,
-      "w": 115,
-      "h": 114,
-      "depth": 9,
+      "x": 151,
+      "y": 2261,
+      "w": 200,
+      "h": 198,
+      "depth": 10,
       "visible": true,
       "tintable": true,
       "lockAspect": true
@@ -224,7 +225,7 @@
       "stroke": "#000000",
       "strokeW": 1,
       "align": "center",
-      "depth": 21,
+      "depth": 22,
       "visible": true,
       "fontStyle": "700"
     },
@@ -241,7 +242,7 @@
       "stroke": "#000000",
       "strokeW": 1,
       "align": "center",
-      "depth": 20,
+      "depth": 21,
       "visible": true,
       "fontStyle": "700"
     },
@@ -253,7 +254,7 @@
       "fillAlpha": 1,
       "stroke": "#ffffff",
       "strokeW": 0,
-      "depth": 26,
+      "depth": 27,
       "visible": true,
       "type": "circle",
       "name": "원",
@@ -272,91 +273,15 @@
       "stroke": "#000000",
       "strokeW": 1,
       "align": "center",
-      "depth": 29,
+      "depth": 30,
       "visible": true
-    },
-    {
-      "id": "layer_2_copy",
-      "x": 676,
-      "y": 1231,
-      "fill": "#0d0d0d",
-      "fillAlpha": 0.9,
-      "stroke": "#ffffff",
-      "strokeW": 2,
-      "depth": 25,
-      "visible": true,
-      "type": "circle",
-      "name": "원 복사",
-      "r": 19
-    },
-    {
-      "id": "layer_5_copy5",
-      "type": "text",
-      "name": "순위 복사",
-      "text": "2",
-      "x": 676,
-      "y": 1231,
-      "fontSize": 19,
-      "fontFamily": "Fredoka",
-      "color": "#ffffff",
-      "stroke": "#000000",
-      "strokeW": 1,
-      "align": "center",
-      "depth": 28,
-      "visible": true,
-      "fontStyle": "700"
-    },
-    {
-      "id": "layer_5_copy6",
-      "type": "text",
-      "name": "순위 복사",
-      "text": "2",
-      "x": 115,
-      "y": 1231,
-      "fontSize": 19,
-      "fontFamily": "Fredoka",
-      "color": "#ffffff",
-      "stroke": "#000000",
-      "strokeW": 1,
-      "align": "center",
-      "depth": 27,
-      "visible": true,
-      "fontStyle": "700"
-    },
-    {
-      "id": "layer_2_copy2",
-      "x": 115,
-      "y": 1231,
-      "fill": "#0d0d0d",
-      "fillAlpha": 0.9,
-      "stroke": "#ffffff",
-      "strokeW": 2,
-      "depth": 24,
-      "visible": true,
-      "type": "circle",
-      "name": "원 복사",
-      "r": 19
-    },
-    {
-      "id": "layer_3_copy6",
-      "type": "image",
-      "name": "새 레이어 복사",
-      "key": "up_ZombieA_UI_09",
-      "x": 360,
-      "y": 510,
-      "w": 67,
-      "h": 69,
-      "depth": 11,
-      "visible": true,
-      "tintable": true,
-      "lockAspect": true
     },
     {
       "id": "layer_6",
       "type": "spriteDocClip",
       "name": "캐릭터: 좀비1",
-      "x": 297,
-      "y": 530,
+      "x": 715,
+      "y": 826,
       "spriteDocFile": "ui/sprites/1_mqeta0rf7l00/1_mqeta0rf7l00_cartoon_zombie_walking_forward_1_mqeta13uah2l.json",
       "spriteDocId": "1_mqeta0rf7l00_cartoon_zombie_walking_forward_1_mqeta13uah2l",
       "characterId": "1_mqeta0rf7l00",
@@ -364,8 +289,8 @@
       "autoPlay": true,
       "depth": 4,
       "visible": true,
-      "w": 91,
-      "h": 98,
+      "w": 141,
+      "h": 152,
       "lockAspect": true,
       "group": "grp_1"
     },
@@ -373,8 +298,8 @@
       "id": "layer_6_copy",
       "type": "spriteDocClip",
       "name": "캐릭터: 좀비1 복사",
-      "x": 335,
-      "y": 482,
+      "x": 592,
+      "y": 708,
       "spriteDocFile": "ui/sprites/1_mqeta0rf7l00/1_mqeta0rf7l00_cartoon_zombie_walking_forward_1_mqeta13uah2l.json",
       "spriteDocId": "1_mqeta0rf7l00_cartoon_zombie_walking_forward_1_mqeta13uah2l",
       "characterId": "1_mqeta0rf7l00",
@@ -391,8 +316,8 @@
       "id": "layer_6_copy2",
       "type": "spriteDocClip",
       "name": "캐릭터: 좀비1 복사",
-      "x": 381,
-      "y": 452,
+      "x": 515,
+      "y": 737,
       "spriteDocFile": "ui/sprites/1_mqeta0rf7l00/1_mqeta0rf7l00_cartoon_zombie_walking_forward_1_mqeta13uah2l.json",
       "spriteDocId": "1_mqeta0rf7l00_cartoon_zombie_walking_forward_1_mqeta13uah2l",
       "characterId": "1_mqeta0rf7l00",
@@ -400,8 +325,8 @@
       "autoPlay": true,
       "depth": 2,
       "visible": true,
-      "w": 26,
-      "h": 27,
+      "w": 54,
+      "h": 56,
       "lockAspect": true,
       "group": "grp_1"
     },
@@ -409,8 +334,8 @@
       "id": "layer_6_copy3",
       "type": "spriteDocClip",
       "name": "캐릭터: 좀비1 복사",
-      "x": 450,
-      "y": 581,
+      "x": 848,
+      "y": 1012,
       "spriteDocFile": "ui/sprites/1_mqeta0rf7l00/1_mqeta0rf7l00_cartoon_zombie_walking_forward_1_mqeta13uah2l.json",
       "spriteDocId": "1_mqeta0rf7l00_cartoon_zombie_walking_forward_1_mqeta13uah2l",
       "characterId": "1_mqeta0rf7l00",
@@ -418,8 +343,8 @@
       "autoPlay": true,
       "depth": 6,
       "visible": true,
-      "w": 180,
-      "h": 192,
+      "w": 314,
+      "h": 335,
       "lockAspect": true,
       "group": "grp_1"
     },
@@ -427,8 +352,8 @@
       "id": "layer_7",
       "type": "spriteDocClip",
       "name": "캐릭터: 좀비2",
-      "x": 227,
-      "y": 784,
+      "x": 390,
+      "y": 1611,
       "spriteDocFile": "ui/sprites/2_mqetu9m1ps6u/2_mqetu9m1ps6u_cartoon_zombie_construction_work_2_mqetualrsspp.json",
       "spriteDocId": "2_mqetu9m1ps6u_cartoon_zombie_construction_work_2_mqetualrsspp",
       "characterId": "2_mqetu9m1ps6u",
@@ -436,8 +361,8 @@
       "autoPlay": true,
       "depth": 7,
       "visible": true,
-      "w": 300,
-      "h": 532,
+      "w": 495,
+      "h": 877,
       "lockAspect": true,
       "group": "grp_1"
     },
@@ -445,8 +370,8 @@
       "id": "layer_7_copy",
       "type": "spriteDocClip",
       "name": "캐릭터: 좀비2 복사",
-      "x": 402,
-      "y": 529,
+      "x": 339,
+      "y": 862,
       "spriteDocFile": "ui/sprites/2_mqetu9m1ps6u/2_mqetu9m1ps6u_cartoon_zombie_construction_work_2_mqetualrsspp.json",
       "spriteDocId": "2_mqetu9m1ps6u_cartoon_zombie_construction_work_2_mqetualrsspp",
       "characterId": "2_mqetu9m1ps6u",
@@ -454,166 +379,167 @@
       "autoPlay": true,
       "depth": 5,
       "visible": true,
-      "w": 78,
-      "h": 139,
+      "w": 154,
+      "h": 274,
       "lockAspect": true,
       "group": "grp_1"
     },
     {
       "id": "layer_8",
-      "x": 361,
-      "y": 684,
+      "x": 540,
+      "y": 1536,
       "fill": "#33ddff",
       "fillAlpha": 1,
       "stroke": "#ffffff",
       "strokeW": 0,
-      "depth": 30,
-      "visible": false,
+      "depth": 8,
+      "visible": true,
       "type": "field",
       "name": "2.5D 영역",
       "points": [
         {
-          "x": -8.45,
-          "y": -337.66
+          "x": -7,
+          "y": -873.33
         },
         {
-          "x": 33,
-          "y": -337.39
+          "x": 61,
+          "y": -871.19
         },
         {
-          "x": 197.64,
-          "y": -250.83
+          "x": 491.54,
+          "y": -608.33
         },
         {
-          "x": 247.7,
-          "y": -136.11
+          "x": 478.54,
+          "y": -484.33
         },
         {
-          "x": 222.64,
-          "y": -12.84
+          "x": 369.54,
+          "y": -348.33
         },
         {
-          "x": 278.88,
-          "y": 142.17
+          "x": 538.07,
+          "y": -170.33
         },
         {
-          "x": 361.13,
-          "y": 337.67
+          "x": 537.13,
+          "y": 873.34
         },
         {
-          "x": -1.76,
-          "y": 331.97
+          "x": -11.87,
+          "y": 872.67
         },
         {
-          "x": -185.73,
-          "y": 331.28
+          "x": -536.2,
+          "y": 870.67
         },
         {
-          "x": -361.12,
-          "y": 334.17
+          "x": -528.46,
+          "y": 40.67
         },
         {
-          "x": -287.36,
-          "y": 150.17
+          "x": -538.07,
+          "y": -183.33
         },
         {
-          "x": -339.44,
-          "y": -48.84
+          "x": -523,
+          "y": -469.33
         },
         {
-          "x": -169,
-          "y": -204
+          "x": -213.46,
+          "y": -748.33
         },
         {
-          "x": -106,
-          "y": -262
+          "x": -126,
+          "y": -803.33
         }
       ],
       "vp": {
-        "dx": 11.6,
-        "dy": -339.8
+        "dx": 15.7,
+        "dy": -898.1
       },
       "far": {
-        "h": 13
+        "h": 32
       },
       "near": {
-        "h": 373
+        "h": 689
       },
       "scaleRows": {
-        "y0": 346.34,
-        "y1": 1021.67,
-        "step": 21.78,
+        "y0": 662.67,
+        "y1": 2409.34,
+        "step": 56.34,
         "h": [
-          13,
-          24.61,
-          36.23,
-          47.84,
-          59.45,
-          71.06,
-          82.68,
-          94.29,
-          105.9,
-          117.52,
-          129.13,
-          140.74,
-          152.35,
-          163.97,
-          175.58,
-          187.19,
-          198.81,
-          210.42,
-          222.03,
-          233.65,
-          245.26,
-          256.87,
-          268.48,
-          280.1,
-          291.71,
-          303.32,
-          314.94,
-          326.55,
-          338.16,
-          349.77,
-          361.39,
-          373
+          32,
+          53.19,
+          74.39,
+          95.58,
+          116.77,
+          137.97,
+          159.16,
+          180.35,
+          201.55,
+          222.74,
+          243.94,
+          265.13,
+          286.32,
+          307.52,
+          328.71,
+          349.9,
+          371.1,
+          392.29,
+          413.48,
+          434.68,
+          455.87,
+          477.06,
+          498.26,
+          519.45,
+          540.65,
+          561.84,
+          583.03,
+          604.23,
+          625.42,
+          646.61,
+          667.81,
+          689
         ],
         "cx": [
-          352.55,
-          379.69,
-          386.37,
-          393.04,
-          400.65,
-          393.57,
-          386.5,
-          379.3,
-          372.09,
-          364.88,
-          352.45,
-          338.27,
-          324.09,
-          309.92,
-          306.73,
-          307.92,
-          314.72,
-          321.53,
-          328.33,
-          335.13,
-          341.93,
-          348.73,
-          355.54,
-          358.57,
-          358.79,
-          359.01,
-          359.22,
-          359.44,
-          359.65,
-          359.87,
-          360.09,
-          361
+          533,
+          563.5,
+          564.09,
+          576.02,
+          590.91,
+          591.23,
+          557.02,
+          520.92,
+          491.79,
+          467.73,
+          477.27,
+          502.46,
+          527.65,
+          540.9,
+          542.08,
+          543.26,
+          544.45,
+          544.49,
+          544.2,
+          543.91,
+          543.62,
+          543.33,
+          543.05,
+          542.76,
+          542.47,
+          542.18,
+          541.89,
+          541.6,
+          541.32,
+          541.03,
+          540.74,
+          540
         ],
+        "flat": false,
         "vp": {
-          "x": 372.6,
-          "y": 344.2
+          "x": 555.7,
+          "y": 637.9
         }
       }
     }

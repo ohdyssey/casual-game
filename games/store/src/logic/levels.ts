@@ -8,11 +8,17 @@
  *     최저(2)·최고(6)행은 깔끔한 직사각형.
  *   • numKinds = 총칸 - buffers ≤ NUM_PRODUCTS(상품풀). **상품을 추가하면 18칸 여유칸이 자동 감소 → 최난이도↑.**
  *
- * ── 난이도 레버 ────────────────────────────────────────────────
- *   1. 행수 2→6 (칸수 6→18)
- *   2. capacity 3→5
- *   3. buffers (구간 + 상품풀 상한) — 상품 종류가 늘수록 고레벨이 빽빽
- *   4. mixFactor 4→8 (역셔플 깊이)
+ * ── 난이도 곡선(2026-06-19 재설계: 저레벨 평탄 고원 제거) ───────────
+ *   문제였던 점: 기존엔 레벨 1~60이 전부 2행(6칸·4종·용량3·여유2)으로 **동일** →
+ *   60레벨 내내 같은 trivial 보드. 밴드(60/180/330/480)가 넓고 내부가 평탄해 고원이 길었다.
+ *
+ *   재설계:
+ *   1. **행수 밴드 단축**(ROW_BANDS: 6/40/110/300 경계) → 큰 보드(=많은 종류)가 일찍 등장.
+ *      레벨 7=3행(최대 7종), 41=4행(10종)… 기존(61=7종, 181=10종) 대비 약 8배 빠른 진입.
+ *   2. **밴드 내 3단 세분**으로 평탄 고원 제거:
+ *        앞 1/3 = 여유칸 2(보드 커진 직후 완충) → 중간 = 여유칸 1(빡빡) → 뒤 1/3 = 용량 +1(깊은 스택).
+ *      같은 보드라도 레벨이 오르면 종류↑·기동공간↓·스택↑ 으로 체감 난이도가 계속 상승.
+ *   3. **mixFactor 5→9** 램프(역셔플 깊이).
  *
  * 모든 보드: 역셔플 생성 + 솔버검증 → 풀이가능. 레벨 시드 고정(재도전 동일 문제).
  */
@@ -106,11 +112,42 @@ const MIN_ROWS = 2; // 최저 레벨 행수(하단)
 const MAX_ROWS = 6; // 최고 레벨 행수(상단) → 3×6 = 18칸(가장 많은 칸)
 const MAX_BUMP_PER_COL = 1; // 요철 각 열 최대 1단(타워 금지)
 const MAX_BUMPED_COLS = 2; // 요철 돌출 열 수 상한(1~2)
-const MIN_BUFFERS = 1; // 최소 여유칸(풀이용)
-const MAX_BUFFERS = 2; // 기본 여유칸(완만 구간)
+const MIN_BUFFERS = 1; // 빡빡 구간 여유칸(밴드 중·후반)
+const MAX_BUFFERS = 2; // 완충 구간 여유칸(밴드 앞 1/3, 보드 커진 직후)
 
 /** 총 설계 레벨 수(필요시 조정 가능). */
 export const LEVEL_COUNT = 600;
+
+/**
+ * 행수(보드 footprint) 밴드 — 저레벨 평탄 구간을 크게 단축(기존 60/180/330/480 경계 → 6/40/110/300).
+ * 큰 보드(=많은 종류)가 일찍 등장해 저레벨이 더 이상 4종 6칸에 머물지 않는다.
+ */
+interface RowBand {
+  readonly rows: number;
+  readonly start: number; // 포함
+  readonly end: number; // 미포함
+}
+const ROW_BANDS: readonly RowBand[] = [
+  { rows: MIN_ROWS, start: 0, end: 6 }, //   L1-6    3×2=6칸  (도입)
+  { rows: 3, start: 6, end: 40 }, //         L7-40   3×3=9칸
+  { rows: 4, start: 40, end: 110 }, //       L41-110 3×4=12칸
+  { rows: 5, start: 110, end: 300 }, //      L111-300 3×5=15칸
+  { rows: MAX_ROWS, start: 300, end: LEVEL_COUNT }, // L301+ 3×6=18칸
+];
+
+function bandForLevel(i: number): RowBand {
+  for (const b of ROW_BANDS) if (i < b.end) return b;
+  return ROW_BANDS[ROW_BANDS.length - 1]!;
+}
+
+/** 행수 → 기본 칸 용량(스택 높이). 행이 클수록 깊은 스택. 밴드 뒤 1/3 에서 +1 가중. */
+function baseCapacity(rows: number): number {
+  return rows <= 3 ? 3 : rows <= 5 ? 4 : 5;
+}
+
+// 밴드 내 3단 세분 진행도 임계: [0,1/3) 완충(여유2) → [1/3,2/3) 빡빡(여유1) → [2/3,1) 용량+1.
+const RELIEF_P = 1 / 3;
+const CAP_BUMP_P = 2 / 3;
 
 // ─── DEV 오버라이드 노브 ──────────────────────────────────────
 let _cap: number | null = null;
@@ -129,17 +166,8 @@ function seedForLevel(levelIndex: number): number {
   return (Math.floor(levelIndex) * 0x9e3779b1 + 0x85ebca6b) >>> 0;
 }
 
-/** 역셔플 깊이 배수(난이도 미세). 진행에 따라 4→8. */
-const mixForLevel = (li: number): number => 4 + Math.min(1, li / (LEVEL_COUNT - 1)) * 4;
-
-/** 레벨 → 최고 열 높이(행수). 하단부터 위로 2→6 점증, 6행(18칸)이 최고 레벨. */
-function maxRowsForLevel(i: number): number {
-  if (i < 60) return MIN_ROWS; // 2행 (3×2=6칸)
-  if (i < 180) return 3;
-  if (i < 330) return 4;
-  if (i < 480) return 5;
-  return MAX_ROWS; // 6행 (3×6=18칸)
-}
+/** 역셔플 깊이 배수(난이도 미세). 진행에 따라 5→9. */
+const mixForLevel = (li: number): number => 5 + Math.min(1, Math.max(0, li) / (LEVEL_COUNT - 1)) * 4;
 
 interface LevelStructure {
   capacity: number;
@@ -170,14 +198,21 @@ function bumpPattern(li: number, bumpedCols: number): number[] {
   return bumps;
 }
 
-/** 레벨 번호 → 난이도(capacity/buffers) + 직사각형 행수(baseRows) + 요철(bumps). */
+/**
+ * 레벨 번호 → 난이도(capacity/buffers) + 직사각형 행수(baseRows) + 요철(bumps).
+ * 밴드 내 진행도 p∈[0,1) 로 3단 세분: 앞 1/3 완충(여유2) → 중간 빡빡(여유1) → 뒤 1/3 용량+1.
+ */
 function structureForLevel(li: number): LevelStructure {
   const i = Math.max(0, Math.floor(li));
-  const maxRows = maxRowsForLevel(i);
+  const band = bandForLevel(i);
+  const maxRows = band.rows;
+  const span = Math.max(1, band.end - band.start);
+  const p = (i - band.start) / span; // 밴드 내 진행도 [0,1)
+
   // 요철은 "중간 단계"(3~5행)에서만. 최저(2)·최고(6)는 깔끔한 직사각형.
   const transitional = maxRows >= 3 && maxRows <= MAX_ROWS - 1;
   const r = mulberry32((seedForLevel(i) ^ 0x51ed270b) >>> 0);
-  const bumped = transitional && r() < 0.7; // 전환 구간 ~70% 요철, 나머지 깔끔(변화)
+  const bumped = transitional && r() < 0.55; // 절반가량만 요철(나머지 풀사이즈 직사각형 → 난이도 바닥 상향)
   let baseRows: number;
   let bumps: number[];
   if (bumped) {
@@ -187,12 +222,15 @@ function structureForLevel(li: number): LevelStructure {
     baseRows = maxRows;
     bumps = [0, 0, 0];
   }
-  const totalCells = COLS * baseRows + bumps.reduce((a, b) => a + b, 0);
-  // 용량: 행수 따라 3→5.
-  const capacity = maxRows <= 3 ? 3 : maxRows <= 5 ? 4 : 5;
-  // 여유칸: 구간 전반 넉넉(2)→후반 빡빡(1). 상품풀 상한(numKinds ≤ NUM_PRODUCTS)은 generateLevel 에서 보장.
-  const desired = i < 300 ? MAX_BUFFERS : MIN_BUFFERS;
-  const buffers = Math.max(desired, totalCells - NUM_PRODUCTS);
+
+  // 용량: 행 기본값 + 밴드 뒤 1/3 에서 +1(상한 5) — 깊은 스택으로 종반 가중.
+  let capacity = baseCapacity(maxRows);
+  if (p >= CAP_BUMP_P && capacity < 5) capacity += 1;
+
+  // 여유칸(빈칸): 밴드 앞 1/3 은 2(보드 커진 직후 완충), 이후 1(빡빡 → 종류↑·기동공간↓).
+  // 상품풀 상한(numKinds ≤ NUM_PRODUCTS)은 generateLevel 에서 다시 보장.
+  const buffers = p < RELIEF_P ? MAX_BUFFERS : MIN_BUFFERS;
+
   // 3행 이하(2·3행) 레벨은 하단에 전시 상품 1행 추가(작은 진열장 보강).
   const displayRows = maxRows <= 3 ? 1 : 0;
   return { capacity, buffers, baseRows, bumps, displayRows };

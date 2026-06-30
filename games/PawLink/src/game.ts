@@ -1,6 +1,7 @@
 import type { GameModule } from '@casual/core';
-import { LoadScene } from './scenes/LoadScene.js';
+import { makePortalLoading } from '@casual/core';
 import { PlayScene } from './scenes/PlayScene.js';
+import { loadGameAssets, ensureGeneratedTextures, preloadKoreanFonts } from './assets.js';
 
 /**
  * 포링크룸 GameModule — Load→Play.
@@ -13,7 +14,18 @@ import { PlayScene } from './scenes/PlayScene.js';
 export const PawLinkGame: GameModule = {
   id: 'pawlinkroom',
   title: '포링크룸',
-  scenes: [LoadScene, PlayScene],
+  scenes: [
+    ...makePortalLoading({
+      startScene: 'play',
+      barColor: 0xf2a33c,
+      preload: (s) => loadGameAssets(s),
+      onLoaded: async (s) => {
+        ensureGeneratedTextures(s);
+        await preloadKoreanFonts();
+      },
+    }),
+    PlayScene,
+  ],
   backgroundColor: '#3a2a1c',
   designHeight: 1280,
   theme: { brand: '#F2A33C' },

@@ -6,13 +6,8 @@
  *   + (벤더 런타임) spriteDocClip(스프라이트 애니) · polygon/원/사각 + fillClip/fillImage(전광판: 도형 안 애니/이미지).
  */
 import Phaser from 'phaser';
-// 벤더된 에디터 런타임(npm run vendor) — 전광판(도형+애니 채움)·스프라이트 클립 렌더. JS(무타입) → @ts-ignore.
-// @ts-ignore
-import { loadSpriteClip, clipNativeSize } from '../vendor/phaser-ui-editor/anim/clip/spriteClipRuntime.js';
-// @ts-ignore
-import { clipToShape } from '../vendor/phaser-ui-editor/render/shapeMask.js';
-// @ts-ignore
-import { pointsBounds } from '../vendor/phaser-ui-editor/schema/shapeGeometry.js';
+// 에디터 런타임(스프라이트 클립·도형 렌더·노드 anim 재생)은 @casual/core 단일 공용 사본에서 가져온다.
+import { applyLayoutAnims, loadSpriteClip, clipNativeSize, clipToShape, pointsBounds } from '@casual/core';
 
 export interface LayoutNode {
   readonly id: string;
@@ -159,11 +154,13 @@ function drawShapeBg(scene: Phaser.Scene, n: LayoutNode, bb: BBox): Phaser.GameO
 function buildAdvancedNode(scene: Phaser.Scene, n: LayoutNode): Phaser.GameObjects.Container | null {
   try {
     if (n.type === 'spriteDocClip' && (n.spriteDocFile || n.spriteDocId)) {
+      const ref = n.spriteDocFile || n.spriteDocId;
+      if (!ref) return null;
       const c = scene.add.container(n.x, n.y);
       // 앵커: 노드에 명시되면 그걸, 없으면 undefined 로 넘겨 스프라이트 문서의 meta.anchor
       // (예: 타자 발밑 {0.47,0.96})를 그대로 쓴다. ⚠️ {0.5,0.5} 로 강제하면 캐릭터가
       // 중심 기준으로 배치돼 발이 아닌 몸통이 노드 좌표에 와 ~수백px 아래로 밀린다.
-      loadSpriteClip(scene, n.spriteDocFile || n.spriteDocId, {
+      loadSpriteClip(scene, ref, {
         container: c, clipId: n.clipId || '', autoPlay: n.autoPlay !== false, anchor: n.anchor,
       }).then((h: { doc?: unknown } | null) => {
         if (h && n.w && n.h) { const ns = clipNativeSize(h.doc || {}); if (ns.w > 0 && ns.h > 0) c.setScale((n.w as number) / ns.w, (n.h as number) / ns.h); }
@@ -238,6 +235,8 @@ export function buildLayout(scene: Phaser.Scene, doc: LayoutDoc): LayoutIndex {
     if (n.visible === false) obj.setVisible(false);
     index.add({ node: n, obj });
   }
+  // 에디터가 노드/그룹에 저작한 애니(맥동·흔들·파티클 등)를 재생. 이 호출이 SSOT 효과의 런타임 스위치.
+  applyLayoutAnims(scene, index.entries(), doc);
   return index;
 }
 

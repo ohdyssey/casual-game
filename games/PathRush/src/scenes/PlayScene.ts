@@ -11,6 +11,7 @@
 import Phaser from 'phaser';
 import { UI_LAYOUT_KEY, SPARK_KEY } from '../assets.js';
 import { buildLayout, type LayoutDoc, type LayoutIndex } from '../ui/layoutLoader.js';
+import { fillCoverLayout } from '@casual/core';
 import { BoardView, type BoardArea } from '../ui/boardView.js';
 import { generateHamiltonian, areAdjacent, matchPrefixLength } from '../logic/board.js';
 import { gridForLevel, timeForCells, scoreForClear, GOAL_BOARDS } from '../logic/levels.js';
@@ -106,6 +107,8 @@ export class PlayScene extends Phaser.Scene {
 
     // 1) 에디터 디자인(SSOT) 렌더 + 샘플 그리드 노드 숨김.
     this.layout = buildLayout(this, doc);
+    // 반응형 — 창 높이로 채우고 배경 cover + 하단 부스터 바닥정렬(FIT 레터박스 제거). 보드 영역 읽기 전에 호출.
+    fillCoverLayout(this, this.layout);
     this.hideSampleGrid();
 
     // 2) 보드 패널 영역(최대 박스) → BoardView. 패널 이미지를 넘겨 그리드 형태에 맞춰 변형시킨다.

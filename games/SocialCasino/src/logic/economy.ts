@@ -29,15 +29,15 @@ export const FORTUNE_WEIGHTS: Record<Fortune, ReadonlyArray<number>> = {
   hot: [38, 27, 16, 9, 5, 3, 1.5, 0.5],
 };
 
-/** 상태 유지 확률(0.9 → 방문당 평균 streak ≈ 10스핀, 긴 파동 = 넓은 진폭). */
-export const FORTUNE_STAY = 0.9;
+/** 상태 유지 확률(⭐0.95 → 방문당 평균 streak ≈ 20스핀, 극단(Cold/Hot) 체류 ↑ = 더 긴 상승/하강 파동 = 진폭 大). */
+export const FORTUNE_STAY = 0.95;
 /** Neutral 에서 Hot/Cold 로 빠질 확률(각각). */
 export const FORTUNE_SWING = 0.1;
 export const FORTUNE_START: Fortune = 'neutral';
 
 /**
  * 다음 포춘 상태. Neutral→유지(1-2·SWING)·Hot SWING·Cold SWING, Hot/Cold→유지 STAY·Neutral(1-STAY).
- * STAY=0.9·SWING=0.1 → 정상분포 ≈ Cold ⅓ / Neutral ⅓ / Hot ⅓(긴 streak로 극단 체류 ↑).
+ * ⭐STAY=0.95·SWING=0.1 → 정상분포 ≈ Cold 0.4 / Neutral 0.2 / Hot 0.4 (극단 체류↑·긴 streak = 진폭 大).
  */
 export function nextFortune(s: Fortune, rng: () => number): Fortune {
   const r = rng();
@@ -62,7 +62,7 @@ export const RAW_SLOT_RTP_NEUTRAL = 0.9366;
  * 라인 당첨금 스케일(직접 튜닝 노브) — ⭐**낮게**(슬롯 단독 배당 축소). 퍼즐 멀티가 배당을 끌어올린다.
  * 포춘 π가중 raw RTP × 스케일 × 평균 퍼즐멀티(AI최적) + 잭팟환원 ≈ 96% 가 되게 economy.sim 으로 잠금.
  */
-export const SLOT_RTP_SCALE = 0.39;
+export const SLOT_RTP_SCALE = 0.18; // ⭐2026-06-30: 0.23→0.18(−22%) — 슬롯 보상을 줄여 레이드/어텍 보상과 균형(요청). 슬롯 단독 비중↓.
 
 // ── 퍼즐 멀티플라이어(결정론적 — 매치 구조 기반) ───────────────────────────────
 // ⭐사용자 규칙(2026-06-23): 매치(run) 길이 L → 배수 **(L−2)**. 3개→×1·4개→×2·5개→×3·6개→×4·7개→×5…
@@ -90,18 +90,21 @@ export function puzzleMultiplierFromRuns(runs: ReadonlyArray<number>, totalClear
 // ── 슬롯 럭 스트라이크(고변동 = 큰 한 방) ──────────────────────────────────────
 // ⭐"찔끔찔끔" 평탄한 드립을 깨는 변동성 엔진. 대부분 ×1(평소)지만 가끔 ×4/×12/×50 으로 슬롯이 크게 터진다.
 //   → 마른 구간(소액·꽝)이 이어지다 가끔 대박 → "따고 잃고 순환 + 크게 딸 수도". 평균 ≈1.5(스케일로 상쇄).
+// ⭐진폭 大 재설계(2026-06-25): 강타를 훨씬 크고(최대 50→600) 드물게 → 평소엔 잔잔(×1)·가끔 초대박(수백 배).
+//   평균 ≈2.56(이전 1.5) → SLOT_RTP_SCALE 를 낮춰 RTP 평균은 유지(mean-preserving spread = 순수 진폭 확대).
 export const LUCK_TABLE: ReadonlyArray<{ p: number; m: number }> = [
-  { p: 0.004, m: 50 }, // ≈1/250 — 초대박
-  { p: 0.012, m: 12 }, // ≈1.2% — 대박
-  { p: 0.034, m: 4 }, //  ≈3.4% — 큰 한 방
-  { p: 0.09, m: 1.8 }, //  ≈9% — 중간 부스트
-  // 나머지(≈86%) → ×1
+  { p: 0.0006, m: 600 }, // ≈1/1666 — 메가(초대박 한 방)
+  { p: 0.003, m: 120 }, //  ≈1/333  — 잭팟급
+  { p: 0.012, m: 30 }, //   ≈1.2%   — 대박
+  { p: 0.05, m: 7 }, //     ≈5%     — 큰 한 방
+  { p: 0.13, m: 2.5 }, //   ≈13%    — 중간 부스트
+  // 나머지(≈80.5%) → ×1
 ];
-/** 슬롯 럭 배수 — 누적 확률로 큰 배수 추출. 항상 ≥1(표시 당첨 안 깎음). */
-export function luckMultiplier(rng: () => number): number {
+/** 슬롯 럭 배수 — 누적 확률로 큰 배수 추출. 항상 ≥1(표시 당첨 안 깎음). table 미지정 시 SSOT(LUCK_TABLE) — 라이브는 오버라이드 주입. */
+export function luckMultiplier(rng: () => number, table: ReadonlyArray<{ p: number; m: number }> = LUCK_TABLE): number {
   const r = rng();
   let acc = 0;
-  for (const t of LUCK_TABLE) {
+  for (const t of table) {
     acc += t.p;
     if (r < acc) return t.m;
   }
@@ -115,18 +118,27 @@ export const JACKPOT_SEED = 0;
 
 // ── 순수 함수 ─────────────────────────────────────────────────
 /** 슬롯 라인 당첨금 → 코인(RTP 스케일 적용, 라인수 분산). 포춘은 이미 릴 결과(slotRaw)에 반영됨. */
-export function slotPayout(bet: number, slotRaw: number, lines: number): number {
-  return Math.round((bet * slotRaw * SLOT_RTP_SCALE) / lines);
+export function slotPayout(bet: number, slotRaw: number, lines: number, rtpScale: number = SLOT_RTP_SCALE): number {
+  return Math.round((bet * slotRaw * rtpScale) / lines);
 }
 
-/** 럭 적용 슬롯 당첨금(표시·정산 공통) = round(기본 슬롯당첨 × 럭배수). */
-export function slotPayoutWithLuck(bet: number, slotRaw: number, lines: number, luck: number): number {
-  return Math.round(slotPayout(bet, slotRaw, lines) * luck);
+/** 럭 적용 슬롯 당첨금(표시·정산 공통) = round(기본 슬롯당첨 × 럭배수). rtpScale 미지정 시 SSOT — 라이브는 오버라이드 주입. */
+export function slotPayoutWithLuck(bet: number, slotRaw: number, lines: number, luck: number, rtpScale: number = SLOT_RTP_SCALE): number {
+  return Math.round(slotPayout(bet, slotRaw, lines, rtpScale) * luck);
 }
 
 /** 최종 획득 코인 = (럭 적용 슬롯당첨) × 퍼즐 멀티. (운은 slotRaw·luck 에 들어있어 안 깎음.) */
-export function settleWin(bet: number, slotRaw: number, puzzleMult: number, lines: number, luck = 1): number {
-  return Math.round(slotPayoutWithLuck(bet, slotRaw, lines, luck) * puzzleMult);
+export function settleWin(bet: number, slotRaw: number, puzzleMult: number, lines: number, luck = 1, rtpScale: number = SLOT_RTP_SCALE): number {
+  return Math.round(slotPayoutWithLuck(bet, slotRaw, lines, luck, rtpScale) * puzzleMult);
+}
+
+/**
+ * ⭐캐릭터 레벨 → 보상 배수(요청 2026-06-25: **레벨 × 보상금액**, 선형). 레벨1=×1·2=×2·3=×3…
+ * 최종 획득 = round(슬롯 × 퍼즐) × levelRewardMultiplier(level). 최소 1(레벨 0/음수 방어).
+ * (완만한 곡선이나 레벨별 표로 바꾸려면 이 함수만 교체 — 호출부 불변.)
+ */
+export function levelRewardMultiplier(level: number): number {
+  return Math.max(1, Math.floor(level));
 }
 
 /** 이번 스핀이 잭팟 풀에 적립할 금액. */

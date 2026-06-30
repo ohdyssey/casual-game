@@ -2,6 +2,9 @@ import type { GameModule } from '@casual/core';
 import { PlayScene, DESIGN_W, DESIGN_H } from './scenes/PlayScene.js';
 import { LoadScene } from './scenes/LoadScene.js';
 import { LobbyScene } from './scenes/LobbyScene.js';
+import { Stage1Scene } from './scenes/Stage1Scene.js';
+import { HammerFxScene } from './scenes/HammerFxScene.js';
+import { HotelScene } from './scenes/HotelScene.js';
 
 /**
  * MATCHSLOT CITY(내부 id: socialcasino) GameModule — 퍼즐 + 슬롯 하이브리드 소셜 게임.
@@ -24,7 +27,9 @@ export const SocialCasinoGame: GameModule = {
   id: 'socialcasino', // ⚠️ 내부 식별자/라우트/포트 키 — 표시명만 MATCHSLOT CITY 로 변경(id 는 유지)
   title: 'MATCHSLOT CITY',
   // 로딩(게임로딩) → 로비(단일 이미지) → PLAY → 게임(play). 첫 씬이 자동 부팅되므로 LoadScene 을 맨 앞에 둔다.
-  scenes: [LoadScene, LobbyScene, PlayScene],
+  //   Stage1Scene(공격/약탈 결과)·HammerFxScene(망치 임팩트 연출)은 PlayScene 위에 띄우는 오버레이라 **맨 뒤**.
+  //   HammerFxScene 은 update 마다 bringToTop 해 Stage1 위까지 떠서 회전(스테이지 위에서 축소·소멸).
+  scenes: [LoadScene, LobbyScene, PlayScene, Stage1Scene, HammerFxScene, HotelScene],
   backgroundColor: '#1A1030',
   designWidth: DESIGN_W, // 1080 — 에디터 SSOT(HD 세로)와 캔버스 1:1 매칭(GAME_WIDTH 720 override)
   designHeight: DESIGN_H, // 2400 — 슬롯/배너/매치보드/파워업/베팅 5단 세로 스택

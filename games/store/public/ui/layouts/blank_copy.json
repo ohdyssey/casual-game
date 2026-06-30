@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 2,
+  "frame": {
+    "designW": 720,
+    "designH": 1280
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_3",
+      "type": "text",
+      "name": "CONVENIANCE STORE",
+      "text": "CONVENIANCE STORE 24H",
+      "x": 360,
+      "y": 533,
+      "fontSize": 18,
+      "fontFamily": "Jua",
+      "color": "#000000",
+      "stroke": "#5a3210",
+      "strokeW": 0,
+      "align": "center",
+      "depth": 2,
+      "visible": true,
+      "fontStyle": "700",
+      "group": "grp_1"
+    },
+    {
+      "id": "layer_3_copy",
+      "type": "text",
+      "name": "CONVENIANCE STORE 복사",
+      "text": "열정편의점",
+      "x": 360,
+      "y": 492,
+      "fontSize": 37,
+      "fontFamily": "Jua",
+      "color": "#dd3907",
+      "stroke": "#5a3210",
+      "strokeW": 0,
+      "align": "center",
+      "depth": 3,
+      "visible": true,
+      "fontStyle": "900",
+      "group": "grp_1"
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "name": "팝업 패널",
+      "key": "up_Store_POPUP_03",
+      "x": 360,
+      "y": 719,
+      "w": 472,
+      "h": 705,
+      "depth": 4,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true,
+      "group": "grp_2"
+    },
+    {
+      "id": "layer_4",
+      "type": "image",
+      "name": "팝업 헤더",
+      "key": "up_Store_POPUP_01",
+      "x": 372,
+      "y": 295,
+      "w": 605,
+      "h": 243,
+      "depth": 5,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true,
+      "group": "grp_2"
+    }
+  ],
+  "groups": [
+    {
+      "id": "grp_1",
+      "name": "배경",
+      "anim": {
+        "type": "none",
+        "amp": 0.5,
+        "dur": 600
+      }
+    },
+    {
+      "id": "grp_2",
+      "name": "팝업",
+      "anim": {
+        "type": "none",
+        "amp": 0.5,
+        "dur": 600
+      }
+    }
+  ]
+}

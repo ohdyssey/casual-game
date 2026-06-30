@@ -6,6 +6,8 @@
  * 노드 좌표·크기는 전부 중심 기준(center-anchored).
  */
 import Phaser from 'phaser';
+// 에디터가 노드에 저작한 anim(맥동·흔들·파티클 등) 재생 — @casual/core 단일 사본.
+import { applyLayoutAnims } from '@casual/core';
 
 export interface LayoutNode {
   readonly id: string;
@@ -133,5 +135,7 @@ export function buildLayout(scene: Phaser.Scene, doc: LayoutDoc): LayoutIndex {
     if (n.visible === false) obj.setVisible(false);
     index.add({ node: n, obj });
   }
+  // 에디터 저작 애니를 재생(이 호출이 SSOT 효과의 런타임 스위치).
+  applyLayoutAnims(scene, index.entries(), doc);
   return index;
 }

@@ -150,7 +150,9 @@ function boardGeom(doc: LayoutDoc): BoardGeom {
   const rows = PANEL_GRID.rows;
   const pitchX = (gr - gl) / cols;
   const pitchY = (gb - gt) / rows;
-  const tile = Math.round(Math.min(pitchX, pitchY) * 0.88); // 셀보다 약간 작게(여백) — 디자이너 샘플(132/150≈0.88) 기준
+  // 타일(젬) 표시 크기 = 패널 셀(에디터 그리드) 기준 × 0.80. 신규 젬(Gem/Type01)은 풀블리드라
+  //   기존 퍼즐 타일보다 커 보여 0.88→0.80 으로 약간 줄임(사용자 요청). 셀 그리드는 에디터 패널에서 재적용.
+  const tile = Math.round(Math.min(pitchX, pitchY) * 0.8);
   const startX = gl + pitchX / 2; // (0,0) 셀 중심
   const startY = gt + pitchY / 2;
   return { cols, rows, pitchX, pitchY, tile, startX, startY };
@@ -170,7 +172,12 @@ export function computeGeom(doc: LayoutDoc): LayoutGeom {
     reel: reelGrid(doc),
     board: boardGeom(doc),
     anchors: {
-      spin: pick('스핀', 'up_SC_UI_11'),
+      // 스핀(GO) 버튼: 신 GO 패널(up_SC_GO_02) → 구 재디자인(스핀 버튼 오프/버튼온) → 구 디자인(up_SC_UI_11) 순.
+      spin:
+        pick('GO', 'up_SC_GO_02') ??
+        pick('스핀', 'up_SC_UI_11') ??
+        pick('스핀 버튼 오프', 'up_SC_UI_btn_off_v2') ??
+        pick('버튼온', 'up_SC_UI_btn_on'),
       lever: pick('슬롯레버', 'up_SC_UI_16'),
       bet: pick('베팅', 'up_SC_UI_13'),
       coin: pick('코인', 'up_SC_UI_02'),
@@ -186,7 +193,15 @@ export function computeGeom(doc: LayoutDoc): LayoutGeom {
   };
 }
 
-/** buildLayout 의 skip 술어 — 동적 제어 대상(슬롯 심볼·퍼즐 타일)은 정적 렌더에서 제외. */
+/** buildLayout 의 skip 술어 — 슬롯/보드가 동적으로 그리는 샘플 노드(슬롯 심볼·퍼즐 타일·젬 샘플)는
+ *  정적 렌더에서 제외한다. 디자이너가 보드에 배치한 샘플 젬(up_T01_ / up_Gem_ 접두)도 제거(보드가 그림). */
 export function isDynamicNode(n: LayoutNode): boolean {
-  return !!n.key && (n.key.startsWith('up_SC_Symbol_') || n.key.startsWith('up_SC_Puzzle_'));
+  const k = n.key ?? '';
+  return (
+    k.startsWith('up_SC_Symbol_') ||
+    k.startsWith('up_SC_Puzzle_') ||
+    k.startsWith('up_T01_') ||
+    k.startsWith('up_Gem_') ||
+    k.startsWith('up_Num_01_') // 베팅 숫자 — PlayScene 이 현재 베팅값으로 동적 렌더(정적 샘플 '10' 스킵)
+  );
 }

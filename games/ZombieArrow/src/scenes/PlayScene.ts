@@ -50,37 +50,48 @@ const NODE = {
 
 // ── 원근 필드(에디터 'field' = "2.5D 영역" = SSOT). 노드 부재 시 폴백. ──
 // 투영 수식·상수(PERSP_GAMMA/FAR_ALPHA/LATERAL_FLOOR)는 logic/perspective.ts(순수·테스트)로 분리.
-const SPAWN_X_MIN = 70; // near 평면 좌우 분포(소실점에서 퍼져나옴)
-const SPAWN_X_MAX = 650;
+// near 평면 좌우 좀비 스폰 분포 = 디자인 폭 × [margin, 1-margin] (소실점에서 퍼져나옴).
+const SPAWN_X_MARGIN = 0.1;
+// 조준점 좌우 범위 = 디자인 폭 × [margin, 1-margin] (거의 전체 폭 자유 이동).
+const AIM_X_MARGIN = 0.03;
+// 조준 상한(위로 얼마나 멀리 겨냥) = 디자인 높이 × 이값. 작을수록 더 위까지(소실점/좀비 스폰선 위로 여유).
+const AIM_CEIL_FRAC = 0.19;
 const FIELD_FALLBACK = { vpX: 360, vpY: 192, yFar: 348, yNear: 1020, hFar: 9, hNear: 352 };
+// 원근 좀비 크기 전역 배율 — field(near.h/far.h) 투영 위에 곱하는 튜닝 노브(클수록 큼). 1=field 그대로.
+const ZOMBIE_SIZE_MUL = 1.4;
 
 // ── 활의 조준(시위를 당길수록 조준점이 상승 → 더 멀리 / 더 높은 포물선) ──
 const BOW_ALPHA = 0.5; // 활 반투명
-const AIM_X_MIN = 20; // 조준점 좌우 범위 — 거의 전체 폭(자유 이동)
-const AIM_X_MAX = 700;
-const AIM_Y_NEAR = 1015; // 드로우 0 → 조준점 아주 아래(코앞/플레이어 라인까지)
-const AIM_Y_FAR = 170; // 풀 드로우 → 조준점 아주 멀리(소실점 근처까지)
-const NOCK = { x: 360, y: 1018 }; // 활시위(화살) 발사 지점
+// 조준 좌우·세로 범위, 발사 지점(NOCK), 스폰 분포는 에디터 'field'·'anchor' 노드(SSOT)와 디자인 폭에서
+// 런타임 파생 → 해상도 무관(세로 HD 1080×2400 등 720 이 아닌 디자인도 1:1). PlayScene.computeAimGeometry().
 const BOW_GRIP_ORIGIN_Y = 0.66; // 활 회전축(그립) 텍스처 세로 비율
 const BOW_ZOOM_MIN = 0.6; // 활 최소 배율(아주 가까운 조준점에서 활이 사라지지 않게)
-// 활 사이트 링의 활-로컬 오프셋(원점 기준, bz=1 표시 px). 조준점(선의 끝)이 링의 "보이는 중심"에 오도록
-// 링(고리) 시각 중심 ≈ 텍스처(245,560), 원점(189,770), 스케일 1.5185.
-const BOW_SIGHT_LX = 80;
-const BOW_SIGHT_LY = -323;
+// 활 사이트 링의 활-로컬 오프셋 — 원점(0.5, BOW_GRIP_ORIGIN_Y) 기준, **활 표시폭/높이의 분율**.
+// 조준점(red dot)이 링의 "보이는 중심"에 오도록 create()에서 활 실제 표시크기를 곱해 px 로 환산 →
+// 활 표시크기가 바뀌어도(해상도·디자인 변경) 정렬 유지. 자산 up_ZombieA_UI_11 의 링 위치는 불변이므로
+// 옛 720×1280(활 표시 574×1772, 1px 검증 LX80/LY-323)에서 역산: 80/574, -323/1772.
+const BOW_SIGHT_FX = 0.13937; // +오른쪽 (표시폭 분율)
+const BOW_SIGHT_FY = -0.18228; // -위(그립보다 위) (표시높이 분율)
 const SCOPE_ZOOM = 0.45; // 시위를 당길수록 조준점(표적)을 축으로 더 확대(겨냥 확대)
 
 const HANDLE_R = 44;
 const DRAG_FULL = 480; // 시위를 이만큼(px) 당기면 풀 드로우(최대 파워/확대)
 const DRAW_MIN_DIST = 45; // 발사에 필요한 최소 당김 거리(px) — 오발 방지
 // 슬링샷: 당긴 반대 방향으로 조준점이 뻗는 배율. 좌우는 회전점을 높여 미세하게(낮은 배율), 상하는 넉넉히.
-const SLING_GAIN_X = 0.7; // 좌우 — 작을수록 미세/쉬움(회전점 높임 효과)
-const SLING_GAIN_Y = 1.5; // 상하 — 멀리/가까이 조준 거리
-const ARROW_SPEED = 700; // px/s — 비행 속도(거리/속도 = 비행 시간)
+const SLING_GAIN_X = 1.05; // 좌우 — 작을수록 미세/쉬움(회전점 높임 효과). 0.7→1.05 (민감도 1.5배)
+// 상하 — 멀리/가까이 조준 거리. 피벗(aimPivotY)을 조준범위 중앙에 둬서(발사점과 분리) 상·하단 모두
+// 중앙에서 절반 거리(≈980px)만 당기면 닿는다 → 손잡이 하단의 아래 여유(~400px)로도 적당한 게인으로 커버.
+// 미세조정은 당길 때의 겨냥 줌(SCOPE_ZOOM)이 보조.
+const SLING_GAIN_Y = 2.8;
+const ARROW_SPEED = 1820; // px/s — 비행 속도(거리/속도 = 비행 시간), 2배속 → 추가 1.3배속
 // 화면상 호 lift = max(0, (위로 겨냥한 높이 − ARC_STRAIGHT)) × ARC_FRAC (상한 ARC_MAX).
 // 지면점을 위로 띄우는 양(px). 바로 앞은 0=직선, 멀수록 큰 로브. ※지면 깊이/크기와 분리(2.5D).
 const ARC_STRAIGHT = 180; // 이 높이(px) 이내는 직선(가까운 곳은 거의 직선)
 const ARC_FRAC = 0.27; // 호를 전체적으로 절반으로(0.54→0.27)
 const ARC_MAX = 170; // 호 상한도 절반(340→170)
+// 화살 비행 이펙트 트레일(모션 스트릭) — 화살 뒤로 따라붙는 발광 줄기.
+const ARROW_TRAIL_LEN = 16; // 트레일 점 개수(많을수록 긴 꼬리)
+const ARROW_TRAIL_COLOR = 0xffe08a; // 따뜻한 발광색
 // 화살 = 실제 스프라이트(ARROW_KEY 24×176). 발사 크기에서 비행 진행에 따라 점차 축소 → 도착 시 1/5.
 const ARROW_NEAR_H = 96; // 발사 시 화살 표시 높이(px)
 const ARROW_END_SCALE = 0.2; // 도착(t=1) 시 발사 크기의 비율(1/5) — 발사 후 계속 줄어듦
@@ -150,6 +161,7 @@ interface Arrow {
   t: number; // 진행도 0→1
   prevX: number; // 직전 화면 x(회전=화면 속도)
   prevY: number;
+  trail: { x: number; y: number; w: number }[]; // 이펙트 트레일(최근 비행 위치+폭)
   dead: boolean;
 }
 
@@ -166,10 +178,13 @@ export class PlayScene extends Phaser.Scene {
   // 조준/활 컨트롤 — 활 자체가 조준선(가상 크로스헤어 없음)
   private bowImg?: Phaser.GameObjects.Image;
   private bowBaseAngle = 15;
-  private bowBaseX = 360;
-  private bowBaseY = 1020;
+  private bowBaseX = 540;
+  private bowBaseY = 1570;
   private bowBaseScaleX = 1;
   private bowBaseScaleY = 1;
+  // 활 사이트 링의 활-로컬 오프셋(표시 px) — create()에서 BOW_SIGHT_FX/FY × 활 실제 표시폭/높이로 산출.
+  private bowSightLX = 80;
+  private bowSightLY = -323;
   // 에디터 크로스헤어 — 가상 조준선 금지로 항상 숨김(활이 조준선).
   private reticle?: Phaser.GameObjects.Image;
 
@@ -177,8 +192,21 @@ export class PlayScene extends Phaser.Scene {
   private handleTween?: Phaser.Tweens.Tween;
   private anchorRing!: Phaser.GameObjects.Arc;
   private sightFx!: Phaser.GameObjects.Graphics; // 활의 조준선(빛나는 이펙트)
-  private dragStart = { x: 360, y: 1010 }; // 시위 당김 시작점(슬링샷)
-  private anchor = { x: 343, y: 1080 };
+  private arrowTrailFx!: Phaser.GameObjects.Graphics; // 비행 화살 이펙트 트레일(world 소속)
+  private dragStart = { x: 540, y: 2000 }; // 시위 당김 시작점(슬링샷) — 포인터다운 시 갱신
+  private anchor = { x: 540, y: 2000 }; // 슬링샷 손잡이 휴식점 — create()에서 anchor 노드로 갱신
+
+  // 조준/발사 기하 — create()의 computeAimGeometry()가 field·anchor·디자인폭에서 파생(아래는 부팅 전 안전 기본).
+  private nock = { x: 540, y: 2000 }; // 활시위(화살) 발사·슬링샷 피벗(= 앵커)
+  private aimXMin = 32; // 조준점 좌우 범위(디자인폭 기준)
+  private aimXMax = 1048;
+  private aimYFar = 456; // 풀 드로우 → 멀리/위(조준 상한, 좀비 스폰선 위로 여유)
+  private aimYNear = 2390; // 드로우 0 → 가까이(아래) = near 평면
+  // 세로 조준 피벗 — 슬링샷 당김의 기준(발사점 nock 과 분리). 손잡이가 하단이라 nock(=그립, 낮음) 기준이면
+  // 위로 조준할 아래 드래그 여유가 부족 → 피벗을 조준범위 중앙에 둬 적은 드래그로 상·하단 모두 닿게 한다.
+  private aimPivotY = 1430;
+  private spawnXMin = 108; // near 평면 좌우 좀비 스폰 분포
+  private spawnXMax = 972;
 
   // 원근 필드(에디터 SSOT)
   private field: FieldDef = { ...FIELD_FALLBACK };
@@ -215,8 +243,8 @@ export class PlayScene extends Phaser.Scene {
 
   // 드로우(조준) 입력
   private drawing = false;
-  private aimX = 360;
-  private aimY = AIM_Y_NEAR;
+  private aimX = 540;
+  private aimY = 2390;
   private drawAmt = 0;
   private breathT = 0; // 호흡 위상 누적(초) — 화면 전체 미세 줌 진동
 
@@ -238,6 +266,8 @@ export class PlayScene extends Phaser.Scene {
     }
 
     // 1) 에디터 디자인(SSOT) 렌더 — spriteDocClip·field 노드는 로더가 건너뜀.
+    //    디자인이 캔버스(designWidth×designHeight=1080×2400)와 1:1 → fillCover 등 반응형 변형 없이 순수 FIT 재현.
+    //    (배경/HUD/활/field 모두 에디터 1080×2400 좌표로 저작 → setGameSize 로 폭을 720 으로 덮으면 안 된다.)
     this.layout = buildLayout(this, doc);
     this.parseField(doc); // 'field'(2.5D 영역) → 소실점/원근/충돌라인
 
@@ -252,7 +282,10 @@ export class PlayScene extends Phaser.Scene {
       this.bowImg.setOrigin(0.5, BOW_GRIP_ORIGIN_Y);
       this.bowImg.y += (BOW_GRIP_ORIGIN_Y - 0.5) * dh;
       this.bowBaseX = this.bowImg.x;
-      this.bowBaseY = this.bowImg.y;
+      this.bowBaseY = this.bowImg.y; // 저장된(에디터) 활 위치 그대로 — 휴식 활/사이즈는 SSOT
+      // 사이트 링 오프셋을 활 실제 표시크기로 환산 → 표시크기(해상도/디자인) 무관하게 링이 조준점에 정렬.
+      this.bowSightLX = BOW_SIGHT_FX * this.bowImg.displayWidth;
+      this.bowSightLY = BOW_SIGHT_FY * this.bowImg.displayHeight;
       this.bowImg.setDepth(6).setAlpha(BOW_ALPHA); // 활 반투명
     }
     // 가상 크로스헤어(레티클)는 쓰지 않는다 — 조준은 오직 활(방향/이동/각도)로. 숨김.
@@ -260,18 +293,27 @@ export class PlayScene extends Phaser.Scene {
     this.reticle?.setVisible(false);
 
     const anchorNode = this.layout.nodeById(NODE.anchor);
-    this.anchor = { x: anchorNode?.x ?? 343, y: anchorNode?.y ?? 1080 };
+    this.anchor = {
+      x: anchorNode?.x ?? this.scale.width / 2,
+      y: anchorNode?.y ?? this.scale.height * 0.83,
+    };
+    // 조준/발사 기하를 field(원근)·anchor·디자인폭에서 파생 — 해상도 무관(parseField·anchor 확정 후 1회).
+    this.computeAimGeometry();
 
     this.waveText = this.layout.tryById<Phaser.GameObjects.Text>(NODE.waveText);
     this.healthText = this.layout.tryById<Phaser.GameObjects.Text>(NODE.healthText);
     this.scoreText = this.layout.tryById<Phaser.GameObjects.Text>(NODE.scoreText);
     this.layout.tryById<Phaser.GameObjects.Text>(NODE.scoreDup)?.setVisible(false);
 
-    // 3) 줌 가능한 필드 컨테이너 — 배경(에디터 1280폭, 화면보다 넓음)을 옮긴다. 평소엔 scale 1
+    // 3) 줌 가능한 필드 컨테이너 — 배경(에디터 디자인폭, 화면보다 넓음)을 옮긴다. 평소엔 scale 1
     //    (달/프레임 다 보임), 조준(드로우) 시에만 조준점 축으로 확대(조준되면서 확대). 추가 상시확대 없음.
     this.world = this.add.container(0, 0).setDepth(2);
     const bg = this.layout.tryById<Phaser.GameObjects.Image>(NODE.bg);
     if (bg) this.world.add(bg);
+    // 비행 화살 이펙트 트레일 — world 소속(화살과 같은 좌표계로 줌·이동 동기), 매 프레임 다시 그린다.
+    // depth 7: 배경(1)·좀비/화살(4~6.5) 위에 발광(ADD)으로 보이게.
+    this.arrowTrailFx = this.add.graphics().setDepth(7).setBlendMode(Phaser.BlendModes.ADD);
+    this.world.add(this.arrowTrailFx);
 
     // 4) 조준 시각요소(스크린 공간). 활의 조준선 = 빛나는 이펙트(이미지 아님).
     this.sightFx = this.add.graphics().setDepth(7).setBlendMode(Phaser.BlendModes.ADD);
@@ -286,7 +328,7 @@ export class PlayScene extends Phaser.Scene {
 
     // 5) 안내/배너 텍스트.
     this.promptText = this.add
-      .text(this.scale.width / 2, 1208, '드래그로 그 지점을 조준(배경 확대) · 미세조정 후 떼면 발사', {
+      .text(this.scale.width / 2, this.scale.height * 0.944, '드래그로 그 지점을 조준(배경 확대) · 미세조정 후 떼면 발사', {
         fontFamily: '"Jua", sans-serif',
         fontSize: '20px',
         color: '#eaffd6',
@@ -295,7 +337,7 @@ export class PlayScene extends Phaser.Scene {
       .setStroke('#0c1a06', 5)
       .setDepth(28);
     this.bannerText = this.add
-      .text(this.scale.width / 2, 360, '', {
+      .text(this.scale.width / 2, this.scale.height * 0.281, '', {
         fontFamily: '"Do Hyeon", sans-serif',
         fontSize: '64px',
         color: '#9be85a',
@@ -345,8 +387,8 @@ export class PlayScene extends Phaser.Scene {
     this.score = 0;
     this.streak = 0;
     this.waveIndex = 0;
-    this.aimX = 360;
-    this.aimY = AIM_Y_NEAR;
+    this.aimX = this.nock.x;
+    this.aimY = this.aimPivotY; // 휴식 조준 = 피벗(조준범위 중앙)
     this.drawing = false;
     this.drawAmt = 0;
     this.world.setScale(1).setPosition(0, 0);
@@ -440,8 +482,27 @@ export class PlayScene extends Phaser.Scene {
         hNear: node.near?.h ?? FIELD_FALLBACK.hNear,
       };
     }
-    this.aimX = 360;
-    this.aimY = AIM_Y_NEAR;
+  }
+
+  /**
+   * 조준/발사 기하를 에디터 SSOT(field·anchor)와 디자인 폭에서 파생 — 해상도 무관.
+   * 720 이 아닌 디자인(세로 HD 1080×2400 등)도 별도 상수 수정 없이 1:1로 맞는다.
+   */
+  private computeAimGeometry(): void {
+    const W = this.scale.width;
+    // 발사·슬링샷 피벗 = 활 그립(bowBaseY = 활 회전축 높이). 앵커(손잡이)는 화면 더 아래라 거기서
+    // 쏘면 발사점이 너무 낮다 → 활이 실제 위치한 그립 높이에서 발사(가로는 앵커 중심 유지).
+    this.nock = { x: this.anchor.x, y: this.bowBaseY };
+    this.aimXMin = W * AIM_X_MARGIN;
+    this.aimXMax = W * (1 - AIM_X_MARGIN);
+    this.spawnXMin = W * SPAWN_X_MARGIN;
+    this.spawnXMax = W * (1 - SPAWN_X_MARGIN);
+    // 조준 세로 범위. 멀리(위)=소실점 위로 더(상한 올림), 가까이(아래)=near 평면. 좀비 전 구간 + 상단 여유 커버.
+    const H = this.scale.height;
+    this.aimYFar = Math.min(this.field.vpY, H * AIM_CEIL_FRAC); // 좀비 스폰선/소실점보다 위까지 겨냥 가능
+    this.aimYNear = this.field.yNear;
+    // 슬링샷 피벗 = 조준 범위의 중앙. 손잡이가 하단이라 상·하단을 적은 드래그로 대칭 도달.
+    this.aimPivotY = (this.aimYFar + this.aimYNear) / 2;
   }
 
   // 2.5D 투영(project/depthFromY/laneFromX)은 logic/perspective.ts(순수·테스트)로 분리해 import.
@@ -450,7 +511,7 @@ export class PlayScene extends Phaser.Scene {
     const pr = project(this.field, z.d, z.laneX);
     z.spr
       .setPosition(pr.x, pr.y)
-      .setScale((pr.h * z.sizeMul) / z.frameH)
+      .setScale((pr.h * ZOMBIE_SIZE_MUL * z.sizeMul) / z.frameH)
       .setAlpha(pr.alpha)
       .setDepth(pr.depth);
     const dw = z.spr.displayWidth;
@@ -474,7 +535,7 @@ export class PlayScene extends Phaser.Scene {
 
   private spawnZombie(): void {
     const type = ZOMBIE_TYPES[Phaser.Math.Between(0, ZOMBIE_TYPES.length - 1)];
-    const laneX = Phaser.Math.Between(SPAWN_X_MIN, SPAWN_X_MAX);
+    const laneX = Phaser.Math.Between(this.spawnXMin, this.spawnXMax);
     const spr = this.add.sprite(this.field.vpX, this.field.yFar, type.key, ZOMBIE_FRAME0).setOrigin(0.5, 0.5);
     // 등장 타이밍·걷는 속도를 제각각으로 → 같은 좀비도 다르게.
     spr.play({ key: type.anim, startFrame: Phaser.Math.Between(0, type.frameCount - 1) });
@@ -637,8 +698,9 @@ export class PlayScene extends Phaser.Scene {
     const pullDist = Math.hypot(pullX, pullY);
     this.drawAmt = clamp(pullDist / DRAG_FULL, 0, 1);
     // 조준점(화면) = NOCK 에서 당김 반대 방향으로. 좌우는 미세(낮은 배율 = 회전점 높임), 상하는 넉넉히.
-    const aimSx = clamp(NOCK.x - pullX * SLING_GAIN_X, AIM_X_MIN, AIM_X_MAX);
-    const aimSy = clamp(NOCK.y - pullY * SLING_GAIN_Y, AIM_Y_FAR, AIM_Y_NEAR);
+    const aimSx = clamp(this.nock.x - pullX * SLING_GAIN_X, this.aimXMin, this.aimXMax);
+    // 세로는 발사점(nock)이 아니라 조준범위 중앙 피벗에서 뻗는다 → 손잡이 하단에서도 상·하단 모두 도달.
+    const aimSy = clamp(this.aimPivotY - pullY * SLING_GAIN_Y, this.aimYFar, this.aimYNear);
     // 조준점을 축으로 확대(당길수록 더) — 표적이 그 자리에서 커진다(확대, 축소 아님).
     const af = this.pointerToField(aimSx, aimSy);
     const Z = 1 + this.drawAmt * SCOPE_ZOOM;
@@ -660,15 +722,15 @@ export class PlayScene extends Phaser.Scene {
     // 활 전체를 좌우로 평행이동하여 링을 선에 맞춘다(기울임 보정 안 함 — 회전 중심 고정 안 함).
     if (this.bowImg) {
       if (this.drawing) {
-        const lineRad = Math.atan2(scr.y - NOCK.y, scr.x - NOCK.x);
+        const lineRad = Math.atan2(scr.y - this.nock.y, scr.x - this.nock.x);
         const angRad = lineRad + Math.PI / 2; // 활 위축이 조준선을 향함
-        const ringLen = Math.hypot(BOW_SIGHT_LX, BOW_SIGHT_LY); // 그립 → 사이트 링 거리(bz=1)
-        const distNA = Math.hypot(scr.x - NOCK.x, scr.y - NOCK.y);
+        const ringLen = Math.hypot(this.bowSightLX, this.bowSightLY); // 그립 → 사이트 링 거리(bz=1)
+        const distNA = Math.hypot(scr.x - this.nock.x, scr.y - this.nock.y);
         const bz = Math.max(BOW_ZOOM_MIN, distNA / ringLen); // 링이 조준점에 닿도록 확대
         const cos = Math.cos(angRad);
         const sin = Math.sin(angRad);
-        const offX = BOW_SIGHT_LX * bz * cos - BOW_SIGHT_LY * bz * sin;
-        const offY = BOW_SIGHT_LX * bz * sin + BOW_SIGHT_LY * bz * cos;
+        const offX = this.bowSightLX * bz * cos - this.bowSightLY * bz * sin;
+        const offY = this.bowSightLX * bz * sin + this.bowSightLY * bz * cos;
         // 평행이동: 사이트 링이 정확히 조준점에 오도록 활을 옮긴다(왼쪽 등).
         this.bowImg
           .setPosition(scr.x - offX, scr.y - offY)
@@ -730,8 +792,8 @@ export class PlayScene extends Phaser.Scene {
     this.lastFireAt = now;
 
     // 타겟 지정 없음 — 오직 겨냥한 조준점(aimX, aimY)으로 발사하고, 타격은 그 "도착 지점"에서만.
-    const ox = NOCK.x;
-    const oy = NOCK.y;
+    const ox = this.nock.x;
+    const oy = this.nock.y;
     const tx = this.aimX;
     const ty = this.aimY;
     const dist = Math.hypot(tx - ox, ty - oy);
@@ -741,7 +803,7 @@ export class PlayScene extends Phaser.Scene {
     const d0 = depthFromY(this.field, oy);
     // 화면상 호 lift(지면 위로 띄우는 높이, px). 가까우면 0=직선, 멀수록 큰 로브.
     const screenArcH = Math.max(0, Math.min(ARC_MAX, (oy - ty - ARC_STRAIGHT) * ARC_FRAC));
-    const dur = Math.max(0.18, dist / ARROW_SPEED);
+    const dur = Math.max(0.09, dist / ARROW_SPEED);
     // 실제 화살 스프라이트(촉 끝이 피벗) + 지면 그림자.
     const img = this.add
       .image(ox, oy, ARROW_KEY)
@@ -758,7 +820,7 @@ export class PlayScene extends Phaser.Scene {
       shadow,
       d0,
       dT,
-      lane0: NOCK.x,
+      lane0: this.nock.x,
       laneT,
       tx,
       ty,
@@ -767,6 +829,7 @@ export class PlayScene extends Phaser.Scene {
       t: 0,
       prevX: ox,
       prevY: oy,
+      trail: [],
       dead: false,
     });
     sfx('bow_release', { volume: 0.85 }); // 발사(릴리스)
@@ -838,7 +901,7 @@ export class PlayScene extends Phaser.Scene {
     const dw = z.spr.displayWidth || 1;
     const dh = z.spr.displayHeight || 1;
     // 깃(아래 끝)이 발사 원점(NOCK=플레이어 쪽)을 향하도록 회전 → 앞에서 맞아 앞으로 박힌 모습.
-    const ang = Math.atan2(hitX - NOCK.x, NOCK.y - hitY);
+    const ang = Math.atan2(hitX - this.nock.x, this.nock.y - hitY);
     const sf = STUCK_ARROW_LEN_FRAC / 128; // 텍스처 높이 128 기준
     const img = this.add
       .image(hitX, hitY, ARROW_STUCK_KEY)
@@ -871,7 +934,7 @@ export class PlayScene extends Phaser.Scene {
     const d = depthFromY(this.field, screenY);
     const pr = project(this.field, d, laneFromX(this.field, screenX, d));
     const persp = Math.max(0.12, pr.h / this.field.hNear); // 깊이 원근 — 멀리 꽂힌 화살일수록 작게(바닥 0.12)
-    const ang = Math.atan2(screenX - NOCK.x, NOCK.y - screenY); // 깃이 발사 원점(앞=플레이어)을 향함
+    const ang = Math.atan2(screenX - this.nock.x, this.nock.y - screenY); // 깃이 발사 원점(앞=플레이어)을 향함
     const stuck = this.add
       .image(screenX, screenY, ARROW_STUCK_KEY)
       .setOrigin(0.5, 0.02) // 박힌 끝(촉 쪽)이 착탄점, 깃이 밖으로
@@ -938,6 +1001,9 @@ export class PlayScene extends Phaser.Scene {
       // 3) 크기 = 발사 크기에서 진행에 따라 점차 축소 → 도착 시 1/5(ARROW_END_SCALE). (그림자는 깊이 원근비 유지)
       const persp = gp.h / this.field.hNear;
       const arrowScale = (ARROW_NEAR_H / 176) * lerp(1, ARROW_END_SCALE, tc);
+      // 이펙트 트레일 — 현재 위치 + 화살 폭(24×scale)을 꼬리에 누적(길이 캡). 매 프레임 다시 그린다.
+      ar.trail.push({ x, y, w: 24 * arrowScale });
+      if (ar.trail.length > ARROW_TRAIL_LEN) ar.trail.shift();
       // 4) 회전 = 화면 속도(직전→현재) 접선. 발사 시 위, 정점 수평, 낙하 시 표적으로.
       const ang = Math.atan2(y - ar.prevY, x - ar.prevX) + Math.PI / 2;
       ar.img.setPosition(x, y).setScale(arrowScale).setRotation(ang).setDepth(gp.depth + 0.5);
@@ -950,6 +1016,19 @@ export class PlayScene extends Phaser.Scene {
       ar.prevX = x;
       ar.prevY = y;
       if (ar.t >= 1) this.landArrow(ar);
+    }
+
+    // 화살 이펙트 트레일 다시 그리기 — 머리(현재)에서 밝고 굵게 → 꼬리로 갈수록 흐리고 얇게(발광 스트릭).
+    this.arrowTrailFx.clear();
+    for (const ar of this.arrows) {
+      if (ar.dead || ar.trail.length < 2) continue;
+      const pts = ar.trail;
+      const n = pts.length;
+      for (let i = 1; i < n; i++) {
+        const f = i / n; // 0(꼬리)~1(머리)
+        this.arrowTrailFx.lineStyle(Math.max(1, pts[i].w * 1.1 * f), ARROW_TRAIL_COLOR, 0.6 * f);
+        this.arrowTrailFx.lineBetween(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y);
+      }
     }
 
     // 필드 깊이 정렬(먼 좀비가 뒤, 가까운 좀비가 앞) + 정리 + 웨이브 진행.
@@ -972,6 +1051,7 @@ export class PlayScene extends Phaser.Scene {
     this.anchorRing.setVisible(false);
     this.reticle?.setVisible(false);
     this.sightFx.clear();
+    this.arrowTrailFx.clear(); // 비행 트레일 잔상 정리
     this.promptText.setText('');
     this.refreshRank(); // 최종 점수 기준 등수를 왼쪽 패널에 확정 표시(그대로 남는다)
 

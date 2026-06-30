@@ -32,11 +32,17 @@ function normalize(reel: CellGrid): { xs: number[]; ys: number[]; cellW: number;
 const STRIP = 8; // 보이는 3(페이라인) + 위 버퍼 4 + 아래 1 (창을 더 크게 써서 상하 부분 심볼 노출)
 const BUFFER = 4; // 페이라인 시작 인덱스(위 버퍼 수)
 const SPIN_SPEED = 3200; // px/s — 빠른 스크롤
-const SPIN_MS = 680; // 첫 열 감속 시작까지(빠른 회전 구간 더 길게 = 회전수 ↑↑↑)
-const STAGGER = 150; // 열별 정지 간격(좌→우 순차 — 텀 약간 더)
-const DECEL = 12000; // px/s² — 강한 관성 감속(빨리 멈춤)
+const SPIN_MS = 420; // 첫 열 감속 시작까지(스피드업: 680→420, 여전히 '회전'으로 읽히는 하한 이상)
+const STAGGER = 90; // 열별 정지 간격(좌→우 순차) — 150→90(스피드업, 순차감 유지)
+const DECEL = 18000; // px/s² — 관성 감속 강화(12000→18000, 코스트 단축)
 const MIN_VEL = 240; // 이 속도 이하면 안착 단계로
-const SETTLE_MS = 120; // 결과 안착(짧은 탁! 마무리)
+const SETTLE_MS = 72; // 결과 안착(짧은 탁! 마무리) — 120→72
+// ⭐페이스 가속(pace=1) 시의 타이밍 하한 — 0..1 pace 로 위 정상값과 선형 보간한다.
+//   퍼즐을 빠르게 맞추면(또는 백로그가 쌓이면) 슬롯도 빨라져 따라온다. pace=1 ≈ 1스핀 0.35s(정상 ~1.4s).
+const SPIN_MS_FAST = 40; // 회전수↓
+const STAGGER_FAST = 18; // 열 간격↓(순차감은 유지)
+const DECEL_FAST = 40000; // 감속↑(코스트 단축)
+const SETTLE_MS_FAST = 45; // 안착↓
 const SPIN_ALPHA = 0.82; // 회전 중 반투명(겹침이 스트릭처럼 부드럽게)
 const SPIN_STRETCH = 1.42; // 회전 중 세로로 늘여 모션 스트릭(행 간격보다 약간 커 끊김 없음)
 // 미세 왜곡: **중간 행(페이라인)은 모두 동일 크기**. 상단/하단 행만 좌우 외곽으로 갈수록
@@ -65,11 +71,12 @@ export class SlotView {
   private outcome: number[][] = [];
   private finalizeDone: () => void = () => {};
   private busy = false;
-  // 현재 스핀 타이밍(fast 모드에서 짧게 — 퍼즐 백로그 따라잡기용). spin() 이 매 스핀 설정.
+  // 현재 스핀 타이밍(pace 에 따라 짧게 — 퍼즐 백로그 따라잡기용). spin() 이 매 스핀 보간 설정.
   private spinMs = SPIN_MS;
   private stagger = STAGGER;
   private decel = DECEL;
   private settleMs = SETTLE_MS;
+  private spinPace = 0; // 직전 spin 의 가속 0..1(안착 후 마무리 딜레이 분기에 사용)
   /** 각 열이 멈출 때 호출(사운드용). isLast = 마지막(맨 오른쪽) 열. */
   onReelStop?: (isLast: boolean) => void;
 
@@ -160,15 +167,18 @@ export class SlotView {
 
   /**
    * 스핀 1회: 짧은 빠른 스크롤 → 좌→우 탁탁탁 관성 감속 → 결과 안착 → 당첨 플래시. weights=운 상태 심볼 분포.
-   * fast=true 면 회전·정지·안착을 대폭 단축(퍼즐 백로그를 슬롯이 빠르게 따라잡을 때 — 적응형 가속).
+   * pace(0..1): 0=정상 풀연출(~1.4s), 1=터보(~0.35s). 회전·정지·안착을 선형 보간해 **퍼즐을 빠르게
+   *   맞출수록(또는 백로그가 쌓일수록) 슬롯이 빨라져 따라온다**(적응형 가속).
    */
-  spin(rng: Rng, bet: number, multiplier: number, weights?: ReadonlyArray<number>, fast = false): Promise<SpinOutcome> {
+  spin(rng: Rng, bet: number, multiplier: number, weights?: ReadonlyArray<number>, pace = 0): Promise<SpinOutcome> {
     if (this.busy) return Promise.resolve({ reels: this.outcome, wins: [], totalWin: 0 });
-    // fast: 회전수↓·열간격↓·감속↑·안착↓ → 1스핀 ~0.35s(정상 ~1.4s).
-    this.spinMs = fast ? 60 : SPIN_MS;
-    this.stagger = fast ? 26 : STAGGER;
-    this.decel = fast ? 40000 : DECEL;
-    this.settleMs = fast ? 70 : SETTLE_MS;
+    // pace 0..1 로 정상값↔하한값 보간(회전수↓·열간격↓·감속↑·안착↓).
+    const k = pace < 0 ? 0 : pace > 1 ? 1 : pace;
+    this.spinPace = k;
+    this.spinMs = Math.round(SPIN_MS + (SPIN_MS_FAST - SPIN_MS) * k);
+    this.stagger = Math.round(STAGGER + (STAGGER_FAST - STAGGER) * k);
+    this.decel = DECEL + (DECEL_FAST - DECEL) * k;
+    this.settleMs = Math.round(SETTLE_MS + (SETTLE_MS_FAST - SETTLE_MS) * k);
     const outcome = slotSpin(rng, bet, multiplier, weights);
     this.outcome = outcome.reels;
     this.busy = true;
@@ -189,7 +199,8 @@ export class SlotView {
         if (stopped === REEL_COLS) {
           this.scene.events.off(Phaser.Scenes.Events.UPDATE, this.onUpdate);
           this.flashWins(outcome);
-          this.scene.time.delayedCall(this.settleMs <= 80 ? 40 : outcome.totalWin > 0 ? 360 : 100, () => {
+          // 가속 중(pace>0.5)이면 짧은 마무리(40), 정상이면 당첨 시 220ms 음미·꽝 60.
+          this.scene.time.delayedCall(this.spinPace > 0.5 ? 40 : outcome.totalWin > 0 ? 220 : 60, () => {
             this.busy = false;
             resolve(outcome);
           });
@@ -273,9 +284,9 @@ export class SlotView {
           targets: img,
           scaleX: sx * 1.45,
           scaleY: sy * 1.45,
-          duration: 200,
+          duration: 130,
           yoyo: true,
-          repeat: 2,
+          repeat: 1,
           ease: 'Sine.easeInOut',
           onComplete: () => {
             img.clearTint();
@@ -284,7 +295,7 @@ export class SlotView {
           },
         });
         // 반짝임(트윙클).
-        this.scene.tweens.add({ targets: img, alpha: 0.5, duration: 130, yoyo: true, repeat: 3 });
+        this.scene.tweens.add({ targets: img, alpha: 0.5, duration: 80, yoyo: true, repeat: 2 });
       }
     }
   }

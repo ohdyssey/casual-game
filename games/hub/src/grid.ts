@@ -1,9 +1,12 @@
 /**
- * grid — 게임 카드 그리드 렌더 + 게임 팝업 실행.
+ * grid — 게임 카드 그리드 렌더 + 게임 실행(핸드오프 런처 호출).
  * (기존 index.html 인라인 스크립트에서 분리 — 계정/경제 UI 와 한 엔트리로 합치기 위함.)
+ * 팝업 실행/오버레이/진행률 미러는 ./launcher.ts 가 담당.
  */
 // games.config.js 는 JSDoc 타입의 순수 JS 레지스트리(allowJs 로 소비).
 import { GAMES, gameUrl } from '../games.config.js';
+import { launchGame, isPlayable } from './launcher.js';
+import { toast } from './account.js';
 
 interface GameEntry {
   id: string;
@@ -18,91 +21,57 @@ interface GameEntry {
   prodUrl?: string;
 }
 
-// 게임 설계 해상도 720×1280 = 9:16. window.open 의 width/height 는 '바깥 창' 크기라
-// 브라우저 툴바(타이틀+주소창)가 높이를 먹어 '내부 영역'이 더 넓은 비율이 된다.
-// → 내부를 9:16 으로 맞추려면 외부 높이에 툴바 높이(CHROME)를 더해 보정한다.
-const GAME_ASPECT = 720 / 1280; // 폭/높이 = 0.5625
-const CHROME_H = 92; // 타이틀바+주소창 대략치(브라우저별 ±). 내부 9:16 근사 보정.
-
-/** 홈 화면에 설치된 PWA(주소창 없는 standalone)에서 실행 중인지. */
-function isStandalone(): boolean {
-  return (
-    window.matchMedia?.('(display-mode: standalone)').matches ||
-    window.matchMedia?.('(display-mode: fullscreen)').matches ||
-    // iOS Safari 는 display-mode 대신 navigator.standalone 로 노출.
-    (navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
-}
-
-function openGame(game: GameEntry): boolean {
-  const url = gameUrl(game);
-  if (!url) return false;
-  // 설치형 PWA: window.open 팝업은 주소창 있는 외부 브라우저 창으로 새로 뜬다.
-  // → 같은 창에서 이동해 standalone 셸을 유지(manifest scope '/' 로 게임도 주소창 X).
-  //   허브로 복귀는 기기 뒤로가기(Android)·가장자리 스와이프(iOS)로.
-  if (isStandalone()) {
-    window.location.assign(url);
-    return true;
-  }
-  let innerH = Math.min(900, Math.round(window.screen.availHeight * 0.86));
-  // 폭을 9:16 보다 3% 좁게 → 내부 영역이 항상 9:16 '또는 더 길쭉'(게임의 안전 범위)으로 유지.
-  let w = Math.round(innerH * GAME_ASPECT * 0.97);
-  const maxW = Math.round(window.screen.availWidth * 0.96);
-  if (w > maxW) {
-    w = maxW;
-    innerH = Math.round(w / GAME_ASPECT);
-  }
-  const h = innerH + CHROME_H; // 외부 높이 = 내부(9:16) + 툴바
-  const left = Math.max(0, Math.round((window.screen.availWidth - w) / 2));
-  const top = Math.max(0, Math.round((window.screen.availHeight - h) / 2));
-  const win = window.open(
-    url,
-    `casualgame_${game.id}`,
-    `popup=yes,width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=no`,
-  );
-  if (win) {
-    win.focus();
-    return true;
-  }
-  return false;
-}
-
-/** 게임 1개 → 카드 엘리먼트. */
-function cardEl(game: GameEntry): HTMLElement {
+/** 게임 1개 → 카드 엘리먼트. onClose 는 게임 창이 닫힐 때 호출(지갑 새로고침). */
+function cardEl(game: GameEntry, onClose?: () => void): HTMLElement {
   const live = !!game.live;
-  const el = document.createElement(live ? 'a' : 'div');
+  // 차단 모드(홈페이지)에선 라이브 카드도 앵커(href)로 만들지 않는다 → 새 탭/직접이동까지 봉쇄.
+  //   allowlist(PLAY_OPEN_GAMES) 에 든 게임은 브라우저 탭에서도 실행 가능 → 앵커로 렌더.
+  const playable = live && isPlayable(game.id);
+  const el = document.createElement(playable ? 'a' : 'div');
   el.className = `card ${live ? 'live' : 'soon'}`;
   el.style.setProperty('--accent', game.accent);
-  if (live && el instanceof HTMLAnchorElement) {
+  if (playable && el instanceof HTMLAnchorElement) {
     el.href = gameUrl(game) ?? '#';
     el.target = `casualgame_${game.id}`;
   }
+  // 카드 이미지 = 게임 화면 키아트(game.art) 를 cover 로 꽉 채우고 + 투명 로고 상단 오버레이.
+  //   (앱 아이콘 타일 방식에서 실제 게임화면 프리뷰 카드로 복원 — public/art/<*_Game.png>)
+  const logoStyle = game.logoScale
+    ? ` style="width:${(74 * game.logoScale).toFixed(1)}%;max-height:${(34 * game.logoScale).toFixed(1)}%"`
+    : '';
   el.innerHTML =
     `<img class="art" src="${game.art}" alt="${game.title}" loading="lazy" />` +
     `<div class="scrim"></div>` +
-    (game.logo
-      ? `<img class="logo" src="${game.logo}" alt="${game.title} 로고" loading="lazy"${game.logoScale ? ` style="width:${(74 * game.logoScale).toFixed(1)}%;max-height:${(34 * game.logoScale).toFixed(1)}%"` : ''} />`
-      : '') +
+    (game.logo ? `<img class="logo" src="${game.logo}" alt="${game.title} 로고" loading="lazy"${logoStyle} />` : '') +
     `<span class="badge"><span class="dot"></span>${live ? 'PLAY' : '준비중'}</span>` +
     `<div class="meta">` +
     `<h2 class="title">${game.title}</h2>` +
     `<p class="tag">${game.tagline || ''}</p>` +
-    `<span class="pill">${live ? '▶ 플레이' : '🔒 준비중'}</span>` +
+    `<span class="pill">${playable ? '▶ 플레이' : live ? '오픈 준비중' : '🔒 준비중'}</span>` +
     `</div>`;
   if (live) {
+    el.style.cursor = 'pointer';
     el.addEventListener('click', (e) => {
       const me = e as MouseEvent;
       if (e.defaultPrevented || me.button !== 0 || me.metaKey || me.ctrlKey || me.shiftKey || me.altKey) return;
-      if (openGame(game)) e.preventDefault();
+      if (!isPlayable(game.id)) {
+        e.preventDefault();
+        toast('곧 오픈 예정입니다 🚧');
+        return;
+      }
+      if (launchGame(game, onClose)) e.preventDefault();
     });
   }
   return el;
 }
 
-/** 그리드 마운트 + 푸터 카드 수 표기. config 순서(=live 먼저 + 장르 묶음) 그대로. */
-export function mountGrid(grid: HTMLElement, foot: HTMLElement): void {
+/**
+ * 그리드 마운트 + 푸터 카드 수 표기. config 순서(=live 먼저 + 장르 묶음) 그대로.
+ * onGameClose: 게임 창이 닫힐 때 호출 — 허브 지갑바 새로고침에 연결한다.
+ */
+export function mountGrid(grid: HTMLElement, foot: HTMLElement, onGameClose?: () => void): void {
   const games = GAMES as GameEntry[];
-  for (const game of games) grid.appendChild(cardEl(game));
+  for (const game of games) grid.appendChild(cardEl(game, onGameClose));
   const liveCount = games.filter((g) => g.live).length;
   foot.textContent = `PlayPOP Hub · v0.2.0 · 총 ${games.length}종 (플레이 ${liveCount} · 준비중 ${games.length - liveCount})`;
 }

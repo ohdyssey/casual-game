@@ -10,7 +10,7 @@
  * 페이즈: intro(탭/스페이스) → countdown(3·2·1·출발) → racing → finish(활주) → result.
  */
 import Phaser from 'phaser';
-import { strokeText } from '@casual/core';
+import { strokeText, fillViewportHeight } from '@casual/core';
 import {
   SPLASH_KEY,
   VIGNETTE_KEY,
@@ -159,6 +159,9 @@ export class RaceScene extends Phaser.Scene {
     this.cfg = raceConfig(save.race);
     this.periodMs = beatPeriodMs(this.cfg.bpm);
 
+    // 본편 진입 시 캔버스를 창 높이로 채움(FIT 레터박스 제거). 수면/하늘은 scale.height 로 채우고,
+    // 에디터 요소는 offsetY(=(height-1280)/2)로 중앙정렬되어 빈 띠 없이 꽉 찬다.
+    fillViewportHeight(this);
     this.buildWater();
     this.buildEditorLayout();
     this.buildWake(); // 보트 위치를 알게 된 뒤 항적 이미터 생성·추종

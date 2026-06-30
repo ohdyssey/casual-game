@@ -10,7 +10,8 @@
 
 /** 카탈로그 상품 종류(1-based, assets.PRODUCTS 인덱스). */
 export type ProductType = number;
-export const PRODUCT_COUNT = 12;
+/** 에디터 item 아트 32종(up_Logistics_item_01..32). 레벨당 typePool 은 이 중 5~6종을 추첨. */
+export const PRODUCT_COUNT = 32;
 
 /** 보드 타일 종류 — 0-based 로컬 인덱스(typePool 로 ProductType 에 매핑). */
 export type TileType = number;
@@ -78,9 +79,14 @@ export interface LevelCfg {
   readonly typePool: ReadonlyArray<ProductType>;
   /** 동시에 보이는 베이(트럭) 수. */
   readonly bays: number;
-  /** 레벨 클리어까지 출발시켜야 할 총 트럭 수(= trucks.length). */
+  /** 레벨 클리어까지 **시간 내 성공시켜야 할** 배송 수. */
   readonly goal: number;
-  /** 진입 순서대로의 트럭 명세(길이 = goal). 앞 bays 대는 초기 정차, 나머지는 대기열. */
+  /** 트럭당 주문 수량 범위(런타임 무한 리필에 사용). */
+  readonly reqMin: number;
+  readonly reqMax: number;
+  /** 트럭 한 대의 제한시간(ms) — 내에 못 채우면 자동 출발. */
+  readonly timeLimitMs: number;
+  /** 초기 트럭 명세(길이 = goal). 앞 bays 대는 초기 정차, 나머지는 대기열(이후 런타임 리필). */
   readonly trucks: ReadonlyArray<TruckSpec>;
 }
 
@@ -94,8 +100,13 @@ export interface GameState {
   readonly queue: ReadonlyArray<TruckSpec>;
   /** 다음 진입 트럭에 부여할 serial. */
   readonly nextSerial: number;
-  /** 지금까지 출발한 트럭 수. */
+  /** 지금까지 **시간 내 성공한** 배송 수(자동 출발/시간초과는 제외). */
   readonly dispatched: number;
-  /** 레벨 클리어 목표(= 총 트럭 수). */
+  /** 레벨 클리어 목표(= 성공 배송 수). */
   readonly goal: number;
+  /** 트럭당 주문 수량 범위(런타임 큐 리필용). 미지정 시 씬 기본값. */
+  readonly reqMin?: number;
+  readonly reqMax?: number;
+  /** 트럭 제한시간(ms) — 씬 타이머가 사용. */
+  readonly timeLimitMs?: number;
 }

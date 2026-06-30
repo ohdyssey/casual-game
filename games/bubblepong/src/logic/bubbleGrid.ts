@@ -1,9 +1,9 @@
 /**
  * bubbleGrid — 버블 슈터 헥스 그리드 순수 로직 (불변).
  *
- * 좌표 규칙 (main.json 기준):
- *   짝수 행: x = 145 + col*66, 8열
- *   홀수 행: x = 178 + col*66, 7열  (offset = +33 ≈ 반칸)
+ * 좌표 규칙 (720 폭을 꽉 채우도록 10/9열):
+ *   짝수 행: x = 63 + col*66, 10열  (양끝 여백 30px 대칭)
+ *   홀수 행: x = 96 + col*66, 9열   (offset = +33 ≈ 반칸)
  *   행 높이: 57px (≈ R*√3, R=33)
  */
 
@@ -18,26 +18,49 @@ export type BubbleColor    = Color | SpecialColor;
 export type Cell = Color | 0; // 그리드엔 일반 색상만 저장
 export type Grid = readonly (readonly Cell[])[];
 
-export const EVEN_COLS = 8;
-export const ODD_COLS  = 7;
+export const EVEN_COLS = 10;
+export const ODD_COLS  = 9;
 export const INIT_ROWS = 7;
 export const MAX_GAME_ROW = 12; // 이 행 이상에 착지하면 게임오버
+
+/** 사용 가능한 일반 색상의 최대 개수 */
+export const MAX_COLORS = 6;
+
+/**
+ * 초반 난이도용 색상 가짓수.
+ * 6색 전부를 무작위로 깔면 첫판부터 매치가 어렵다 → 3색으로 시작해
+ * 난이도가 낮은 상태에서 출발하도록 한다. (값만 올리면 난이도 상승)
+ */
+export const START_COLOR_COUNT = 3;
 
 /** 행 인덱스에 따른 열 수 */
 export function colsForRow(row: number): number {
   return row % 2 === 0 ? EVEN_COLS : ODD_COLS;
 }
 
-export function randomColor(): Color {
-  return (Math.floor(Math.random() * 6) + 1) as Color;
+/** 1..palette 범위의 임의 색상 (palette 기본 = 전체 6색) */
+export function randomColor(palette: number = MAX_COLORS): Color {
+  const n = Math.max(1, Math.min(MAX_COLORS, Math.floor(palette)));
+  return (Math.floor(Math.random() * n) + 1) as Color;
 }
 
-/** 초기 그리드 생성 (INIT_ROWS 행, 랜덤 6색) */
-export function initGrid(): Grid {
+/** 초기 그리드 생성 (INIT_ROWS 행) — numColors 가짓수만 사용 */
+export function initGrid(numColors: number = START_COLOR_COUNT): Grid {
   return Array.from({ length: INIT_ROWS }, (_, row): readonly Cell[] => {
     const cols = colsForRow(row);
-    return Array.from({ length: cols }, (): Cell => randomColor());
+    return Array.from({ length: cols }, (): Cell => randomColor(numColors));
   });
+}
+
+/** 현재 그리드에 존재하는 색상 목록 (오름차순, 중복 제거) */
+export function colorsInGrid(grid: Grid): Color[] {
+  const set = new Set<Color>();
+  for (const row of grid) {
+    for (const cell of row) {
+      if (cell !== 0) set.add(cell);
+    }
+  }
+  return [...set].sort((a, b) => a - b);
 }
 
 /** 헥스 그리드 이웃 셀 좌표 목록 */

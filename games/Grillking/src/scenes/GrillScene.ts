@@ -11,6 +11,7 @@ import { isSfxOn, setSfxOn, sfx } from '../audio.js';
 import {
   anyMatchPossible,
   canMove,
+  coolNeighborChar,
   findMatchGrill,
   isDeadlocked,
   makeRng,
@@ -19,7 +20,7 @@ import {
   resolveMatch,
   shuffleBoard,
 } from '../logic/board.js';
-import { GRILL_COUNT, LOCKED_GRILL_ID, generateBoard, levelConfig } from '../logic/levels.js';
+import { GRID_COLS, GRID_ROWS, GRILL_COUNT, generateBoard, levelConfig } from '../logic/levels.js';
 import type { BoardState, ItemType, LevelCfg, RefillEvent } from '../logic/types.js';
 import { loadSave, updateSave } from '../save.js';
 import { buildLayout, type LayoutDoc, LayoutIndex } from '../ui/layoutLoader.js';
@@ -45,10 +46,13 @@ const SHUFFLE_COST = 150;
 const TIME_COST = 200;
 const TIME_BONUS = 30;
 
-const GRILL_IMAGE_KEYS = new Set(['up_GK_UI_08', 'up_GK_UI_09', 'up_GK_UI_10-1']);
-/** 에디터에서 그릴 노드를 못 찾을 때의 안전망(디자인 기본 그리드). */
-const FALLBACK_COLS = [137, 356, 577];
-const FALLBACK_ROWS = [485, 662, 840, 1017];
+// 그릴 그리드는 "테이블 상판"(layer_3 윗변 ~ 하단 메뉴 버튼 윗변) 을 기준으로 런타임 산출한다.
+// 에디터의 정적 그릴 노드(숨김)는 디자인 참고용일 뿐. 세로로 늘어난 화면에서 테이블이 아래로
+// 늘어나면 버튼도 함께 내려가므로, 이 띠의 정중앙을 따라 그리드도 같이 내려와 항상 가운데 정렬된다.
+/** 열 간격(px). 좌우 여백을 줄이려고 디자인값(≈219)보다 넓혀 화면 폭을 더 채운다. */
+const GRID_COL_PITCH = 234;
+/** 행 간격(px). 디자인 그리드값 유지(그릴 본체 170 과 안전 간격). */
+const GRID_ROW_PITCH = 177;
 
 interface DragInfo {
   sprite: Phaser.GameObjects.Image;
@@ -82,6 +86,10 @@ export class GrillScene extends Phaser.Scene {
   private drag: DragInfo | null = null;
   private hoverView: GrillView | null = null;
   private shuffleLabel?: Phaser.GameObjects.Text;
+  /** 고정 꼬치 스프라이트 → 위에 얹은 고정 표시(밴드). 매치로 날아갈 때 함께 제거. */
+  private pinOverlays = new Map<Phaser.GameObjects.Image, Phaser.GameObjects.GameObject>();
+  /** 숯(방해) 타일 — grillId(항상 슬롯2) → 시각 요소. 인접 매치로 냉각/해제. */
+  private charTiles = new Map<number, { objs: Phaser.GameObjects.GameObject[]; label: Phaser.GameObjects.Text; level: number }>();
 
   constructor() {
     super('grill');
@@ -101,6 +109,9 @@ export class GrillScene extends Phaser.Scene {
     this.freeShuffleUsed = false;
     this.drag = null;
     this.hoverView = null;
+    // 씬 재시작 시 이전 세대의 죽은 GameObject 참조가 남지 않게 비운다.
+    this.pinOverlays.clear();
+    this.charTiles.clear();
 
     this.cfg = levelConfig(this.levelNum);
     this.timeLeft = this.cfg.timeSec;
@@ -130,7 +141,7 @@ export class GrillScene extends Phaser.Scene {
     });
 
     const seed = (Math.floor(Math.random() * 0x7fffffff) ^ (this.levelNum * 7919)) >>> 0;
-    this.board = generateBoard(this.cfg, seed, this.lockedGrillId());
+    this.board = generateBoard(this.cfg, seed);
     this.renderInitialBoard();
 
     this.hud.setTime(this.timeLeft);
@@ -144,6 +155,13 @@ export class GrillScene extends Phaser.Scene {
 
     this.time.addEvent({ delay: 1000, loop: true, callback: () => this.tickTimer() });
     showToast(this, `레벨 ${this.levelNum} — 꼬치 ${this.cfg.targetSkewers}개 서빙!`);
+    // 신규 메커니즘 안내 — 레벨 토스트 뒤에 이어서 길게 표시.
+    if (this.cfg.tutorial) {
+      const tip = this.cfg.tutorial;
+      this.time.delayedCall(1500, () => {
+        if (this.state === 'playing' || this.state === 'resolving') showToast(this, tip, 3200);
+      });
+    }
   }
 
   override update(_time: number, deltaMs: number): void {
@@ -159,54 +177,141 @@ export class GrillScene extends Phaser.Scene {
 
   // ─────────────────────── 보드 구성 ───────────────────────
 
-  /** 에디터 레이아웃에서 그릴 12자리 추출(실패 시 기본 그리드). */
-  private grillSpots(): Array<{ x: number; y: number; locked: boolean }> {
-    const fromLayout = this.layout
-      .entries()
-      .filter((e) => e.node.type === 'image' && e.node.key && GRILL_IMAGE_KEYS.has(e.node.key))
-      .map((e) => ({ x: e.node.x, y: e.node.y, locked: e.node.key === 'up_GK_UI_09' }));
-    if (fromLayout.length === GRILL_COUNT) {
-      return fromLayout.sort((a, b) => a.y - b.y || a.x - b.x);
+  /**
+   * "테이블 상판" 영역(layer_3 윗변 ~ 하단 메뉴 버튼 윗변)의 정중앙을 기준으로 그릴 자리를 산출한다.
+   * - 가로: 테이블 중심에 대칭 배치(열 간격을 넓혀 좌우 여백 축소).
+   * - 세로: 이 레벨의 "활성 칸이 차지하는 행 범위"의 중심을 상판 띠 중심에 맞춘다 → 보드 모양·개수가
+   *   달라져도(작은 보드·이형 모양) 항상 가운데 정렬. adjustForViewport 가 버튼을 이미 내려두므로 반응형.
+   */
+  private grillSpots(): Array<{ x: number; y: number; locked: boolean; absent: boolean }> {
+    const table = this.layout.byId<Phaser.GameObjects.Image>('layer_3');
+    const btn = this.layout.byId<Phaser.GameObjects.Image>('layer_10');
+    const cx = table.x;
+    const cols = Array.from({ length: GRID_COLS }, (_, c) => cx + (c - (GRID_COLS - 1) / 2) * GRID_COL_PITCH);
+
+    const active = new Set(this.cfg.layout);
+    const locked = new Set(this.cfg.lockedGrills);
+    // 활성 칸의 행 범위로 세로 중심을 잡는다(작은/이형 보드도 가운데 오게).
+    const activeRows = [...active].map((i) => Math.floor(i / GRID_COLS));
+    const midRow = activeRows.length ? (Math.min(...activeRows) + Math.max(...activeRows)) / 2 : (GRID_ROWS - 1) / 2;
+
+    const bandTop = table.y - table.displayHeight / 2;
+    const bandBottom = btn.y - btn.displayHeight / 2;
+    const centerY = (bandTop + bandBottom) / 2;
+
+    const spots: Array<{ x: number; y: number; locked: boolean; absent: boolean }> = [];
+    for (let r = 0; r < GRID_ROWS; r++) {
+      const y = centerY + (r - midRow) * GRID_ROW_PITCH;
+      for (let c = 0; c < GRID_COLS; c++) {
+        const id = r * GRID_COLS + c;
+        spots.push({ x: cols[c], y, locked: locked.has(id), absent: !active.has(id) });
+      }
     }
-    const spots: Array<{ x: number; y: number; locked: boolean }> = [];
-    for (const y of FALLBACK_ROWS) for (const x of FALLBACK_COLS) spots.push({ x, y, locked: false });
-    spots[LOCKED_GRILL_ID] = { ...spots[LOCKED_GRILL_ID], locked: true };
     return spots;
   }
 
-  private lockedGrillId(): number {
-    const idx = this.grillSpots().findIndex((s) => s.locked);
-    return idx === -1 ? LOCKED_GRILL_ID : idx;
+  /** 잠긴 그릴이 해제되는 레벨(없으면 미상). 온보딩 표지("Lv N")용. */
+  private unlockLevel(id: number): number | undefined {
+    for (let lv = this.levelNum + 1; lv <= this.levelNum + 15; lv++) {
+      if (!levelConfig(lv).lockedGrills.includes(id)) return lv;
+    }
+    return undefined;
   }
 
   private createGrills(): void {
-    this.views = this.grillSpots().map((s, id) => new GrillView(this, id, s.x, s.y, s.locked));
+    this.views = this.grillSpots().map((s, id) => {
+      if (s.absent) return new GrillView(this, id, s.x, s.y, true, undefined, true); // 빈 테이블(그릴 없음)
+      const label = s.locked ? `🔒\n${this.unlockLevel(id) ? `Lv ${this.unlockLevel(id)}` : '준비 중'}` : undefined;
+      return new GrillView(this, id, s.x, s.y, s.locked, label);
+    });
     this.sprites = Array.from({ length: GRILL_COUNT }, () => [null, null, null]);
   }
 
   private renderInitialBoard(): void {
     for (const g of this.board.grills) {
       this.views[g.id].setQueuePreview(g.queue);
+      const charLv = g.char?.[2] ?? 0;
+      if (charLv > 0) this.renderCharTile(g.id, charLv);
       g.slots.forEach((t, slot) => {
         if (t === null) return;
-        const img = this.spawnSlotSprite(g.id, slot, t);
+        const img = this.spawnSlotSprite(g.id, slot, t, g.pinned?.[slot] === true);
         img.setScale(0);
         this.tweenScaleTo(img, SKEWER_W, SKEWER_H, 260, 90 + (g.id * 3 + slot) * 28);
       });
     }
   }
 
-  /** 슬롯 꼬치 스프라이트 생성 + 드래그 등록. */
-  private spawnSlotSprite(grillId: number, slot: number, type: ItemType): Phaser.GameObjects.Image {
+  /** 슬롯 꼬치 스프라이트 생성. 고정 꼬치는 드래그 미등록 + 고정 밴드 표시. */
+  private spawnSlotSprite(grillId: number, slot: number, type: ItemType, pinned = false): Phaser.GameObjects.Image {
     const p = this.views[grillId].slotPos(slot);
     const img = this.add
       .image(p.x, p.y, itemKey(type))
       .setDisplaySize(SKEWER_W, SKEWER_H)
       .setDepth(DEPTH_SKEWER + slot);
-    img.setData({ grillId, slot, type });
-    img.setInteractive({ useHandCursor: true, draggable: true });
+    img.setData({ grillId, slot, type, pinned });
+    if (pinned) this.addPinOverlay(img, p.x, p.y, slot);
+    else img.setInteractive({ useHandCursor: true, draggable: true });
     this.sprites[grillId][slot] = img;
     return img;
+  }
+
+  /** 고정 꼬치 위에 얹는 금속 밴드(고정 표시). 매치로 날아갈 때 destroyPinOverlay 로 제거. */
+  private addPinOverlay(img: Phaser.GameObjects.Image, x: number, y: number, slot: number): void {
+    const g = this.add.graphics().setDepth(DEPTH_SKEWER + slot + 0.5);
+    g.fillStyle(0x4a525c, 1).fillRoundedRect(x - 22, y - 8, 44, 16, 5);
+    g.fillStyle(0xc6ced6, 1).fillRoundedRect(x - 22, y - 8, 44, 6, 3);
+    g.fillStyle(0x2a2f36, 1).fillCircle(x - 14, y + 1, 2.6).fillCircle(x + 14, y + 1, 2.6);
+    this.pinOverlays.set(img, g);
+  }
+
+  private destroyPinOverlay(img: Phaser.GameObjects.Image): void {
+    const ov = this.pinOverlays.get(img);
+    if (ov) {
+      ov.destroy();
+      this.pinOverlays.delete(img);
+    }
+  }
+
+  /** 숯(방해) 타일 — 그릴 슬롯2 위에 검게 그을린 칸 + 잔불 + 단계 표시. */
+  private renderCharTile(grillId: number, level: number): void {
+    const p = this.views[grillId].slotPos(2);
+    const g = this.add.graphics().setDepth(DEPTH_SKEWER + 2);
+    g.fillStyle(0x1d0f07, 0.94).fillRoundedRect(p.x - 24, p.y - 50, 48, 100, 12);
+    g.fillStyle(0xff7a1e, 0.22).fillCircle(p.x, p.y + 24, 17);
+    g.lineStyle(3, 0xff6a1a, 0.85).strokeRoundedRect(p.x - 24, p.y - 50, 48, 100, 12);
+    const label = this.add
+      .text(p.x, p.y, level > 1 ? `🔥\n${level}` : '🔥', {
+        fontFamily: '"Jua", sans-serif',
+        fontSize: '24px',
+        color: '#ffcaa0',
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setLineSpacing(-2)
+      .setDepth(DEPTH_SKEWER + 3);
+    this.charTiles.set(grillId, { objs: [g], label, level });
+  }
+
+  /** 냉각 후 숯 타일을 보드 상태와 동기화 — 0이면 구워 없애고, 남으면 단계 갱신. */
+  private syncCharTiles(): void {
+    for (const [id, t] of [...this.charTiles]) {
+      const lvl = this.board.grills[id].char?.[2] ?? 0;
+      if (lvl <= 0) {
+        this.cookOffCharTile(t);
+        this.charTiles.delete(id);
+      } else if (lvl !== t.level) {
+        t.level = lvl;
+        t.label.setText(lvl > 1 ? `🔥\n${lvl}` : '🔥');
+        this.tweens.add({ targets: t.label, scale: { from: 1.35, to: 1 }, duration: 220, ease: 'Back.easeOut' });
+      }
+    }
+  }
+
+  private cookOffCharTile(t: { objs: Phaser.GameObjects.GameObject[]; label: Phaser.GameObjects.Text }): void {
+    sfx('refill');
+    const targets = [...t.objs, t.label];
+    this.tweens.add({ targets, alpha: 0, duration: 420, ease: 'Cubic.easeOut', onComplete: () => targets.forEach((o) => o.destroy()) });
+    this.tweens.add({ targets: t.label, y: t.label.y - 26, scale: 1.5, duration: 420, ease: 'Cubic.easeOut' });
   }
 
   /** displaySize 목표로 스케일 팝 트윈(이미지 원본비 유지 전제). */
@@ -311,6 +416,11 @@ export class GrillScene extends Phaser.Scene {
       const matchId = findMatchGrill(this.board);
       if (matchId !== -1) {
         await this.animateMatch(matchId);
+        if (ep !== this.epoch) return;
+        // 숯 냉각 — 방금 매치한 그릴의 인접 숯을 1 줄이고(0이면 해제) 타일 동기화.
+        const cool = coolNeighborChar(this.board, matchId);
+        this.board = cool.board;
+        this.syncCharTiles();
         if ((this.state as GameState) === 'won') return;
         continue;
       }
@@ -357,6 +467,7 @@ export class GrillScene extends Phaser.Scene {
     const flying = this.sprites[grillId].filter((s): s is Phaser.GameObjects.Image => s !== null);
     this.sprites[grillId] = [null, null, null];
     flying.forEach((img, i) => {
+      this.destroyPinOverlay(img); // 고정 꼬치가 서빙되면 고정 표시도 제거
       img.disableInteractive();
       img.setDepth(DEPTH_FLY + i);
       this.tweens.add({
@@ -485,11 +596,14 @@ export class GrillScene extends Phaser.Scene {
       }
     }
     this.sprites = Array.from({ length: GRILL_COUNT }, () => [null, null, null]);
+    // 고정 표시는 스프라이트와 별개 그래픽 → 직접 정리(숯 타일은 셔플이 보존하므로 유지).
+    for (const ov of this.pinOverlays.values()) ov.destroy();
+    this.pinOverlays.clear();
     for (const g of this.board.grills) {
       this.views[g.id].setQueuePreview(g.queue);
       g.slots.forEach((t, slot) => {
         if (t === null) return;
-        const img = this.spawnSlotSprite(g.id, slot, t);
+        const img = this.spawnSlotSprite(g.id, slot, t, g.pinned?.[slot] === true);
         img.setScale(0);
         this.tweenScaleTo(img, SKEWER_W, SKEWER_H, 240, (g.id + slot) * 22);
       });

@@ -36,7 +36,13 @@
       "depth": 80,
       "visible": true,
       "tintable": true,
-      "lockAspect": true
+      "lockAspect": true,
+      "states": {
+        "members": [
+          "layer_2_copy2"
+        ],
+        "active": 1
+      }
     },
     {
       "id": "layer_2_copy",
@@ -57,7 +63,7 @@
       "type": "image",
       "name": "황색화물차",
       "key": "up_Logistics_UI_25-3",
-      "x": 426,
+      "x": 126,
       "y": 357,
       "w": 138,
       "h": 167,
@@ -1168,9 +1174,9 @@
     },
     {
       "id": "layer_5",
-      "x": 360,
-      "y": 795,
-      "fill": "#988472",
+      "x": 359,
+      "y": 794,
+      "fill": "#936e4d",
       "fillAlpha": 1,
       "stroke": "#ffffff",
       "strokeW": 0,
@@ -1178,8 +1184,8 @@
       "visible": true,
       "type": "rect",
       "name": "사각형",
-      "w": 653,
-      "h": 511,
+      "w": 649,
+      "h": 513,
       "radius": 18,
       "alpha": 0.8
     }

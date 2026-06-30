@@ -10,9 +10,8 @@
  */
 import type Phaser from 'phaser';
 import type { LayoutNode } from './layoutLoader.js';
-// 벤더 클립 런타임(무타입 JS) — @ts-ignore.
-// @ts-ignore
-import { loadSpriteClip, clipNativeSize } from '../vendor/phaser-ui-editor/anim/clip/spriteClipRuntime.js';
+// 에디터 클립 런타임은 @casual/core 단일 공용 사본에서.
+import { loadSpriteClip, clipNativeSize } from '@casual/core';
 
 export type RigRole = 'ready' | 'action' | 'after';
 

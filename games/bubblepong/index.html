@@ -12,7 +12,7 @@
       @import url('https://fonts.googleapis.com/css2?family=Jua&family=Russo+One&family=Do+Hyeon&display=block');
       html, body {
         margin: 0; padding: 0;
-        background: #B8E8F5;
+        background: #000;
         color: #0A2540;
         font-family: 'Jua', system-ui, sans-serif;
         overflow: hidden;
@@ -21,11 +21,11 @@
         -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
         overscroll-behavior: none;
       }
-      #game-container {
+      #game-container { background: #000;
         position: fixed; inset: 0;
         width: 100vw; height: 100dvh;
         overflow: hidden;
-        padding: env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
+        padding: 0 env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
         box-sizing: border-box;
       }
       #game-container canvas { display: block; }

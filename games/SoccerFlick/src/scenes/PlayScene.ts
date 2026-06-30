@@ -9,6 +9,7 @@
 import Phaser from 'phaser';
 import { TEX, CODE_OWNED_KEYS, SHADOW_KEY, UI_LAYOUT_KEY } from '../assets.js';
 import { buildLayout, type LayoutIndex, type LayoutDoc, type LayoutEntry } from '../ui/layoutLoader.js';
+import { fillCoverLayout } from '@casual/core';
 import { parseField, detectGoal, targetGoalCenter, type FieldGeom } from '../logic/field.js';
 import { kickoffFormation, ballKickoff, type Disc as FormDisc } from '../logic/formation.js';
 import {
@@ -102,6 +103,8 @@ export class PlayScene extends Phaser.Scene {
     this.layout = buildLayout(this, doc, {
       skip: (n) => !!n.key && CODE_OWNED_KEYS.has(n.key),
     });
+    // 반응형 — 창 높이로 채우고 배경 cover + 하단 부스터 바닥정렬(FIT 레터박스 제거).
+    fillCoverLayout(this, this.layout);
 
     // 2) field 폴리곤 → Matter 벽(골 주머니 포함, 사용자가 그린 라인 그대로).
     this.field = parseField(doc);

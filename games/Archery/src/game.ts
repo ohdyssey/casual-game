@@ -1,18 +1,30 @@
 import type { GameModule } from '@casual/core';
-import { LoadScene } from './scenes/LoadScene.js';
+import { makePortalLoading } from '@casual/core';
 import { PlayScene } from './scenes/PlayScene.js';
+import { loadGameAssets, ensureGeneratedTextures, preloadKoreanFonts } from './assets.js';
 
 /**
- * 양궁 GameModule — Load→Play(조준+파워 본편).
+ * 양궁 GameModule — 공용 로딩(Boot→Load) → Play(조준+파워 본편).
  * Archery King 스타일: 좌우 조준 스윕 → 파워 게이지 타이밍 → 화살 발사 → 링 점수.
  *
- * UI 에디터 디자인(720×1280)을 화면비와 무관하게 1:1 재현 — 캔버스 높이 고정(FIT 레터박스).
- * 동적 높이면 HUD(절대좌표)와 배경(cover)이 1280 기준에서 어긋나 에디터와 안 맞는다.
+ * 로딩 페이지는 공용 makePortalLoading(창 채움·최상단 배치·로딩바·START). 본편(PlayScene)은
+ * UI 에디터 디자인(720×1280)을 1:1 재현 — START 시 720×1280 으로 복귀(팩토리가 처리).
  */
 export const ArcheryGame: GameModule = {
   id: 'archery',
   title: '양궁',
-  scenes: [LoadScene, PlayScene],
+  scenes: [
+    ...makePortalLoading({
+      startScene: 'play',
+      barColor: 0xf9a825,
+      preload: (s) => loadGameAssets(s),
+      onLoaded: async (s) => {
+        ensureGeneratedTextures(s);
+        await preloadKoreanFonts();
+      },
+    }),
+    PlayScene,
+  ],
   backgroundColor: '#1B5E20',
   designHeight: 1280,
   theme: { brand: '#F9A825' },

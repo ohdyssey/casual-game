@@ -4,6 +4,17 @@
  */
 import type Phaser from 'phaser';
 
+/** 로딩 화면 에셋(BootScene 에서 선로딩 → LoadScene 에서 표시). public/loading/. */
+export const LOADING_BG_KEY = 'arch_loading_bg';
+export const LOADING_BG_PATH = 'loading/ArcheryStars_Loading.png';
+export const LOADING_LOGO_KEY = 'arch_loading_logo';
+export const LOADING_LOGO_PATH = 'loading/ArcheryStars_Logo.png';
+/** START 버튼 — btn_01=활성(골드), btn_02=비활성(그레이). 라벨은 이미지에 포함. */
+export const LOADING_BTN_ON_KEY = 'arch_loading_btn_on';
+export const LOADING_BTN_ON_PATH = 'loading/ArcheryStars_Loading_btn_01.png';
+export const LOADING_BTN_OFF_KEY = 'arch_loading_btn_off';
+export const LOADING_BTN_OFF_PATH = 'loading/ArcheryStars_Loading_btn_02.png';
+
 /** 에디터 산출물 — 레이아웃 JSON 캐시 키 + 업로드 매니페스트. */
 export const UI_LAYOUT_KEY = 'ui_layout';
 export const UI_LAYOUT_PATH = 'ui/layouts/main.json';

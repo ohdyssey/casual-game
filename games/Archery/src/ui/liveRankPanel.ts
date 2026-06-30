@@ -21,6 +21,8 @@ export interface LiveRankPanelOpts {
 
 export interface LiveRankPanel {
   update(board: RankRow[]): void;
+  /** 캔버스 크기/위치 변화에 맞춰 오버레이를 재배치(반응형). 씬이 캔버스를 리사이즈한 직후 호출. */
+  reposition(): void;
   destroy(): void;
 }
 
@@ -108,13 +110,18 @@ export function mountLiveRankPanel(opts: LiveRankPanelOpts): LiveRankPanel {
   const stage = overlay.querySelector<HTMLElement>('.arklrp-stage')!;
   const list = overlay.querySelector<HTMLElement>('.arklrp-list')!;
 
+  // 캔버스 박스에 오버레이를 정확히 겹치고, 폭 기준으로 stage 를 scale.
+  // stage 높이는 현재 캔버스 비율로 매번 재계산 → 화면이 길어/짧아져도(플립폰·주소창) 그대로 추종.
   const place = (): void => {
     const r = canvas.getBoundingClientRect();
+    if (!r.width || !r.height) return; // 레이아웃 미확정 프레임 방어
     overlay.style.left = `${r.left}px`;
     overlay.style.top = `${r.top}px`;
     overlay.style.width = `${r.width}px`;
     overlay.style.height = `${r.height}px`;
-    stage.style.transform = `scale(${r.width / designW})`;
+    const scale = r.width / designW;
+    stage.style.transform = `scale(${scale})`;
+    stage.style.height = `${r.height / scale}px`; // = 현재 캔버스 디자인 높이(720 폭 기준)
   };
   place();
   window.addEventListener('resize', place);
@@ -141,5 +148,5 @@ export function mountLiveRankPanel(opts: LiveRankPanelOpts): LiveRankPanel {
     overlay.remove();
   };
 
-  return { update, destroy };
+  return { update, reposition: place, destroy };
 }

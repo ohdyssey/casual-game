@@ -1,6 +1,7 @@
 import type { GameModule } from '@casual/core';
-import { LoadScene } from './scenes/LoadScene.js';
+import { makePortalLoading } from '@casual/core';
 import { PlayScene } from './scenes/PlayScene.js';
+import { loadGameAssets, ensureGeneratedTextures, preloadKoreanFonts } from './assets.js';
 
 /**
  * 사커플릭 GameModule — Load→Play(턴제 디스크 플릭 본편).
@@ -12,7 +13,18 @@ import { PlayScene } from './scenes/PlayScene.js';
 export const SoccerFlickGame: GameModule = {
   id: 'soccerflick',
   title: '사커플릭',
-  scenes: [LoadScene, PlayScene],
+  scenes: [
+    ...makePortalLoading({
+      startScene: 'play',
+      barColor: 0x2f80ed,
+      preload: (s) => loadGameAssets(s),
+      onLoaded: async (s) => {
+        ensureGeneratedTextures(s);
+        await preloadKoreanFonts();
+      },
+    }),
+    PlayScene,
+  ],
   backgroundColor: '#14532D',
   designHeight: 1280,
   theme: { brand: '#2F80ED' },

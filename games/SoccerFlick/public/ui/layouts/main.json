@@ -566,6 +566,16 @@
       "lockAspect": true
     },
     {
+      "id": "layer_11_copy2__shadow",
+      "type": "image",
+      "key": "up_SoccerFlick_UI_09__sh_10zwmj3",
+      "x": 235,
+      "y": 555,
+      "w": 49,
+      "h": 50,
+      "depth": 25
+    },
+    {
       "id": "layer_11_copy2",
       "type": "image",
       "name": "공",

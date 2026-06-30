@@ -1,6 +1,7 @@
 import type { GameModule } from '@casual/core';
-import { LoadScene } from './scenes/LoadScene.js';
+import { makePortalLoading } from '@casual/core';
 import { PlayScene } from './scenes/PlayScene.js';
+import { loadGameAssets, ensureGeneratedTextures, preloadKoreanFonts } from './assets.js';
 
 /**
  * 패스러시 GameModule — Load→Play.
@@ -14,7 +15,18 @@ import { PlayScene } from './scenes/PlayScene.js';
 export const PathRushGame: GameModule = {
   id: 'pathrush',
   title: '패스러시',
-  scenes: [LoadScene, PlayScene],
+  scenes: [
+    ...makePortalLoading({
+      startScene: 'play',
+      barColor: 0xf2719c,
+      preload: (s) => loadGameAssets(s),
+      onLoaded: async (s) => {
+        ensureGeneratedTextures(s);
+        await preloadKoreanFonts();
+      },
+    }),
+    PlayScene,
+  ],
   backgroundColor: '#2a1430',
   designHeight: 1280,
   theme: { brand: '#F2719C' },

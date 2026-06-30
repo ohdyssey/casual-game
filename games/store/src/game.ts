@@ -1,9 +1,9 @@
 import type { GameModule } from '@casual/core';
-import { COLORS } from '@casual/core';
-import { BootScene } from './scenes/BootScene.js';
-import { LoadScene } from './scenes/LoadScene.js';
+import { COLORS, makePortalLoading } from '@casual/core';
 import { HomeScene } from './scenes/HomeScene.js';
 import { StoreScene } from './scenes/StoreScene.js';
+import { STORE_ASSETS, loadHomeUi } from './assets.js';
+import { loadAudio } from './audio.js';
 
 /**
  * 열정편의점 GameModule. P1 — Boot→Home(메타 허브)→Store(그룹 정렬).
@@ -12,7 +12,22 @@ import { StoreScene } from './scenes/StoreScene.js';
 export const StoreGame: GameModule = {
   id: 'store',
   title: '열정편의점',
-  scenes: [BootScene, LoadScene, HomeScene, StoreScene],
+  scenes: [
+    ...makePortalLoading({
+      startScene: 'HomeScene',
+      barColor: 0x3cb54a,
+      preload: (s) => {
+        for (const [key, path] of Object.entries(STORE_ASSETS)) {
+          if (key === 'loading') continue;
+          s.load.image(key, path);
+        }
+        loadHomeUi(s); // 진입화면 에디터 레이아웃(SSOT) + 업로드 이미지
+        loadAudio(s);
+      },
+    }),
+    HomeScene,
+    StoreScene,
+  ],
   backgroundColor: COLORS.surfaceFloor,
   theme: { brand: COLORS.brandGreen },
   hud: { coins: true, gems: true, timer: true, combo: true, lives: true },

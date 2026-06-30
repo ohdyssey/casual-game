@@ -10,6 +10,7 @@ import Phaser from 'phaser';
 import { startBgm, sfx } from '../audio.js';
 import { UI_LAYOUT_KEY } from '../assets.js';
 import { buildLayout, type LayoutDoc, type LayoutIndex } from '../ui/layoutLoader.js';
+import { fillCoverLayout } from '@casual/core';
 
 /** 중앙 캐릭터(춤/노젓기)/보트 — 둥실 모션 대상(타이틀이 살아있는 느낌). */
 const FLOAT_NODES = ['layer_2', 'layer_3', 'layer_2_copy'] as const;
@@ -32,9 +33,9 @@ export class HomeScene extends Phaser.Scene {
     }
 
     const layout = buildLayout(this, doc);
-    // 디자인 높이(1280)보다 캔버스가 길면 전체를 세로 중앙으로 내려 배치(designHeight 고정 시 0).
-    const offsetY = Math.max(0, (this.scale.height - doc.frame.designH) / 2);
-    if (offsetY > 0) for (const e of layout.entries()) e.obj.y += offsetY;
+    // 반응형 — 창 높이로 채우고 배경 cover + 메뉴 요소 세로 중앙(FIT 레터박스 제거).
+    const h = fillCoverLayout(this, layout, { centerMiddle: true });
+    const offsetY = Math.max(0, (h - doc.frame.designH) / 2);
 
     this.addIdleMotion(layout);
     this.showStartPrompt(offsetY);

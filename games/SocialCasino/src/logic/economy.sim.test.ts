@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { spinReels, evaluateReels, LINES } from './slot.js';
-import { createGrid, findRuns, cloneGrid, resolveSwap, type Grid, type Coord } from './board.js';
+import { createGrid, findRuns, groupMatches, cloneGrid, resolveSwap, type Grid, type Coord } from './board.js';
 import { makeRng, type Rng } from './rng.js';
 import {
   settleWin,
@@ -42,10 +42,11 @@ function findBestMove(g: Grid): { a: Coord; b: Coord } | null {
   let best: { a: Coord; b: Coord } | null = null;
   let bestScore = 0;
   const tryPair = (a: Coord, b: Coord) => {
-    const { matched, runs } = findRuns(swap(g, a, b));
+    const sg = swap(g, a, b);
+    const { matched } = findRuns(sg);
     if (matched.length === 0) return;
     let maxRun = 0;
-    for (const len of runs) maxRun = Math.max(maxRun, len);
+    for (const gr of groupMatches(matched, sg)) maxRun = Math.max(maxRun, gr.size); // 모양 인식
     const sc = matched.length * puzzleCombo(maxRun);
     if (sc > bestScore) { bestScore = sc; best = { a, b }; }
   };

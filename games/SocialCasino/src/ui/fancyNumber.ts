@@ -14,13 +14,17 @@ const DEFAULT_COLOR = '#ffe27a';
 export class FancyNumber {
   readonly container: Phaser.GameObjects.Container;
   private readonly text: Phaser.GameObjects.Text;
+  private readonly baseSize: number;
+  private readonly maxW: number; // >0 이면 이 폭을 넘는 큰 숫자는 폰트를 줄여 칸 안에 맞춘다(0=무제한)
 
-  constructor(scene: Phaser.Scene, x: number, y: number, glyphH: number, depth = 200) {
+  constructor(scene: Phaser.Scene, x: number, y: number, glyphH: number, depth = 200, maxW = 0) {
+    this.baseSize = Math.round(glyphH * 0.92);
+    this.maxW = maxW;
     this.container = scene.add.container(x, y).setDepth(depth);
     this.text = scene.add
       .text(0, 0, '', {
         fontFamily: FONT_FAMILY,
-        fontSize: `${Math.round(glyphH * 0.92)}px`,
+        fontSize: `${this.baseSize}px`,
         fontStyle: 'italic 800', // 굵은 이텔릭
         color: DEFAULT_COLOR,
         stroke: '#2a1640',
@@ -28,12 +32,16 @@ export class FancyNumber {
       })
       .setOrigin(0.5);
     this.text.setShadow(0, 4, 'rgba(0,0,0,0.6)', 6, false, true);
+    this.text.setLetterSpacing(-3); // ⭐자간 좁게(요청) — 좁은 간격으로 같은 폭에 더 길게.
     this.container.add(this.text);
   }
 
-  /** 문자열 + 색상 표시. color 는 전체 글리프에 적용(라벨/숫자/기호 동일 톤). */
+  /** 문자열 + 색상 표시. color 는 전체 글리프에 적용. maxW 설정 시 **자릿수 많아지면 폰트 축소**(칸 안 정렬). */
   setText(str: string, color: string = DEFAULT_COLOR): void {
-    this.text.setText(str).setColor(color);
+    this.text.setFontSize(this.baseSize).setText(str).setColor(color);
+    if (this.maxW > 0 && this.text.width > this.maxW) {
+      this.text.setFontSize(Math.max(20, Math.floor((this.baseSize * this.maxW) / this.text.width)));
+    }
   }
 
   setAlpha(a: number): this {

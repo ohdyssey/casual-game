@@ -1,6 +1,7 @@
 import type { GameModule } from '@casual/core';
-import { LoadScene } from './scenes/LoadScene.js';
+import { makePortalLoading } from '@casual/core';
 import { PlayScene } from './scenes/PlayScene.js';
+import { loadGameAssets, ensureGeneratedTextures, preloadKoreanFonts } from './assets.js';
 
 /**
  * 덕헌트러시 GameModule — Load→Play(조준+사격 본편).
@@ -12,7 +13,18 @@ import { PlayScene } from './scenes/PlayScene.js';
 export const DuckhuntGame: GameModule = {
   id: 'duckhuntrush',
   title: '덕헌트러시',
-  scenes: [LoadScene, PlayScene],
+  scenes: [
+    ...makePortalLoading({
+      startScene: 'play',
+      barColor: 0x5bb031,
+      preload: (s) => loadGameAssets(s),
+      onLoaded: async (s) => {
+        ensureGeneratedTextures(s);
+        await preloadKoreanFonts();
+      },
+    }),
+    PlayScene,
+  ],
   backgroundColor: '#8FD3F4',
   designHeight: 1280,
   theme: { brand: '#5BB031' },

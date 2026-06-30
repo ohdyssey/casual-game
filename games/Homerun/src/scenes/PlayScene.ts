@@ -10,7 +10,7 @@
  */
 import Phaser from 'phaser';
 import { FONT } from '@casual/core';
-import { getDisplayBounds } from '@casual/core';
+import { getDisplayBounds, fillViewportHeight } from '@casual/core';
 import {
   BALL_KEY,
   BG_KEY,
@@ -320,6 +320,9 @@ export class PlayScene extends Phaser.Scene {
   }
 
   create(): void {
+    // 본편 진입 시 캔버스를 창 높이에 맞춰 늘려 FIT 레터박스(상·하 여백) 제거.
+    // 이 씬은 이미 scale.height 기반(배경 cover·비율 배치)이라, 채운 높이를 그대로 반영한다.
+    fillViewportHeight(this);
     const w = this.scale.width;
     const h = this.scale.height;
     this.state = 'ready';

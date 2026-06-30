@@ -1,6 +1,6 @@
 {
   "name": "@casual/game-store",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "private": true,
   "description": "열정편의점 — 진열 정렬(그룹 정렬) 퍼즐. 파일럿.",
   "type": "module",

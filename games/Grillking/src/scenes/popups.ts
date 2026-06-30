@@ -112,8 +112,8 @@ export function openPopup(scene: Phaser.Scene, opts: PopupOpts): () => void {
 
 let activeToast: { text: Phaser.GameObjects.Text; bg: Phaser.GameObjects.Rectangle } | null = null;
 
-/** 짧은 안내 토스트 — 중앙 상단 캡슐. 새 토스트가 이전 것을 대체(씬 재시작에도 안전). */
-export function showToast(scene: Phaser.Scene, msg: string): void {
+/** 짧은 안내 토스트 — 중앙 상단 캡슐. 새 토스트가 이전 것을 대체(씬 재시작에도 안전). holdMs=표시 유지 시간. */
+export function showToast(scene: Phaser.Scene, msg: string, holdMs = 1100): void {
   if (activeToast) {
     activeToast.text.destroy();
     activeToast.bg.destroy();
@@ -145,7 +145,7 @@ export function showToast(scene: Phaser.Scene, msg: string): void {
     duration: 180,
     ease: 'Quad.easeOut',
     onComplete: () => {
-      scene.time.delayedCall(1100, () => {
+      scene.time.delayedCall(holdMs, () => {
         scene.tweens.add({ targets: [text, bg], alpha: 0, duration: 240, onComplete: finish });
       });
     },

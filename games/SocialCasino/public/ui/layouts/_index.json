@@ -13,12 +13,6 @@
       "category": "custom"
     },
     {
-      "id": "popup_ad_3",
-      "name": "광고 보상 제안",
-      "file": "ui/layouts/popup_ad_3.json",
-      "category": "custom"
-    },
-    {
       "id": "blank_2",
       "name": "로비",
       "file": "ui/layouts/blank_2.json",
@@ -28,6 +22,48 @@
       "id": "splash",
       "name": "게임로딩",
       "file": "ui/layouts/splash.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_3",
+      "name": "스테이지1(1-1)",
+      "file": "ui/layouts/blank_3.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_3_copy",
+      "name": "룰렛1",
+      "file": "ui/layouts/blank_3_copy.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_4",
+      "name": "빈 화면",
+      "file": "ui/layouts/blank_4.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_3_copy2",
+      "name": "스테이지 기본배치",
+      "file": "ui/layouts/blank_3_copy2.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_3_copy3",
+      "name": "스테이지2(1-2)",
+      "file": "ui/layouts/blank_3_copy3.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_5",
+      "name": "보상 팝업",
+      "file": "ui/layouts/blank_5.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_5_copy",
+      "name": "구매결정",
+      "file": "ui/layouts/blank_5_copy.json",
       "category": "custom"
     }
   ]

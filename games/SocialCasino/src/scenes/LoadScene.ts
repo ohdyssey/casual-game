@@ -22,6 +22,16 @@ type MetaNode = LayoutNode & { readonly role?: string; readonly binding?: string
 const SPLASH_LAYOUT_KEY = 'splash_layout';
 const SPLASH_LAYOUT_PATH = 'ui/layouts/splash.json';
 
+/**
+ * ⭐레이드/공격 스테이지(blank_3) + 룰렛(blank_3_copy) 레이아웃 — Stage1Scene 의 STAGE/ROULETTE_LAYOUT_KEY·PATH 와 **동일해야 함**.
+ *   본편 에셋과 같은 (검증된) 시작 로더 경로로 미리 받아 캐시에 확보 → 레이드 시 Stage1 이 즉시 렌더(스테일/레이스로 인한
+ *   "STAGE 1 / TAP TO CONTINUE" 폴백 방지). 키/경로가 Stage1Scene 과 어긋나면 안 됨(직접 import 하면 순환 import TDZ 위험이라 인라인).
+ */
+const STAGE1_LAYOUT_KEY = 'stage1_layout';
+const STAGE1_LAYOUT_PATH = 'ui/layouts/blank_3.json';
+const ROULETTE1_LAYOUT_KEY = 'roulette1_layout';
+const ROULETTE1_LAYOUT_PATH = 'ui/layouts/blank_3_copy.json';
+
 /** 진행바 0→100% 최소 표시 시간(ms) — 즉시 로드(캐시)돼도 이 속도로 차오르게 한다. */
 const BAR_MIN_MS = 700;
 /** 로딩 완료 후 다음 화면(lobby)으로 넘어갈 때 페이드 시간(ms). */
@@ -91,6 +101,9 @@ export class LoadScene extends Phaser.Scene {
     loadGameAssets(this);
     // 로비 레이아웃 JSON 도 미리 받아두면 lobby 전환이 끊김 없이 즉시 렌더된다(로비 이미지는 매니페스트로 적재됨).
     if (!this.cache.json.exists(LOBBY_LAYOUT_KEY)) this.load.json(LOBBY_LAYOUT_KEY, LOBBY_LAYOUT_PATH);
+    // ⭐레이드/공격 스테이지 + 룰렛 레이아웃도 시작 시 선로딩 — 레이드 때 Stage1 이 즉시 렌더(폴백 방지). 이미지는 Stage1 진입 시 적재.
+    if (!this.cache.json.exists(STAGE1_LAYOUT_KEY)) this.load.json(STAGE1_LAYOUT_KEY, STAGE1_LAYOUT_PATH);
+    if (!this.cache.json.exists(ROULETTE1_LAYOUT_KEY)) this.load.json(ROULETTE1_LAYOUT_KEY, ROULETTE1_LAYOUT_PATH);
 
     let target = 0; // 실제 로더 진행률(단조 증가)
     let displayed = 0; // 화면 표시 진행률(최소 BAR_MIN_MS 속도로 추종)

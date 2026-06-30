@@ -5,6 +5,7 @@ import {
   runMultiplier,
   puzzleMultiplierFromRuns,
   luckMultiplier,
+  levelRewardMultiplier,
   slotPayout,
   settleWin,
   jackpotContribution,
@@ -19,7 +20,7 @@ import { LINES, SYMBOL_COUNT, WEIGHTS } from './slot.js';
 import { makeRng } from './rng.js';
 
 describe('economy — 퍼즐 주도(결정론 멀티) / 운=릴확률 / 표시 당첨 안 깎음', () => {
-  it('포춘 마르코프 정상분포 ≈ Cold ⅓ / Neutral ⅓ / Hot ⅓ (STAY=0.9 긴 streak)', () => {
+  it('포춘 마르코프 정상분포 ≈ Cold 0.4 / Neutral 0.2 / Hot 0.4 (STAY=0.95 극단 체류↑)', () => {
     const rng = makeRng(123);
     const count: Record<Fortune, number> = { cold: 0, neutral: 0, hot: 0 };
     let s: Fortune = 'neutral';
@@ -28,9 +29,9 @@ describe('economy — 퍼즐 주도(결정론 멀티) / 운=릴확률 / 표시 �
       s = nextFortune(s, rng);
       count[s]++;
     }
-    expect(count.cold / N).toBeCloseTo(1 / 3, 1);
-    expect(count.neutral / N).toBeCloseTo(1 / 3, 1);
-    expect(count.hot / N).toBeCloseTo(1 / 3, 1);
+    expect(count.cold / N).toBeCloseTo(0.4, 1);
+    expect(count.neutral / N).toBeCloseTo(0.2, 1);
+    expect(count.hot / N).toBeCloseTo(0.4, 1);
   });
 
   it('포춘은 streak 을 만든다(자기상관)', () => {
@@ -78,21 +79,28 @@ describe('economy — 퍼즐 주도(결정론 멀티) / 운=릴확률 / 표시 �
     expect(MATCH_DECIMAL_PER).toBe(0.1);
   });
 
-  it('⭐럭 스트라이크: 대부분 ×1, 가끔 큰 배수(고변동, 항상 ≥1, 최대 50)', () => {
+  it('⭐럭 스트라이크: 대부분 ×1, 가끔 초대박(고변동, 항상 ≥1, 최대 600)', () => {
     expect(luckMultiplier(() => 0.999)).toBe(1); // 대부분 구간 → ×1
-    expect(luckMultiplier(() => 0)).toBe(50); // 최상위 → ×50(초대박)
+    expect(luckMultiplier(() => 0)).toBe(600); // 최상위 → ×600(메가 초대박)
     const rng = makeRng(3);
     let sum = 0, ones = 0, max = 0;
-    const N = 300_000;
+    const N = 500_000;
     for (let i = 0; i < N; i++) {
       const m = luckMultiplier(rng);
       sum += m; if (m === 1) ones++; max = Math.max(max, m);
       expect(m).toBeGreaterThanOrEqual(1);
     }
-    expect(ones / N).toBeGreaterThan(0.8); // ~86% 는 ×1(평소)
-    expect(max).toBe(50);
-    expect(sum / N).toBeGreaterThan(1.3); // 평균 ~1.5(스케일로 상쇄)
-    expect(sum / N).toBeLessThan(1.7);
+    expect(ones / N).toBeGreaterThan(0.78); // ~80% 는 ×1(평소 잔잔)
+    expect(max).toBe(600); // 큰 표본에서 메가(×600) 등장
+    expect(sum / N).toBeGreaterThan(2.0); // 평균 ~2.56(스케일로 상쇄 = mean-preserving spread)
+    expect(sum / N).toBeLessThan(3.3);
+  });
+
+  it('⭐레벨 보상 배수 = 레벨(선형, 최소 1) — 레벨1 ×1·레벨2 ×2·레벨10 ×10', () => {
+    expect(levelRewardMultiplier(1)).toBe(1);
+    expect(levelRewardMultiplier(2)).toBe(2);
+    expect(levelRewardMultiplier(10)).toBe(10);
+    expect(levelRewardMultiplier(0)).toBe(1); // 방어
   });
 
   it('⭐settleWin = round(슬롯당첨 × 퍼즐멀티) ≥ 슬롯당첨(멀티 ≥1, 절대 안 깎음)', () => {

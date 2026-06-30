@@ -26,4 +26,5 @@ _diag*.png
 
 # 정적 배포 조립 산출물(scripts/assemble-deploy.mjs) — 커밋 금지
 /deploy/
+/deploy-play/
 .vercel

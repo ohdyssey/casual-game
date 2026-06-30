@@ -96,12 +96,16 @@ export class LayoutIndex {
 
 function makeText(scene: Phaser.Scene, n: LayoutNode): Phaser.GameObjects.Text {
   const family = n.fontFamily ? `"${n.fontFamily}", "Jua", sans-serif` : '"Jua", sans-serif';
-  const t = scene.add.text(n.x, n.y, n.text ?? '', {
+  const style: Phaser.Types.GameObjects.Text.TextStyle = {
     fontFamily: family,
     fontSize: `${n.fontSize ?? 20}px`,
     color: n.color ?? '#ffffff',
     align: 'center',
-  });
+  };
+  // ⭐디자이너 지정 fontStyle/weight(예: "700" 볼드·"italic") 반영 — Phaser 는 fontStyle 을 폰트 문자열 앞에 붙인다.
+  //   (이전엔 무시돼 상점 라벨 등이 레귤러로 렌더됐음 — 요청 2026-06-28: 폰트 스타일 정확 적용.)
+  if (n.fontStyle) style.fontStyle = n.fontStyle;
+  const t = scene.add.text(n.x, n.y, n.text ?? '', style);
   if (n.stroke && (n.strokeW ?? 0) > 0) t.setStroke(n.stroke, (n.strokeW ?? 0) * 2);
   return t;
 }

@@ -1,3 +1,10 @@
 {
-  "screens": []
+  "screens": [
+    {
+      "id": "stage_select",
+      "name": "스테이지 선택",
+      "file": "ui/layouts/stage_select.json",
+      "category": "custom"
+    }
+  ]
 }
