@@ -8,9 +8,13 @@
 import type Phaser from 'phaser';
 import { loadSfx, loadBgm } from './audio.js';
 
-/** 에디터 산출물 — 레이아웃 JSON 캐시 키 + 업로드 매니페스트. */
+/** 에디터 산출물 — 레이아웃 JSON 캐시 키 + 업로드 매니페스트.
+ *  ⚠️ 2026-07-02 3릴 재설계: 메인 SSOT 를 구 main.json → **main_copy.json("메인게임화면")** 로 전환.
+ *  구 main.json 은 보관용으로 디스크에 잔존(archive/matchslot-city-v1 태그). */
 export const UI_LAYOUT_KEY = 'ui_layout';
-export const UI_LAYOUT_PATH = 'ui/layouts/main.json';
+export const UI_LAYOUT_PATH = 'ui/layouts/main_copy.json';
+/** (보관) 구 5릴 레이아웃 — 롤백/참조용. */
+export const UI_LAYOUT_LEGACY_PATH = 'ui/layouts/main.json';
 export const UI_MANIFEST_KEY = 'ui_assets';
 export const UI_MANIFEST_PATH = 'ui-assets.json';
 
@@ -39,28 +43,33 @@ export const COIN_FW = 146;
 export const COIN_FH = 148;
 export const COIN_FRAMES = 6;
 
-/** 슬롯 릴 심볼 8종(slot.ts SYMBOL_COUNT=8 과 1:1). 인덱스 = 심볼 종류.
- *  디자이너 Gem/Type01 세트의 슬롯(T01_SLOT_01~08) — 젬과 한 세트. (옛 up_SC_Symbol_* 폐기) */
+/** 슬롯 릴 심볼 8종(slot3.ts SYMBOL_COUNT=8 과 1:1). 인덱스 = 심볼 종류.
+ *  ⚠️ 2026-07-02 3릴 재설계: 디자이너 신 아트 up_NewUI_SlotSymbol_01~08 로 리포인트.
+ *  인덱스 3(04)=금화→RAID · 인덱스 7(08)=망치→ATTACK (slot3.GOLD_SYMBOL/HAMMER_SYMBOL 과 정합). */
 export const SLOT_SYMBOL_KEYS: ReadonlyArray<string> = [
-  'up_Gem_T01_SLOT_01',
-  'up_Gem_T01_SLOT_02',
-  'up_Gem_T01_SLOT_03',
-  'up_Gem_T01_SLOT_04',
-  'up_Gem_T01_SLOT_05',
-  'up_Gem_T01_SLOT_06',
-  'up_Gem_T01_SLOT_07',
-  'up_Gem_T01_SLOT_08',
+  'up_NewUI_SlotSymbol_01',
+  'up_NewUI_SlotSymbol_02',
+  'up_NewUI_SlotSymbol_03',
+  'up_NewUI_SlotSymbol_04', // 금화(RAID)
+  'up_NewUI_SlotSymbol_05',
+  'up_NewUI_SlotSymbol_06',
+  'up_NewUI_SlotSymbol_07',
+  'up_NewUI_SlotSymbol_08', // 망치(ATTACK)
 ];
 
-/** 매치-3 퍼즐 일반 젬 7종(디자이너 Gem/Type01 — T01_01~07). 색 7가지 구분. */
+/** 매치-3 퍼즐 아이콘 10종(디자이너 신 아트 up_NewUI_Puzzle_01~10). 색/모양 10가지 구분.
+ *  ⚠️ 2026-07-02 재설계: 구 up_Gem_T01_01~07 → 신 아트로 리포인트(boardView 가 type%TYPES 로 선택). */
 export const PUZZLE_TILE_KEYS: ReadonlyArray<string> = [
-  'up_Gem_T01_01',
-  'up_Gem_T01_02',
-  'up_Gem_T01_03',
-  'up_Gem_T01_04',
-  'up_Gem_T01_05',
-  'up_Gem_T01_06',
-  'up_Gem_T01_07',
+  'up_NewUI_Puzzle_01',
+  'up_NewUI_Puzzle_02',
+  'up_NewUI_Puzzle_03',
+  'up_NewUI_Puzzle_04',
+  'up_NewUI_Puzzle_05',
+  'up_NewUI_Puzzle_06',
+  'up_NewUI_Puzzle_07',
+  'up_NewUI_Puzzle_08',
+  'up_NewUI_Puzzle_09',
+  'up_NewUI_Puzzle_10',
 ];
 
 /** ⭐**보상 게이지 수집 대상 = 노란 별 코인**(up_Gem_T01_01 = 퍼즐 타입 0). 이 코인을 매치로 제거한 수만 게이지에 누적된다.
