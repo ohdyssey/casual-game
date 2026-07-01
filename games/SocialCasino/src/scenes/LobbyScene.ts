@@ -11,7 +11,7 @@
 import Phaser from 'phaser';
 import { DESIGN_W, DESIGN_H } from './PlayScene.js';
 import { buildLayout, type LayoutDoc } from '../ui/layoutLoader.js';
-import { styleHeaderTexts } from '../ui/headerText.js';
+import { buildNewHeader, NEW_HEADER_KEYS } from '../ui/newHeader.js';
 import { uploadPath, ensureFonts, collectLayoutFonts } from '../assets.js';
 import { loadCoins } from '../logic/wallet.js';
 import { loadSpins } from '../logic/playerState.js';
@@ -114,6 +114,13 @@ export class LobbyScene extends Phaser.Scene {
         queued++;
       }
     }
+    // ⭐신 헤더(up_NewUI_04-*)는 blank_2 노드가 아니므로 별도 적재(로비 직접진입/매니페스트 레이스 대비).
+    for (const key of NEW_HEADER_KEYS) {
+      if (!this.textures.exists(key)) {
+        this.load.image(key, uploadPath(key));
+        queued++;
+      }
+    }
     const start = (): void => void this.ensureFontsThenMount(doc);
     if (queued > 0) {
       this.load.once(Phaser.Loader.Events.COMPLETE, start);
@@ -154,11 +161,22 @@ export class LobbyScene extends Phaser.Scene {
       this.fountain = undefined;
     });
 
-    // ⭐헤더 숫자(코인/스핀/라이프) 폰트를 게임화면과 동일하게 — 자간 좁게 + align→origin(우측고정) 정렬 교정.
-    const headerTexts = styleHeaderTexts(index.entries()); // x 오름차순 정렬 반환(맨 앞 = 코인)
-    // ⭐코인=공유 지갑·**2번째=스핀**(playerState, 젬→스핀 교체 2026-06-30) — 디자이너 정적 placeholder 대체. refs 저장(상점 구매 후 갱신).
-    this.coinHeaderText = headerTexts[0]?.obj as Phaser.GameObjects.Text | undefined;
-    this.spinHeaderText = headerTexts[1]?.obj as Phaser.GameObjects.Text | undefined;
+    // ⭐헤더/메뉴 통일(요청 2026-07-02): 구 blank_2 헤더(골드바 up_SC_UI_42-1* + 코인/스핀/라이프 텍스트)를 숨기고,
+    //   게임화면과 동일한 **신 헤더(up_NewUI_04-*)** 로 교체 — 원 목업 지시 "헤더 재수정 > 전체 필요화면 사용".
+    index
+      .entries()
+      .filter((e) => (e.node.key ?? '').startsWith('up_SC_UI_42-1') || (e.node.type === 'text' && e.node.y < 200))
+      .forEach((e) => (e.obj as Phaser.GameObjects.Image | undefined)?.setVisible(false));
+    const newHeader = buildNewHeader(this, {
+      coins: loadCoins(),
+      onMenu: () =>
+        openSettingsMenu(this, {
+          onDataChanged: () => this.refreshHeaderCurrencies(),
+          onShop: () => this.openShop(),
+        }),
+    });
+    this.coinHeaderText = newHeader.coinText; // 코인=공유 지갑(상점 구매 후 refreshHeaderCurrencies 로 갱신)
+    this.spinHeaderText = undefined; // 신 헤더엔 스핀 표기 없음(게임 내 250/50 로 이동)
     this.refreshHeaderCurrencies();
 
     // PLAY 노드: 키(up_SC_UI_34) 우선, 못 찾으면 이름("플레이 아이콘", '복사' 배너 제외)으로 폴백.
@@ -203,19 +221,7 @@ export class LobbyScene extends Phaser.Scene {
       console.warn(`[lobby] 상점 아이콘(${SHOP_ICON_KEY})을 찾지 못함 — 레이아웃 키/좌표 확인 필요`);
     }
 
-    // ⭐헤더 우상단 메뉴(햄버거 — blank_2 바 아트에 베이크) → 설정 팝업(사운드 토글 + 데이터 편집).
-    //   별도 노드가 없어 hudHeader 와 동일 좌표(987,78)에 투명 히트존. 로비는 이미 홈이라 onHome 없음(닫기만).
-    const menuHit = this.add
-      .rectangle(987, 78, 110, 100, 0xffffff, 0)
-      .setDepth(600)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () =>
-        openSettingsMenu(this, {
-          onDataChanged: () => this.refreshHeaderCurrencies(),
-          onShop: () => this.openShop(), // 메뉴 > 상점 → 로비 상점 팝업
-        }),
-      );
-    if (import.meta.env?.DEV) (globalThis as Record<string, unknown>).__menuHit = menuHit;
+    // (헤더 햄버거 메뉴는 신 헤더(buildNewHeader)의 up_NewUI_04-6 노드가 담당 — 구 투명 히트존 폐지.)
   }
 
   /**

@@ -365,6 +365,8 @@ export class PlayScene extends Phaser.Scene {
     // ⭐스테이지(공격/약탈/룰렛)에서 OK → 복귀. RESUME 이벤트가 환경에 따라 안 와 게임이 안 돌아오던 버그 →
     //   Stage1.finish 가 returnFromStage 를 **직접** 호출(멱등). RESUME 이벤트는 폴백.
     this.events.on(Phaser.Scenes.Events.RESUME, () => this.returnFromStage());
+    // ⭐로비 PLAY → 게임 진입 부드러운 페이드인(로비 fadeOut 색 26,16,48 과 동일). 재진입(RESUME)은 returnFromStage 가 별도 처리.
+    this.cameras.main.fadeIn(280, 26, 16, 48);
   }
 
   /**
