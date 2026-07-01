@@ -133,7 +133,7 @@ describe('distribution sanity (weights)', () => {
     expect(SYMBOL_COIN[HAMMER_SYMBOL]).toBe(0);
   });
 
-  it('produces attack/raid/coin wins at a plausible (non-zero, not overwhelming) rate', () => {
+  it('hits the target match rate (≥30%) with frequent attack/raid', () => {
     const rng = makeRng(2026);
     const N = 200000;
     let matched = 0;
@@ -148,13 +148,13 @@ describe('distribution sanity (weights)', () => {
       else if (out.kind === 'coin') coin++;
     }
     const matchRate = matched / N;
-    // 중앙 1줄 판정이라 승률은 낮은 편(≈1~6%). 완전 0 이거나 지나치게 높지 않은지 방어.
-    expect(matchRate).toBeGreaterThan(0.005);
-    expect(matchRate).toBeLessThan(0.08);
-    // 특수 이벤트가 실제로 발생하는지(빈도가 너무 낮아 사실상 안 뜨는 일 방지).
-    expect(attack).toBeGreaterThan(50);
-    expect(raid).toBeGreaterThan(50);
-    expect(coin).toBeGreaterThan(50);
+    // ⭐요청: 최소 30% 매칭. MATCH_RATE=0.34 목표 ± 표본오차.
+    expect(matchRate).toBeGreaterThan(0.3);
+    expect(matchRate).toBeLessThan(0.4);
+    // 어택/레이드가 자주(각 스핀당 ≈5.7%) 발생하는지.
+    expect(attack / N).toBeGreaterThan(0.03);
+    expect(raid / N).toBeGreaterThan(0.03);
+    expect(coin / N).toBeGreaterThan(0.1);
     // 합산 정합.
     expect(attack + raid + coin).toBe(matched);
   });

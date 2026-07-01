@@ -47,6 +47,20 @@ export const WEIGHTS: ReadonlyArray<number> = [14, 13, 12, 16, 12, 11, 6, 16];
 export const SYMBOL_COIN: ReadonlyArray<number> = [12, 18, 26, 0, 40, 60, 120, 0];
 //   symbol index:                                  0   1   2  3G  4   5    6  7H
 
+/**
+ * ⭐스핀당 중앙 1줄 **매칭 확률**(요청: 최소 30%↑). 릴을 강제해 이 비율로 3매치를 만든다(독립 릴의 자연 확률
+ *   ≈2% 로는 30%가 불가능하므로 목표비율 방식). econ 콘솔 튜닝 대상.
+ */
+export const MATCH_RATE = 0.34;
+
+/**
+ * 매칭 발생 시 **어떤 심볼로 매치되는지**의 분포(가중치). 어택(망치=7)/레이드(금화=3)를 코인 심볼보다 높게 잡아
+ *   특수 이벤트 빈도를 올린다(요청: 어택·레이드 매칭 확률↑). 합=108: 특수 각 18(≈16.7%)·코인 각 12(≈11.1%).
+ *   → 스핀당 어택 ≈ 0.34×0.167 ≈ 5.7%, 레이드 ≈ 5.7%, 코인 ≈ 22.6%.
+ */
+export const MATCH_SYMBOL_WEIGHTS: ReadonlyArray<number> = [12, 12, 12, 18, 12, 12, 12, 18];
+//   symbol index:                                          0   1   2   3G  4   5   6   7H
+
 /** 한 릴(열) 3칸을 가중 추출. weights 미지정 시 기본 WEIGHTS. */
 export function spinColumn(rng: Rng, weights: ReadonlyArray<number> = WEIGHTS): number[] {
   return [weightedPick(rng, weights), weightedPick(rng, weights), weightedPick(rng, weights)];
@@ -80,9 +94,23 @@ export function evaluate(reels: Reels): SpinOutcome {
   return { reels, matched: true, symbol, kind, coinBase };
 }
 
-/** 스핀 1회: 릴 생성 + 중앙줄 평가. */
+/**
+ * 스핀 1회: 릴 생성 후 **목표 매칭 확률(MATCH_RATE)** 로 중앙 3매치를 강제한다(요청: 승률 30%↑).
+ *   - MATCH_RATE 확률로 매칭: 중앙 3칸을 동일 심볼(MATCH_SYMBOL_WEIGHTS 로 선택 — 특수 빈도↑)로 채움.
+ *   - 그 외: 우연히 3매치가 나왔으면 한 칸을 바꿔 목표 승률을 유지(오탐 방지).
+ *   상/하단 행은 항상 랜덤(연출용). 평가는 evaluate(중앙 1줄).
+ */
 export function spin(rng: Rng, weights: ReadonlyArray<number> = WEIGHTS): SpinOutcome {
-  return evaluate(spinReels(rng, weights));
+  const reels = spinReels(rng, weights);
+  if (rng() < MATCH_RATE) {
+    const symbol = weightedPick(rng, MATCH_SYMBOL_WEIGHTS);
+    reels[0][CENTER_ROW] = symbol;
+    reels[1][CENTER_ROW] = symbol;
+    reels[2][CENTER_ROW] = symbol;
+  } else if (reels[0][CENTER_ROW] === reels[1][CENTER_ROW] && reels[1][CENTER_ROW] === reels[2][CENTER_ROW]) {
+    reels[2][CENTER_ROW] = (reels[2][CENTER_ROW] + 1) % SYMBOL_COUNT; // 비매치 스핀의 우연한 3매치 해제
+  }
+  return evaluate(reels);
 }
 
 /** 'coin' 결과의 실제 코인 지급액(= coinBase × bet). 도시레벨 income/luck 배수는 PlayScene/economy 에서 적용. */

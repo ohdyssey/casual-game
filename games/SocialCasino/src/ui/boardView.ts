@@ -47,9 +47,9 @@ export interface ResolvedInfo {
   readonly cleared: number;
 }
 
-/** 사용할 **일반 젬 종류 수**(가용 7종 중) — 종류가 많으면 매치가 잘 안 돼 셔플이 잦다(요청).
- *  5종으로 제한해 매칭을 쉽게 한다. (특수 젬은 종류 무관 한 그룹이라 매칭 변수에 1만 더함.) */
-const TYPES = 5;
+/** 사용할 **일반 젬 종류 수**(신 아트 up_NewUI_Puzzle_01~10 중). ⭐2026-07-02 요청: 특수젬 제거 + 신규젬 도입 →
+ *  7종으로 확대(구 5종). 종류↑ = 매칭 난이도↑지만 신규젬 다양성 확보(7×7 보드와 조합). */
+const TYPES = 7;
 const SPARK_TEX = 'sc_spark';
 
 /**
@@ -88,9 +88,10 @@ const BOARD_GEN_TRIES = 12;
  *   (어떤 특수든 인접 3개면 매치)이라 8개로 충분. 36칸 중 특수 ~8칸 → 일반 5색 가독성 유지.
  *   ⚠️특수 빈도가 원본의 ~⅔ 이므로 **PlayScene.specialMatchMult 를 ~1.5배로 보정**(3→8·4→15·5→30·6+→150)해
  *     스핀/공격/약탈 경제 throughput 평탄 유지(슬롯/퍼즐 RTP 는 특수 수와 무관 — 불변). */
-const SPECIAL_SPAWN: SpecialSpawn = { chance: 0.13, cap: 8 };
-/** 시작/셔플 시 즉시 심는 특수 젬 수 — 캡(8) 의 ~¾ 로 시작(약간 상향). */
-const SPECIAL_SEED = 6;
+// ⭐2026-07-02 요청: **특수젬 제거**(어택/레이드는 슬롯 3매치로 이전됨). chance/cap/seed = 0 → 보드는 일반 신규젬만.
+const SPECIAL_SPAWN: SpecialSpawn = { chance: 0, cap: 0 };
+/** 시작/셔플 시 즉시 심는 특수 젬 수 — 0(특수젬 폐지). */
+const SPECIAL_SEED = 0;
 
 /**
  * AI 자동매치 우선순위 가중치(요청) — **특수젬 먼저, 그 중 스핀젬 최우선**(유저에게 가장 유리).

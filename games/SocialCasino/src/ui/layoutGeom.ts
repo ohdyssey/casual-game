@@ -38,8 +38,8 @@ export interface BoardGeom {
  * ⚠️ 패널 아트/여백이 바뀌면 재측정(셀 노드 up_NewUI_02-1 군집으로 원점·피치 검출).
  */
 const PANEL_GRID = {
-  cols: 6,
-  rows: 6,
+  cols: 7, // ⭐2026-07-02 요청: 6×6 → 7×7 (셀 피치는 패널 가용영역/7 로 자동 재산출).
+  rows: 7,
   leftFrac: 0.0524,
   rightFrac: 0.9507,
   topFrac: 0.0457,

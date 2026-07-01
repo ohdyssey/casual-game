@@ -183,12 +183,9 @@ export class PlayScene extends Phaser.Scene {
   private iconPuzzle?: Phaser.GameObjects.Image;
   private iconSlot?: Phaser.GameObjects.Image;
   private iconWin?: Phaser.GameObjects.Image;
-  private iconLeftX = 188; // 좌 칸 아이콘 x(setupHud 에서 측정값으로 갱신)
-  private iconMidX = 465; // 중 칸 아이콘 x
   // 중간 정보 패널(up_SC_UI_10_v3) — 점수 표시(굵은 이텔릭 폰트): 퍼즐 × 슬롯 = 최종
   // 정보패널 좌/중 칸 — 실행 순서대로 채운다(스핀 먼저=슬롯이 좌·퍼즐이 중, 퍼즐 먼저=퍼즐이 좌·슬롯이 중).
   private infoLeft!: FancyNumber;
-  private infoMid!: FancyNumber;
   private finalScoreText!: FancyNumber;
   private bigWinNum!: BigNumber; // 대박(10배+) 코인 드랍 카운트업 숫자(차르르 → 떨어지며 사라짐)
   private bigWinTween?: Phaser.Tweens.Tween; // 카운트업 카운터 트윈(연속 대박 시 이전 것 정리)
@@ -558,15 +555,11 @@ export class PlayScene extends Phaser.Scene {
       this.matchImg = this.add.image(tt.x, tt.y, 'up_SC_UI_07-1').setDisplaySize(tt.w, tt.h).setDepth(100);
     }
 
-    // ⭐정보표시 패널(task 3) = 슬롯게이지 바(this.gaugeBar) — 퍼즐 배수 + 슬롯 당첨을 이 바 내부에 표시.
+    // ⭐정보표시(task 3+5) = 슬롯게이지 바 내부의 **단일 슬롯**. 라벨 상시표시 폐지 —
+    //   매치 시 데이터와 함께 순차 표시(퍼즐 ×N → 사라짐 → 슬롯 +M → 보상금액은 상단 유저정보 자리).
     const g = this.gaugeBar;
-    const gl = g.x - g.w / 2;
     const gy = g.y;
-    const NUM_MAXW = 96;
-    this.text(gl + g.w * 0.14, gy, 'PUZZLE', 20, '#ffffff', 'Luckiest Guy').setDepth(220);
-    this.infoLeft = new FancyNumber(this, gl + g.w * 0.34, gy, 44, 221, NUM_MAXW); // 퍼즐 배수
-    this.text(gl + g.w * 0.58, gy, 'SLOT', 20, '#ffffff', 'Luckiest Guy').setDepth(220);
-    this.infoMid = new FancyNumber(this, gl + g.w * 0.8, gy, 44, 221, NUM_MAXW); // 슬롯 당첨
+    this.infoLeft = new FancyNumber(this, g.x, gy, 42, 221, g.w * 0.86); // 퍼즐/슬롯 순차 표시
     // ⭐최종 당첨금 = **슬롯 상단 유저정보(DAKA/보유코인) 자리**(task 2). 라운드 당첨 시 DAKA 숨기고 여기 롤링 표시.
     const winX = this.userCoinText?.x ?? 474;
     const winY = this.userNameText && this.userCoinText ? (this.userNameText.y + this.userCoinText.y) / 2 : 401;
@@ -778,6 +771,8 @@ export class PlayScene extends Phaser.Scene {
 
   private onPuzzle(info: ResolvedInfo): void {
     this.pace = recordMatch(this.pace, this.time.now); // ⭐매치 페이스 기록(연속 매치가 빠를수록 슬롯 가속)
+    // ⭐매치 = 스핀 연료 생산(요청: 특수젬 제거 → 스핀은 매치가 생산). 라운드가 spinBet 를 소모하므로 그 이상 지급 = 순증(연료 축적).
+    this.grantSpins(this.spinBet + Math.max(1, Math.ceil(info.cleared / 4)));
     this.scoreQueue.push(info.puzzleMult);
     void this.playRounds();
   }
@@ -1099,6 +1094,8 @@ export class PlayScene extends Phaser.Scene {
       await this.wait(dur);
       return;
     }
+    // ⭐순차 마무리(task 5): 정보 바의 슬롯 결과를 비우고 → 상단 유저정보 자리에 합산 보상금액 표시.
+    this.tweens.add({ targets: this.infoLeft.container, alpha: 0, duration: 150, ease: 'Quad.easeIn' });
     this.userNameText?.setVisible(false); // DAKA 정보 숨김 → 당첨금 노출
     this.userCoinText?.setVisible(false);
     this.bannerShowedWin = true;
@@ -1447,7 +1444,7 @@ export class PlayScene extends Phaser.Scene {
       this.spins -= this.spinBet; // 플레이 = 스핀 소모(코인 아님). 코인은 보상으로 증가만.
       this.refreshHud();
       this.beginRound(); // 다음 판 시작 → 이전 결과 지움
-      const bonus = this.showPuzzleResult(P, this.infoLeft); // ① 퍼즐 → 좌측 칸
+      const bonus = this.showPuzzleResult(P); // ① 퍼즐 데이터(정보 바에 순차 표시)
       this.playLever();
       this.spinLoop = this.sfx.loopStart('reelLoop', 0.14);
       // ⭐현재 페이스 강도(매치 간격 + 남은 백로그) → 이 라운드 슬롯/텀 타이밍.
@@ -1455,7 +1452,7 @@ export class PlayScene extends Phaser.Scene {
       await this.wait(timing.puzzleToSlotMs); // 퍼즐→슬롯 간격(가속 시 0)
       const outcome = await this.slot.spin(this.rng, weightsFor(this.fortune), timing.slotPace); // ② 슬롯 회전(가속)
       this.fadeSpinLoop(); // 안전망 — 보통 마지막 릴 정지 콜백에서 이미 페이드됨
-      const slotPayout = this.showSlotResult(outcome, this.infoMid); // ② 슬롯 결과(코인/어택/레이드) → 중간 칸
+      const slotPayout = this.showSlotResult(outcome); // ② 슬롯 결과(코인/어택/레이드) → 중간 칸
       await this.finalizeWin(slotPayout, bonus, timing.slotPace); // ③ 최종(가속 반영 — 큰 당첨은 그대로 음미)
       await this.board.reshuffleIfNeeded(); // 결과가 모두 끝난 뒤에만 셔플
       this.maybeEnterStage(); // ⭐슬롯결정 끝 → 예약된 공격/약탈 스테이지로 전환(있으면 다음 루프에서 중단)
@@ -1577,29 +1574,25 @@ export class PlayScene extends Phaser.Scene {
     this.beginRound();
     // ① 퍼즐 먼저 — AI 최적 자동매치 → 퍼즐 결과(좌측 칸)
     const P = await this.board.autoMatch();
-    const bonus = this.showPuzzleResult(P, this.infoLeft);
+    const bonus = this.showPuzzleResult(P);
     // ② 슬롯 회전 → 슬롯 결과(중간 칸)
     this.playLever();
     this.spinLoop = this.sfx.loopStart('reelLoop', 0.14);
     await this.wait(PUZZLE_TO_SLOT_SLOW_MS); // ⭐퍼즐→슬롯 거의 즉시(오토는 여유 페이스)
     const outcome = await this.slot.spin(this.rng, weightsFor(this.fortune)); // 오토 = 정상 속도(pace 0)
     this.fadeSpinLoop(); // 안전망 — 보통 마지막 릴 정지 콜백에서 이미 페이드됨
-    const slotPayout = this.showSlotResult(outcome, this.infoMid);
+    const slotPayout = this.showSlotResult(outcome);
     await this.finalizeWin(slotPayout, bonus); // ③ 최종
     await this.board.reshuffleIfNeeded(); // 결과가 모두 끝난 뒤에만 셔플
     this.busyRound = false;
     this.maybeEnterStage(); // ⭐슬롯결정 끝 → 예약된 공격/약탈 스테이지로 전환
   }
 
-  /** ① 퍼즐 결과 칸 표시 → 멀티플라이어 반환. mult 는 보드가 매치 구조로 계산(결정론, economy 규칙). */
-  private showPuzzleResult(mult: number, cell: FancyNumber): number {
+  /** ① 퍼즐 결과 표시(정보 바에 "PUZZLE ×N" 데이터와 함께 팝) → 멀티플라이어 반환. 슬롯 결과가 이어서 이 자리를 대체(순차). */
+  private showPuzzleResult(mult: number): number {
     this.hidePlaying();
-    // 퍼즐 아이콘을 값이 들어가는 칸(좌/중)에 맞춰 배치 후 표시(슬롯과 자리 교체).
-    if (this.iconPuzzle) {
-      this.iconPuzzle.x = cell === this.infoLeft ? this.iconLeftX : this.iconMidX;
-      this.iconPuzzle.setVisible(true);
-    }
-    this.popScore(cell, `×${mult.toFixed(1)}`, mult >= 5 ? '#ff7a3c' : '#fff04a'); // 아주 짧게(퍼즐 멀티). ×5+ 강조색
+    this.infoLeft.setAlpha(1);
+    this.popScore(this.infoLeft, `PUZZLE  ×${mult.toFixed(1)}`, mult >= 5 ? '#ff7a3c' : '#fff04a');
     return mult;
   }
 
@@ -1611,21 +1604,16 @@ export class PlayScene extends Phaser.Scene {
    *   • 미매치             → 0
    *   stageHold 는 finalizeWin 이 **슬롯 회전 후** pendingStage 로 승격 → maybeEnterStage(망치/커튼).
    */
-  private showSlotResult(outcome: SpinOutcome, cell: FancyNumber): number {
+  private showSlotResult(outcome: SpinOutcome): number {
     this.hidePlaying();
-    // 슬롯 아이콘을 값 칸(좌/중)에 배치.
-    if (this.iconSlot) {
-      this.iconSlot.x = cell === this.infoLeft ? this.iconLeftX : this.iconMidX;
-      this.iconSlot.setVisible(true);
-    }
-    // 어택/레이드: 배너는 즉시(젬 확대 대신 릴 정지 직후), 스테이지 예약은 stageHold 로 보류(슬롯 회전 후 승격).
+    this.infoLeft.setAlpha(1);
+    // 어택/레이드: 배너는 즉시(릴 정지 직후), 스테이지 예약은 stageHold 로 보류(슬롯 회전 후 승격).
     if (outcome.kind === 'attack' || outcome.kind === 'raid') {
       const power = this.spinBet; // 배너 ×N + Stage1 레거시 power(스테이크는 maybeEnterStage 가 통화별 산출)
       this.stageHold = { type: outcome.kind, power };
-      this.showActivationBanner(outcome.kind, power); // 릴 정지 직후 등장 → 망치/룰렛 등장까지 유지
-      // ⭐발동 즉시 미션 타이머 정지(발동~복귀 구간 제외). returnFromStage 가 경과분만큼 마감을 뒤로 민다.
+      this.showActivationBanner(outcome.kind, power);
       if (this.gaugeStageStartedMs == null) this.gaugeStageStartedMs = Date.now();
-      this.popScore(cell, outcome.kind === 'attack' ? 'ATTACK!' : 'RAID!', outcome.kind === 'attack' ? '#ff6a6a' : '#ffd23d');
+      this.popScore(this.infoLeft, outcome.kind === 'attack' ? 'ATTACK!' : 'RAID!', outcome.kind === 'attack' ? '#ff6a6a' : '#ffd23d');
       return 0; // 코인은 스테이지(어택=다운그레이드/레이드=룰렛)에서 지급
     }
     // 코인 3매치: coinBase × 코인베팅 × 럭 × RTP스케일(오버라이드 반영). ⚠️정확한 밸런스는 econ 콘솔 튜닝(P6).
@@ -1635,7 +1623,8 @@ export class PlayScene extends Phaser.Scene {
       if (this.forceBigWin) slotPayout = this.bet * this.nextForcedMult(); // 연출 검증: 높은 배수 강제(순환)
       if (slotPayout > 0) slotPayout = Math.max(this.bet, slotPayout); // 최소 베팅액 보장(진짜 슬롯과 동일)
     }
-    this.popScore(cell, slotPayout > 0 ? `+${this.fmt(slotPayout)}` : '—', '#9be1ff');
+    // 퍼즐 데이터가 사라지고 이 자리를 슬롯 결과가 대체(순차, task 5).
+    this.popScore(this.infoLeft, slotPayout > 0 ? `SLOT  +${this.fmt(slotPayout)}` : 'SLOT  —', '#9be1ff');
     return slotPayout; // 최종 획득(퍼즐 멀티 반영)은 finalizeWin 에서
   }
 
@@ -1772,12 +1761,11 @@ export class PlayScene extends Phaser.Scene {
   // ── 연출 ───────────────────────────────────────────────
   /** 새 라운드 시작 시점에만 호출 — 이전 게임의 결과를 비운다(미리 지우지 않음). */
   private beginRound(): void {
-    for (const n of [this.infoLeft, this.infoMid]) {
-      this.tweens.killTweensOf(n.container);
-      n.setText('');
-      n.container.setScale(1);
-      n.setAlpha(1);
-    }
+    // 정보 바(단일 슬롯) 비움 — 라벨 상시표시 폐지(task 5).
+    this.tweens.killTweensOf(this.infoLeft.container);
+    this.infoLeft.setText('');
+    this.infoLeft.container.setScale(1);
+    this.infoLeft.setAlpha(1);
     // ⭐새 라운드: 직전 당첨금 숨기고 슬롯 상단 유저정보(DAKA/보유코인) 복원(task 2).
     this.finalScoreText.setAlpha(0);
     this.userNameText?.setVisible(true);
