@@ -87,11 +87,22 @@ git 은 커밋 1개(`1차 MVP`)뿐이고 현재 실행 게임은 **미커밋 워
 
 ## 4. 단계별 로드맵
 
-- [x] **P0** 매핑 + 설계 확정 + `slot3.ts`/`slot3.test.ts`(순수 로직·TDD)
-- [ ] **P1** 아카이브 방식 확정(§3) + `assets.ts` 신규 카탈로그(`up_NewUI_SlotSymbol_*`/`up_NewUI_Puzzle_*`) + `main_copy` 로드 상수
-- [ ] **P2** `layoutGeom.ts` 3릴/6×6(param)/`isDynamicNode`/앵커 재매핑
-- [ ] **P3** `slotView` 3릴화 + kind별 연출
-- [ ] **P4** PlayScene: `main_copy` 렌더 + `onSlotOutcome` 트리거 이동 + 보드 스페셜(attack/raid) 제거
-- [ ] **P5** 헤더/좌우/하단 메뉴 배선 + 250/50 재생 + bet 10
-- [ ] **P6** HammerFxScene 좌표 리포인트 + `src/econ/sim` 3릴/보드 param 갱신 + 밸런싱
-- [ ] **P7** headless 검증(타입·테스트·빌드·부팅) + 미션게이지 배치 마감
+- [x] **P0** 매핑 + 설계 확정 + `slot3.ts`/`slot3.test.ts`(순수 로직·TDD 12통과)
+- [x] **P1** 아카이브(git 태그 `archive/matchslot-city-v1` + 브랜치 `redesign/3reel-slot`) + `assets.ts` 카탈로그 리포인트(`up_NewUI_SlotSymbol_*`/`up_NewUI_Puzzle_*`) + `UI_LAYOUT_PATH`→main_copy
+- [x] **P2** `layoutGeom.ts` reelGrid 3×3(심볼군집+field 클립)·boardGeom N×N 파라미터화·PANEL_GRID 재측정·`isDynamicNode` 신 접두
+- [x] **P3** `slotView` slot3 전환 + spin(rng,weights,pace) + 중앙 1줄 flashWins(kind 틴트)
+- [x] **P4** PlayScene: showSlotResult(outcome) 재작성(망치=어택·금화=레이드·그외=골드) + 트리거 슬롯 이전(onStageTrigger no-op) + 죽은 import 정리. **typecheck·build·test 그린, 부팅 경로 무크래시 확인**
+- [ ] **P5** (다음) 침습 리와이어 마감 — 아래 §5 발견 갭:
+  - 헤더 이중화 제거(main_copy grp_4 헤더 vs 코드 `buildHudHeader` 바 택1) + 좌/우/하단 메뉴(`up_NewUI_05/07-*`) 버튼 배선(로비 패턴)
+  - 스핀 카운트 표시 재배선('Spin Num'→main_copy `250/50` layer_10) + bet '10'(layer_10_copy) plain-text 바인딩 + 구 이미지숫자 렌더러 정리
+  - **250/50 코인마스터식 재생**: `playParams.spinRegenCap(level)` + `playerState.lastRegenAt` + 시간충전 틱
+  - 미션게이지(유지 결정) **배치**: main_copy엔 게이지 노드 없음 → 슬롯게이지 영역 재사용 or 디자이너 노드 요청(현재 inert)
+  - 보드 어택/레이드 스페셜 젬 **스폰 비활성**(스핀 젬만) — 죽은 젬 제거
+- [ ] **P6** HammerFxScene 좌표 main_copy 리포인트 + `src/econ/sim` 3릴/보드 param 갱신 + 승률/RTP 밸런싱(WEIGHTS·coinBase)
+- [ ] **P7** headless 부팅·플레이 검증(스크린샷) + 사운드팩(public/sfx 신규) 배선
+
+## 5. P4 후 발견된 리와이어 갭(부팅은 되나 미완 — P5 대상)
+- **헤더 이중**: `buildHudHeader`(up_SC_UI_42-1_v8 코드바)가 main_copy grp_4 헤더 아트 위에 겹쳐 그림 → 택1 필요.
+- **스핀 카운트 미표시**: 구 'Spin Num' 노드가 main_copy에 없어 `spinText` undefined(가드로 무크래시). `250/50`/`10` 텍스트 노드에 재바인딩 필요.
+- **미션게이지 inert**: `up_SC_UI_53`(fillBar) 부재 → `buildGaugeView` undefined 반환 → 게이지 미표시(로직은 보존). 배치 결정 필요.
+- **HammerFx 좌표**: 커튼/망치 노드는 main_copy에 있음(스킵 처리됨). HammerFxScene 자체 좌표 소스 확인/리포인트(P6).
