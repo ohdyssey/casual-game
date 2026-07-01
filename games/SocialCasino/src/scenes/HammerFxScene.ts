@@ -17,9 +17,12 @@ import { DESIGN_W, DESIGN_H } from './PlayScene.js';
 import { UI_LAYOUT_KEY, uploadPath } from '../assets.js';
 import { buildAttackBanner, type AttackKind } from '../ui/attackBanner.js';
 import type { LayoutDoc, LayoutNode } from '../ui/layoutLoader.js';
+import { SFX } from '../audio.js';
 
 /** 단일 망치 이미지 + 커튼 2장 — 디자이너가 main.json image 노드로 배치/저장. */
 export const HAMMER_IMAGE_KEY = 'up_SC_UI_49';
+/** 레이드 전용 아이콘(attack=망치 대체). */
+export const RAID_ICON_KEY = 'up_SC_UI_60';
 export const CURTAIN_LEFT_KEY = 'up_SC_UI_50-1';
 export const CURTAIN_RIGHT_KEY = 'up_SC_UI_50-2';
 
@@ -36,6 +39,14 @@ const COLOR_NUM: Record<AttackKind, number> = { attack: 0xff5252, raid: 0xffc23d
 
 /** 커튼이 완전히 열려 **스테이지가 드러난 순간** game.events 로 알린다 → Stage1 이 받아 룰렛 연출을 시작(0.7초 뒤). */
 export const STAGE_REVEALED_EVENT = 'raid:stage-revealed';
+/** Stage1 이 룰렛을 띄우기 직전에 발행 → 레이드 아이콘 페이드아웃 후 HammerFxScene 종료. */
+export const ROULETTE_INCOMING_EVENT = 'raid:roulette-incoming';
+/** 공격 결과 OK 탭 시 발행 → 공격 망치 페이드아웃 후 HammerFxScene 종료. */
+export const ATTACK_DONE_EVENT = 'attack:done';
+/** Stage1 → HammerFx: 망치를 대상 좌표로 스윙하라(공격 애니메이션). */
+export const ATTACK_SWING_EVENT = 'attack:swing';
+/** HammerFx → Stage1: 망치 임팩트 완료(다운그레이드 실행 트리거). */
+export const ATTACK_SWING_DONE_EVENT = 'attack:swing-done';
 
 // 깊이: 커튼(뒤) < 망치 묶음(앞).
 const CURTAIN_DEPTH = 5;
@@ -49,8 +60,7 @@ const ENTRANCE_MS = 230; // 확대 팝 등장 — 스피드업: 320→230
 // ⭐망치는 **커튼이 열리기(스테이지 등장) 전에 소멸** → "퍼즐 게임에서 종료"(요청). ON_STAGE_DELAY+EXIT_MS < CURTAIN_OPEN_AT 유지.
 const ON_STAGE_DELAY = 420; // 등장 후 이만큼 보였다가 소멸 시작 — 스피드업: 600→420
 const EXIT_MS = 420; // 아래로 축소+페이드 소멸 → 끝나면 ~840ms (커튼 열림 950 전에 종료) — 스피드업: 600→420
-const EXIT_SCALE = 0.65; // 약간 축소
-const EXIT_DROP = 150; // 아래로
+const EXIT_SCALE = 0.65; // 약간 축소(레이드 아이콘 소멸)
 // ⭐텍스트(ATTACK!/RAID!)는 **망치보다 먼저** 사라진다(요청 2026-06-28): 망치 연출이 떠 있는 동안 텍스트가 먼저 페이드아웃 →
 //   이어서 망치 소멸(ON_STAGE_DELAY~EXIT_MS) → 커튼 열림으로 화면전환. TEXT_EXIT_DELAY+TEXT_EXIT_MS ≤ ON_STAGE_DELAY 유지.
 const TEXT_EXIT_DELAY = 240; // 등장 후 이만큼 보였다가 페이드 시작
@@ -74,14 +84,17 @@ export class HammerFxScene extends Phaser.Scene {
   private root?: Phaser.GameObjects.Container; // 망치 묶음(배경+망치) — 등장/소멸 트랜스폼 단위
   private text?: Phaser.GameObjects.Container; // 발동 텍스트(ATTACK!/RAID!) — root 와 분리(망치보다 먼저 소멸)
   private curtains: Phaser.GameObjects.Image[] = []; // 좌/우 커튼 패널
+  private pendingType: AttackKind = 'attack'; // 레이드 여부(revealAndStop 에서 분기)
+  private restY = 0; // 공격 망치 대기 Y(하단 이동 목표)
+  private swingHandler?: (tx: number, ty: number) => void; // ATTACK_SWING_EVENT 핸들러(SHUTDOWN 시 해제)
 
   constructor() {
     super('hammerfx');
   }
 
   preload(): void {
-    for (const key of [HAMMER_IMAGE_KEY, CURTAIN_LEFT_KEY, CURTAIN_RIGHT_KEY]) {
-      if (!this.textures.exists(key)) this.load.image(key, uploadPath(key)); // 보통 매니페스트로 캐시됨 — 방어적
+    for (const key of [HAMMER_IMAGE_KEY, RAID_ICON_KEY, CURTAIN_LEFT_KEY, CURTAIN_RIGHT_KEY]) {
+      if (!this.textures.exists(key)) this.load.image(key, uploadPath(key));
     }
   }
 
@@ -93,7 +106,12 @@ export class HammerFxScene extends Phaser.Scene {
     const cx = data.x ?? DESIGN_W / 2;
     const cy = data.y ?? DESIGN_H / 2;
     const type: AttackKind = data.type ?? 'attack';
+    this.pendingType = type;
     const colorNum = COLOR_NUM[type];
+
+    // 진입 효과음 — 레이드: 팡파레 3s / 공격: 준비감 3s
+    const entryFile = type === 'raid' ? SFX.raidEntry : SFX.attackEntry;
+    if (this.cache.audio.exists(entryFile)) this.sound.play(entryFile, { volume: 0.75 });
 
     // ── 커튼(뒤, 화면 절대좌표) — 좌우에서 닫혀 보드를 덮었다가(등장) 좌우로 열려 스테이지를 드러냄 ──
     //   오른쪽 패널 열림 완료 시 revealAndStop(스테이지 드러남 알림 + 씬 종료). 좌우 동시에 끝나므로 한쪽에만 단다.
@@ -105,25 +123,28 @@ export class HammerFxScene extends Phaser.Scene {
     const root = this.add.container(cx, cy).setDepth(ROOT_DEPTH);
     this.root = root;
 
-    // 뒷 배경 이펙트(글로우 + 햇살 — 회전 없음, 맥동만).
-    const glow = this.makeGlow(colorNum);
-    root.add(glow);
-    this.tweens.add({ targets: glow, alpha: { from: 0.45, to: 0.85 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-    const rays = this.makeRays(colorNum);
-    root.add(rays);
-    this.tweens.add({ targets: rays, scaleX: 1.06, scaleY: 1.06, duration: 760, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    // 뒷 배경 이펙트(글로우 + 햇살) — 레이드 전용, 공격 모드는 제거.
+    if (type !== 'attack') {
+      const glow = this.makeGlow(colorNum);
+      root.add(glow);
+      this.tweens.add({ targets: glow, alpha: { from: 0.45, to: 0.85 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      const rays = this.makeRays(colorNum);
+      root.add(rays);
+      this.tweens.add({ targets: rays, scaleX: 1.06, scaleY: 1.06, duration: 760, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
 
-    // 망치(회전 없음: 확대축소 펄스 + 미세 좌우 흔들림).
-    const node = this.nodeByKey(HAMMER_IMAGE_KEY);
-    if (this.textures.exists(HAMMER_IMAGE_KEY)) {
-      const hammer = this.add.image(0, 0, HAMMER_IMAGE_KEY);
+    // 아이콘(공격=망치/레이드=SC_UI_60): 확대축소 펄스 + 미세 좌우 흔들림.
+    const iconKey = type === 'raid' ? RAID_ICON_KEY : HAMMER_IMAGE_KEY;
+    const node = this.nodeByKey(iconKey) ?? this.nodeByKey(HAMMER_IMAGE_KEY);
+    if (this.textures.exists(iconKey)) {
+      const hammer = this.add.image(0, 0, iconKey);
       if (node?.w && node?.h) hammer.setDisplaySize(node.w, node.h);
       root.add(hammer);
       const base = hammer.scaleX;
       this.tweens.add({ targets: hammer, scaleX: base * 1.07, scaleY: base * 1.07, duration: PULSE_MS, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       this.tweens.add({ targets: hammer, x: { from: -SHAKE_PX, to: SHAKE_PX }, duration: SHAKE_MS, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     } else if (import.meta.env?.DEV) {
-      console.warn(`[hammerfx] 망치 이미지 미로드: ${HAMMER_IMAGE_KEY}`);
+      console.warn(`[hammerfx] 아이콘 이미지 미로드: ${iconKey}`);
     }
 
     // 텍스트(망치 앞) — ⭐root(망치)와 **분리**: 망치보다 **먼저** 사라지게 한다(요청 2026-06-28:
@@ -142,18 +163,23 @@ export class HammerFxScene extends Phaser.Scene {
     this.tweens.add({ targets: root, scaleX: 1, scaleY: 1, alpha: 1, duration: ENTRANCE_MS, ease: 'Back.easeOut' });
     this.cameras.main.shake(180, 0.006);
 
-    // ⑤ 망치는 **커튼이 열리기 전에**(퍼즐 게임 단계에서) 아래로 약간 축소되며 소멸(요청: 퍼즐 게임에서 종료).
-    //   ⚠️ `delayedCall` 대신 delay 트윈(타이머가 안 먹는 환경에서도 트윈은 확실히 진행). 씬 종료는 커튼 열림(revealAndStop)이 담당.
-    this.tweens.add({
-      targets: root,
-      scaleX: EXIT_SCALE,
-      scaleY: EXIT_SCALE,
-      y: cy + EXIT_DROP,
-      alpha: 0,
-      delay: ON_STAGE_DELAY,
-      duration: EXIT_MS,
-      ease: 'Quad.easeIn',
-    });
+    // ⑤ 아이콘 처리 — 어택은 1/2 크기로 축소 + 화면 하단으로 이동(대기 → ATTACK_SWING_EVENT 수신 시 스윙 → ATTACK_DONE_EVENT 시 소멸).
+    //                레이드는 ROULETTE_INCOMING_EVENT 수신 시 소멸(룰렛 직전까지 유지).
+    if (type === 'attack') {
+      this.restY = DESIGN_H - 250;
+      this.tweens.add({
+        targets: root,
+        scaleX: 0.5,
+        scaleY: 0.5,
+        y: this.restY,
+        delay: ON_STAGE_DELAY,
+        duration: EXIT_MS,
+        ease: 'Quad.easeOut',
+      });
+      // 스윙 이벤트 리스닝 — Stage1 이 타겟 좌표를 보내면 망치가 날아간다.
+      this.swingHandler = (tx: number, ty: number) => { if (this.scene.isActive()) this.swingToTarget(tx, ty); };
+      this.game.events.on(ATTACK_SWING_EVENT, this.swingHandler);
+    }
     // 커튼이 없으면(이미지 미로드) 커튼 열림 콜백이 안 오므로 — 폴백으로 스테이지 알림 + 종료를 직접 예약(트윈 기반).
     if (this.curtains.length === 0) {
       this.tweens.add({ targets: root, alpha: 0, delay: CURTAIN_OPEN_AT + CURTAIN_OPEN_MS, duration: 1, onComplete: () => this.revealAndStop() });
@@ -166,6 +192,10 @@ export class HammerFxScene extends Phaser.Scene {
       this.text = undefined;
       for (const c of this.curtains) c.destroy();
       this.curtains = [];
+      if (this.swingHandler) {
+        this.game.events.off(ATTACK_SWING_EVENT, this.swingHandler);
+        this.swingHandler = undefined;
+      }
     });
 
     if (import.meta.env?.DEV) (globalThis as Record<string, unknown>).__hammerfx = this;
@@ -191,10 +221,98 @@ export class HammerFxScene extends Phaser.Scene {
     return img;
   }
 
-  /** 커튼이 완전히 열린 순간 — 스테이지 드러남 알림(Stage1 이 받아 룰렛 시작) + 망치 씬 종료. */
+  /** 커튼이 완전히 열린 순간 — 스테이지 드러남 알림(Stage1 이 받아 룰렛/공격 시작).
+   *  어택: 망치 대기, 탭 → swingToTarget 에서 임팩트 후 씬 자동 종료.
+   *  레이드: ROULETTE_INCOMING_EVENT 수신 시 페이드아웃 + 종료.
+   *  그 외: 즉시 종료. */
   private revealAndStop(): void {
     this.game.events.emit(STAGE_REVEALED_EVENT);
-    this.scene.stop();
+    if (this.pendingType === 'attack') {
+      // 공격: ATTACK_SWING_EVENT 수신 → swingToTarget 에서 임팩트 후 씬 자동 종료.
+      // 폴백: 15초 후 강제 종료(타겟 미탭 시 대비).
+      this.time.delayedCall(15000, () => {
+        if (this.scene.isActive()) this.scene.stop();
+      });
+      return;
+    }
+    if (this.pendingType !== 'raid') {
+      this.scene.stop();
+      return;
+    }
+    // 레이드: ROULETTE_INCOMING_EVENT(룰렛 직전)까지 아이콘 맥동 유지 → 수신 시 페이드아웃 + 종료.
+    const onRoulette = (): void => {
+      if (!this.scene.isActive()) return;
+      if (this.root) this.tweens.killTweensOf(this.root);
+      this.tweens.add({
+        targets: this.root ?? [],
+        alpha: 0,
+        scaleX: EXIT_SCALE,
+        scaleY: EXIT_SCALE,
+        duration: EXIT_MS,
+        ease: 'Quad.easeIn',
+        onComplete: () => { if (this.scene.isActive()) this.scene.stop(); },
+      });
+    };
+    this.game.events.once(ROULETTE_INCOMING_EVENT, onRoulette);
+    // 폴백: 이벤트가 오지 않아도 4초 후 종료.
+    this.time.delayedCall(4000, () => {
+      this.game.events.off(ROULETTE_INCOMING_EVENT, onRoulette);
+      if (this.scene.isActive()) this.scene.stop();
+    });
+  }
+
+  /** 하단 대기 중인 망치를 (tx,ty) 로 날려 임팩트 → ATTACK_SWING_DONE_EVENT 발행 → 페이드아웃 후 씬 종료. */
+  private swingToTarget(tx: number, ty: number): void {
+    if (!this.root) return;
+    this.tweens.killTweensOf(this.root);
+    // ① 대기 위치에서 커짐(예비 동작)
+    this.tweens.add({
+      targets: this.root,
+      scaleX: 0.85,
+      scaleY: 0.85,
+      duration: 150,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        if (!this.root) return;
+        // ② 타겟으로 날아가면서 약간 작아짐
+        this.tweens.add({
+          targets: this.root,
+          x: tx,
+          y: ty,
+          scaleX: 0.6,
+          scaleY: 0.6,
+          duration: 260,
+          ease: 'Cubic.easeIn',
+          onComplete: () => {
+            if (!this.root) return;
+            // ③ 임팩트(카메라 흔들림 + 스케일 스파이크)
+            this.cameras.main.shake(100, 0.012);
+            this.tweens.add({
+              targets: this.root,
+              scaleX: 1.2,
+              scaleY: 1.2,
+              duration: 70,
+              yoyo: true,
+              ease: 'Quad.easeOut',
+              onComplete: () => {
+                this.game.events.emit(ATTACK_SWING_DONE_EVENT);
+                // ④ 사라짐 — 복귀 없음
+                if (!this.root) return;
+                this.tweens.add({
+                  targets: this.root,
+                  alpha: 0,
+                  scaleX: 0.2,
+                  scaleY: 0.2,
+                  duration: 280,
+                  ease: 'Quad.easeIn',
+                  onComplete: () => { if (this.scene.isActive()) this.scene.stop(); },
+                });
+              },
+            });
+          },
+        });
+      },
+    });
   }
 
   /** 부드러운 방사 글로우(동심원 누적으로 라디얼 그라데이션 근사). ⭐**화면 전체로** 퍼지게 크게(요청: 잘림 방지). */

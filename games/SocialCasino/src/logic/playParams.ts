@@ -49,11 +49,19 @@ export const BIGWIN_SPIN_MEGA = 5;
 export const DAILY_SPINS = 300;
 
 /**
- * ⭐레이드/어텍 스테이크 배수(요청 2026-06-30) — 룰렛 스테이크 = betCoin × M(L) × **RAID_STAKE_SCALE**.
- *   레이드/어텍 보상을 슬롯보다 크게(레이드는 향후 **타유저 공격** 구조 → 이벤트성 큰 보상). 슬롯은 SLOT_RTP_SCALE↓.
- *   순수 배수 스케일(플랫 절대값 아님 = 인플레 안전, 베팅·레벨 비례 유지).
+ * ⭐**레이드 코인** 스테이크 배수(요청 2026-07-01 개정) — 레이드 룰렛 스테이크 = betCoin × M(L) × **RAID_STAKE_SCALE**.
+ *   레이드 = **코인 보상**(어택은 스핀으로 분리 → ATTACK_SPIN_STAKE_SCALE). 어택이 코인 경쟁에서 빠지므로 레이드 코인을
+ *   키워도 인플레 안전 → **1.3 → 2.5**(약 2배, 요청 "레이드 코인 더 많이"). 순수 배수 스케일(베팅·레벨 비례, 인플레 안전).
  */
-export const RAID_STAKE_SCALE = 1.3;
+export const RAID_STAKE_SCALE = 2.5;
+
+/**
+ * ⭐**어택 스핀** 스테이크 배수(요청 2026-07-01 신설) — 어택 룰렛 베이스(스핀) = **spinBet × ATTACK_SPIN_STAKE_SCALE**.
+ *   어택 = **스핀 보상**(레이드는 코인). 같은 룰렛 휠 배수(x1~x150/SUPER)가 곱해져 당첨 스핀이 정해진다(통화만 분기).
+ *   ⚠️코인과 달리 **COIN_DENOM·시티레벨(incomeMult) 미적용** — 스핀은 소단위 화폐(베팅 N, 보유 ~200)라 **베팅에만** 비례.
+ *   기본 0.6: spinBet 10 → base 6 → 룰렛 평균배수 ~13.8 → 평균 ~83스핀/회(x100=600·SUPER=900, 희귀). 데이터편집 라이브 튜닝.
+ */
+export const ATTACK_SPIN_STAKE_SCALE = 0.6;
 
 /**
  * 특수젬(스핀·공격·약탈 공통) 매치 크기별 보상 배수 — 베팅에 추가로 곱한다.
@@ -75,19 +83,26 @@ export interface MissionEntry {
 }
 
 /**
- * 미션 플랜(루프) — **2분 타임어택 스프린트**(요청 2026-06-30). 6칸 모두: ① 제한시간 **2분**(강한 시간 압박. ⭐어텍/레이드에 쓴 시간은 제외 — returnFromStage 가 마감을 그만큼 뒤로 민다).
- *   ② 보상 **스핀만**. ③ **베팅10에서 "간신히 달성"** 수준으로 calibrate(요청). ④ 미달성 시 **보상 소멸 + 진행 리셋**(같은 미션 재도전).
+ * 미션 플랜(루프) — **목표 150부터 출발 + 시간 점진 연장**(요청 2026-06-30 재설계). ① 보상 **스핀만**. ② 미달성 시 **보상 소멸 + 진행 리셋**.
+ *   ③ 어텍/레이드에 쓴 시간은 제외(returnFromStage 가 마감을 그만큼 뒤로 민다). ④ 시티레벨 스케일(progression.missionTarget)이 후반 추가 보정.
  *
- * ⭐목표 calibrate(실측): 진행 = **수집젬수 × 베팅**. 수집젬은 5종 중 1종이라 ~0.3개/라운드 → **베팅10에서 ≈3.2 진행/라운드**.
- *   2분 ≈ 35~40라운드 + 초기 200스핀÷베팅10=20라운드(스핀 환급으로 연장) → **베팅10 2분 예산 ≈ 110~130 진행**. 후반 목표(108·120)를 그 근방에 둬 "간신히".
- *   첫 미션(50)은 베팅10에서 ~16라운드면 달성(루프 습관), 뒤로 갈수록 예산 한계에 근접(간신히 → 못하면 놓침). 시티레벨 스케일(progression.missionTarget)이 후반 추가 보정.
- *   값/보상은 설정→데이터편집(rewardEditor)로 라이브 튜닝 가능(분은 SSOT 고정).
+ * ⭐**요청 지정 데이터 테이블**(2026-07-01) — 미션마다 목표 퍼즐수·제한시간(초)·스핀보상을 직접 지정(이전 "목표=초수·50~65%" 규칙 대체).
+ *   minutes = 초/60 (durationMs = minutes×60000 = 지정 초). 진행 = 수집 타겟퍼즐수 × 베팅. ⚠️목표퍼즐 출현(스폰) 갯수는 **무수정**.
+ *   값/보상/시간은 설정→데이터편집(rewardEditor)로 라이브 튜닝 가능. 시티레벨↑ 시 progression.missionTarget 가 목표를 추가 스케일.
+ *   ⭐2026-07-01 #2: 목표 **×1.3 난이도 업** + 10단위 반올림(요청). 시간·보상 유지.
+ *     미션  퍼즐   제한    보상
+ *      1    130   60초    80
+ *      2    160   80초   110
+ *      3    200  110초   130
+ *      4    230  130초   140
+ *      5    260  140초   180
+ *      6    330  180초   210
  */
 export const MISSION_PLAN: ReadonlyArray<MissionEntry> = [
-  { target: 50, minutes: 2, reward: { kind: 'spins', amount: 40 } },   // 첫 미션 — 베팅10에서 ~16라운드면 달성(루프 습관)
-  { target: 65, minutes: 2, reward: { kind: 'spins', amount: 50 } },
-  { target: 80, minutes: 2, reward: { kind: 'spins', amount: 65 } },
-  { target: 95, minutes: 2, reward: { kind: 'spins', amount: 80 } },   // 베팅10 예산 근접 — 간신히
-  { target: 108, minutes: 2, reward: { kind: 'spins', amount: 100 } },
-  { target: 120, minutes: 2, reward: { kind: 'spins', amount: 130 } }, // 최고 난이도 — 베팅10 2분 풀예산(간신히, 못하면 놓침)
+  { target: 130, minutes: 60 / 60, reward: { kind: 'spins', amount: 80 } },  // 60초
+  { target: 160, minutes: 80 / 60, reward: { kind: 'spins', amount: 110 } }, // 80초
+  { target: 200, minutes: 110 / 60, reward: { kind: 'spins', amount: 130 } }, // 110초
+  { target: 230, minutes: 130 / 60, reward: { kind: 'spins', amount: 140 } }, // 130초
+  { target: 260, minutes: 140 / 60, reward: { kind: 'spins', amount: 180 } }, // 140초
+  { target: 330, minutes: 180 / 60, reward: { kind: 'spins', amount: 210 } }, // 180초
 ];

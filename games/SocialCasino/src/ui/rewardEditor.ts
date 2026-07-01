@@ -110,8 +110,9 @@ export function openRewardEditor(onSaved?: () => void): void {
   });
 
   // ── 레이드/어텍 보상 ──
-  const raidSec = section(panel, '⚔ 레이드/어텍 보상', '스테이크 배수 × 룰렛 조각 배수 = 당첨금(stake = 코인베팅 × 레벨배수 × 스테이크배수).');
-  const raidScaleInp = field(raidSec, '레이드 스테이크 배수', cur.raidStakeScale, 0.1, '기본 1.3');
+  const raidSec = section(panel, '⚔ 레이드/어텍 보상', '스테이크 배수 × 룰렛 조각 배수 = 당첨. 레이드=코인(코인베팅×레벨배수×배수) · 어택=스핀(스핀베팅×배수).');
+  const raidScaleInp = field(raidSec, '레이드 스테이크 배수(코인)', cur.raidStakeScale, 0.1, '기본 2.5');
+  const attackScaleInp = field(raidSec, '어택 스테이크 배수(스핀)', cur.attackSpinStakeScale, 0.1, '기본 0.6');
   const segInps = cur.segmentMults.map((m, i) =>
     field(raidSec, `룰렛 — ${ROULETTE_SEGMENTS[i]?.label ?? `#${i}`}`, m, 1),
   );
@@ -135,6 +136,7 @@ export function openRewardEditor(onSaved?: () => void): void {
       slotRtpScale: num(slotScaleInp, cur.slotRtpScale),
       luckMults: luckInps.map((inp, i) => num(inp, cur.luckMults[i])),
       raidStakeScale: num(raidScaleInp, cur.raidStakeScale),
+      attackSpinStakeScale: num(attackScaleInp, cur.attackSpinStakeScale),
       segmentMults: segInps.map((inp, i) => num(inp, cur.segmentMults[i])),
       missions: missionInps.map((mi, i) => ({
         target: Math.round(num(mi.t, cur.missions[i].target)),

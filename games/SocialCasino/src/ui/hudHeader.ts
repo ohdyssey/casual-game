@@ -16,12 +16,12 @@ const FONT = '"Russo One", "Jua", sans-serif';
 const SIZE = 38; // blank_2 헤더 텍스트와 동일
 
 // 디자이너 blank_2.json 헤더 노드와 1:1 좌표/텍스처(단일 바). ⭐2026-06-30 에디터 재변경(v8): 바 아트 교체(2번째 아이콘 젬→**배터리/스핀**) + 좌표 보정.
-const PANEL = { key: 'up_SC_UI_42-1_v8', x: 540, y: 78, w: 1043, h: 101 };
-const COIN_TXT = { x: 364, y: 77, originX: 1 }; // align=right
-const SPIN_TXT = { x: 641, y: 77, originX: 1 }; // ⭐2번째 = 스핀(배터리 아이콘, 바 아트에 베이크). align=right
-const LIVES_TXT = { x: 848, y: 77, originX: 0.5 }; // align=center
-// 메뉴(햄버거)는 바 아트에 베이크 — 별도 이미지 없이 바 우측에 투명 히트존만(텍스트 좌측이동에 맞춰 함께 이동).
-const MENU_HIT = { x: 987, y: 78, w: 104, h: 101 };
+const PANEL = { key: 'up_SC_UI_42-1_v8', x: 540, y: 78, w: 1043, h: 103 };
+const COIN_TXT = { x: 396, y: 77, originX: 1 }; // align=right (blank_2.json layer_4 SSOT)
+const SPIN_TXT = { x: 666, y: 77, originX: 1 }; // ⭐스핀(배터리 아이콘, 바 아트에 베이크). align=right
+const LIVES_TXT = { x: 871, y: 77, originX: 0.5 }; // align=center
+// 메뉴(햄버거)는 바 아트에 베이크 — 별도 이미지 없이 바 우측에 투명 히트존만.
+const MENU_HIT = { x: 987, y: 78, w: 104, h: 103 };
 
 export interface HudHeaderOpts {
   /** 표시할 코인(생략 시 지갑에서 로드). */

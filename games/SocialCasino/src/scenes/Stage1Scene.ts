@@ -19,8 +19,8 @@ import { DESIGN_W, DESIGN_H } from './PlayScene.js';
 import { buildLayout, type LayoutDoc, type LayoutEntry } from '../ui/layoutLoader.js';
 import { cameraEnterZoom } from '../ui/cameraEnter.js';
 import { uploadPath, ensureFonts, collectLayoutFonts } from '../assets.js';
-import { STAGE_REVEALED_EVENT } from './HammerFxScene.js';
-import { Sfx } from '../audio.js';
+import { STAGE_REVEALED_EVENT, ROULETTE_INCOMING_EVENT, ATTACK_DONE_EVENT, ATTACK_SWING_EVENT, ATTACK_SWING_DONE_EVENT } from './HammerFxScene.js';
+import { Sfx, type SfxKey } from '../audio.js';
 import { CoinBurst } from '../ui/coinBurst.js';
 import { BigNumber } from '../ui/bigNumber.js';
 import { SEGMENT_DEG, pickSegment, landingAngle, rouletteWin, type RouletteSegment } from '../logic/roulette.js';
@@ -31,12 +31,18 @@ import {
   deserializeHotel,
   objectLevel,
   parseHotelLayout,
+  downgradeObject,
+  currentStage,
+  HOTEL_OBJECTS,
   HOTEL_SAVE_KEY,
+  serializeHotel,
 } from '../logic/hotelUpgrade.js';
 
-/** 레이아웃 캐시 키 + 경로 — 스테이지1(blank_3) / 룰렛1(blank_3_copy). */
+/** 레이아웃 캐시 키 + 경로 — 스테이지1(blank_3) / 스테이지2(blank_3_copy3) / 룰렛1(blank_3_copy). */
 export const STAGE_LAYOUT_KEY = 'stage1_layout';
 export const STAGE_LAYOUT_PATH = 'ui/layouts/blank_3.json';
+export const STAGE2_LAYOUT_KEY = 'stage2_layout';
+export const STAGE2_LAYOUT_PATH = 'ui/layouts/blank_3_copy3.json';
 export const ROULETTE_LAYOUT_KEY = 'roulette1_layout';
 export const ROULETTE_LAYOUT_PATH = 'ui/layouts/blank_3_copy.json';
 
@@ -44,7 +50,7 @@ export const ROULETTE_LAYOUT_PATH = 'ui/layouts/blank_3_copy.json';
 export interface StageLaunchData {
   readonly type?: 'attack' | 'raid';
   readonly power?: number; // 레이드/공격 발동값(미사용 — 당첨금은 bet 기준)
-  readonly bet?: number; // ⭐코인 베팅(=spinBet×COIN_DENOM=베팅액수×천배, 2026-06-28 만배→천배). 당첨금 = bet × 룰렛배수 + 보너스.
+  readonly bet?: number; // ⭐룰렛 스테이크(베이스) — **통화별**(2026-07-01): 레이드=코인(betCoin×M(L)×raidScale) / 어택=스핀(spinBet×attackScale). 당첨 = bet × 룰렛배수.
   readonly resumeKey?: string;
   readonly skipReveal?: boolean; // 커튼이 등장을 가리고 열어주는 경우 — 자체 찢기 reveal 생략
   readonly auto?: boolean; // ⭐오토스핀 중 — 룰렛도 자동(자동 SPIN → 자동 OK 복귀)
@@ -74,6 +80,24 @@ const isSpinnerNode = (n: { key?: string; type?: string }): boolean => {
 const ROULETTE_DEPTH_BASE = 100;
 /** ⭐룰렛 팝업 뒤 반투명 딤 스크린 불투명도(요청: 룰렛을 팝업으로, 뒤엔 불투명 스크린). */
 const ROULETTE_DIM_ALPHA = 0.6;
+/** 레이드 결과 시 등장하는 매니저 캐릭터 텍스처 키 (D:\캐쥬얼 게임\SocialCasino\Stage\001\04.Casino\Manager_01.png). */
+const RAID_MANAGER_KEY = 'up_Manager_01';
+
+/** ⭐카지노 배경 이미지 키(스테이지 1-based 인덱스). 레이드 전용.
+ *  파일 출처: D:\캐쥬얼 게임\SocialCasino\Stage\00N\04.Casino\Stage004_BG.png → public/ui/uploads/ 복사. */
+const CASINO_BG_STAGE_KEYS: readonly string[] = [
+  'up_Stage004_BG', // 스테이지 1 (Lobby)
+  'up_Stage004_BG', // 스테이지 2 (Restaurant) — 새 이미지 추가 시 교체
+];
+/** 스테이지 번호(1-based) → 카지노 배경 텍스처 키. */
+function casinoBgKey(stage: number): string {
+  const idx = Math.max(0, Math.min(stage - 1, CASINO_BG_STAGE_KEYS.length - 1));
+  return CASINO_BG_STAGE_KEYS[idx] ?? 'up_Stage004_BG';
+}
+/** 배경 노드 id(blank_3.json layer_1 = 인테리어 BG, 카지노 이미지로 교체). */
+const STAGE_BG_NODE_ID = 'layer_1';
+/** 레이드 화면에서 유지할 노드 id 집합 = 카지노 배경 + 타이틀바 + 결과 다이얼로그. 호텔 오브젝트·화살표는 스킵. */
+const STAGE_RAID_KEEP = new Set([STAGE_BG_NODE_ID, ...STAGE_TITLE_IDS, ...DIALOG_IDS]);
 
 // 타이밍/스핀.
 const STAGE_INTRO_MS = 800; // 스테이지1 화면을 먼저 보여주는 시간(요청: 스테이지 먼저)
@@ -116,11 +140,23 @@ export class Stage1Scene extends Phaser.Scene {
   private spinBtn?: Phaser.GameObjects.Image;
   private spinBtnBase = { sx: 1, sy: 1 };
   private dimScreen?: Phaser.GameObjects.Rectangle; // 룰렛 팝업 뒤 반투명 딤(스테이지 위·룰렛 아래)
+  private raidManagerImg?: Phaser.GameObjects.Image; // 레이드 결과 등장 매니저 캐릭터
+
+  // 공격 모드 전용: 슬롯별 레벨 오브젝트 + 배치 위치 + 타겟/별 오버레이.
+  private attackLevelObjs: (Phaser.GameObjects.Image | undefined)[][] = [];
+  private attackSlotCenters: { x: number; y: number }[] = []; // 오브젝트 중심(망치 타격 목표)
+  private attackArrowObjs: (Phaser.GameObjects.Image | undefined)[] = []; // 업그레이드 화살표 Image(위치+displayHeight SSOT)
+  private attackTargetIcons: Phaser.GameObjects.Image[] = [];
+  private attackStarRows: Phaser.GameObjects.Image[][] = [];
 
   private sfx!: Sfx;
   private coinBurst!: CoinBurst;
   private spinLoop: Phaser.Sound.BaseSound | null = null;
   private readonly rng = () => Math.random();
+
+  // 어텍 모드에서 사용할 스테이지 레이아웃 키/경로(임시 상대 스테이지에 따라 동적으로 결정).
+  private stageLayoutKey = STAGE_LAYOUT_KEY;
+  private stageLayoutPath = STAGE_LAYOUT_PATH;
 
   constructor() {
     super('stage1');
@@ -128,6 +164,7 @@ export class Stage1Scene extends Phaser.Scene {
 
   preload(): void {
     if (!this.cache.json.exists(STAGE_LAYOUT_KEY)) this.load.json(STAGE_LAYOUT_KEY, STAGE_LAYOUT_PATH);
+    if (!this.cache.json.exists(STAGE2_LAYOUT_KEY)) this.load.json(STAGE2_LAYOUT_KEY, STAGE2_LAYOUT_PATH);
     if (!this.cache.json.exists(ROULETTE_LAYOUT_KEY)) this.load.json(ROULETTE_LAYOUT_KEY, ROULETTE_LAYOUT_PATH);
   }
 
@@ -146,8 +183,20 @@ export class Stage1Scene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#000000');
     this.sfx = new Sfx(this);
     this.coinBurst = new CoinBurst(this, 500);
-    // 호텔 업그레이드 상태 로드 — 오브젝트를 현재 레벨로 표시(My Hotel 에서 올린 레벨이 레이드 화면에 반영).
-    this.hotelState = deserializeHotel(this.loadHotelRaw()) ?? createHotelState();
+    if (this.type === 'attack') {
+      // 임시 상대 호텔: 로비(Stage1) / 레스토랑(Stage2) 중 임의 선택 + 각 슬롯 랜덤 레벨(1~5).
+      // 실제 플레이어 공격 구현 시 여기서 실제 상대 데이터를 받아 쓴다.
+      const opponentStage = this.rng() < 0.5 ? 1 : 2;
+      const randomLevels = HOTEL_OBJECTS.map(() => Math.max(1, Math.ceil(this.rng() * 5)));
+      this.hotelState = { stage: opponentStage, levels: randomLevels };
+      this.stageLayoutKey = opponentStage === 2 ? STAGE2_LAYOUT_KEY : STAGE_LAYOUT_KEY;
+      this.stageLayoutPath = opponentStage === 2 ? STAGE2_LAYOUT_PATH : STAGE_LAYOUT_PATH;
+    } else {
+      // 레이드: 플레이어 자신의 호텔 상태 로드
+      this.hotelState = deserializeHotel(this.loadHotelRaw()) ?? createHotelState();
+      this.stageLayoutKey = STAGE_LAYOUT_KEY;
+      this.stageLayoutPath = STAGE_LAYOUT_PATH;
+    }
 
     this.loadImagesAndMount(data, true); // allowReload=true: 캐시에 레이아웃 없으면 1회 강제 재로드 후 재시도
   }
@@ -163,7 +212,7 @@ export class Stage1Scene extends Phaser.Scene {
    *   그래도 없을 때만 mountFallback → "STAGE 1 / TAP TO CONTINUE" 폴백이 환경 문제로 잘못 뜨는 것 방지.
    */
   private loadImagesAndMount(data: StageLaunchData, allowReload: boolean): void {
-    const stageDoc = this.cache.json.get(STAGE_LAYOUT_KEY) as LayoutDoc | undefined;
+    const stageDoc = this.cache.json.get(this.stageLayoutKey) as LayoutDoc | undefined;
     const rouletteDoc = this.cache.json.get(ROULETTE_LAYOUT_KEY) as LayoutDoc | undefined;
     if (!Stage1Scene.validDoc(stageDoc)) {
       if (allowReload) {
@@ -184,6 +233,27 @@ export class Stage1Scene extends Phaser.Scene {
         }
       }
     }
+    // ⭐카지노 배경 + 매니저 캐릭터 로드(레이드 전용).
+    if (this.type === 'raid') {
+      const casinoBg = casinoBgKey(currentStage(this.hotelState));
+      if (!this.textures.exists(casinoBg)) {
+        this.load.image(casinoBg, uploadPath(casinoBg));
+        queued++;
+      }
+      if (!this.textures.exists(RAID_MANAGER_KEY)) {
+        this.load.image(RAID_MANAGER_KEY, uploadPath(RAID_MANAGER_KEY));
+        queued++;
+      }
+    }
+    // ⭐공격 타겟/별 이미지 로드(공격 전용).
+    if (this.type === 'attack') {
+      for (const key of ['up_SC_UI_61_v3', 'up_SC_UI_59'] as const) {
+        if (!this.textures.exists(key)) {
+          this.load.image(key, uploadPath(key));
+          queued++;
+        }
+      }
+    }
     const startMount = (): void => void this.ensureFontsThenMount(stageDoc, rouletteDoc, data);
     if (queued > 0) {
       this.load.once(Phaser.Loader.Events.COMPLETE, startMount);
@@ -195,10 +265,10 @@ export class Stage1Scene extends Phaser.Scene {
 
   /** 레이아웃이 캐시에 없을 때 — 손상/빈 항목 제거 + **캐시버스트 재로드** 후 1회 재시도(allowReload=false 로 무한루프 방지). */
   private reloadLayoutsThenRetry(data: StageLaunchData): void {
-    this.cache.json.remove(STAGE_LAYOUT_KEY);
+    this.cache.json.remove(this.stageLayoutKey);
     this.cache.json.remove(ROULETTE_LAYOUT_KEY);
     const bust = `?reload=${Date.now()}`; // HTTP/엣지 캐시 우회(스테일 응답 회피)
-    this.load.json(STAGE_LAYOUT_KEY, STAGE_LAYOUT_PATH + bust);
+    this.load.json(this.stageLayoutKey, this.stageLayoutPath + bust);
     this.load.json(ROULETTE_LAYOUT_KEY, ROULETTE_LAYOUT_PATH + bust);
     this.load.once(Phaser.Loader.Events.COMPLETE, () => {
       if (this.scene.isActive()) this.loadImagesAndMount(data, false);
@@ -228,12 +298,8 @@ export class Stage1Scene extends Phaser.Scene {
     }
   }
 
-  /**
-   * ⭐호텔 오브젝트를 **현재 업그레이드 레벨**로 표시 — 디자이너가 blank_3 에 넣은 5개 레벨 노드 중 현재 레벨만 보이고
-   *   나머지 레벨 노드는 숨긴다. **업그레이드 화살표(up_SC_UI_57)는 전부 숨김**(레이드/공격 = 결과만, 버튼 없음).
-   */
   private applyHotelLevels(stageEntries: LayoutEntry[]): void {
-    const layouts = parseHotelLayout(stageEntries.map((e) => e.node));
+    const layouts = parseHotelLayout(stageEntries.map((e) => e.node), currentStage(this.hotelState));
     const byId = new Map<string, Phaser.GameObjects.GameObject>(stageEntries.map((e) => [e.node.id, e.obj]));
     layouts.forEach((sl, i) => {
       const level = objectLevel(this.hotelState, i);
@@ -258,11 +324,29 @@ export class Stage1Scene extends Phaser.Scene {
   /** 스테이지1 + 룰렛1 을 모두 렌더 → 분류 → (룰렛 숨김) → 스테이지 드러나면 흐름 시작. */
   private mount(stageDoc: LayoutDoc, rouletteDoc: LayoutDoc | undefined, data: StageLaunchData): void {
     // ① 스테이지1 화면 렌더.
-    const stageIndex = buildLayout(this, stageDoc);
-    const stageEntries = stageIndex.entries();
-    this.scaleEntries(stageEntries, stageDoc);
-    this.applyHotelLevels(stageEntries); // ⭐오브젝트를 현재 업그레이드 레벨 텍스처로 스왑(버튼 없음 = 결과만)
-    this.titleBarObjs = stageEntries.filter((e) => STAGE_TITLE_IDS.has(e.node.id)).map((e) => e.obj);
+    let stageEntries: LayoutEntry[];
+    if (this.type === 'raid') {
+      // 레이드: 카지노 배경 + 결과 다이얼로그만 생성, 호텔 오브젝트·타이틀·화살표 스킵.
+      const stageIndex = buildLayout(this, stageDoc, { skip: (n) => !STAGE_RAID_KEEP.has(n.id) });
+      stageEntries = stageIndex.entries();
+      this.scaleEntries(stageEntries, stageDoc);
+      // 배경을 카지노 이미지로 교체(스테이지 레벨별).
+      const bgKey = casinoBgKey(currentStage(this.hotelState));
+      const bgEntry = stageEntries.find((e) => e.node.id === STAGE_BG_NODE_ID);
+      const bgObj = bgEntry?.obj as Phaser.GameObjects.Image | undefined;
+      if (bgObj && this.textures.exists(bgKey)) {
+        bgObj.setTexture(bgKey).setDisplaySize(DESIGN_W, DESIGN_H).setOrigin(0.5, 0.5);
+      }
+      this.titleBarObjs = stageEntries.filter((e) => STAGE_TITLE_IDS.has(e.node.id)).map((e) => e.obj);
+    } else {
+      // 어텍: 호텔 오브젝트 전체 렌더, 현재 레벨 표시.
+      const stageIndex = buildLayout(this, stageDoc);
+      stageEntries = stageIndex.entries();
+      this.scaleEntries(stageEntries, stageDoc);
+      this.applyHotelLevels(stageEntries);
+      this.titleBarObjs = stageEntries.filter((e) => STAGE_TITLE_IDS.has(e.node.id)).map((e) => e.obj);
+      this.buildAttackSlots(stageEntries); // 공격 타겟 배치용 슬롯 데이터 수집
+    }
     this.dialogEntries = stageEntries.filter((e) => DIALOG_IDS.has(e.node.id));
     const msgEntry = stageEntries.find((e) => e.node.id === MESSAGE_ID);
     this.messageText = msgEntry?.obj as Phaser.GameObjects.Text | undefined;
@@ -283,8 +367,8 @@ export class Stage1Scene extends Phaser.Scene {
     // 다이얼로그 박스는 결과용 → 초기 숨김(레이아웃은 visible:true 라 명시적으로 끈다).
     for (const e of this.dialogEntries) e.obj.setVisible(false);
 
-    // ② 룰렛1 화면 렌더(스테이지 위 depth 오프셋, 초기 숨김).
-    if (rouletteDoc && Array.isArray(rouletteDoc.nodes) && rouletteDoc.nodes.length > 0) {
+    // ② 룰렛1 화면 렌더(스테이지 위 depth 오프셋, 초기 숨김). 공격 모드는 룰렛 없음.
+    if (this.type !== 'attack' && rouletteDoc && Array.isArray(rouletteDoc.nodes) && rouletteDoc.nodes.length > 0) {
       const rIndex = buildLayout(this, rouletteDoc);
       const rEntries = rIndex.entries();
       this.scaleEntries(rEntries, rouletteDoc);
@@ -346,15 +430,20 @@ export class Stage1Scene extends Phaser.Scene {
     this.wheelGroup = cont;
   }
 
-  /** 스테이지1 화면을 먼저 보여준 뒤 → 타이틀바 숨김 → 룰렛 등장(요청: 스테이지 먼저, 타이틀바/다이얼로그 지우고 룰렛). */
+  /** 스테이지1 화면을 먼저 보여준 뒤 → 공격 타겟 배치 OR 룰렛 등장. */
   private beginStage(): void {
     if (this.started) return;
     this.started = true;
-    // ⭐카메라 전진 진입 연출(요청 2026-06-29) — 스테이지가 드러나는 순간 장면을 미세 줌인(호텔 빌드와 동일).
-    //   리본 타이틀·다이얼로그·룰렛은 제외되어 UI 위치 고정.
     cameraEnterZoom(this, this.stageContentObjs, { centerX: DESIGN_W / 2, centerY: DESIGN_H / 2 });
+    if (this.type === 'attack') {
+      // 공격: 룰렛 없음 — 타겟 아이콘·별 표시.
+      this.afterDelay(STAGE_INTRO_MS, () => this.mountAttackTargets());
+      return;
+    }
     this.afterDelay(STAGE_INTRO_MS, () => {
       this.hideTitleBar();
+      // 레이드 전용: HammerFxScene 아이콘 페이드아웃 트리거 → 룰렛 등장 직전까지 아이콘 표시 후 소멸.
+      this.game.events.emit(ROULETTE_INCOMING_EVENT);
       this.afterDelay(ROULETTE_APPEAR_MS, () => this.showRoulette());
     });
   }
@@ -364,6 +453,221 @@ export class Stage1Scene extends Phaser.Scene {
     for (const o of this.titleBarObjs) {
       this.tweens.add({ targets: o, alpha: 0, duration: 280, onComplete: () => (o as unknown as { setVisible: (v: boolean) => void }).setVisible(false) });
     }
+  }
+
+  // ── 공격 모드 전용 ──
+
+  /** 스테이지 레이아웃 엔트리에서 슬롯별 레벨 오브젝트 + 중심 + 화살표 Image 를 수집. */
+  private buildAttackSlots(entries: LayoutEntry[]): void {
+    const layouts = parseHotelLayout(entries.map((e) => e.node), currentStage(this.hotelState));
+    const byId = new Map<string, Phaser.GameObjects.GameObject>(entries.map((e) => [e.node.id, e.obj]));
+    this.attackLevelObjs = [];
+    this.attackSlotCenters = [];
+    this.attackArrowObjs = [];
+    for (let i = 0; i < layouts.length; i++) {
+      const sl = layouts[i];
+      const level = objectLevel(this.hotelState, i);
+      const levelObjs = sl.levelNodeIds.map((id) => (id ? byId.get(id) : undefined) as Phaser.GameObjects.Image | undefined);
+      this.attackLevelObjs.push(levelObjs);
+      const curObj = levelObjs[level - 1];
+      const cx = curObj?.x ?? DESIGN_W / 2;
+      const cy = curObj?.y ?? 300 + i * 420;
+      this.attackSlotCenters.push({ x: cx, y: cy });
+      const arrowImg = (sl.arrowNodeId ? byId.get(sl.arrowNodeId) : undefined) as Phaser.GameObjects.Image | undefined;
+      this.attackArrowObjs.push(arrowImg);
+    }
+  }
+
+  /** 각 호텔 오브젝트에 타겟 아이콘(SC_UI_61) + 별(SC_UI_59) 배치 — HotelScene refreshSlot 과 동일한 위치/크기 공식. */
+  private mountAttackTargets(): void {
+    this.attackTargetIcons = [];
+    this.attackStarRows = [];
+    const TARGET_SIZE = 96;
+
+    for (let i = 0; i < this.attackArrowObjs.length; i++) {
+      const arrow = this.attackArrowObjs[i];
+      const level = objectLevel(this.hotelState, i);
+      const ax = arrow?.x ?? (this.attackSlotCenters[i]?.x ?? DESIGN_W / 2);
+      const ay = arrow?.y ?? (this.attackSlotCenters[i]?.y ?? DESIGN_H / 2);
+
+      // ① 타겟 아이콘: 업그레이드 화살표 정확한 위치 — 원본 비율 유지, 화살표 높이에 맞게 비례 축소
+      if (this.textures.exists('up_SC_UI_61_v3')) {
+        const icon = this.add
+          .image(ax, ay, 'up_SC_UI_61_v3')
+          .setDepth(50)
+          .setAlpha(0)
+          .setInteractive({ useHandCursor: true });
+        const iconTargetH = arrow?.displayHeight ?? TARGET_SIZE;
+        icon.setScale(iconTargetH / Math.max(icon.height, 1));
+        this.tweens.add({ targets: icon, alpha: 1, duration: 300, delay: i * 60, ease: 'Quad.easeOut' });
+        icon.once('pointerdown', () => this.onTargetHit(i));
+        this.attackTargetIcons.push(icon);
+      }
+
+      // ② 별 — HotelScene refreshSlot 공식(arrowBot 기준, 레벨별 크기)
+      const filled = Math.min(level, 5);
+      const starPx = ([60, 54, 48, 42, 36] as const)[filled - 1] ?? 36;
+      const gap = 5;
+      const totalW = filled * starPx + Math.max(0, filled - 1) * gap;
+      const arrowDispH = arrow?.displayHeight ?? TARGET_SIZE;
+      const arrowBot = ay + arrowDispH * 0.5;
+      const startX = ax - totalW / 2 + starPx / 2;
+      const starCY = arrowBot + 12 + starPx / 2;
+      const stars: Phaser.GameObjects.Image[] = [];
+      for (let k = 0; k < filled; k++) {
+        const sx = startX + k * (starPx + gap);
+        const star = this.add
+          .image(sx, starCY, 'up_SC_UI_59')
+          .setDisplaySize(starPx, starPx)
+          .setDepth(51)
+          .setAlpha(0);
+        this.tweens.add({ targets: star, alpha: 1, duration: 280, delay: i * 60 + k * 40 });
+        stars.push(star);
+      }
+      this.attackStarRows.push(stars);
+    }
+  }
+
+  /** 타겟 탭됨 — 모든 타겟 비활성화 → ATTACK_SWING_EVENT 발행(망치 스윙) → 임팩트 콜백 → executeDowngrade. */
+  private onTargetHit(slotIndex: number): void {
+    for (const icon of this.attackTargetIcons) {
+      icon.disableInteractive();
+      this.tweens.add({ targets: icon, alpha: 0, duration: 200 });
+    }
+    // 망치 스윙 완료 시 다운그레이드 실행
+    const { x: tx, y: ty } = this.attackSlotCenters[slotIndex];
+    this.game.events.once(ATTACK_SWING_DONE_EVENT, () => this.executeDowngrade(slotIndex));
+    this.game.events.emit(ATTACK_SWING_EVENT, tx, ty);
+  }
+
+  /** 오브젝트를 좌우로 흔드는 연출. */
+  private shakeObj(obj: Phaser.GameObjects.Image): void {
+    const ox = obj.x;
+    this.tweens.add({
+      targets: obj,
+      x: ox + 10,
+      duration: 60,
+      yoyo: true,
+      repeat: 2,
+      ease: 'Sine.easeInOut',
+      onComplete: () => obj.setX(ox),
+    });
+  }
+
+  /** 다운그레이드 실행 — 임팩트 이펙트 → 별 사라짐 → 이미지 전환 + 흔들림 → 결과 다이얼로그. */
+  private executeDowngrade(slotIndex: number): void {
+    const prevLevel = objectLevel(this.hotelState, slotIndex);
+    const newState = downgradeObject(this.hotelState, slotIndex);
+    this.hotelState = newState;
+    try {
+      // 어텍 모드의 호텔 상태는 임시 상대 데이터 — 로컬에 저장하지 않는다.
+      if (this.type !== 'attack' && typeof localStorage !== 'undefined') localStorage.setItem(HOTEL_SAVE_KEY, serializeHotel(newState));
+    } catch { /* ignore */ }
+    const newLevel = objectLevel(newState, slotIndex);
+
+    // 오브젝트별 공격 효과음(슬롯 인덱스 0~4 → 각기 다른 사운드)
+    const OBJ_SFX: SfxKey[] = ['attackObject0', 'attackObject1', 'attackObject2', 'attackObject3', 'attackObject4'];
+    const hitSfx = OBJ_SFX[slotIndex];
+    if (hitSfx) this.sfx.play(hitSfx, 0.85);
+
+    const prevObj = this.attackLevelObjs[slotIndex]?.[prevLevel - 1];
+    if (prevObj) {
+      // 빨간 틴트 플래시
+      prevObj.setTint(0xff6644);
+      this.time.delayedCall(240, () => (this.attackLevelObjs[slotIndex]?.[prevLevel - 1] as Phaser.GameObjects.Image | undefined)?.clearTint());
+      // 카메라 플래시(쿵 연출)
+      this.cameras.main.flash(70, 255, 220, 100);
+      // 임팩트 링 — 오브젝트 위치에서 확산
+      const ring = this.add.graphics().setDepth(60);
+      ring.lineStyle(7, 0xffcc33, 1);
+      ring.strokeCircle(prevObj.x, prevObj.y, 28);
+      this.tweens.add({ targets: ring, scaleX: 4, scaleY: 4, alpha: 0, duration: 400, ease: 'Quad.easeOut', onComplete: () => ring.destroy() });
+      // 임팩트 스파크 6방향
+      for (let s = 0; s < 6; s++) {
+        const angle = (s / 6) * Math.PI * 2;
+        const spark = this.add.graphics().setDepth(60);
+        spark.fillStyle(0xffee44, 1);
+        spark.fillCircle(0, 0, 6);
+        spark.setPosition(prevObj.x, prevObj.y);
+        this.tweens.add({ targets: spark, x: prevObj.x + Math.cos(angle) * 80, y: prevObj.y + Math.sin(angle) * 80, alpha: 0, scaleX: 0.2, scaleY: 0.2, duration: 400, ease: 'Quad.easeOut', onComplete: () => spark.destroy() });
+      }
+    }
+
+    // 별 하나 커졌다가 사라짐 → 이미지 교체 + 다운그레이드된 오브젝트 흔들림
+    this.flyStarAway(slotIndex, () => {
+      if (prevObj) prevObj.setVisible(false);
+      const nextObj = this.attackLevelObjs[slotIndex]?.[newLevel - 1];
+      if (nextObj) {
+        nextObj.setAlpha(0);
+        nextObj.setVisible(true);
+        this.tweens.add({ targets: nextObj, alpha: 1, duration: 280 });
+        this.shakeObj(nextObj);
+      }
+      this.redrawStars(slotIndex, newLevel);
+      this.afterDelay(500, () => this.showAttackResult(slotIndex, newLevel));
+    });
+  }
+
+  /** 마지막 별이 커졌다가 사라지는 연출 → 나머지 별 제거 → 콜백. */
+  private flyStarAway(slotIndex: number, onComplete: () => void): void {
+    const stars = this.attackStarRows[slotIndex];
+    if (!stars || stars.length === 0) { onComplete(); return; }
+    this.sfx.play('attackStar', 0.8);
+    const last = stars[stars.length - 1];
+    this.tweens.add({
+      targets: last,
+      scaleX: 2.8,
+      scaleY: 2.8,
+      alpha: 0,
+      duration: 400,
+      ease: 'Quad.easeOut',
+      onComplete: () => {
+        for (const s of stars) { if (s.active) s.destroy(); }
+        this.attackStarRows[slotIndex] = [];
+        onComplete();
+      },
+    });
+  }
+
+  /** 슬롯의 별을 새 레벨 수로 다시 그린다 — HotelScene refreshSlot 과 동일한 공식. */
+  private redrawStars(slotIndex: number, level: number): void {
+    for (const s of this.attackStarRows[slotIndex] ?? []) { if (s.active) s.destroy(); }
+    const arrow = this.attackArrowObjs[slotIndex];
+    const ax = arrow?.x ?? (this.attackSlotCenters[slotIndex]?.x ?? DESIGN_W / 2);
+    const ay = arrow?.y ?? (this.attackSlotCenters[slotIndex]?.y ?? DESIGN_H / 2);
+    const arrowDispH = arrow?.displayHeight ?? 96;
+    const filled = Math.min(level, 5);
+    const starPx = ([60, 54, 48, 42, 36] as const)[filled - 1] ?? 36;
+    const gap = 5;
+    const totalW = filled * starPx + Math.max(0, filled - 1) * gap;
+    const arrowBot = ay + arrowDispH * 0.5;
+    const startX = ax - totalW / 2 + starPx / 2;
+    const starCY = arrowBot + 12 + starPx / 2;
+    const newStars: Phaser.GameObjects.Image[] = [];
+    for (let k = 0; k < filled; k++) {
+      const sx = startX + k * (starPx + gap);
+      const s = this.add.image(sx, starCY, 'up_SC_UI_59').setDisplaySize(starPx, starPx).setDepth(51).setAlpha(0);
+      this.tweens.add({ targets: s, alpha: 1, duration: 250 });
+      newStars.push(s);
+    }
+    this.attackStarRows[slotIndex] = newStars;
+  }
+
+  /** 공격 결과 다이얼로그 표시. */
+  private showAttackResult(slotIndex: number, newLevel: number): void {
+    this.sfx.play('attackSuccess', 0.8);
+    const objName = HOTEL_OBJECTS[slotIndex]?.name ?? 'Object';
+    this.messageText?.setText(`${objName} downgraded to Level ${newLevel}!`);
+    this.showTitleBar();
+    this.afterDelay(220, () => {
+      for (const e of this.dialogEntries) {
+        const o = e.obj as unknown as { setVisible: (v: boolean) => void; setAlpha: (a: number) => void };
+        o.setVisible(true);
+        o.setAlpha(0);
+        this.tweens.add({ targets: e.obj, alpha: 1, duration: 320, ease: 'Quad.easeOut' });
+      }
+      for (const btn of this.okButtons) this.wireClose(btn);
+    });
   }
 
   /** ⭐상단 리본 타이틀바 페이드인(복귀) — 결과 다이얼로그와 함께 표시(요청: 결과 시 타이틀이 사라지지 않게). */
@@ -500,11 +804,31 @@ export class Stage1Scene extends Phaser.Scene {
     // ⭐룰렛 팝업 닫힘 — 뒤 딤 스크린 제거(스테이지 밝아짐) + 상단 리본 타이틀 복귀(요청: 결과 다이얼로그 시 타이틀 표시).
     if (this.dimScreen) this.tweens.add({ targets: this.dimScreen, alpha: 0, duration: 300, onComplete: () => this.dimScreen?.setVisible(false) });
     this.showTitleBar();
+    // ⭐레이드 결과: 매니저 캐릭터를 화면 중앙에 페이드+스케일인으로 등장.
+    if (this.type === 'raid' && this.textures.exists(RAID_MANAGER_KEY)) {
+      if (this.raidManagerImg) { this.raidManagerImg.destroy(); }
+      const mgr = this.add
+        .image(DESIGN_W / 2, DESIGN_H - 500, RAID_MANAGER_KEY)
+        .setOrigin(0.5, 1.0)
+        .setDepth(2)
+        .setAlpha(0)
+        .setScale(0.85);
+      this.raidManagerImg = mgr;
+      this.tweens.add({
+        targets: mgr,
+        alpha: 1,
+        scaleX: 1,
+        scaleY: 1,
+        duration: 450,
+        ease: 'Back.easeOut',
+      });
+    }
     for (const t of this.rouletteFadeTargets) {
       this.tweens.add({ targets: t, alpha: 0, duration: 300, onComplete: () => (t as unknown as { setVisible: (v: boolean) => void }).setVisible(false) });
     }
     const amt = Math.round(win).toLocaleString('en-US');
-    const base = this.type === 'attack' ? `You attacked for ${amt} coins!` : `You stole ${amt} coins!`;
+    // ⭐어택 = 스핀 보상, 레이드 = 코인 보상(요청 2026-07-01) → 결과 문구의 통화도 분기.
+    const base = this.type === 'attack' ? `You attacked for ${amt} spins!` : `You stole ${amt} coins!`;
     this.messageText?.setText(this.lastSeg?.isSuper ? `🎉 SUPER BONUS! ${base}` : base);
     // 룰렛이 거의 사라진 뒤 다이얼로그 등장(겹침 최소화).
     this.afterDelay(220, () => {
@@ -570,8 +894,19 @@ export class Stage1Scene extends Phaser.Scene {
     this.done = true;
     // ⭐핸드오프(복귀)를 가장 먼저 — 이후 사운드 정리에서 예외가 나도 복귀가 막히지 않게. RESUME/레지스트리 의존 제거.
     try {
-      const play = this.game.scene.getScene(this.resumeKey) as unknown as { awardRaidWin?: (n: number) => void; returnFromStage?: () => void } | null;
-      play?.awardRaidWin?.(Math.round(this.lastWin));
+      const play = this.game.scene.getScene(this.resumeKey) as unknown as {
+        awardRaidWin?: (n: number) => void;
+        awardAttackSpins?: (n: number) => void;
+        returnFromStage?: () => void;
+      } | null;
+      // 어택: ATTACK_DONE_EVENT → HammerFxScene 망치 페이드아웃. 코인/스핀 보상 없음(다운그레이드가 효과).
+      // 레이드: 룰렛 당첨 코인 가산.
+      if (this.type === 'attack') {
+        this.game.events.emit(ATTACK_DONE_EVENT);
+        play?.awardAttackSpins?.(0);
+      } else {
+        play?.awardRaidWin?.(Math.round(this.lastWin));
+      }
       play?.returnFromStage?.();
     } catch (e) {
       if (import.meta.env.DEV) console.warn('[stage1] finish handoff failed', e);

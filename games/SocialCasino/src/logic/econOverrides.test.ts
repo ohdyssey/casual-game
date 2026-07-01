@@ -4,12 +4,13 @@ import {
   resetOverrides,
   slotRtpScaleNow,
   raidStakeScaleNow,
+  attackSpinStakeScaleNow,
   segmentsNow,
   missionsNow,
   luckTableNow,
 } from './econOverrides.js';
 import { SLOT_RTP_SCALE, LUCK_TABLE } from './economy.js';
-import { RAID_STAKE_SCALE } from './playParams.js';
+import { RAID_STAKE_SCALE, ATTACK_SPIN_STAKE_SCALE } from './playParams.js';
 
 // node 환경 localStorage 스텁.
 beforeEach(() => {
@@ -29,13 +30,22 @@ describe('econOverrides — 라이브 보상 오버라이드', () => {
   it('오버라이드 없으면 SSOT 기본값', () => {
     expect(slotRtpScaleNow()).toBe(SLOT_RTP_SCALE);
     expect(raidStakeScaleNow()).toBe(RAID_STAKE_SCALE);
+    expect(attackSpinStakeScaleNow()).toBe(ATTACK_SPIN_STAKE_SCALE);
     expect(luckTableNow().map((t) => t.m)).toEqual(LUCK_TABLE.map((t) => t.m));
   });
 
-  it('slotRtpScale / raidStakeScale 오버라이드 반영', () => {
-    saveOverrides({ slotRtpScale: 0.5, raidStakeScale: 4 });
+  it('slotRtpScale / raidStakeScale / attackSpinStakeScale 오버라이드 반영', () => {
+    saveOverrides({ slotRtpScale: 0.5, raidStakeScale: 4, attackSpinStakeScale: 1.5 });
     expect(slotRtpScaleNow()).toBe(0.5);
     expect(raidStakeScaleNow()).toBe(4);
+    expect(attackSpinStakeScaleNow()).toBe(1.5);
+  });
+
+  it('attackSpinStakeScale 잘못된 값(음수·NaN) 방어 → SSOT 폴백', () => {
+    saveOverrides({ attackSpinStakeScale: -2 });
+    expect(attackSpinStakeScaleNow()).toBe(ATTACK_SPIN_STAKE_SCALE);
+    saveOverrides({ attackSpinStakeScale: Number.NaN });
+    expect(attackSpinStakeScaleNow()).toBe(ATTACK_SPIN_STAKE_SCALE);
   });
 
   it('럭 배수 오버라이드(확률 p 는 고정)', () => {

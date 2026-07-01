@@ -226,6 +226,15 @@ export function upgradeObject(state: HotelState, index: number): HotelState {
   return { stage: state.stage, levels }; // ⭐stage 보존(멀티스테이지 — 업그레이드는 같은 도시 내)
 }
 
+/** 오브젝트 1레벨 다운(불변). 최솟값 1. */
+export function downgradeObject(state: HotelState, objectIndex: number): HotelState {
+  const cur = objectLevel(state, objectIndex);
+  if (cur <= 1) return state;
+  const levels = state.levels.slice();
+  levels[objectIndex] = cur - 1;
+  return { stage: state.stage, levels };
+}
+
 /** 전 오브젝트 레벨 합. */
 export function totalLevel(state: HotelState): number {
   return HOTEL_OBJECTS.reduce((s, _o, i) => s + objectLevel(state, i), 0);
@@ -268,6 +277,38 @@ export function deserializeHotel(json: string | null | undefined): HotelState | 
   } catch {
     return null;
   }
+}
+
+// ── 시설 이름·설치 비용 ──
+
+/** 스테이지(1-based) → 시설 이름. 인덱스 0=Lobby(스테이지1) … Arcade(스테이지9). */
+export const FACILITY_NAMES: readonly string[] = [
+  'Lobby', 'Restaurant', 'Guest Rooms', 'Casino Hall',
+  'VIP Lounge', 'Cocktail Bar', 'Poolside', 'Spa Center', 'Arcade',
+];
+
+/** 스테이지 완성 후 다음 시설 설치에 필요한 코인 비용.
+ *  인덱스 = 완성 스테이지(1-based). [0]=미사용·[1]=Restaurant 설치(스테이지1 완성 후)·… */
+export const FACILITY_INSTALL_COSTS: readonly number[] = [
+  0,              // [0] 미사용
+  2_000_000,      // [1] Restaurant
+  5_000_000,      // [2] Guest Rooms
+  12_000_000,     // [3] Casino Hall
+  30_000_000,     // [4] VIP Lounge
+  80_000_000,     // [5] Cocktail Bar
+  200_000_000,    // [6] Poolside
+  500_000_000,    // [7] Spa Center
+  1_200_000_000,  // [8] Arcade
+];
+
+/** 완성 스테이지(1-based) → 다음 시설 설치 코인 비용. 마지막 스테이지 이후면 0. */
+export function facilityInstallCost(completedStage: number): number {
+  return FACILITY_INSTALL_COSTS[Math.max(0, Math.floor(completedStage))] ?? 0;
+}
+
+/** 완성 스테이지(1-based) → 다음 시설 이름. 없으면 null(마지막 스테이지 이후). */
+export function nextFacilityName(completedStage: number): string | null {
+  return FACILITY_NAMES[Math.floor(completedStage)] ?? null;
 }
 
 /** localStorage 영속 키. ⚠️v7(2026-06-30)=**1레벨 재설정**(요청 — 구 v6 폐기). 스테이지/레벨 전부 초기(Stage1·Lv1)로 시작.

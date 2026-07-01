@@ -42,6 +42,8 @@ import {
   isLastStage,
   advanceStage,
   stageReward,
+  facilityInstallCost,
+  nextFacilityName,
   type StageReward,
 } from '../logic/hotelUpgrade.js';
 import { addSpins, loadSpins } from '../logic/playerState.js';
@@ -67,12 +69,23 @@ const RP = {
   spinVal: 'layer_2_copy8', // "#100"
   gemVal: 'layer_2_copy9', // "#100"
 } as const;
+/** ⭐시설 설치 확인 팝업(디자이너 에디터 "NEW FACILITY" = blank_5_copy_copy.json).
+ *  스테이지 완성 시 다음 시설 이름·설치 비용을 보여주고 OK/CANCEL 로 진행 여부를 결정. */
+const INSTALL_POPUP_KEY = 'facility_install_popup';
+const INSTALL_POPUP_PATH = 'ui/layouts/blank_5_copy_copy.json';
+/** 설치 팝업 노드 id(blank_5_copy_copy.json 매핑). */
+const FP = {
+  facilityName: 'layer_2_copy3', // "Restaurant?" → 다음 시설명
+  costVal: 'layer_2_copy8',      // "$#2M" → 실제 설치 비용
+  cancelBtn: 'layer_4',          // CANCEL 버튼 배경
+  okBtn: 'layer_4_copy',         // OK 버튼 배경
+} as const;
 /** 배경 노드 id(blank_3). */
 const BG_NODE_ID = 'layer_1';
 /** 네비게이션 버튼 텍스처(blank_3_copy2). */
 const NAV_BTN_KEY = 'up_SC_UI_35_v5';
-/** 업그레이드 화살표 반투명도(요청: 50%). */
-const ARROW_ALPHA = 0.5;
+/** 업그레이드 화살표 반투명도(약간 반투명). */
+const ARROW_ALPHA = 0.75;
 /** 내비 버튼 텍스트 색 — **현재 스테이지 구역만 노랑 강조**, 기타 구역은 기본 주황(blank_3_copy2 디자이너 팔레트). Main 은 원색 유지. */
 const NAV_SELECTED_COLOR = '#ffc800';
 const NAV_DEFAULT_COLOR = '#ab4317';
@@ -89,12 +102,12 @@ export class HotelScene extends Phaser.Scene {
   private header?: HudHeader;
   private leaving = false;
   private stageLayoutKey = 'hotel_stage1'; // ⭐현재 스테이지 레이아웃 캐시 키(preload 에서 호텔 상태로 결정)
-  /** 슬롯별 뷰 — 레벨1~5 노드 + 화살표 + 비용. */
+  /** 슬롯별 뷰 — 레벨1~5 노드 + 화살표 + 별 이미지 배열(SC_UI_59, 레벨 수만큼). */
   private views: Array<{
     index: number;
     levelObjs: Array<Phaser.GameObjects.GameObject | undefined>;
     arrow?: Phaser.GameObjects.Image;
-    cost?: Phaser.GameObjects.Text;
+    stars?: Phaser.GameObjects.Image[];  // ⭐SC_UI_59 별 이미지, 최대 5개, 레벨만큼만 표시
   }> = [];
 
   constructor() {
@@ -109,6 +122,7 @@ export class HotelScene extends Phaser.Scene {
     if (!this.cache.json.exists(def.layoutKey)) this.load.json(def.layoutKey, def.layoutPath);
     if (!this.cache.json.exists(NAV_LAYOUT_KEY)) this.load.json(NAV_LAYOUT_KEY, NAV_LAYOUT_PATH);
     if (!this.cache.json.exists(REWARD_POPUP_KEY)) this.load.json(REWARD_POPUP_KEY, REWARD_POPUP_PATH); // 보상 팝업(공용)
+    if (!this.cache.json.exists(INSTALL_POPUP_KEY)) this.load.json(INSTALL_POPUP_KEY, INSTALL_POPUP_PATH); // 시설 설치 확인 팝업
   }
 
   create(): void {
@@ -127,10 +141,13 @@ export class HotelScene extends Phaser.Scene {
     }
     // 레이아웃 이미지 적재(누락분만) — 스테이지 + 네비 + 보상 팝업 아트/아이콘.
     const reward = this.cache.json.get(REWARD_POPUP_KEY) as LayoutDoc | undefined;
+    const installDoc = this.cache.json.get(INSTALL_POPUP_KEY) as LayoutDoc | undefined;
     const need = new Set<string>();
     for (const n of stage.nodes) if (n.type === 'image' && n.key) need.add(n.key);
     if (nav) for (const n of nav.nodes) if (n.type === 'image' && n.key) need.add(n.key);
     if (reward) for (const n of reward.nodes) if (n.type === 'image' && n.key) need.add(n.key);
+    if (installDoc) for (const n of installDoc.nodes) if (n.type === 'image' && n.key) need.add(n.key);
+    need.add('up_SC_UI_59'); // ⭐별 이미지(SC_UI_59)
     let queued = 0;
     for (const key of need) {
       if (!this.textures.exists(key)) {
@@ -198,17 +215,16 @@ export class HotelScene extends Phaser.Scene {
       const sl = slots[i];
       const levelObjs = sl.levelNodeIds.map((id) => (id ? byId.get(id) : undefined));
       const arrow = sl.arrowNodeId ? (byId.get(sl.arrowNodeId) as Phaser.GameObjects.Image | undefined) : undefined;
-      let cost: Phaser.GameObjects.Text | undefined;
+      let stars: Phaser.GameObjects.Image[] | undefined;
       if (arrow) {
-        arrow.setAlpha(ARROW_ALPHA).setDepth(60).setInteractive({ useHandCursor: true }); // ⭐반투명 50%
+        arrow.setAlpha(ARROW_ALPHA).setDepth(60).setInteractive({ useHandCursor: true });
         arrow.on('pointerdown', () => this.tryUpgrade(i));
-        cost = this.add
-          .text(arrow.x, arrow.y + arrow.displayHeight * 0.5 + 16, '', { fontFamily: COST_FONT, fontSize: '30px', color: '#ffffff', stroke: '#10325f', strokeThickness: 5 })
-          .setOrigin(0.5)
-          .setDepth(61)
-          .setAlpha(ARROW_ALPHA);
+        // ⭐별 이미지(SC_UI_59) 최대 5개 미리 생성 — refreshSlot 이 위치·크기·표시 수 갱신
+        stars = Array.from({ length: 5 }, () =>
+          this.add.image(arrow.x, arrow.y, 'up_SC_UI_59').setOrigin(0.5).setDepth(62).setVisible(false),
+        );
       }
-      this.views.push({ index: i, levelObjs, arrow, cost });
+      this.views.push({ index: i, levelObjs, arrow, stars });
       this.refreshSlot(i);
     });
 
@@ -222,7 +238,7 @@ export class HotelScene extends Phaser.Scene {
     const isTitle = (e: LayoutEntry): boolean => e.node.key === 'up_Stage_Banner' || (e.node.key ?? '').startsWith('layer_4__ti');
     const content: Array<Phaser.GameObjects.GameObject | undefined> = [
       ...entries.filter((e) => !isTitle(e)).map((e) => e.obj),
-      ...this.views.map((v) => v.cost),
+      ...this.views.flatMap((v) => v.stars ?? []),
     ];
     cameraEnterZoom(this, content, { centerX: DESIGN_W / 2, centerY: DESIGN_H / 2 });
 
@@ -236,15 +252,37 @@ export class HotelScene extends Phaser.Scene {
     }
   }
 
-  /** 슬롯의 현재 레벨 노드만 표시 + 화살표/비용 상태 갱신(최대면 MAX·더 흐림). */
+  /** 슬롯의 현재 레벨 노드만 표시 + 별 이미지·화살표 상태 갱신(최대면 더 흐림). */
   private refreshSlot(index: number): void {
     const v = this.views[index];
     if (!v) return;
     const level = objectLevel(this.hotel, index);
     v.levelObjs.forEach((obj, idx) => (obj as GO | undefined)?.setVisible(idx + 1 === level));
-    const cost = nextCostFor(this.hotel, index);
-    const maxed = cost == null;
-    if (v.cost) v.cost.setText(maxed ? 'MAX' : formatCompact(cost));
+    const nextCost = nextCostFor(this.hotel, index);
+    const maxed = nextCost == null;
+
+    // ⭐별 이미지(SC_UI_59) — 레벨 수만큼만 표시, 적을수록 크게
+    if (v.stars && v.arrow) {
+      const filled = Math.min(level, 5);
+      // 에디터 별 참조(39px design=58px display), 화살표(91px display)보다 작게
+      // 1개=60 / 2개=54 / 3개=48 / 4개=42 / 5개=36 px
+      const starPx = ([60, 54, 48, 42, 36] as const)[filled - 1] ?? 36;
+      const gap = 5;
+      const totalW = filled * starPx + Math.max(0, filled - 1) * gap;
+      const arrowBot = v.arrow.y + v.arrow.displayHeight * 0.5;
+      const startX = v.arrow.x - totalW / 2 + starPx / 2;
+      const starCY = arrowBot + 12 + starPx / 2;
+      for (let s = 0; s < v.stars.length; s++) {
+        const img = v.stars[s];
+        if (s < filled) {
+          img.setVisible(true).setDisplaySize(starPx, starPx).setPosition(startX + s * (starPx + gap), starCY);
+          img.setAlpha(1);
+        } else {
+          img.setVisible(false);
+        }
+      }
+    }
+
     if (v.arrow) {
       v.arrow.setAlpha(maxed ? ARROW_ALPHA * 0.5 : ARROW_ALPHA);
       if (maxed) v.arrow.disableInteractive();
@@ -298,25 +336,44 @@ export class HotelScene extends Phaser.Scene {
     if (isStageComplete(this.hotel)) this.time.delayedCall(750, () => this.onStageComplete());
   }
 
-  /** ⭐스테이지 완성 — 임시 축하 팝업 → '다음 스테이지' 누르면 보상 지급 + 다음 스테이지(또는 전부 완성 안내). */
+  /** ⭐스테이지 완성 — 마지막 스테이지면 기존 보상 팝업, 아니면 NEW FACILITY 설치 확인 팝업으로 분기. */
   private onStageComplete(): void {
     if (this.leaving) return;
     const completed = currentStage(this.hotel);
     const last = isLastStage(this.hotel);
     const reward = stageReward(completed);
-    this.showStageCompletePopup(completed, reward, last, () => {
-      // 보상 지급(코인 + 스핀 + 젬).
+
+    if (last) {
+      // 마지막 스테이지 완성 — 기존 보상 팝업(다음 단계 없음).
+      this.showStageCompletePopup(completed, reward, true, () => {
+        this.coins += reward.coins;
+        saveCoins(this.coins);
+        if (reward.spins > 0) addSpins(reward.spins);
+        if (reward.gems > 0) addGems(reward.gems);
+        this.header?.setCoins(this.coins);
+        this.header?.setSpins(loadSpins());
+        showToast(this, '모든 스테이지 완성! 🎉', { color: '#ffe27a' });
+      });
+      return;
+    }
+
+    // 다음 시설 설치 확인 팝업.
+    const installCost = facilityInstallCost(completed);
+    const nextName = nextFacilityName(completed) ?? 'Next Facility';
+    this.showInstallFacilityPopup(nextName, installCost, () => {
+      if (this.coins < installCost) {
+        showToast(this, `코인이 부족합니다 (필요: ${formatCompact(installCost)})`, { color: '#ff9a9a' });
+        return;
+      }
+      // 스테이지 완성 보상 지급 후 설치 비용 차감.
       this.coins += reward.coins;
+      this.coins -= installCost;
       saveCoins(this.coins);
       if (reward.spins > 0) addSpins(reward.spins);
       if (reward.gems > 0) addGems(reward.gems);
       this.header?.setCoins(this.coins);
-      this.header?.setSpins(loadSpins()); // ⭐헤더 2번째(스핀) 값도 보상 후 갱신
-      if (last) {
-        showToast(this, '모든 스테이지 완성! 🎉', { color: '#ffe27a' });
-        return; // 더 넘어갈 곳 없음 — 현 스테이지(최고레벨) 유지
-      }
-      // 다음 스테이지로 → 상태 저장 후 씬 재시작(다음 스테이지 레이아웃 로드).
+      this.header?.setSpins(loadSpins());
+      // 다음 스테이지 진입.
       this.hotel = advanceStage(this.hotel);
       this.saveHotel();
       this.leaving = true;
@@ -456,6 +513,100 @@ export class HotelScene extends Phaser.Scene {
     this.tweens.add({ targets: layer, scaleX: 1, scaleY: 1, alpha: 1, duration: 240, ease: 'Back.easeOut' });
   }
 
+  /**
+   * ⭐NEW FACILITY 설치 확인 팝업(blank_5_copy_copy.json). 스테이지 완성 후 다음 시설 이름·설치 비용을 보여주고
+   *   OK → onConfirm 콜백(비용 차감·진행은 호출자), CANCEL → 팝업만 닫음(스테이지 완성 상태 유지).
+   *   레이아웃/이미지 로드 실패 시 코드 드로잉 폴백.
+   */
+  private showInstallFacilityPopup(facilityName: string, cost: number, onConfirm: () => void): void {
+    const doc = this.cache.json.get(INSTALL_POPUP_KEY) as LayoutDoc | undefined;
+    const cx = DESIGN_W / 2;
+    const cy = DESIGN_H / 2;
+
+    if (!doc || !Array.isArray(doc.nodes) || doc.nodes.length === 0) {
+      // 코드 드로잉 폴백.
+      const layer = this.add.container(0, 0).setDepth(9100);
+      const dim = this.add.rectangle(cx, cy, DESIGN_W * 1.4, DESIGN_H * 1.2, 0x000000, 0.66).setInteractive();
+      layer.add(dim);
+      const panel = this.add.rectangle(cx, cy, 860, 760, 0xfff4e0, 1).setStrokeStyle(10, 0xffd34d);
+      layer.add(panel);
+      layer.add(this.add.text(cx, cy - 280, 'NEW FACILITY', { fontFamily: HEADER_FONT, fontSize: '72px', color: '#ffffff', stroke: '#5a3210', strokeThickness: 8, align: 'center' }).setOrigin(0.5));
+      layer.add(this.add.text(cx, cy - 150, `INSTALL\n${facilityName}?`, { fontFamily: HEADER_FONT, fontSize: '56px', color: '#472424', align: 'center', lineSpacing: 10 }).setOrigin(0.5));
+      layer.add(this.add.text(cx, cy + 20, `Installation Cost\n${formatCompact(cost)} 코인`, { fontFamily: COST_FONT, fontSize: '46px', color: '#1a1a1a', align: 'center', lineSpacing: 10 }).setOrigin(0.5));
+      const cancelBg = this.add.rectangle(cx - 190, cy + 220, 300, 110, 0x5a8a2a, 1).setStrokeStyle(5, 0xffffff, 0.9).setInteractive({ useHandCursor: true });
+      const cancelTxt = this.add.text(cx - 190, cy + 220, 'CANCEL', { fontFamily: HEADER_FONT, fontSize: '44px', color: '#ffffff', stroke: '#2a4a10', strokeThickness: 5 }).setOrigin(0.5);
+      const okBg = this.add.rectangle(cx + 190, cy + 220, 300, 110, 0x2a6ae0, 1).setStrokeStyle(5, 0xffffff, 0.9).setInteractive({ useHandCursor: true });
+      const okTxt = this.add.text(cx + 190, cy + 220, 'OK', { fontFamily: HEADER_FONT, fontSize: '44px', color: '#ffffff', stroke: '#0a2a80', strokeThickness: 5 }).setOrigin(0.5);
+      layer.add(cancelBg); layer.add(cancelTxt); layer.add(okBg); layer.add(okTxt);
+      let pressed = false;
+      cancelBg.on('pointerdown', () => { if (!pressed) { pressed = true; layer.destroy(true); } });
+      okBg.on('pointerdown', () => { if (!pressed) { pressed = true; layer.destroy(true); onConfirm(); } });
+      layer.setScale(0.85).setAlpha(0);
+      this.tweens.add({ targets: layer, scaleX: 1, scaleY: 1, alpha: 1, duration: 240, ease: 'Back.easeOut' });
+      return;
+    }
+
+    const layer = this.add.container(0, 0).setDepth(9100);
+    const dim = this.add.rectangle(cx, cy, DESIGN_W * 1.4, DESIGN_H * 1.2, 0x000000, 0.66).setInteractive();
+    layer.add(dim);
+
+    const index = buildLayout(this, doc);
+    const entries = index.entries();
+    this.scaleEntries(entries, doc);
+    for (const e of entries) layer.add(e.obj);
+    // 에디터 depth 순 정렬 — CANCEL img(depth:2) < CANCEL text(depth:4) 이어야 텍스트가 버튼 위에 렌더됨
+    layer.sort('depth');
+    const byId = new Map<string, Phaser.GameObjects.GameObject>(entries.map((e) => [e.node.id, e.obj]));
+    const txtOf = (id: string): Phaser.GameObjects.Text | undefined => byId.get(id) as Phaser.GameObjects.Text | undefined;
+    // description 2줄 wordWrap (에디터 wrapW:310 디자인 → 게임 스케일)
+    const descT = txtOf('layer_2_copy5');
+    if (descT) descT.setWordWrapWidth(310);
+
+    // 다음 시설명 교체("Restaurant?" → 실제 이름).
+    const nameT = txtOf(FP.facilityName);
+    if (nameT) nameT.setText(`${facilityName}?`);
+
+    // 비용 교체("$#2M" → "$실제금액").
+    const costT = txtOf(FP.costVal);
+    if (costT) costT.setText((costT.text ?? '').replace(/#\s*[\d.,]+\s*[KMB]?/i, formatCompact(cost)));
+
+    let pressed = false;
+    const onCancel = (): void => { if (!pressed) { pressed = true; layer.destroy(true); } };
+    const onOk = (): void => {
+      if (pressed) return;
+      pressed = true;
+      layer.destroy(true);
+      onConfirm();
+    };
+
+    const addBtn = (nodeId: string, onTap: () => void): void => {
+      const btn = byId.get(nodeId) as Phaser.GameObjects.Image | undefined;
+      if (!btn) return;
+      btn.setInteractive({ useHandCursor: true });
+      btn.on('pointerdown', () => {
+        this.tweens.add({ targets: btn, scaleX: btn.scaleX * 0.92, scaleY: btn.scaleY * 0.92, duration: 80, yoyo: true, ease: 'Quad.easeOut' });
+        onTap();
+      });
+    };
+    addBtn(FP.cancelBtn, onCancel);
+    addBtn(FP.okBtn, onOk);
+
+    // ⭐우상단 X 닫기 버튼 — 팝업 배경(layer_1) 기준 우상단
+    const bg = byId.get(RP.bg) as Phaser.GameObjects.Image | undefined;
+    if (bg) {
+      const b = bg.getBounds();
+      const closeHit = this.add.rectangle(b.right - b.width * 0.07, b.top + b.height * 0.05, 120, 120, 0xffffff, 0).setInteractive({ useHandCursor: true });
+      closeHit.on('pointerdown', () => {
+        this.tweens.add({ targets: closeHit, scaleX: 0.88, scaleY: 0.88, duration: 60, yoyo: true, ease: 'Quad.easeOut' });
+        onCancel();
+      });
+      layer.add(closeHit);
+    }
+
+    layer.setScale(0.85).setAlpha(0);
+    this.tweens.add({ targets: layer, scaleX: 1, scaleY: 1, alpha: 1, duration: 240, ease: 'Back.easeOut' });
+  }
+
   /** ⭐시설 업그레이드 전체 초기화(설정 → 데이터 편집의 리셋 버튼) — 저장은 설정에서 비웠고, 여기선 씬 재시작해 스테이지1 로 복귀. */
   private resetHotelStages(): void {
     if (this.leaving) return;
@@ -467,7 +618,8 @@ export class HotelScene extends Phaser.Scene {
 
   /** 하단 네비게이션 버튼만 blank_3_copy2.json 에서 렌더(버튼배경 up_SC_UI_35_v5 + 텍스트 라벨) + 와이어. */
   private mountNavButtons(nav: LayoutDoc): void {
-    const idx = buildLayout(this, nav, { skip: (n) => !(n.key === NAV_BTN_KEY || n.type === 'text') });
+    // nav 텍스트 중 하단 버튼 구역(y≥1000) 만 포함 — 상단 디자인 데코(별 옆 "100K" 등)는 제외
+    const idx = buildLayout(this, nav, { skip: (n) => !(n.key === NAV_BTN_KEY || (n.type === 'text' && (n.y ?? 0) >= 1000)) });
     const entries = idx.entries();
     this.scaleEntries(entries, nav);
     for (const e of entries) (e.obj as Phaser.GameObjects.Image).setDepth(70); // 가구/배경 위
@@ -476,6 +628,8 @@ export class HotelScene extends Phaser.Scene {
     const btns = entries.filter((e) => e.node.key === NAV_BTN_KEY).map((e) => e.obj as Phaser.GameObjects.Image);
     // ⭐현재 스테이지의 구역 라벨(소문자) — 그 버튼만 노랑 강조(디자이너 하드코딩 'Lobby' 노랑 대체).
     const currentLabel = (STAGE_AREA_LABELS[currentStage(this.hotel) - 1] ?? '').toLowerCase();
+    const nextStageLabel = (STAGE_AREA_LABELS[currentStage(this.hotel)] ?? '').toLowerCase();
+    const stageIsDone = isStageComplete(this.hotel);
     for (const lbl of labels) {
       const text = (lbl.node.text ?? '').trim();
       const lt = lbl.obj as Phaser.GameObjects.Text;
@@ -494,12 +648,15 @@ export class HotelScene extends Phaser.Scene {
       const isCurrent = !isMain && lower === currentLabel;
       // ⭐현재 스테이지 구역 = 노랑, 기타 구역 = 주황. Main 색(파랑)은 유지.
       if (!isMain) lt.setColor(isCurrent ? NAV_SELECTED_COLOR : NAV_DEFAULT_COLOR);
-      // Main → 게임 메인(로비). 현재 구역 → 현재 화면 안내. 나머지 → 준비 중.
+      // Main → 로비. 현재 구역 → 안내. 다음 스테이지(완성 상태) → 설치 팝업. 나머지 → 준비 중.
+      const isNextReady = !isMain && !isCurrent && lower === nextStageLabel && stageIsDone;
       const onTap = isMain
         ? (): void => this.goLobby()
         : isCurrent
           ? (): void => showToast(this, `현재 ${text} 화면입니다`, { color: '#ffe9b8' })
-          : (): void => showToast(this, `${text} — 준비 중입니다`, { color: '#ffd9a0' });
+          : isNextReady
+            ? (): void => this.onStageComplete()
+            : (): void => showToast(this, `${text} — 준비 중입니다`, { color: '#ffd9a0' });
       this.wireButton(best, lt, onTap);
     }
   }

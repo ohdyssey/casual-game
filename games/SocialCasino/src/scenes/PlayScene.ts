@@ -68,7 +68,7 @@ import {
   spinRefundMult, BIGWIN_SPIN_BIG_X, BIGWIN_SPIN_BIG, BIGWIN_SPIN_MEGA_X, BIGWIN_SPIN_MEGA,
   DAILY_SPINS, specialMatchMult,
 } from '../logic/playParams.js';
-import { slotRtpScaleNow, luckTableNow, raidStakeScaleNow, missionsNow } from '../logic/econOverrides.js';
+import { slotRtpScaleNow, luckTableNow, raidStakeScaleNow, attackSpinStakeScaleNow, missionsNow } from '../logic/econOverrides.js';
 import { openSettingsMenu } from '../ui/settingsMenu.js';
 import {
   createPace, recordMatch, paceIntensity, paceTiming,
@@ -93,7 +93,7 @@ function missionConfig(missionIndex: number): RewardGaugeConfig {
   return { target: m.target, durationMs: m.minutes * 60_000, milestones: [], finalReward: m.reward };
 }
 const GAUGE_CONFIG: RewardGaugeConfig = missionConfig(0); // 첫 미션(12·2분·스핀40)
-const GAUGE_SAVE_KEY = 'socialcasino_reward_gauge_v14'; // localStorage 영속 키. ⚠️v14=1레벨 재설정(베팅10 복귀) → 미션 게이지 초기화. 구 v13 폐기
+const GAUGE_SAVE_KEY = 'socialcasino_reward_gauge_v20'; // localStorage 영속 키. ⚠️v20=배수제거·베이스값 고정(130~330) → 게이지 초기화. 구 v19 폐기
 const GAUGE_MISSION_KEY = `${GAUGE_SAVE_KEY}_mi`; // 미션 인덱스(별도 영속) — 플랜/젬 파생
 /** ⭐미션 완료 → 다음 미션까지 **간격 15초**(요청 — 목표 시간/아이템 지운 상태로 15초 유지 후 재시작). 성공 음악(~4.65s) 여운 + 휴식. */
 const MISSION_GAP_MS = 15_000;
@@ -173,6 +173,13 @@ export class PlayScene extends Phaser.Scene {
   private coinFontBase = 28; // 코인(골드) 기본 폰트 — 자릿수 많아지면 폭에 맞춰 축소
   private spinText?: Phaser.GameObjects.Text; // 보유 스핀 표시(GO 하단 바)
   private matchImg?: Phaser.GameObjects.Image; // 타이틀 배너의 "MATCH = 1 SPIN" 텍스트(첫 당첨 전 idle 표시)
+  private missionBannerText?: Phaser.GameObjects.Text; // ⭐미션 시작/종료 메시지를 상단 타이틀 배너(419 자리)에 표시(요청)
+  private missionBannerMaxW = 0; // 배너 폭(긴 문구 자동 축소용)
+  private missionBannerTween?: Phaser.Tweens.Tween;
+  private missionBannerActive = false; // ⭐타이틀 배너 점유 중(미션 메시지 표시) — 이때 슬롯 당첨 배너는 **중첩 금지로 스킵**(요청: 중요정보 우선)
+  private missionBannerQueue: Array<{ msg: string; color: string }> = []; // ⭐배너 메시지 **순차 표시 큐**(요청: 완료→보상 등 줄세워 표시)
+  private gaugeTimerArmed = false; // ⭐미션 타이머 시작됨? false=새 미션 시작 후 **첫 퍼즐 조작 대기 중**(그 전엔 카운트다운 정지, 요청)
+  private bannerShowedWin = false; // ⭐슬롯 당첨을 한 번이라도 배너에 표시? true 면 메시지 후 **MATCH=1SPIN 대신 직전 당첨**으로 복원(요청: MATCH=1SPIN 자꾸 안 보이게)
   // 정보패널 아이콘(텍스트 라벨 대신) — 퍼즐/슬롯은 실행 순서대로 좌·중 칸을 오가며 값과 함께 자리 교체, 코인=우(고정).
   private iconPuzzle?: Phaser.GameObjects.Image;
   private iconSlot?: Phaser.GameObjects.Image;
@@ -212,6 +219,11 @@ export class PlayScene extends Phaser.Scene {
     this.holdTimer = undefined;
     this.pendingStage = undefined;
     this.stageHold = undefined;
+    this.gaugeStageStartedMs = undefined; // ⭐재진입 시 정지 플래그 초기화(어텍 도중 이탈→복귀해도 타이머가 멈춘 채 굳지 않게)
+    this.missionBannerActive = false; // ⭐재진입 시 배너 점유 플래그 초기화(스킵 상태로 굳지 않게)
+    this.missionBannerQueue.length = 0;
+    this.gaugeTimerArmed = false; // ⭐재진입 시 미션 타이머는 첫 조작 대기로(시작 전 정지)
+    this.bannerShowedWin = false;
     this.scoreQueue.length = 0;
     this.coins = loadCoins(); // ⭐공유 지갑에서 코인 로드(영속 — 호텔 업그레이드 차감분 반영, 세션 간 유지)
     // ⭐재시작 시 리셋되던 진행 상태(스핀·베팅·잭팟) 복원(요청) — 없으면 위의 기본값 유지.
@@ -389,17 +401,17 @@ export class PlayScene extends Phaser.Scene {
       if (ratio >= 0.8 && ratio < 1.0 && !isDialogOpen(this)) {
         const pack = SHOP_CATALOG.coins[0]; // 10M 골드 $1.99
         showDialog(this, {
-          title: '거의 다 됐어요!',
-          message: `다음 시티 업그레이드까지\n코인이 조금 부족해요. 지금 충전할까요?`,
+          title: 'ALMOST THERE!',
+          message: `A little short on coins for the\nnext city upgrade. Top up now?`,
           buttons: [
-            { label: `골드 +${formatCompact(pack.amount)} ${pack.price}`, kind: 'primary', onClick: () => this.buyQuick(pack) },
-            { label: '나중에', kind: 'default' },
+            { label: `COINS +${formatCompact(pack.amount)} ${pack.price}`, kind: 'primary', onClick: () => this.buyQuick(pack) },
+            { label: 'LATER', kind: 'default' },
           ],
         });
         return;
       }
       const pct = cost > 0 ? Math.min(100, Math.floor(ratio * 100)) : 100;
-      showToast(this, `다음 시티 업그레이드: ${formatCompact(cost)} 코인  (${pct}%)`, { color: '#ffd9a0' });
+      showToast(this, `NEXT CITY UPGRADE  ${pct}%`, { color: '#ffd9a0' });
     });
   }
 
@@ -414,14 +426,14 @@ export class PlayScene extends Phaser.Scene {
     const y = 100 + 87 / 2 + 12 + h / 2; // 설정 아이콘 아래
     const bg = this.add.rectangle(0, 0, w, h, 0x241a3a, 0.92).setStrokeStyle(3, 0xffd34d).setOrigin(0.5);
     const label = this.add
-      .text(0, 0, '연출검증 OFF', { fontFamily: '"Do Hyeon", "Jua", sans-serif', fontSize: '24px', color: '#ffd34d' })
+      .text(0, 0, 'FX TEST OFF', { fontFamily: '"Do Hyeon", "Jua", sans-serif', fontSize: '24px', color: '#ffd34d' })
       .setOrigin(0.5);
     const btn = this.add.container(x, y, [bg, label]).setDepth(420).setSize(w, h).setInteractive({ useHandCursor: true });
     btn.on('pointerdown', () => {
       this.forceBigWin = !this.forceBigWin;
       this.forcedIdx = 0;
       bg.setFillStyle(this.forceBigWin ? 0x2e7d32 : 0x241a3a, 0.92).setStrokeStyle(3, this.forceBigWin ? 0x9bffb0 : 0xffd34d);
-      label.setText(this.forceBigWin ? '연출검증 ON' : '연출검증 OFF').setColor(this.forceBigWin ? '#d6ffd6' : '#ffd34d');
+      label.setText(this.forceBigWin ? 'FX TEST ON' : 'FX TEST OFF').setColor(this.forceBigWin ? '#d6ffd6' : '#ffd34d');
       this.sfx.play('click');
     });
   }
@@ -538,6 +550,14 @@ export class PlayScene extends Phaser.Scene {
     // ⭐최종 당첨금 = **최상단 타이틀 배너**(요청). 라운드 결과를 여기서 롤링 표시(첫 당첨 전엔 숨김 → matchImg 노출). 크게(60→88).
     this.finalScoreText = new FancyNumber(this, tt.x, bannerY, 88, 200, 540);
     this.finalScoreText.setAlpha(0);
+    // ⭐미션 시작/종료 메시지를 **이 타이틀 배너(419 자리)** 에 표시(요청). 표시 중 MATCH=1SPIN·당첨금 숨김. 영문(요청).
+    this.missionBannerMaxW = tt.w * 0.92;
+    this.missionBannerText = this.add
+      .text(tt.x, bannerY, '', { fontFamily: '"Luckiest Guy", "Do Hyeon", sans-serif', fontSize: '46px', color: '#ffe27a', stroke: '#2a1640', strokeThickness: 8, align: 'center' })
+      .setOrigin(0.5)
+      .setDepth(230)
+      .setVisible(false);
+    this.missionBannerText.setShadow(0, 4, 'rgba(0,0,0,0.6)', 7, false, true);
     this.iconLeftX = gl + g.w * 0.3 - 76;
     this.iconMidX = gl + g.w * 0.7 - 76;
     // 라운드 진행 전 안내(짧은 영문). 결과가 나오면 위 3칸으로 대체.
@@ -583,7 +603,7 @@ export class PlayScene extends Phaser.Scene {
     this.sfx?.play('click', 0.5);
     openSettingsMenu(this, {
       onHome: () => this.goHome(),
-      homeLabel: '홈으로',
+      homeLabel: 'HOME',
       onDataChanged: () => {
         // ⚠️편집은 storage 를 바꾸므로 in-memory 를 재동기화해야 이후 refreshHud(=savePlayer)가 덮어쓰지 않는다.
         this.coins = loadCoins();
@@ -807,6 +827,9 @@ export class PlayScene extends Phaser.Scene {
       this.stageHold = { type: 'raid', power: raidPower };
       this.showActivationBanner('raid', raidPower);
     }
+    // ⭐어텍/레이드 **발동 즉시**(배너 등장 시점) 미션 타이머 정지(요청 — 배너+슬롯 연출 ~2~3초가 흐르던 누수 제거).
+    //   이후 슬롯 회전·스테이지·복귀까지 전 구간 제외. returnFromStage 가 경과분만큼 마감을 밀고 해제. (중복 트리거 시 첫 시각 유지.)
+    if (this.stageHold && this.gaugeStageStartedMs == null) this.gaugeStageStartedMs = Date.now();
   }
 
   /**
@@ -846,7 +869,7 @@ export class PlayScene extends Phaser.Scene {
     const stage = this.pendingStage;
     this.pendingStage = undefined;
     this.stageActive = true;
-    this.gaugeStageStartedMs = Date.now(); // ⭐레이드/어텍 동안 미션 타이머 일시정지(복귀 시 경과분 마감 뒤로 밀기 = 타임어택 시간 제외)
+    if (this.gaugeStageStartedMs == null) this.gaugeStageStartedMs = Date.now(); // ⭐폴백 — 보통 onStageTrigger(발동 시점)에서 이미 설정됨(여기서 덮어쓰면 배너+슬롯 시간이 누락되니 null 일 때만)
     this.fadeSpinLoop(); // 릴 루프음 정리
     // 떠 있던 텍스트 배너는 hammerfx 가 망치 앞에 동일하게 다시 그리므로 페이드아웃해 정리(중복 방지).
     const banner = this.activationBanner;
@@ -858,10 +881,15 @@ export class PlayScene extends Phaser.Scene {
     // ② 커튼이 닫힌 사이 Stage1 을 띄운다(skipReveal=자체 reveal 생략 → 커튼 열림이 곧 등장).
     this.time.delayedCall(STAGE_BEHIND_CURTAIN_MS, () => {
       if (!this.stageActive) return; // 방어(이미 빠져나옴)
-      // ⭐bet=룰렛 스테이크 = **레벨 스케일 코인 베팅** = betCoin × M(L)(2026-06-30). 인플레이 코인과 동일하게 진행도(시티레벨)에
-      //   비례 → 레이드/공격 보상이 데이터 승급구조에 맞춰 자람(하드코딩 플랫 보너스는 roulette.ts 에서 폐지). auto=오토스핀 중 자동.
-      const raidStake = Math.round(this.bet * this.incomeMultNow() * raidStakeScaleNow());
-      this.scene.launch('stage1', { type: stage.type, power: stage.power, bet: raidStake, resumeKey: this.scene.key, skipReveal: true, auto: stage.auto }); // ⭐예약 시 고정한 auto 사용(중간 정지에도 자동 복귀 보장)
+      // ⭐룰렛 스테이크(베이스) = **통화별 분기**(요청 2026-07-01: 어택=스핀 / 레이드=코인). 같은 휠 배수가 곱해지고, 통화만 다르다.
+      //   • 레이드(코인): betCoin × M(L) × raidScale — 인플레이 코인과 동일하게 진행도(시티레벨)에 비례(데이터 승급구조 추종).
+      //   • 어택(스핀): spinBet × attackScale — **소단위 화폐**라 COIN_DENOM·레벨 미적용, 베팅에만 비례(인플레 안전).
+      //   auto=오토스핀 중 자동.
+      const stake =
+        stage.type === 'attack'
+          ? Math.round(this.spinBet * attackSpinStakeScaleNow())
+          : Math.round(this.bet * this.incomeMultNow() * raidStakeScaleNow());
+      this.scene.launch('stage1', { type: stage.type, power: stage.power, bet: stake, resumeKey: this.scene.key, skipReveal: true, auto: stage.auto }); // ⭐예약 시 고정한 auto 사용(중간 정지에도 자동 복귀 보장)
       // 커튼이 열리는 동안 보드는 가려져 있으니 잠시 뒤 일시정지(망치는 스테이지 위에서 스스로 소멸 → 여기서 stop 안 함).
       this.time.delayedCall(260, () => {
         if (!this.stageActive) return;
@@ -885,7 +913,7 @@ export class PlayScene extends Phaser.Scene {
       //   날짜만 기록해 **다음날부터** 일일 보너스가 들어오게 한다. 복귀 플레이어(이전 날짜 기록 있음)는 새 날에 정상 지급.
       if (last !== '') {
         this.grantSpins(DAILY_SPINS);
-        showToast(this, `일일 보너스 획득!  +${DAILY_SPINS} 스핀`, { color: '#9bff7a', y: DESIGN_H * 0.26 });
+        showToast(this, `DAILY BONUS!  +${DAILY_SPINS} SPINS`, { color: '#9bff7a', y: DESIGN_H * 0.26 });
       }
       try {
         localStorage.setItem(DAILY_SPIN_KEY, today);
@@ -947,7 +975,7 @@ export class PlayScene extends Phaser.Scene {
     this.applyGaugeGem(); // 보드 수집타입 + 아이콘 갱신
     this.saveGauge();
     this.renderGauge(Date.now(), false);
-    this.floatLabel('🔄 게이지 리셋', '#9bff7a');
+    this.floatLabel('🔄 GAUGE RESET', '#9bff7a');
   }
 
   /** 게이지 로직 연결 — 상태/미션젬 로드 + 보드 수집 싱크 + 초기 표시 + 1초 타이머. */
@@ -957,13 +985,18 @@ export class PlayScene extends Phaser.Scene {
     this.missionIndex = Math.max(0, this.loadMissionIndex());
     this.rebuildGaugeConfig();
     const saved = deserializeGauge(this.loadGaugeRaw());
-    const alive = !!saved && !isExpired(this.gaugeCfg, saved, now);
-    if (alive) {
-      this.gaugeState = saved as RewardGaugeState;
-    } else {
-      // ⭐만료/없음 → 보상 소멸 + **같은 미션** 새 2분 재도전(요청: 미달성 시 보상만 사라지고 진행도(미션단계)는 유지).
-      //   missionIndex/cfg 는 위(945-946)에서 이미 로드/구성됨 → 여기선 타이머 상태만 새로(0 으로 demote 금지: tickGauge 의 라이브 만료와 동일 거동).
+    if (saved && saved.claimed.includes(this.gaugeCfg.milestones.length)) {
+      // ⭐**완료(최종 보상 수령)된 채 저장된 상태로 재진입** = 완료 후 15초 간격 도중 씬 재시작(홈/시티/레이드/탭닫힘/HMR)으로
+      //   advanceGaugeMission 을 놓친 경우. 그대로 두면 tickGauge 가 claimed 때문에 멈춰 **완료 화면에서 영구 정지**(다음 미션 안 옴)되거나
+      //   만료 시 같은 미션을 반복한다(= "미션 진행이 가끔 고장"). → 여기서 **즉시 다음 미션으로 진행**시켜 복구한다.
+      this.missionIndex += 1;
+      this.rebuildGaugeConfig();
       this.gaugeState = createGaugeState(now);
+      this.saveGauge(); // 복구를 영속(중복 advance 방지 — 다음 로드 땐 claimed 비어 해당 안 됨)
+    } else {
+      const alive = !!saved && !isExpired(this.gaugeCfg, saved, now);
+      // ⭐만료/없음 → 보상 소멸 + **같은 미션** 재도전(요청: 미달성 시 보상만 사라지고 미션단계는 유지). alive 면 진행 이어감.
+      this.gaugeState = alive ? (saved as RewardGaugeState) : createGaugeState(now);
     }
     this.applyGaugeGem(); // 보드 수집타입 + 게이지 아이콘 + 코인 비행 목표
     this.saveGauge();
@@ -973,6 +1006,8 @@ export class PlayScene extends Phaser.Scene {
     this.board.setGemSink((collected) => this.addGaugeProgress(collected * Math.max(1, this.spinBet)));
     // ⭐공격/약탈 발동 배너를 **젬 확대와 동시에** 띄우는 조기 통지(연쇄 애니 직전). 보상(스핀)은 onCollect 가 별도 처리.
     this.board.setStageTrigger((steps, combo) => this.onStageTrigger(steps, combo));
+    this.board.setOnPlayerMove(() => this.armGaugeTimer()); // ⭐첫 퍼즐 조작 때 미션 타이머 시작(요청: 조작 전엔 정지)
+    this.gaugeTimerArmed = false; // 첫 미션도 첫 조작 대기로 시작
     this.renderGauge(now, false);
     this.time.addEvent({ delay: 1000, loop: true, callback: () => this.tickGauge() }); // 1초 카운트다운(씬 종료 시 자동 정리)
   }
@@ -989,10 +1024,13 @@ export class PlayScene extends Phaser.Scene {
     return reward.kind === 'coins' ? formatCompact(reward.amount) : String(reward.amount);
   }
 
-  /** 게이지 표시 갱신(비율/현재/타이머 + 최종보상 금액·아이콘). animate=false 면 즉시. */
+  /** 게이지 표시 갱신(비율/현재/타이머 + 최종보상 금액·아이콘). animate=false 면 즉시.
+   *  ⭐미션 완료(최종 보상 수령 후 claimed) 상태에서는 ratio=0 강제(returnFromStage 가 renderGauge 를 호출해
+   *  fillRatio=1.0 으로 재충전하던 버그 수정 — onAllArrived 가 이미 비운 뒤 1.0 으로 덮어쓰면 15초 내내 꽉 찬 상태 유지). */
   private renderGauge(now: number, animate = true): void {
     if (!this.gaugeView) return;
-    this.gaugeView.setRatio(fillRatio(this.gaugeCfg, this.gaugeState), animate);
+    const finalClaimed = this.gaugeState.claimed.includes(this.gaugeCfg.milestones.length);
+    this.gaugeView.setRatio(finalClaimed ? 0 : fillRatio(this.gaugeCfg, this.gaugeState), animate);
     this.gaugeView.setCounts(this.gaugeState.progress, this.gaugeCfg.target);
     this.gaugeView.setTimer(remainingMs(this.gaugeCfg, this.gaugeState, now));
     const rw = this.gaugeCfg.finalReward; // 미션마다 보상·종류(스핀/코인) 반영 — 금액 + 배지 아이콘 전환
@@ -1024,7 +1062,10 @@ export class PlayScene extends Phaser.Scene {
     this.saveGauge();
     if (completed) {
       this.sfx?.play('missionSuccess', 0.95); // ⭐미션 성공 음악(요청 — 폭탄 실패와 대비되는 밝은 상승 멜로디). 카운트다운 비프는 최종 수령 후 tickGauge 가 멈춤.
-      showToast(this, '미션 완료!', { color: '#ffe27a', durationMs: 2200, y: DESIGN_H * 0.21 }); // ⭐완료 축하 메시지(요청)
+      // ⭐배너에 **순차 표시**(요청): ① 미션 완료 → ② 받은 보상. 별도 토스트 없음(grantGaugeReward 의 토스트 제거).
+      const rw = this.gaugeCfg.finalReward;
+      this.showMissionBanner('MISSION COMPLETE!', '#ffe27a');
+      this.showMissionBanner(`+${this.fmt(rw.amount)} ${rw.kind === 'coins' ? 'COINS' : 'SPINS'}`, '#9bff7a');
       this.gaugeView.setTargetCleared(true); // ⭐목표 시간·카운트·타겟 퍼즐 아이콘 지움(요청) — 휴면 간격 동안 유지
       this.board.setCollectGem(-1); // ⭐휴면 중 보드 수집 타겟 해제 — 활성 미션 없으니 어떤 타일도 타겟 아님(코인 비행/적립 정지). advanceGaugeMission 가 복원.
       this.time.delayedCall(MISSION_GAP_MS, () => this.advanceGaugeMission()); // ⭐완료 후 **15초 간격**(요청 — 바로 이어가지 않음) 뒤 다음(더 어려운) 미션
@@ -1037,12 +1078,67 @@ export class PlayScene extends Phaser.Scene {
     this.missionIndex += 1;
     this.rebuildGaugeConfig(); // 젬 다음으로 + 목표 +스텝
     this.gaugeState = createGaugeState(Date.now());
+    this.gaugeTimerArmed = false; // ⭐새 미션 — 첫 퍼즐 조작 전엔 타이머 정지(요청)
     this.applyGaugeGem(); // 보드 수집타입 + 게이지 아이콘 갱신
     this.gaugeView.setTargetCleared(false); // ⭐지웠던 목표 시간/아이템 복원(새 미션 시작)
     this.saveGauge();
     this.renderGauge(Date.now(), false);
-    // ⭐미션 시작 메시지(요청) — 15초 간격 뒤 새 미션 시작을 또렷이 알림.
-    showToast(this, '🎯 미션 시작!', { color: '#ffe27a', durationMs: 2200, y: DESIGN_H * 0.21 });
+    // ⭐미션 시작 메시지(요청) — 상단 419 배너에 영문 표시. 15초 간격 뒤 새 미션 시작 알림.
+    this.showMissionBanner('MISSION START!', '#9bff7a');
+  }
+
+  /** ⭐타이틀 배너(419 자리)에 메시지를 **순차 표시**(요청: 별도 정보창 없이 이 창에 줄세워 표시 — 미션 완료→보상 등). 큐에 넣고 순서대로. */
+  private showMissionBanner(msg: string, color = '#ffe27a'): void {
+    if (!this.missionBannerText) {
+      showToast(this, msg, { color, durationMs: 2200, y: DESIGN_H * 0.21 }); // 폴백(배너 미생성 시)
+      return;
+    }
+    this.missionBannerQueue.push({ msg, color });
+    if (!this.missionBannerActive) this.processBannerQueue();
+  }
+
+  /** 배너 큐 1건 표시 → 끝나면 다음(없으면 배너 원복). active 동안 슬롯 당첨 배너는 스킵(중첩 금지). 긴 문구는 폭에 맞춰 축소. */
+  private processBannerQueue(): void {
+    const t = this.missionBannerText;
+    const next = this.missionBannerQueue.shift();
+    if (!t || !next) {
+      this.missionBannerActive = false; // 큐 비움 → 점유 해제(이후 슬롯 당첨 배너 정상)
+      t?.setVisible(false);
+      // ⭐MATCH=1SPIN 으로 되돌리지 않음(요청) — 당첨을 본 적 있으면 **직전 당첨금**을 복원, 첫 스핀 전에만 MATCH 표시.
+      if (this.bannerShowedWin) {
+        this.finalScoreText?.setAlpha(1);
+        this.matchImg?.setVisible(false);
+      } else {
+        this.matchImg?.setVisible(true);
+      }
+      return;
+    }
+    this.missionBannerActive = true; // 점유 — 슬롯 당첨 배너 스킵
+    this.matchImg?.setVisible(false);
+    this.finalScoreText?.setAlpha(0);
+    t.setText(next.msg).setColor(next.color).setScale(1).setAlpha(0).setVisible(true);
+    if (this.missionBannerMaxW > 0 && t.width > this.missionBannerMaxW) t.setScale(this.missionBannerMaxW / t.width);
+    this.missionBannerTween?.remove();
+    this.missionBannerTween = this.tweens.add({
+      targets: t,
+      alpha: { from: 0, to: 1 },
+      duration: 200,
+      yoyo: true,
+      hold: 1900, // ⭐약간 더 길게(요청) ≈2.3s/건 → 완료+보상 2건 ≈ 4.6s(15초 간격 내)
+      onComplete: () => this.processBannerQueue(), // 다음 메시지(없으면 원복)
+    });
+  }
+
+  /** ⭐슬롯 당첨금을 타이틀 배너에 롤링 표시 — 단, **미션 메시지 표시 중이면 중첩 금지로 스킵**(요청: 중요정보 우선·슬롯보상은 충돌 시 패스).
+   *  스킵해도 라운드 타이밍 유지를 위해 동일 시간 대기(코인 가산은 호출부에서 별도 진행). */
+  private async showSlotWinBanner(win: number, dur: number): Promise<void> {
+    if (this.missionBannerActive) {
+      await this.wait(dur); // 배너는 건드리지 않고 타이밍만 맞춰 패스
+      return;
+    }
+    this.matchImg?.setVisible(false); // 상단 배너: MATCH=1SPIN → 최종 당첨금
+    this.bannerShowedWin = true; // 이후 메시지 종료 시 MATCH=1SPIN 대신 당첨금 유지
+    await this.rollNumber(this.finalScoreText, '', win, dur);
   }
 
   /** 현재 미션 젬을 **보드 수집타입 + 게이지 아이콘 + 코인 비행 목표**에 반영. */
@@ -1063,49 +1159,71 @@ export class PlayScene extends Phaser.Scene {
     const badge = index < this.gaugeCfg.milestones.length ? this.milestoneBadgeImg : this.finalBadgeImg;
     const fx = badge?.x ?? 120;
     const fy = badge?.y ?? 620;
+    const isFinal = index === this.gaugeCfg.milestones.length; // 최종(미션 완료) 보상
+    // ⭐보상 = **스핀 저장고(우측하단 카운터)로 회수되는 비행 연출**(요청). 코인은 헤더로. 보상 금액 텍스트는 별도 토스트 없이
+    //   **타이틀 배너에 순차 표시**(완료 블록에서 큐잉) — 이 정보창 외 별도 창 안 띄움(요청).
+    //   ⭐스핀이 모두 회수되고 나면(마지막 아이콘 도착) **게이지바도 비운다**(요청 — 회수 후 바로 지움).
     if (reward.kind === 'coins') this.flyCoinReward(fx, fy, reward.amount);
-    else this.flySpinReward(fx, fy, reward.amount);
-    // ⭐미션 보상 획득 메시지(요청 2026-06-29) — 상단 토스트로 또렷이(획득 연출은 배지→카운터 비행이 별도).
-    const unit = reward.kind === 'coins' ? '골드' : '스핀';
-    showToast(this, `미션 보상 획득!  +${this.fmt(reward.amount)} ${unit}`, { color: reward.kind === 'coins' ? '#ffe27a' : '#9bff7a', y: DESIGN_H * 0.26 });
+    else this.flySpinReward(fx, fy, reward.amount, isFinal ? () => this.gaugeView?.setRatio(0, true) : undefined);
   }
 
-  /** 스핀 보상 확보 연출 — 보상 위치에서 살짝 떠올랐다 **스핀 카운터로 가속 비행** → 도착 시 스핀 가산 + 카운터 팝. */
-  private flySpinReward(fromX: number, fromY: number, amount: number): void {
+  /** ⭐스핀 보상 회수 연출(요청) — 상단 EARN SPINS 위치에서 **스핀이 크게 확대**되었다가, **10스핀=1개**(130→13개)로
+   *  아래쪽 스핀 저장고(우측하단 카운터)로 **주루룩 빨려 들어간다**. 큰 아이콘·최상단 depth(900)로 또렷이.
+   *  보상은 **즉시 확정**(비행 중 이탈해도 유실 없음). 금액 텍스트는 별도 토스트 없이 타이틀 배너에 "+N SPINS"(요청). */
+  private flySpinReward(fromX: number, fromY: number, amount: number, onAllArrived?: () => void): void {
+    this.grantSpins(amount); // 보상 즉시 확정(연출과 무관)
     const key = 'up_SC_UI_54_v3'; // 스핀(번개) 아이콘
     if (!this.textures.exists(key)) {
-      this.grantSpins(amount);
-      this.floatLabel(`+${this.fmt(amount)} 🎰`, '#9bff7a');
+      onAllArrived?.();
       return;
     }
-    const icon = this.add.image(fromX, fromY, key).setDepth(560).setDisplaySize(76, 76);
     this.sfx.play('coin', 0.5);
+    const tx = this.spinBarX; // ⭐오른쪽 회수처(스핀 카운터) — 여기로 **정확히** 도달(요청)
+    const ty = this.spinBarY;
+    // ① 상단 EARN SPINS 위치에서 **크게 확대**되는 히어로 스핀(좀 더 크게, 요청). 펑 → 살짝 머문 뒤 사라짐.
+    const hero = this.add.image(fromX, fromY, key).setDepth(900).setDisplaySize(90, 90).setAlpha(0);
     this.tweens.add({
-      targets: icon,
-      displayWidth: 104,
-      displayHeight: 104,
-      y: fromY - 56,
-      duration: 240,
+      targets: hero,
+      alpha: 1,
+      displayWidth: 210,
+      displayHeight: 210,
+      duration: 340,
       ease: 'Back.easeOut',
-      onComplete: () => {
-        this.tweens.add({
-          targets: icon,
-          x: this.spinBarX,
-          y: this.spinBarY,
-          displayWidth: 40,
-          displayHeight: 40,
-          duration: 480,
-          ease: 'Cubic.easeIn', // 가속 = 스핀 카운터로 빨려가는 느낌
-          onComplete: () => {
-            icon.destroy();
-            this.grantSpins(amount);
-            this.floatLabel(`+${this.fmt(amount)} 🎰`, '#9bff7a');
-            this.sfx.play('coin', 0.6);
-            if (this.spinText) this.tweens.add({ targets: this.spinText, scaleX: 1.35, scaleY: 1.35, duration: 130, yoyo: true, ease: 'Sine.easeInOut' });
-          },
-        });
-      },
+      onComplete: () => this.tweens.add({ targets: hero, alpha: 0, displayWidth: 150, displayHeight: 150, duration: 200, delay: 100, onComplete: () => hero.destroy() }),
     });
+    // ② **20스핀=1개**(요청: 너무 많아 보임 → 10→20단위, 예: 140→7개) 스트림이 줄지어 오른쪽 카운터로 회수. **좀 더 크게 + 약간 느리게 + 정확히 도달**(요청).
+    const N = Math.max(1, Math.min(20, Math.round(amount / 20)));
+    for (let i = 0; i < N; i++) {
+      const icon = this.add.image(fromX, fromY, key).setDepth(900).setDisplaySize(82, 82).setAlpha(0);
+      this.tweens.add({
+        targets: icon,
+        alpha: 1,
+        x: fromX + (i % 2 ? 42 : -34),
+        y: fromY - 22,
+        displayWidth: 108, // 좀 더 크게
+        displayHeight: 108,
+        duration: 220,
+        delay: 320 + i * 70, // 히어로 확대 뒤 → 줄지어(주루룩), 간격 약간 넓혀 또렷
+        ease: 'Quad.easeOut',
+        onComplete: () => {
+          this.tweens.add({
+            targets: icon,
+            x: tx, // ⭐오른쪽 회수처 좌표로 **정확히** 도달
+            y: ty,
+            displayWidth: 54,
+            displayHeight: 54,
+            duration: 720, // ⭐약간 더 느린 회수(요청)
+            ease: 'Cubic.easeIn', // 가속 = 저장고로 빨려가는 느낌
+            onComplete: () => {
+              icon.destroy();
+              this.sfx?.play('coin', 0.25);
+              if (this.spinText) this.tweens.add({ targets: this.spinText, scaleX: 1.24, scaleY: 1.24, duration: 100, yoyo: true, ease: 'Sine.easeInOut' });
+              if (i === N - 1) onAllArrived?.(); // ⭐마지막 아이콘 도착 = 회수 완료 → 게이지바 비우기 콜백
+            },
+          });
+        },
+      });
+    }
   }
 
   /** 코인 보상 확보 연출(스핀과 동형, 도착지=헤더 코인) — 보상 위치에서 떠올랐다 **헤더 코인으로 가속 비행** → 도착 시 코인 가산. */
@@ -1160,7 +1278,8 @@ export class PlayScene extends Phaser.Scene {
     this.renderGauge(now, false);
     if (hadProgress) {
       this.sfx?.play('missionFail', 0.7); // ⭐미완료 실패 사운드(요청)
-      showToast(this, '⏱ 시간 초과! 보상 놓침', { color: '#ff7a7a', durationMs: 2200, y: DESIGN_H * 0.26 });
+      // ⭐실패 메시지 = 별도 토스트 대신 **상단 타이틀 배너(419 자리)에 순차 표시**(요청 "별도 창 말고 민트색 정보창에").
+      this.showMissionBanner('⏱ TIME UP! REWARD LOST', '#ff7a7a');
     }
   }
 
@@ -1168,7 +1287,15 @@ export class PlayScene extends Phaser.Scene {
     if (!this.gaugeView) return;
     // ⭐완료된 미션(최종 보상 이미 수령, advanceGaugeMission 1500ms 대기 중)은 만료 처리 스킵 — "미션 완료!" 직후 "시간 초과!" 모순 피드백 방지.
     if (this.gaugeState.claimed.includes(this.gaugeCfg.milestones.length)) return;
+    // ⭐어텍/레이드 진행 중(발동~복귀)에는 타이머 **정지** — 카운트다운/만료 스킵(요청: 즉시 일시정지). returnFromStage 가 경과분 보정 후 해제.
+    if (this.gaugeStageStartedMs != null) return;
     const now = Date.now();
+    // ⭐새 미션 시작 후 **첫 퍼즐 조작 전**에는 타이머 정지(요청) — 풀타임 유지(시작점을 now 로 계속 밀어 경과 0). 첫 조작 시 armGaugeTimer 가 시작.
+    if (!this.gaugeTimerArmed) {
+      this.gaugeState = { ...this.gaugeState, startedAtMs: now };
+      this.gaugeView.setTimer(this.gaugeCfg.durationMs);
+      return;
+    }
     if (isExpired(this.gaugeCfg, this.gaugeState, now)) {
       this.forfeitGauge(now);
       return;
@@ -1176,6 +1303,17 @@ export class PlayScene extends Phaser.Scene {
     const remMs = remainingMs(this.gaugeCfg, this.gaugeState, now);
     this.gaugeView.setTimer(remMs);
     this.warnGaugeTime(Math.floor(remMs / 1000)); // ⭐30/20초 경고 + 10초~1초 초침 카운트다운 사운드
+  }
+
+  /** ⭐첫 퍼즐 조작(유효 스왑) 시 미션 타이머 시작(요청) — 그 전까진 tickGauge 가 풀타임 정지. 시작 시점부터 풀타임 카운트다운. */
+  private armGaugeTimer(): void {
+    if (this.gaugeTimerArmed) return; // 이미 시작됨(이번 미션)
+    if (this.gaugeState.claimed.includes(this.gaugeCfg.milestones.length)) return; // 완료/휴면 중이면 무시
+    this.gaugeTimerArmed = true;
+    this.gaugeState = { ...this.gaugeState, startedAtMs: Date.now() }; // 첫 조작 시점부터 풀타임
+    this.lastGaugeWarnSec = undefined;
+    this.saveGauge();
+    if (this.gaugeView) this.renderGauge(Date.now(), false);
   }
 
   /** ⭐타임어택 사운드 경고(bomb_countdown_sfx_pack, 요청) — 시도 중(progress>0)일 때만:
@@ -1221,10 +1359,12 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  /** 발동 배너(및 망치 연출) 중심 = 보드 정중앙. 배너와 망치 오버레이가 같은 지점을 쓰도록 한 곳에서 산출. */
+  /** 발동 배너(및 망치 연출) 중심 — 보드 **상단부**(요청: ATTACK/RAID 연출을 위로). 배너·망치 오버레이가 같은 지점을 쓰도록 한 곳에서 산출.
+   *  BANNER_BOARD_FRAC: 0=보드 최상단행, 0.5=정중앙. 위로 올리려 0.28(상단 ~1/4 지점). */
   private bannerCenter(): { x: number; y: number } {
     const g = this.geom.board;
-    return { x: DESIGN_W / 2, y: g.startY + ((g.rows - 1) / 2) * g.pitchY };
+    const BANNER_BOARD_FRAC = 0.28;
+    return { x: DESIGN_W / 2, y: g.startY + (g.rows - 1) * g.pitchY * BANNER_BOARD_FRAC };
   }
 
   /**
@@ -1284,17 +1424,17 @@ export class PlayScene extends Phaser.Scene {
     const now = this.time.now;
     if (now - this.noSpinsToastAt < 1200) return;
     this.noSpinsToastAt = now;
-    showToast(this, '스핀이 부족합니다!', { color: '#ff9a9a' });
+    showToast(this, 'NOT ENOUGH SPINS!', { color: '#ff9a9a' });
     // ⭐P1 에너지 월(구매 포인트) — 스핀 소진 = 가장 강한 전환점. 즉시 충전(목업) 또는 상점. 자주 안 뜨게 throttle.
     if (now - this.noSpinsDialogAt > 6000 && !isDialogOpen(this)) {
       this.noSpinsDialogAt = now;
       const pack = SHOP_CATALOG.spins[0]; // 100 스핀 $1.99(최소 팩)
       showDialog(this, {
-        title: '스핀 부족',
-        message: '보유 스핀이 부족합니다.\n스핀을 충전하거나 베팅을 낮추세요.',
+        title: 'NOT ENOUGH SPINS',
+        message: 'You are out of spins.\nTop up spins or lower your bet.',
         buttons: [
-          { label: `스핀 +${pack.amount} ${pack.price}`, kind: 'primary', onClick: () => this.buyQuick(pack) },
-          { label: '상점', kind: 'default', onClick: () => this.goHome() },
+          { label: `SPINS +${pack.amount} ${pack.price}`, kind: 'primary', onClick: () => this.buyQuick(pack) },
+          { label: 'SHOP', kind: 'default', onClick: () => this.goHome() },
         ],
       });
     }
@@ -1307,7 +1447,7 @@ export class PlayScene extends Phaser.Scene {
     this.spins = loadSpins();
     this.refreshHud();
     const unit = item.kind === 'coins' ? '🪙' : item.kind === 'spins' ? '🎰' : '💎';
-    const amt = item.kind === 'coins' ? formatCompact(item.amount) : String(item.amount);
+    const amt = item.amount.toLocaleString('en-US');
     showToast(this, `+${amt} ${unit}`, { color: item.kind === 'coins' ? '#ffe27a' : '#9bff7a' });
   }
 
@@ -1389,13 +1529,23 @@ export class PlayScene extends Phaser.Scene {
     if (this.scoreQueue.length > 0 && !this.busyRound) void this.playRounds(); // 백로그 있으면 재개
   }
 
-  /** ⭐룰렛(Stage1) 당첨금을 코인에 가산 — Stage1.finish 가 복귀 직전 **직접 호출**(레지스트리/RESUME 이벤트 의존 제거 = 확실). */
+  /** ⭐레이드 룰렛 당첨금을 **코인**에 가산 — Stage1.finish 가 복귀 직전 **직접 호출**(레지스트리/RESUME 이벤트 의존 제거 = 확실). */
   awardRaidWin(amount: number): void {
     if (!(amount > 0)) return;
     this.coins += amount;
     this.refreshHud();
     this.sfx?.play('coin', 0.5);
     this.floatLabel(`+${this.fmt(amount)}`, '#ffd34d'); // 복귀 시 떠오르며 사라짐(트윈은 재개 후 진행)
+  }
+
+  /** ⭐어택 룰렛 당첨을 **스핀**에 가산(요청 2026-07-01: 어택=스핀 보상) — Stage1.finish 가 복귀 직전 직접 호출.
+   *   grantSpins 로 카운터 갱신 + 스핀 바 위 +N 팝업(스핀젬 회수와 동일한 초록 룩). 레이드(코인)와 동일한 직접-호출 핸드오프. */
+  awardAttackSpins(amount: number): void {
+    const n = Math.round(amount);
+    if (!(n > 0)) return;
+    this.grantSpins(n);
+    this.sfx?.play('coin', 0.5);
+    this.spinGainPopup(n);
   }
 
   /** ⭐실측 텔레메트리 — 라운드 종료 시 스냅샷 기록(경제 콘솔이 같은 origin localStorage 로 읽어 모델과 비교). 실패 무시. */
@@ -1544,9 +1694,8 @@ export class PlayScene extends Phaser.Scene {
       //   순서 = 퍼즐매칭 → 슬롯 회전 → **슬롯 결과 확실히 확인** → 발동 배너 → 스테이지. (대박 카운트업/축포/잭팟
       //   추첨 같은 대형 축하만 생략해 전환이 늘어지지 않게.)
       this.iconWin?.setVisible(true); // 획득(코인) 아이콘 — 일반 결과와 동일
-      this.matchImg?.setVisible(false); // 상단 배너: MATCH=1SPIN → 최종 당첨금
       if (win > 0) this.sfx.play('countUp', 0.6);
-      await this.rollNumber(this.finalScoreText, '', win, 550); // 당첨 롤링(또렷한 결과 표시)
+      await this.showSlotWinBanner(win, 550); // ⭐당첨 롤링(미션 메시지 중이면 스킵 — 중첩 금지)
       this.coins += win;
       this.grantBigWinSpins(win); // ⭐대박이면 스핀도 소량 환급(작은 상승니)
       this.recordTelemetry(win); // 실측 스냅샷(스테이지 진입 라운드)
@@ -1564,8 +1713,7 @@ export class PlayScene extends Phaser.Scene {
     await this.wait(quick(140)); // 두 결과 확인 후 최종 계산(긴장감) — 가속 시 단축
     this.iconWin?.setVisible(true); // 획득(코인) 아이콘 — 우측 칸 고정
     if (win > 0) this.sfx.play('countUp', 0.6);
-    this.matchImg?.setVisible(false); // 상단 배너: MATCH=1SPIN → 최종 당첨금
-    await this.rollNumber(this.finalScoreText, '', win, quick(550, 180)); // 획득 롤링(가속 시 단축, 가독 하한 180)
+    await this.showSlotWinBanner(win, quick(550, 180)); // ⭐획득 롤링(미션 메시지 중이면 스킵 — 중첩 금지)
     this.coins += win;
     this.grantBigWinSpins(win); // ⭐대박이면 스핀도 소량 환급(작은 상승니 = "쌓이는 느낌")
     this.recordTelemetry(win); // 실측 스냅샷(일반 라운드)

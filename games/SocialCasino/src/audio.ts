@@ -48,6 +48,17 @@ export const SFX = {
   missionCount8: 'countdown_08sec_beep.wav',
   missionCount9: 'countdown_09sec_beep.wav',
   missionCount10: 'countdown_10sec_beep.wav',
+  // ── 레이드/공격 전용 효과음 (casino_attack_sound_pack_acoustic, 2026-07-01) ──
+  raidEntry: '01_raid_entry_acoustic_fanfare_3s.wav',
+  attackEntry: '02_attack_entry_casino_prepare_3s.wav',
+  attackObject0: '03_attack_object_01_slot_machine_chip_smack_2s.wav',
+  attackObject1: '03_attack_object_02_roulette_table_star_bounce_2s.wav',
+  attackObject2: '03_attack_object_03_cashbox_payout_knock_2s.wav',
+  attackObject3: '03_attack_object_04_vip_lounge_glass_chime_2s.wav',
+  attackObject4: '03_attack_object_05_garden_fountain_gold_splash_2s.wav',
+  attackStar: '04_star_attack_lucky_target_2s.wav',
+  attackSuccess: '05_attack_success_payout_jingle_2s.wav',
+  attackFail: '06_attack_fail_shield_block_2s.wav',
 } as const;
 
 export type SfxKey = keyof typeof SFX;

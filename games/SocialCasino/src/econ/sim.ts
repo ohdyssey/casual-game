@@ -14,7 +14,7 @@ import { spinReels, evaluateReels, LINES } from '../logic/slot.js';
 import { nextFortune, weightsFor, FORTUNE_START, puzzleMultiplierFromRuns, SLOT_RTP_SCALE, LUCK_TABLE, JACKPOT_RAKE, JACKPOT_HIT_PROB, type Fortune } from '../logic/economy.js';
 import { CITY_COST_BASE, CITY_COST_GROWTH, INCOME_BASE, INCOME_PER_LEVEL, INCOME_MAX, HOTEL_SPIN_BASE, HOTEL_SPIN_GROWTH, MAX_CITY_LEVEL, MISSION_GROWTH_PER_LEVEL } from '../logic/progression.js';
 import { HOTEL_OBJECTS, MAX_LEVEL as MAX_OBJ_LEVEL } from '../logic/hotelUpgrade.js';
-import { START_SPINS, START_COINS, spinRefundMult, BIGWIN_SPIN_BIG_X, BIGWIN_SPIN_BIG, BIGWIN_SPIN_MEGA_X, BIGWIN_SPIN_MEGA, DAILY_SPINS, COIN_DENOM, BET_START, MISSION_PLAN, RAID_STAKE_SCALE } from '../logic/playParams.js';
+import { START_SPINS, START_COINS, spinRefundMult, BIGWIN_SPIN_BIG_X, BIGWIN_SPIN_BIG, BIGWIN_SPIN_MEGA_X, BIGWIN_SPIN_MEGA, DAILY_SPINS, COIN_DENOM, BET_START, MISSION_PLAN, RAID_STAKE_SCALE, ATTACK_SPIN_STAKE_SCALE } from '../logic/playParams.js';
 import { makeRng, type Rng } from '../logic/rng.js';
 import { type LeagueParams, DEFAULT_LEAGUE, expectedSpinPerPeriod, expectedCoinPerPeriod, leaguePerDaySpins, leaguePerDayCoins } from './league.js';
 
@@ -39,7 +39,8 @@ export interface EconParams {
   bet: number; // spinBet
   coinDenom: number;
   slotRtpScale: number;
-  raidStakeScale: number; // 레이드/어텍 룰렛 스테이크 = betCoin × M(L) × 이 값
+  raidStakeScale: number; // 레이드 **코인** 룰렛 스테이크 = betCoin × M(L) × 이 값
+  attackSpinStakeScale: number; // ⭐어택 **스핀** 룰렛 스테이크 = spinBet × 이 값(2026-07-01 — 어택=스핀 보상)
   startCoins: number;
   luckTable: ReadonlyArray<{ p: number; m: number }>;
   jackpotRake: number;
@@ -65,6 +66,7 @@ export function defaultEconParams(): EconParams {
     coinDenom: COIN_DENOM,
     slotRtpScale: SLOT_RTP_SCALE,
     raidStakeScale: RAID_STAKE_SCALE,
+    attackSpinStakeScale: ATTACK_SPIN_STAKE_SCALE,
     startCoins: START_COINS,
     luckTable: LUCK_TABLE.map((t) => ({ ...t })),
     jackpotRake: JACKPOT_RAKE,
@@ -174,7 +176,7 @@ export interface SimResult {
   rtpBase: number; // 진행/리그 무관 구조 RTP(M=1)
   rtpEffective: number; // M(L) 반영
   coinPerRound: number;
-  spinSources: { gem: number; bigwin: number; mission: number; hotel: number; daily: number; league: number };
+  spinSources: { gem: number; bigwin: number; attack: number; mission: number; hotel: number; daily: number; league: number };
   coinSources: { slot: number; jackpot: number; mission: number; raid: number }; // 코인 획득 출처(슬롯 vs 레이드 비교)
   raidEvents: number; // 레이드/어텍 발동 횟수
   trajectory: number[]; // 스핀 잔고 샘플
@@ -195,7 +197,7 @@ export function simulate(p: EconParams, opts: SimOptions): SimResult {
   let mi = 0, prog = 0;
   let rounds = 0, days = 0, upticks = 0, prevSpins = spins, blocked = false;
   let wagered = 0, returnedBase = 0, returnedEff = 0, coinEarned = 0, raidEvents = 0;
-  const src = { gem: 0, bigwin: 0, mission: 0, hotel: 0, daily: 0, league: 0 };
+  const src = { gem: 0, bigwin: 0, attack: 0, mission: 0, hotel: 0, daily: 0, league: 0 };
   const coinSrc = { slot: 0, jackpot: 0, mission: 0, raid: 0 };
   const upgradeRounds: number[] = [];
   const trajectory: number[] = [];
@@ -232,10 +234,16 @@ export function simulate(p: EconParams, opts: SimOptions): SimResult {
     pool += Math.round(betCoin * p.jackpotRake);
     if (rng() < p.jackpotHitProb) { coins += pool; returnedBase += pool; returnedEff += pool; coinSrc.jackpot += pool; pool = 0; }
 
-    // 레이드/어텍(특수젬 ≥2) → 룰렛 → 코인. PlayScene.onStageTrigger 트리거 + raidStake = betCoin × M(L) × scale 와 1:1.
+    // 어택/레이드(특수젬 ≥2) → 룰렛. **통화 분기**(2026-07-01, PlayScene.onStageTrigger/maybeEnterStage 와 1:1):
+    //   • 어택(어텍젬 우세) → 룰렛 → **스핀**(stake = spinBet × attackSpinStakeScale).
+    //   • 레이드(약탈젬 ≥2)  → 룰렛 → **코인**(stake = betCoin × M(L) × raidStakeScale).
     let totalAtk = 0, totalRaid = 0;
     for (const st of res.steps) { totalAtk += st.collected[SPECIAL_ATTACK] ?? 0; totalRaid += st.collected[SPECIAL_RAID] ?? 0; }
-    if ((totalAtk >= 2 && totalAtk >= totalRaid) || totalRaid >= 2) {
+    if (totalAtk >= 2 && totalAtk >= totalRaid) {
+      const stake = Math.round(p.bet * p.attackSpinStakeScale);
+      const sw = rouletteWin(stake, ROULETTE_SEGMENTS[pickSegment(rng)]);
+      spins += sw; src.attack += sw; raidEvents++;
+    } else if (totalRaid >= 2) {
       const stake = Math.round(betCoin * incomeMultP(p, L) * p.raidStakeScale);
       const rw = rouletteWin(stake, ROULETTE_SEGMENTS[pickSegment(rng)]);
       coins += rw; coinSrc.raid += rw; raidEvents++;
@@ -356,6 +364,7 @@ export function simulateAvg(p: EconParams, opts: SimOptions, seeds: number): Sim
     spinSources: {
       gem: Math.round(avg((r) => r.spinSources.gem)),
       bigwin: Math.round(avg((r) => r.spinSources.bigwin)),
+      attack: Math.round(avg((r) => r.spinSources.attack)),
       mission: Math.round(avg((r) => r.spinSources.mission)),
       hotel: Math.round(avg((r) => r.spinSources.hotel)),
       daily: Math.round(avg((r) => r.spinSources.daily)),

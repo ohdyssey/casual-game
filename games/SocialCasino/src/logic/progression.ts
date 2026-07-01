@@ -73,7 +73,7 @@ export function themeIndex(level: number, packCount: number): number {
 
 // ── 미션 목표 스케일 (진행할수록 미션도 무거워짐) ──────────────────────────────
 /** 시티레벨당 미션 목표 증가율(기준 목표에 곱). δ=0.05 → L20 에서 ×2. */
-export const MISSION_GROWTH_PER_LEVEL = 0.05;
+export const MISSION_GROWTH_PER_LEVEL = 0; // ⭐배수 비활성화 — 베이스값 그대로 표시(이후 재적용 예정)
 
 /** 기준 미션목표(젬×베팅 단위) + 시티레벨 → 스케일된 목표 = round(base·(1 + δ·L)). */
 export function missionTarget(baseTarget: number, level: number): number {

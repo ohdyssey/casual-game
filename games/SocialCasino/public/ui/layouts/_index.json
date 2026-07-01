@@ -38,7 +38,7 @@
     },
     {
       "id": "blank_4",
-      "name": "빈 화면",
+      "name": "아이템구매",
       "file": "ui/layouts/blank_4.json",
       "category": "custom"
     },
@@ -64,6 +64,18 @@
       "id": "blank_5_copy",
       "name": "구매결정",
       "file": "ui/layouts/blank_5_copy.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_5_copy_copy",
+      "name": "시설 구매",
+      "file": "ui/layouts/blank_5_copy_copy.json",
+      "category": "custom"
+    },
+    {
+      "id": "main_copy",
+      "name": "메인게임화면",
+      "file": "ui/layouts/main_copy.json",
       "category": "custom"
     }
   ]

@@ -8,7 +8,7 @@
  *   영속: localStorage(`socialcasino_econ_overrides_v1`). 부분 오버라이드(설정 안 한 항목은 SSOT). 손상 시 SSOT.
  */
 import { SLOT_RTP_SCALE, LUCK_TABLE } from './economy.js';
-import { RAID_STAKE_SCALE, MISSION_PLAN, type MissionEntry } from './playParams.js';
+import { RAID_STAKE_SCALE, ATTACK_SPIN_STAKE_SCALE, MISSION_PLAN, type MissionEntry } from './playParams.js';
 import { ROULETTE_SEGMENTS, type RouletteSegment } from './roulette.js';
 
 /** 미션 오버라이드 1칸(목표 + 보상액 — 종류는 SSOT 교대 유지). */
@@ -21,7 +21,8 @@ export interface MissionOverride {
 export interface EconOverrides {
   slotRtpScale?: number;
   luckMults?: number[]; // LUCK_TABLE 의 m(배수)만 오버라이드(확률 p 는 구조적·고정)
-  raidStakeScale?: number;
+  raidStakeScale?: number; // 레이드 코인 스테이크 배수
+  attackSpinStakeScale?: number; // ⭐어택 스핀 스테이크 배수(2026-07-01 신설 — 어택=스핀 보상)
   segmentMults?: number[]; // ROULETTE_SEGMENTS 각 조각의 mult
   missions?: MissionOverride[]; // MISSION_PLAN 각 칸의 target + rewardAmount
 }
@@ -76,10 +77,16 @@ export function luckTableNow(): ReadonlyArray<{ p: number; m: number }> {
   return LUCK_TABLE.map((t, i) => ({ p: t.p, m: finite(ms[i]) && ms[i] >= 1 ? ms[i] : t.m }));
 }
 
-/** 레이드/어텍 스테이크 배수(클수록 레이드 보상↑). */
+/** 레이드 **코인** 스테이크 배수(클수록 레이드 코인 보상↑). */
 export function raidStakeScaleNow(): number {
   const v = loadOverrides().raidStakeScale;
   return finite(v) && v >= 0 ? v : RAID_STAKE_SCALE;
+}
+
+/** ⭐어택 **스핀** 스테이크 배수(클수록 어택 스핀 보상↑). 2026-07-01 신설 — 어택=스핀 보상. */
+export function attackSpinStakeScaleNow(): number {
+  const v = loadOverrides().attackSpinStakeScale;
+  return finite(v) && v >= 0 ? v : ATTACK_SPIN_STAKE_SCALE;
 }
 
 /** 룰렛 조각(배수만 오버라이드 — 라벨/순서/가중치는 SSOT). */
@@ -108,6 +115,7 @@ export function currentValues(): Required<Omit<EconOverrides, 'missions'>> & { m
     slotRtpScale: slotRtpScaleNow(),
     luckMults: luckTableNow().map((t) => t.m),
     raidStakeScale: raidStakeScaleNow(),
+    attackSpinStakeScale: attackSpinStakeScaleNow(),
     segmentMults: segmentsNow().map((s) => s.mult),
     missions: missionsNow().map((m) => ({ target: m.target, rewardAmount: m.reward.amount })),
   };

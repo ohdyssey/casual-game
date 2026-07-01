@@ -31,6 +31,8 @@ const GAUGE_URGENT_MS = 30_000;
 const TIMER_STROKE_PX = 5;
 /** ⭐디지털 시계 타이머 **크기 배율**(에디터 fontSize 대비) — 요청 "약간 작게". 0.85 = 44px→~37px. */
 const TIMER_FONT_SCALE = 0.85;
+/** ⭐채움 100% 지점을 보상 배지 바닥에서 **이만큼 아래로** 내림(px) — 목표=100%에 정확히 선 닿게(요청, 오버슈트 해소). */
+const FILL_TOP_INSET = 20;
 
 export class RewardGaugeView {
   private readonly scene: Phaser.Scene;
@@ -78,7 +80,9 @@ export class RewardGaugeView {
       //   출발선도 그대로 따라감, 매직 상수 없음). 100% = 최종 보상 배지(상단). 바닥에서 위로 차오른다(drawMask MIN_FILL 로 1%도 보임).
       //   ⚠️아래 setDisplaySize 가 bar 를 리사이즈하기 **전에** 원본 바닥 좌표를 캡처해야 함.
       const bottomY = bar.y + bar.displayHeight * (1 - bar.originY);
-      const topY = fin ? fin.y + fin.displayHeight * (1 - fin.originY) : bar.y - bar.displayHeight * bar.originY;
+      // ⭐100% 채움선 = 최종 보상 배지 바닥 + **FILL_TOP_INSET**(아래로 내림). 이전엔 배지 바로 밑이라 채움이 목표선을 **넘어** ~94%에서 이미 선에 닿았다(요청).
+      //   인셋만큼 100% 지점을 내려 **정확히 목표=100%** 에 선에 닿게 한다. 값↑ = 100% 지점 더 아래.
+      const topY = (fin ? fin.y + fin.displayHeight * (1 - fin.originY) : bar.y - bar.displayHeight * bar.originY) + FILL_TOP_INSET;
       const h = Math.max(20, bottomY - topY);
       bar.setPosition(bar.x, (topY + bottomY) / 2).setDisplaySize(barW, h); // 캡슐을 채움 범위로 늘려 배치
       this.fillBottomY = bottomY;

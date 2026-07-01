@@ -75,10 +75,11 @@ const LAND_REST_MS = 86; // ④ 정착(원복) 시간
  *  읽기 전용(grid/경제 미변경). 폴링 간격 HINT_POLL_MS 로 유휴를 감시. */
 const HINT_IDLE_MS = 3500;
 const HINT_POLL_MS = 500;
-/** ⭐**무브 풍부성 보장** — 생성/셔플 시 최소 가용 매치 수(MIN_MOVES_START) 이상이 되도록 재생성하고,
- *  라운드 끝에 가용 매치가 MIN_MOVES_PLAY 미만이면 (완전 교착 전에) 선제 셔플 → 항상 여러 매치가 보인다. */
+/** ⭐**무브 풍부성 보장** — 생성/셔플 시 최소 가용 매치 수(MIN_MOVES_START) 이상이 되도록 재생성한다.
+ *  ⚠️라운드 끝 셔플은 **완전 교착(0개)** 일 때만(MIN_MOVES_PLAY=1) — 이전 선제 셔플(<2)이 **매칭 가능한 단일 매치(특수 포함)를
+ *  셔플로 없애던 버그**(요청)를 막는다. 매치가 하나라도 있으면(특수든 일반이든) 셔플하지 않는다. */
 const MIN_MOVES_START = 5;
-const MIN_MOVES_PLAY = 2;
+const MIN_MOVES_PLAY = 1;
 const BOARD_GEN_TRIES = 12;
 
 /**
@@ -135,6 +136,8 @@ export class BoardView {
   /** ⭐공격/약탈 발동 **조기 통지** — 연쇄 애니(popCells 젬 확대) **직전**에 호출해 발동 배너가 젬 확대와 **동시**에 뜨게 한다.
    *   (보상 가산은 onCollect 가 연쇄 종료 후 별도 처리 — 스핀젬 회수 비행 도착에 맞춤.) setStageTrigger 로 연결. */
   private onStage?: (steps: number[][], combo: number) => void;
+  /** ⭐플레이어가 **유효한 스왑(퍼즐 조작)** 을 했을 때 1회성 통지 — 미션 타이머를 첫 조작 때 시작시키기 위함(요청). setOnPlayerMove 로 연결. */
+  private onPlayerMove?: () => void;
   /** ⭐현재 수집 대상 퍼즐 타입(미션 진행 시 PlayScene 이 setCollectGem 으로 변경). */
   private collectType = COLLECT_GEM_TYPE;
   /** ⭐수집 코인이 날아갈 목표(보상 게이지 수집 아이콘 위치) — PlayScene 이 setGaugeTarget 으로 전달. */
@@ -197,6 +200,11 @@ export class BoardView {
   /** 보상 게이지 수집 싱크 연결 — 매 매치의 **수집 대상 코인 제거 수**가 cb 로 전달된다(수동/AI자동 공통). */
   setGemSink(cb: (collected: number) => void): void {
     this.onGems = cb;
+  }
+
+  /** ⭐플레이어 유효 스왑(퍼즐 조작) 통지 연결 — 미션 타이머를 **첫 조작 시점**에 시작시키기 위함(요청). */
+  setOnPlayerMove(cb: () => void): void {
+    this.onPlayerMove = cb;
   }
 
   /** 공격/약탈 발동 조기 통지 연결 — 젬 확대(popCells) 직전에 호출돼 발동 배너를 젬 확대와 동시에 띄운다. */
@@ -702,8 +710,8 @@ export class BoardView {
   /** 라운드(결과 표시)가 모두 끝난 뒤 호출 — 이동 불가면 그때 셔플(중간에 안 함). */
   async reshuffleIfNeeded(): Promise<void> {
     if (this.busy) return;
-    // ⭐완전 교착(0개) 전에 — 가용 매치가 MIN_MOVES_PLAY 미만이면 선제 셔플(항상 여러 매치가 보이게).
-    //   라운드(결과 표시) 종료 경계에서만 호출되므로 연쇄를 끊지 않는다. cap 으로 흔한 경우 비용은 기존과 동일.
+    // ⭐**완전 교착(0개)** 일 때만 셔플 — 매치가 하나라도 있으면(특수/일반 무관) 셔플하지 않는다(요청: 매칭 가능 퍼즐을 셔플로 없애지 말 것).
+    //   countAvailableMoves 는 findRuns(특수끼리 매치 포함) 기반이라 특수 매치도 정확히 계수 → 특수 매치 가능 시 셔플 안 함.
     if (countAvailableMoves(this.grid, MIN_MOVES_PLAY) >= MIN_MOVES_PLAY) return;
     this.busy = true;
     await this.reshuffle();
@@ -954,6 +962,7 @@ export class BoardView {
 
     haptics.tap();
     this.sfx?.play('swap', 0.55);
+    this.onPlayerMove?.(); // ⭐유효 스왑 = 퍼즐 조작 → 미션 타이머 시작 신호(요청: 첫 조작 전엔 타임어택 정지)
     this.grid = this.swapGrid(this.grid, a, b);
     this.syncTextures(this.grid);
 

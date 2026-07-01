@@ -335,6 +335,7 @@ function renderSources(): void {
   drawBars($('cv_src') as HTMLCanvasElement, [
     { label: '젬환급', value: s.gem, color: '#38d39f' },
     { label: '대박', value: s.bigwin, color: '#ffce5c' },
+    { label: '어택', value: s.attack, color: '#ff7a52' },
     { label: '미션', value: s.mission, color: '#5b8cff' },
     { label: '호텔', value: s.hotel, color: '#ff9e54' },
     { label: '데일리', value: s.daily, color: '#9b7bff' },

@@ -7,6 +7,8 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#9B5DE5" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <title>MATCHSLOT CITY</title>
     <style>
       /* Jua/Do Hyeon — OFL 한글+라틴 둥근 게임체 (P0 CDN, P1 셀프호스팅 전환).
@@ -31,11 +33,12 @@
         overscroll-behavior: none;
       }
       #game-container { background: #000;
-        position: fixed; inset: 0;
-        width: 100vw; height: 100dvh;
+        position: fixed;
+        top: env(safe-area-inset-top, 0px);
+        left: env(safe-area-inset-left, 0px);
+        right: env(safe-area-inset-right, 0px);
+        bottom: env(safe-area-inset-bottom, 0px);
         overflow: hidden;
-        padding: 0 env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
-        box-sizing: border-box;
       }
       #game-container canvas { display: block; }
       .loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); opacity: 0.7; }
