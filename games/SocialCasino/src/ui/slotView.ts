@@ -11,10 +11,10 @@
 import Phaser from 'phaser';
 import type { CellGrid } from './layoutGeom.js';
 import { SLOT_SYMBOL_KEYS } from '../assets.js';
-import { spin as slotSpin, REEL_COLS, REEL_ROWS, SYMBOL_COUNT, type SpinOutcome } from '../logic/slot.js';
+import { spin as slotSpin, REEL_COLS, REEL_ROWS, SYMBOL_COUNT, CENTER_ROW, type SpinOutcome } from '../logic/slot3.js';
 import type { Rng } from '../logic/rng.js';
 
-/** geom 의 릴 격자를 5열×3행으로 정규화(부족하면 균등 보간). */
+/** geom 의 릴 격자를 3열×3행으로 정규화(부족하면 균등 보간). */
 function normalize(reel: CellGrid): { xs: number[]; ys: number[]; cellW: number; cellH: number } {
   const spread = (arr: number[], n: number): number[] => {
     if (arr.length === n) return arr;
@@ -170,8 +170,8 @@ export class SlotView {
    * pace(0..1): 0=정상 풀연출(~1.4s), 1=터보(~0.35s). 회전·정지·안착을 선형 보간해 **퍼즐을 빠르게
    *   맞출수록(또는 백로그가 쌓일수록) 슬롯이 빨라져 따라온다**(적응형 가속).
    */
-  spin(rng: Rng, bet: number, multiplier: number, weights?: ReadonlyArray<number>, pace = 0): Promise<SpinOutcome> {
-    if (this.busy) return Promise.resolve({ reels: this.outcome, wins: [], totalWin: 0 });
+  spin(rng: Rng, weights?: ReadonlyArray<number>, pace = 0): Promise<SpinOutcome> {
+    if (this.busy) return Promise.resolve({ reels: this.outcome, matched: false, symbol: -1, kind: 'none', coinBase: 0 });
     // pace 0..1 로 정상값↔하한값 보간(회전수↓·열간격↓·감속↑·안착↓).
     const k = pace < 0 ? 0 : pace > 1 ? 1 : pace;
     this.spinPace = k;
@@ -179,7 +179,7 @@ export class SlotView {
     this.stagger = Math.round(STAGGER + (STAGGER_FAST - STAGGER) * k);
     this.decel = DECEL + (DECEL_FAST - DECEL) * k;
     this.settleMs = Math.round(SETTLE_MS + (SETTLE_MS_FAST - SETTLE_MS) * k);
-    const outcome = slotSpin(rng, bet, multiplier, weights);
+    const outcome = slotSpin(rng, weights);
     this.outcome = outcome.reels;
     this.busy = true;
     for (let c = 0; c < REEL_COLS; c++) {
@@ -200,7 +200,7 @@ export class SlotView {
           this.scene.events.off(Phaser.Scenes.Events.UPDATE, this.onUpdate);
           this.flashWins(outcome);
           // 가속 중(pace>0.5)이면 짧은 마무리(40), 정상이면 당첨 시 220ms 음미·꽝 60.
-          this.scene.time.delayedCall(this.spinPace > 0.5 ? 40 : outcome.totalWin > 0 ? 220 : 60, () => {
+          this.scene.time.delayedCall(this.spinPace > 0.5 ? 40 : outcome.matched ? 220 : 60, () => {
             this.busy = false;
             resolve(outcome);
           });
@@ -263,40 +263,34 @@ export class SlotView {
     this.scene.time.delayedCall(this.settleMs + 10, () => this.finalizeDone());
   }
 
+  /** 당첨(중앙 1줄 3매치) 플래시 — 세 열의 가운데 행 심볼을 강조. 어택=붉은/레이드=금색/코인=연금색 글로우. */
   private flashWins(outcome: SpinOutcome): void {
-    const PAYLINES_ROWS: number[][] = [
-      [1, 1, 1, 1, 1],
-      [0, 0, 0, 0, 0],
-      [2, 2, 2, 2, 2],
-      [0, 1, 2, 1, 0],
-      [2, 1, 0, 1, 2],
-    ];
-    for (const w of outcome.wins) {
-      const rows = PAYLINES_ROWS[w.line];
-      for (let c = 0; c < w.count; c++) {
-        const img = this.reels[c][BUFFER + rows[c]];
-        img.setDepth(this.depth + 12); // 당첨 심볼을 위로
-        img.setTint(0xfff39a); // 금빛 글로우
-        const sx = img.scaleX;
-        const sy = img.scaleY;
-        // 부풀리기(인플레이트) 강하게 + 여러 번 → 당첨 인식 명확.
-        this.scene.tweens.add({
-          targets: img,
-          scaleX: sx * 1.45,
-          scaleY: sy * 1.45,
-          duration: 130,
-          yoyo: true,
-          repeat: 1,
-          ease: 'Sine.easeInOut',
-          onComplete: () => {
-            img.clearTint();
-            img.setDepth(this.depth);
-            img.setScale(sx, sy);
-          },
-        });
-        // 반짝임(트윙클).
-        this.scene.tweens.add({ targets: img, alpha: 0.5, duration: 80, yoyo: true, repeat: 2 });
-      }
+    if (!outcome.matched) return;
+    const tint = outcome.kind === 'attack' ? 0xff6a6a : outcome.kind === 'raid' ? 0xffd23d : 0xfff39a;
+    for (let c = 0; c < REEL_COLS; c++) {
+      const img = this.reels[c][BUFFER + CENTER_ROW];
+      if (!img) continue;
+      img.setDepth(this.depth + 12); // 당첨 심볼을 위로
+      img.setTint(tint);
+      const sx = img.scaleX;
+      const sy = img.scaleY;
+      // 부풀리기(인플레이트) 강하게 + 여러 번 → 당첨 인식 명확.
+      this.scene.tweens.add({
+        targets: img,
+        scaleX: sx * 1.5,
+        scaleY: sy * 1.5,
+        duration: 140,
+        yoyo: true,
+        repeat: 1,
+        ease: 'Sine.easeInOut',
+        onComplete: () => {
+          img.clearTint();
+          img.setDepth(this.depth);
+          img.setScale(sx, sy);
+        },
+      });
+      // 반짝임(트윙클).
+      this.scene.tweens.add({ targets: img, alpha: 0.5, duration: 80, yoyo: true, repeat: 2 });
     }
   }
 }

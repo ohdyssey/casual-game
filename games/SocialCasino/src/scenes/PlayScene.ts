@@ -40,12 +40,11 @@ import { showToast, showDialog, isDialogOpen } from '../ui/dialogBox.js';
 import { BigNumber } from '../ui/bigNumber.js';
 import { Confetti } from '../ui/confetti.js';
 import { CoinBurst } from '../ui/coinBurst.js';
-import { LINES } from '../logic/slot.js';
-import { SPECIAL_SPIN, SPECIAL_RAID, SPECIAL_ATTACK, tierForStage } from '../logic/board.js';
+import type { SpinOutcome } from '../logic/slot3.js';
+import { SPECIAL_SPIN, tierForStage } from '../logic/board.js';
 import { deserializeHotel, totalLevel, cityLevel, currentStage, createHotelState, HOTEL_SAVE_KEY, formatCompact, type HotelState } from '../logic/hotelUpgrade.js';
 import { incomeMultiplier, missionTarget, cityCost } from '../logic/progression.js';
 import {
-  slotPayoutWithLuck,
   luckMultiplier,
   weightsFor,
   nextFortune,
@@ -66,7 +65,7 @@ import { recordSnapshot } from '../econ/telemetry.js';
 import {
   START_COINS, START_SPINS, BET_LADDER, BET_START, COIN_DENOM,
   spinRefundMult, BIGWIN_SPIN_BIG_X, BIGWIN_SPIN_BIG, BIGWIN_SPIN_MEGA_X, BIGWIN_SPIN_MEGA,
-  DAILY_SPINS, specialMatchMult,
+  DAILY_SPINS,
 } from '../logic/playParams.js';
 import { slotRtpScaleNow, luckTableNow, raidStakeScaleNow, attackSpinStakeScaleNow, missionsNow } from '../logic/econOverrides.js';
 import { openSettingsMenu } from '../ui/settingsMenu.js';
@@ -798,38 +797,10 @@ export class PlayScene extends Phaser.Scene {
    *   슬롯 회전 완결까지 떠 있다가 → maybeEnterStage(망치 등장)에서 정리(망치 연출이 텍스트를 이어받음).
    *   조건: 해당 종류 **2개 이상** 매칭(동률이면 공격). 위력 = 베팅 × 매치크기 배수 × 콤보.
    */
-  private onStageTrigger(steps: number[][], combo: number): void {
-    let attackPower = 0;
-    let raidPower = 0;
-    let totalAttack = 0;
-    let totalRaid = 0;
-    for (const step of steps) {
-      const a = step[SPECIAL_ATTACK] ?? 0;
-      const r = step[SPECIAL_RAID] ?? 0;
-      if (a > 0) {
-        attackPower += this.spinBet * specialMatchMult(a);
-        totalAttack += a;
-      }
-      if (r > 0) {
-        raidPower += this.spinBet * specialMatchMult(r);
-        totalRaid += r;
-      }
-    }
-    const cmb = Math.max(1, combo);
-    attackPower *= cmb;
-    raidPower *= cmb;
-    // ⭐배너(텍스트)는 **젬 확대와 동시에 즉시** 띄운다. 하지만 스테이지 예약(pendingStage)은 여기서 하지 않고
-    //   **stageHold 로 보류** → finalizeWin 에서 **슬롯이 돈 뒤** 예약으로 승격한다(요청: 텍스트 연출 시 슬롯이 확실히 회전).
-    if (totalAttack >= 2 && totalAttack >= totalRaid) {
-      this.stageHold = { type: 'attack', power: attackPower };
-      this.showActivationBanner('attack', attackPower); // 젬 확대와 동시 등장 → 망치 등장까지 유지
-    } else if (totalRaid >= 2) {
-      this.stageHold = { type: 'raid', power: raidPower };
-      this.showActivationBanner('raid', raidPower);
-    }
-    // ⭐어텍/레이드 **발동 즉시**(배너 등장 시점) 미션 타이머 정지(요청 — 배너+슬롯 연출 ~2~3초가 흐르던 누수 제거).
-    //   이후 슬롯 회전·스테이지·복귀까지 전 구간 제외. returnFromStage 가 경과분만큼 마감을 밀고 해제. (중복 트리거 시 첫 시각 유지.)
-    if (this.stageHold && this.gaugeStageStartedMs == null) this.gaugeStageStartedMs = Date.now();
+  private onStageTrigger(_steps: number[][], _combo: number): void {
+    // ⭐2026-07-02 재설계: 어택(망치)/레이드(금화)는 **슬롯 3매치**로 이전(showSlotResult). 보드 스페셜 젬 트리거 폐지.
+    //   (퍼즐 매치는 스핀 연료만 생산 — 스핀 젬 회수는 onCollectSpecials 가 계속 담당.)
+    //   TODO(P5): boardView 의 어택/레이드 스페셜 젬 스폰 자체를 비활성(스핀 젬만 유지)해 죽은 젬 제거.
   }
 
   /**
@@ -1489,9 +1460,9 @@ export class PlayScene extends Phaser.Scene {
       // ⭐현재 페이스 강도(매치 간격 + 남은 백로그) → 이 라운드 슬롯/텀 타이밍.
       const timing = paceTiming(paceIntensity(this.pace, this.time.now, this.scoreQueue.length));
       await this.wait(timing.puzzleToSlotMs); // 퍼즐→슬롯 간격(가속 시 0)
-      const outcome = await this.slot.spin(this.rng, 1, 1, weightsFor(this.fortune), timing.slotPace); // ② 슬롯 회전(가속)
+      const outcome = await this.slot.spin(this.rng, weightsFor(this.fortune), timing.slotPace); // ② 슬롯 회전(가속)
       this.fadeSpinLoop(); // 안전망 — 보통 마지막 릴 정지 콜백에서 이미 페이드됨
-      const slotPayout = this.showSlotResult(outcome.totalWin, this.infoMid); // ② 슬롯 결과 → 중간 칸
+      const slotPayout = this.showSlotResult(outcome, this.infoMid); // ② 슬롯 결과(코인/어택/레이드) → 중간 칸
       await this.finalizeWin(slotPayout, bonus, timing.slotPace); // ③ 최종(가속 반영 — 큰 당첨은 그대로 음미)
       await this.board.reshuffleIfNeeded(); // 결과가 모두 끝난 뒤에만 셔플
       this.maybeEnterStage(); // ⭐슬롯결정 끝 → 예약된 공격/약탈 스테이지로 전환(있으면 다음 루프에서 중단)
@@ -1618,9 +1589,9 @@ export class PlayScene extends Phaser.Scene {
     this.playLever();
     this.spinLoop = this.sfx.loopStart('reelLoop', 0.14);
     await this.wait(PUZZLE_TO_SLOT_SLOW_MS); // ⭐퍼즐→슬롯 거의 즉시(오토는 여유 페이스)
-    const outcome = await this.slot.spin(this.rng, 1, 1, weightsFor(this.fortune)); // 오토 = 정상 속도(pace 0)
+    const outcome = await this.slot.spin(this.rng, weightsFor(this.fortune)); // 오토 = 정상 속도(pace 0)
     this.fadeSpinLoop(); // 안전망 — 보통 마지막 릴 정지 콜백에서 이미 페이드됨
-    const slotPayout = this.showSlotResult(outcome.totalWin, this.infoMid);
+    const slotPayout = this.showSlotResult(outcome, this.infoMid);
     await this.finalizeWin(slotPayout, bonus); // ③ 최종
     await this.board.reshuffleIfNeeded(); // 결과가 모두 끝난 뒤에만 셔플
     this.busyRound = false;
@@ -1639,22 +1610,40 @@ export class PlayScene extends Phaser.Scene {
     return mult;
   }
 
-  /** ② 슬롯 결과 칸 표시(베팅×라인원점수/라인수, RTP≈93.6%) → 당첨 코인 반환. */
-  private showSlotResult(slotRaw: number, cell: FancyNumber): number {
+  /**
+   * ② 슬롯 결과(3릴 중앙 1줄 3매치) — 코인 지급액 반환.
+   *   • 망치(HAMMER) 3매치 → **어택** 예약(stageHold) + 배너 · 코인 0(스테이지에서 지급)
+   *   • 금화(GOLD) 3매치   → **레이드** 예약 + 배너 · 코인 0
+   *   • 그 외 3매치        → **골드**(coinBase × 코인베팅 × 럭 × RTP스케일) · 최소 베팅액 보장
+   *   • 미매치             → 0
+   *   stageHold 는 finalizeWin 이 **슬롯 회전 후** pendingStage 로 승격 → maybeEnterStage(망치/커튼).
+   */
+  private showSlotResult(outcome: SpinOutcome, cell: FancyNumber): number {
     this.hidePlaying();
-    // ⭐럭 스트라이크: 대부분 ×1, 가끔 ×4/×12/×50 으로 슬롯이 크게 터진다(고변동 = 큰 한 방).
-    let slotPayout = slotPayoutWithLuck(this.bet, slotRaw, LINES, luckMultiplier(this.rng, luckTableNow()), slotRtpScaleNow());
-    if (this.forceBigWin) slotPayout = this.bet * this.nextForcedMult(); // 연출 검증: 높은 배수 강제(순환)
-    // ⭐슬롯 당첨은 **최소 베팅액(this.bet = 베팅×배수)** 이상 — 베팅보다 적게 따지 않음(진짜 슬롯과 동일).
-    //   소액 적중도 여기로 올라간 뒤, 최종에서 퍼즐 멀티가 곱해진다(표시 곱셈이 정확히 맞음). 꽝(0)은 0 유지.
-    if (slotPayout > 0) slotPayout = Math.max(this.bet, slotPayout);
-    // 슬롯 아이콘을 값이 들어가는 칸(좌/중)에 맞춰 배치 후 표시(퍼즐과 자리 교체).
+    // 슬롯 아이콘을 값 칸(좌/중)에 배치.
     if (this.iconSlot) {
       this.iconSlot.x = cell === this.infoLeft ? this.iconLeftX : this.iconMidX;
       this.iconSlot.setVisible(true);
     }
-    this.popScore(cell, `+${this.fmt(slotPayout)}`, '#9be1ff'); // 아주 짧게(슬롯 당첨). 풀숫자(000)
-    return slotPayout; // 코인 분수는 최종 획득(퍼즐 멀티 반영) 기준으로 finalizeWin 에서 터뜨린다
+    // 어택/레이드: 배너는 즉시(젬 확대 대신 릴 정지 직후), 스테이지 예약은 stageHold 로 보류(슬롯 회전 후 승격).
+    if (outcome.kind === 'attack' || outcome.kind === 'raid') {
+      const power = this.spinBet; // 배너 ×N + Stage1 레거시 power(스테이크는 maybeEnterStage 가 통화별 산출)
+      this.stageHold = { type: outcome.kind, power };
+      this.showActivationBanner(outcome.kind, power); // 릴 정지 직후 등장 → 망치/룰렛 등장까지 유지
+      // ⭐발동 즉시 미션 타이머 정지(발동~복귀 구간 제외). returnFromStage 가 경과분만큼 마감을 뒤로 민다.
+      if (this.gaugeStageStartedMs == null) this.gaugeStageStartedMs = Date.now();
+      this.popScore(cell, outcome.kind === 'attack' ? 'ATTACK!' : 'RAID!', outcome.kind === 'attack' ? '#ff6a6a' : '#ffd23d');
+      return 0; // 코인은 스테이지(어택=다운그레이드/레이드=룰렛)에서 지급
+    }
+    // 코인 3매치: coinBase × 코인베팅 × 럭 × RTP스케일(오버라이드 반영). ⚠️정확한 밸런스는 econ 콘솔 튜닝(P6).
+    let slotPayout = 0;
+    if (outcome.kind === 'coin') {
+      slotPayout = Math.round(outcome.coinBase * this.bet * luckMultiplier(this.rng, luckTableNow()) * slotRtpScaleNow());
+      if (this.forceBigWin) slotPayout = this.bet * this.nextForcedMult(); // 연출 검증: 높은 배수 강제(순환)
+      if (slotPayout > 0) slotPayout = Math.max(this.bet, slotPayout); // 최소 베팅액 보장(진짜 슬롯과 동일)
+    }
+    this.popScore(cell, slotPayout > 0 ? `+${this.fmt(slotPayout)}` : '—', '#9be1ff');
+    return slotPayout; // 최종 획득(퍼즐 멀티 반영)은 finalizeWin 에서
   }
 
   /** 연출 검증용 강제 배수(5→10→20→40→… 순환)로 매 스핀 다른 웨이브 수를 보여준다. */
