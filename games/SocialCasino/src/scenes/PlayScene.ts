@@ -14,7 +14,7 @@
  */
 import Phaser from 'phaser';
 import { loadGameAssets, UI_LAYOUT_KEY, LEVER_SHEET_KEY, LEVER_FRAMES, COLLECT_GEM_TYPE, PUZZLE_TILE_KEYS, COIN_SHEET_KEY } from '../assets.js';
-import { buildLayout, type LayoutDoc } from '../ui/layoutLoader.js';
+import { buildLayout, type LayoutDoc, type LayoutNode } from '../ui/layoutLoader.js';
 import { RewardGaugeView, type GaugeNodeRefs } from '../ui/rewardGaugeView.js';
 import {
   type RewardGaugeConfig,
@@ -31,11 +31,10 @@ import {
   serializeGauge,
   deserializeGauge,
 } from '@casual/core';
-import { computeGeom, isDynamicNode, type LayoutGeom, type Anchor } from '../ui/layoutGeom.js';
+import { computeGeom, isDynamicNode, type LayoutGeom } from '../ui/layoutGeom.js';
 import { SlotView } from '../ui/slotView.js';
 import { BoardView, type ResolvedInfo } from '../ui/boardView.js';
 import { FancyNumber } from '../ui/fancyNumber.js';
-import { buildHudHeader, type HudHeader } from '../ui/hudHeader.js';
 import { showToast, showDialog, isDialogOpen } from '../ui/dialogBox.js';
 import { BigNumber } from '../ui/bigNumber.js';
 import { Confetti } from '../ui/confetti.js';
@@ -125,9 +124,7 @@ export class PlayScene extends Phaser.Scene {
   private jackpotPool = JACKPOT_SEED; // 누적 잭팟 풀(레이크 적립 → 희귀확률로 전액 지급)
   private spins = START_SPINS; // 보유 스핀 = 플레이 화폐(슬롯/매치에 소모, 스핀 젬·시간충전으로 적립)
   private betIndex = Math.max(0, BET_LADDER.indexOf(BET_START)); // 현재 베팅 사다리 인덱스
-  private spinBet = BET_START; // 스핀 베팅 숫자(GO 패널 ×N) = 사다리 값 — 1회 플레이 소모 스핀 + 스핀젬/공격·약탈 보상 배수
-  private betDigits: Phaser.GameObjects.Image[] = []; // 동적 베팅 숫자 이미지(up_Num_01_*)
-  private betAnchor = { x0: 868, y: 2276, w: 39, h: 49, adv: 33 }; // 베팅 숫자 앵커(Num 노드에서 갱신)
+  private spinBet = BET_START; // 스핀 베팅 숫자(하단 "10" ×N) = 사다리 값 — 1회 플레이 소모 스핀 + 스핀젬/공격·약탈 보상 배수
   private rechargeText?: Phaser.GameObjects.Text; // 일일 지급 안내 텍스트
   private spinBarX = 533; // 보유 스핀 표시 위치 — up_SC_UI_btn_off-1(GO 하단 바) 노드에서 갱신
   private spinBarY = 2315;
@@ -167,9 +164,12 @@ export class PlayScene extends Phaser.Scene {
   private forcedIdx = 0;
 
   // HUD
-  private header?: HudHeader; // ⭐공용 상단 헤더(코인/젬/라이프 + 메뉴) — buildHudHeader
-  private coinText!: Phaser.GameObjects.Text; // = header.coinText(공용 헤더의 코인 텍스트)
-  private coinFontBase = 28; // 코인(골드) 기본 폰트 — 자릿수 많아지면 폭에 맞춰 축소
+  private coinText!: Phaser.GameObjects.Text; // 코인(골드) 텍스트 — main_copy grp_4 헤더 노드(layer_20)에 바인딩
+  private coinFontBase = 40; // 코인(골드) 기본 폰트 — 자릿수 많아지면 폭에 맞춰 축소
+  private userNameText?: Phaser.GameObjects.Text; // 슬롯 상단 유저명(DAKA) — 라운드 당첨 시 숨김(task 2)
+  private userCoinText?: Phaser.GameObjects.Text; // 슬롯 상단 보유코인(5,000,000) — 라운드 당첨 시 숨김(task 2)
+  private betText?: Phaser.GameObjects.Text; // 하단 베팅 "10" 텍스트 — +/- 로 조절(task 4)
+  private gaugeBar = { x: 540, y: 516, w: 542, h: 56 }; // 슬롯 정보 바(슬롯게이지 layer_19) — 정보표시 패널(task 3)
   private spinText?: Phaser.GameObjects.Text; // 보유 스핀 표시(GO 하단 바)
   private matchImg?: Phaser.GameObjects.Image; // 타이틀 배너의 "MATCH = 1 SPIN" 텍스트(첫 당첨 전 idle 표시)
   private missionBannerText?: Phaser.GameObjects.Text; // ⭐미션 시작/종료 메시지를 상단 타이틀 배너(419 자리)에 표시(요청)
@@ -241,6 +241,8 @@ export class PlayScene extends Phaser.Scene {
     const hasLever = this.textures.exists(LEVER_SHEET_KEY);
     if (!doc || doc.nodes.length === 0) {
       this.add.rectangle(0, 0, DESIGN_W, DESIGN_H, 0x1a1030).setOrigin(0, 0);
+      this.coinText = this.text(493, 70, this.fmt(this.coins), 40, '#ffe27a');
+      this.coinText.setOrigin(1, 0.5); // 레이아웃 없음(폴백) — 코인 텍스트 최소 보장
     } else {
       // 정적 레버(up_SC_UI_16)는 애니 스프라이트로 대체, "MATCH=1SPIN" 텍스트(up_SC_UI_07-1)는
       //   잭팟정보와 토글하도록 PlayScene 이 직접 관리(스킵).
@@ -289,8 +291,6 @@ export class PlayScene extends Phaser.Scene {
         this.spinBarX = spinNum.node.x;
         this.spinBarY = spinNum.node.y;
       }
-      // 베팅 숫자 앵커 — 디자이너가 둔 up_Num_01_* 샘플 노드(스킵됨) 위치/크기에서 산출.
-      this.computeBetAnchor(safeDoc);
       // ⭐공용 헤더(코인/젬/라이프 알약 + 메뉴)는 setupHud 에서 buildHudHeader 로 그린다(로비/호텔과 동일).
       //   main.json 헤더 노드 의존 제거(디자이너가 헤더를 main 에서 빼고 로비 blank_2 로 통일) — 메뉴→goHome.
       // 열기구(배경 하늘) — 좌우 유동 + 아주 느린 상하 드리프트 반복.
@@ -302,6 +302,33 @@ export class PlayScene extends Phaser.Scene {
         ic.setDisplaySize(58 * ratio, 58).setDepth(95).setVisible(false);
       }
       this.gaugeView = this.buildGaugeView(layout); // ⭐보상 게이지 뷰(grp_2 노드 바인딩)
+
+      // ⭐신 헤더(main_copy grp_4): 코인 텍스트 노드에 직접 바인딩(구 buildHudHeader 제거) + 햄버거 메뉴 배선.
+      const findObj = (pred: (n: LayoutNode) => boolean): Phaser.GameObjects.GameObject | undefined =>
+        layout.entries().find((e) => pred(e.node))?.obj;
+      this.coinText = (findObj((n) => n.type === 'text' && n.group === 'grp_4' && /\d,\d/.test((n as { text?: string }).text ?? '')) as
+        | Phaser.GameObjects.Text
+        | undefined) ?? this.text(493, 70, this.fmt(this.coins), 40, '#ffe27a');
+      this.coinText.setOrigin(1, 0.5).setDepth(510); // 우측 정렬(디자이너 align=right)
+      const menuObj = findObj((n) => (n.key ?? '') === 'up_NewUI_04-6') as Phaser.GameObjects.Image | undefined;
+      menuObj?.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.openMenu());
+      // ⭐슬롯 상단 유저정보(DAKA/보유코인) — 좌측정렬(task 2). 라운드 당첨 시 숨기고 당첨금 표시.
+      this.userNameText = findObj((n) => n.name === '유저명') as Phaser.GameObjects.Text | undefined;
+      this.userCoinText = findObj((n) => (n as { text?: string }).text === '5,000,000') as Phaser.GameObjects.Text | undefined;
+      this.userNameText?.setOrigin(0, 0.5);
+      this.userCoinText?.setOrigin(0, 0.5);
+      // ⭐정보표시 패널 = 슬롯게이지 바(layer_19) — 여기 내부에 퍼즐/슬롯 정보 표시(task 3).
+      const gaugeNode = layout.entries().find((e) => e.node.id === 'layer_19')?.node;
+      if (gaugeNode) this.gaugeBar = { x: gaugeNode.x, y: gaugeNode.y, w: gaugeNode.w ?? 542, h: gaugeNode.h ?? 56 };
+      // ⭐하단 베팅 "10" 텍스트(task 4) — +/- 버튼으로 조절.
+      this.betText = findObj((n) => n.name === '250/50 복사') as Phaser.GameObjects.Text | undefined;
+      this.betText?.setText(String(this.spinBet));
+      // ⭐스핀젬 회수 비행 목표 = 하단 250/50 노드 위치.
+      const spinNode = findObj((n) => n.name === '250/50') as Phaser.GameObjects.Text | undefined;
+      if (spinNode) {
+        this.spinBarX = spinNode.x;
+        this.spinBarY = spinNode.y;
+      }
     }
 
     this.geom = computeGeom(safeDoc);
@@ -517,54 +544,70 @@ export class PlayScene extends Phaser.Scene {
 
   private setupHud(): void {
     const a = this.geom.anchors;
-    // ⭐공용 헤더(코인/젬/라이프 알약 + 메뉴) — 로비/호텔과 동일(hudHeader). 코인=공유 지갑, 우상단 메뉴→홈(로비).
-    this.header = buildHudHeader(this, { coins: this.coins, onMenu: () => this.openMenu() });
-    this.coinText = this.header.coinText;
-    this.coinFontBase = 38;
+    // ⭐헤더 = main_copy grp_4 노드(코인 텍스트/햄버거)에 create 에서 바인딩 완료 — 구 buildHudHeader(중복 바) 제거(task 1).
 
-    // 보유 스핀 = 'Spin Num' 레이아웃 노드(create 에서 캡처). 없으면 폴백 생성. 충전 카운트다운은 그 아래.
-    if (!this.spinText) this.spinText = this.text(this.spinBarX, this.spinBarY, this.fmt(this.spins), 32, '#ffffff');
-    this.rechargeText = this.text(this.spinBarX, this.spinBarY + 34, '', 17, '#cfe8ff');
-    this.renderBetDigits(); // GO 패널 BET 값(이미지 숫자) 초기 표시
+    // 베팅 "10" 초기 표시(task 4) + 좌우 +/- 버튼.
+    this.updateBetText();
+    this.buildBetButtons();
+    // 일일 지급 안내 텍스트(현재 숨김 — 250/50 재생 UI 는 후속 P5). updateRechargeText 가 참조하므로 생성만 보장.
+    this.rechargeText = this.text(this.spinBarX, this.spinBarY + 44, '', 17, '#cfe8ff').setVisible(false);
 
-    // 타이틀 배너(up_SC_UI_07 프레임) = "MATCH = 1 SPIN" ↔ 잭팟정보 토글.
-    //   MATCH 텍스트는 요청대로 위로 올리고, 같은 자리에 잭팟정보 텍스트를 겹쳐 둔다(토글로 하나만 표시).
-    const tt = a.titleText ?? a.title ?? { x: 540, y: 376, w: 457, h: 65 };
-    const bannerY = tt.y; // 배너 본문 세로중심(아트 측정 0.63h ≈ titleText 노드 y) — 상단 별돔 아래 정렬
+    // 타이틀 배너(up_SC_UI_07-1) = "MATCH = 1 SPIN"(항상 표시). 당첨금은 상단 유저정보 자리에 별도 표시(task 2).
+    const tt = a.titleText ?? a.title ?? { x: 540, y: 1056, w: 457, h: 65 };
     if (this.textures.exists('up_SC_UI_07-1')) {
-      this.matchImg = this.add.image(tt.x, bannerY, 'up_SC_UI_07-1').setDisplaySize(tt.w, tt.h).setDepth(100);
+      this.matchImg = this.add.image(tt.x, tt.y, 'up_SC_UI_07-1').setDisplaySize(tt.w, tt.h).setDepth(100);
     }
-    // (⭐잭팟 폐기 — 최종 당첨금을 이 배너에 표시: 아래 finalScoreText 를 tt 자리에 배치한다.)
 
-    // ⭐중간 정보 패널(블루 바 up_SC_UI_10_v8) — **퍼즐 배수 + 슬롯 당첨 2칸만**(아이콘 제거됨, 요청 2026-06-27).
-    const g = a.guide ?? { x: 540, y: 973, w: 852, h: 185 };
+    // ⭐정보표시 패널(task 3) = 슬롯게이지 바(this.gaugeBar) — 퍼즐 배수 + 슬롯 당첨을 이 바 내부에 표시.
+    const g = this.gaugeBar;
     const gl = g.x - g.w / 2;
-    const gy = g.y; // 바 세로 중심
-    const NUM_MAXW = 200; // 한 줄에 라벨+값을 같이 두므로 값 폭 제한(넘으면 축소)
-    // ⭐**한 줄 표시**(요청): [PUZZLE ×N]   [SLOT +M] — 라벨(좌) + 값(우)을 같은 줄에. 라벨=짧은 영문 Luckiest Guy.
-    this.text(gl + g.w * 0.16, gy, 'PUZZLE', 26, '#ffffff', 'Luckiest Guy');
-    this.infoLeft = new FancyNumber(this, gl + g.w * 0.37, gy, 60, 200, NUM_MAXW); // 퍼즐 배수(라벨 우측)
-    this.text(gl + g.w * 0.62, gy, 'SLOT', 26, '#ffffff', 'Luckiest Guy');
-    this.infoMid = new FancyNumber(this, gl + g.w * 0.82, gy, 60, 200, NUM_MAXW); // 슬롯 당첨(라벨 우측)
-    // ⭐최종 당첨금 = **최상단 타이틀 배너**(요청). 라운드 결과를 여기서 롤링 표시(첫 당첨 전엔 숨김 → matchImg 노출). 크게(60→88).
-    this.finalScoreText = new FancyNumber(this, tt.x, bannerY, 88, 200, 540);
+    const gy = g.y;
+    const NUM_MAXW = 96;
+    this.text(gl + g.w * 0.14, gy, 'PUZZLE', 20, '#ffffff', 'Luckiest Guy').setDepth(220);
+    this.infoLeft = new FancyNumber(this, gl + g.w * 0.34, gy, 44, 221, NUM_MAXW); // 퍼즐 배수
+    this.text(gl + g.w * 0.58, gy, 'SLOT', 20, '#ffffff', 'Luckiest Guy').setDepth(220);
+    this.infoMid = new FancyNumber(this, gl + g.w * 0.8, gy, 44, 221, NUM_MAXW); // 슬롯 당첨
+    // ⭐최종 당첨금 = **슬롯 상단 유저정보(DAKA/보유코인) 자리**(task 2). 라운드 당첨 시 DAKA 숨기고 여기 롤링 표시.
+    const winX = this.userCoinText?.x ?? 474;
+    const winY = this.userNameText && this.userCoinText ? (this.userNameText.y + this.userCoinText.y) / 2 : 401;
+    this.finalScoreText = new FancyNumber(this, winX + 130, winY, 76, 205, 470);
     this.finalScoreText.setAlpha(0);
-    // ⭐미션 시작/종료 메시지를 **이 타이틀 배너(419 자리)** 에 표시(요청). 표시 중 MATCH=1SPIN·당첨금 숨김. 영문(요청).
+    // 미션 시작/종료 메시지(타이틀 배너 자리). 표시 중 MATCH=1SPIN 숨김. (게이지 미배치 시 미발동)
     this.missionBannerMaxW = tt.w * 0.92;
     this.missionBannerText = this.add
-      .text(tt.x, bannerY, '', { fontFamily: '"Luckiest Guy", "Do Hyeon", sans-serif', fontSize: '46px', color: '#ffe27a', stroke: '#2a1640', strokeThickness: 8, align: 'center' })
+      .text(tt.x, tt.y, '', { fontFamily: '"Luckiest Guy", "Do Hyeon", sans-serif', fontSize: '46px', color: '#ffe27a', stroke: '#2a1640', strokeThickness: 8, align: 'center' })
       .setOrigin(0.5)
       .setDepth(230)
       .setVisible(false);
     this.missionBannerText.setShadow(0, 4, 'rgba(0,0,0,0.6)', 7, false, true);
-    this.iconLeftX = gl + g.w * 0.3 - 76;
-    this.iconMidX = gl + g.w * 0.7 - 76;
-    // 라운드 진행 전 안내(짧은 영문). 결과가 나오면 위 3칸으로 대체.
-    this.playingText = this.scoreText(g.x, gy, 'MATCH OR SPIN!', 36, '#ffe9b8');
+    // 라운드 진행 전 안내(정보 바 중앙). 결과가 나오면 위 2칸으로 대체.
+    this.playingText = this.scoreText(g.x, gy, 'MATCH OR SPIN!', 24, '#ffe9b8');
+    this.playingText.setDepth(221);
     // 대박 카운트업 숫자(코인 드랍 영역) — 기본 숨김.
     this.bigWinNum = new BigNumber(this, 540, 700, 120, 320);
     this.bigWinNum.setAlpha(0);
     this.refreshHud();
+  }
+
+  /** 하단 베팅 "10" 텍스트를 현재 spinBet 으로 갱신(task 4). */
+  private updateBetText(): void {
+    this.betText?.setText(String(this.spinBet));
+  }
+
+  /** 베팅 "10" 좌우에 −/+ 버튼 배치(task 4) — 눌러 베팅 사다리 조절. */
+  private buildBetButtons(): void {
+    const bx = this.betText?.x ?? 537;
+    const by = this.betText?.y ?? 2087;
+    const mk = (x: number, label: string, dir: number): void => {
+      const c = this.add.circle(x, by, 30, 0x2a1640, 0.85).setStrokeStyle(3, 0xffd23d).setDepth(300);
+      c.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.adjustBetLadder(dir));
+      this.add
+        .text(x, by - 2, label, { fontFamily: '"Luckiest Guy", sans-serif', fontSize: '40px', color: '#ffd23d' })
+        .setOrigin(0.5)
+        .setDepth(301);
+    };
+    mk(bx - 96, '−', -1);
+    mk(bx + 96, '+', +1);
   }
 
   private fmt(n: number): string {
@@ -575,7 +618,6 @@ export class PlayScene extends Phaser.Scene {
     this.coinText.setText(this.fmt(this.coins));
     this.fitCoinText(); // ⭐자릿수 많아지면 코인 폰트 축소(요청)
     this.spinText?.setText(this.fmt(this.spins));
-    this.header?.setSpins(this.spins); // ⭐공용 헤더 2번째(스핀) 값도 동기화(소모/적립 실시간 반영)
     saveCoins(this.coins); // ⭐공유 지갑 영속 — My Hotel(HotelScene) 업그레이드가 같은 잔액을 본다
     this.savePlayer(); // ⭐스핀·베팅·잭팟 영속(재시작 시 리셋 방지, 요청) — refreshHud 가 공통 상태변경 길목
     // (잭팟 배너 폐기 — 최종 당첨금은 finalScoreText 가 상단 배너에 표시. 코인은 헤더에 표시.)
@@ -589,7 +631,7 @@ export class PlayScene extends Phaser.Scene {
   /** 코인(골드) 숫자가 슬롯 폭을 넘으면 폰트를 줄여 맞춘다(요청). 기본 폰트에서 폭 비율로 축소(최소 16). */
   private fitCoinText(): void {
     if (!this.coinText) return;
-    const maxW = 240; // 헤더 코인 슬롯 가용 폭(우측고정 401 → 클로버 ~155 사이). 넘으면 폰트 축소
+    const maxW = 330; // 헤더 코인 슬롯 가용 폭(우측고정 x493 → 코인 아이콘 사이). 넘으면 폰트 축소
     this.coinText.setFontSize(this.coinFontBase);
     const w = this.coinText.width;
     if (w > maxW) {
@@ -621,14 +663,6 @@ export class PlayScene extends Phaser.Scene {
   }
 
   // ── 입력 ───────────────────────────────────────────────
-  private hitZone(a: Anchor, onTap: () => void, scale = 1): void {
-    const w = (a.w || 120) * scale;
-    const h = (a.h || 80) * scale;
-    const zone = this.add.rectangle(a.x, a.y, w, h, 0x000000, 0).setDepth(210);
-    zone.setInteractive({ useHandCursor: true });
-    zone.on('pointerdown', onTap);
-  }
-
   /** SPIN 버튼 누름 표시 — 누르면 상부 cap(안 눌린 모양) 제거 → 하부 base(눌린 모양) 노출. 떼면 cap 복귀. */
   private setSpinPressed(pressed: boolean): void {
     this.spinBtnCap?.setVisible(!pressed); // 누름=상부 제거, 뗌=다시 덮음
@@ -695,12 +729,7 @@ export class PlayScene extends Phaser.Scene {
     this.input.on('pointerupoutside', stopHold);
     this.input.on('gameout', stopHold);
 
-    // 베팅 조절 — GO 패널 BET 박스의 ◀ ▶ 화살표(패널 아트에 베이크). 베팅 숫자 앵커(x0) 기준으로 좌/우 히트존 배치.
-    const bx = this.betAnchor.x0;
-    const by = this.betAnchor.y;
-    const bh = this.betAnchor.h * 2.6;
-    this.hitZone({ x: bx - 88, y: by, w: 96, h: bh }, () => this.adjustBetLadder(-1)); // ◀ 감소
-    this.hitZone({ x: bx + 112, y: by, w: 96, h: bh }, () => this.adjustBetLadder(+1)); // ▶ 증가
+    // 베팅 조절은 buildBetButtons(setupHud)의 하단 "10" 좌우 −/+ 버튼이 담당(task 4).
   }
 
   /** 베팅 사다리 단계 이동(◀=-1 / ▶=+1). 양끝에서 멈춤. 변경 시 숫자 재렌더 + 클릭음. */
@@ -712,46 +741,8 @@ export class PlayScene extends Phaser.Scene {
     this.bet = this.spinBet * COIN_DENOM; // 코인 베팅(골드 큰 단위) = 에너지 × 단위스케일
     this.board?.setSpinBet(this.spinBet); // 스핀 회수 갯수(+N) 표시용 베팅 갱신
     this.sfx?.play('click', 0.5);
-    this.renderBetDigits();
+    this.updateBetText(); // 하단 "10" 텍스트 갱신(task 4)
     this.refreshHud(); // 베팅 변경 반영(자동충진 폐지 — 스핀<베팅이면 그 베팅으론 플레이 불가, 낮추면 됨)
-  }
-
-  /** up_Num_01_* 샘플 노드(스킵됨)에서 베팅 숫자 앵커(좌측 시작 x, y, 글자 크기, 자간) 산출.
-   *  ⚠️ 시티 버튼의 숫자도 up_Num_01_* 라 **우측(베팅, x>500)만** 추린다(좌측 시티 숫자 제외). */
-  private computeBetAnchor(doc: LayoutDoc): void {
-    const nums = doc.nodes.filter((n) => (n.key ?? '').startsWith('up_Num_01_') && !n.id.endsWith('__shadow') && n.x > 500);
-    if (nums.length === 0) return;
-    const xs = nums.map((n) => n.x).sort((p, q) => p - q);
-    const adv = xs.length > 1 ? Math.round((xs[xs.length - 1] - xs[0]) / (xs.length - 1)) : 33;
-    this.betAnchor = {
-      x0: xs[0], // 첫(좌측) 자리 중심
-      y: Math.round(nums.reduce((s, n) => s + n.y, 0) / nums.length),
-      w: nums[0].w ?? 39,
-      h: nums[0].h ?? 49,
-      adv,
-    };
-  }
-
-  /**
-   * 현재 베팅값(spinBet)을 이미지 숫자(up_Num_01_*)로 렌더 — 첫 자리는 디자이너 위치(x0)에 고정,
-   * 자릿수가 많아 ▶ 화살표를 침범하면 그룹을 축소해 맞춘다(× 기호는 정적 노드). 2자리('10')는 원본 그대로.
-   */
-  private renderBetDigits(): void {
-    for (const d of this.betDigits) d.destroy();
-    this.betDigits = [];
-    const { x0, y, w, h, adv } = this.betAnchor;
-    const maxRight = x0 + 80; // ▶ 화살표 왼쪽 한계(자리 중심 x0 기준 가용 폭)
-    const digits = String(this.spinBet).split('');
-    const n = digits.length;
-    const scale = Math.min(1, (maxRight - x0) / ((n - 1) * adv + w / 2));
-    const sAdv = adv * scale;
-    digits.forEach((ch, i) => {
-      const img = this.add
-        .image(x0 + i * sAdv, y, `up_Num_01_${ch}`)
-        .setDisplaySize(w * scale, h * scale)
-        .setDepth(120);
-      this.betDigits.push(img);
-    });
   }
 
   // ── 라운드 흐름 ────────────────────────────────────────
@@ -1103,12 +1094,14 @@ export class PlayScene extends Phaser.Scene {
   /** ⭐슬롯 당첨금을 타이틀 배너에 롤링 표시 — 단, **미션 메시지 표시 중이면 중첩 금지로 스킵**(요청: 중요정보 우선·슬롯보상은 충돌 시 패스).
    *  스킵해도 라운드 타이밍 유지를 위해 동일 시간 대기(코인 가산은 호출부에서 별도 진행). */
   private async showSlotWinBanner(win: number, dur: number): Promise<void> {
-    if (this.missionBannerActive) {
-      await this.wait(dur); // 배너는 건드리지 않고 타이밍만 맞춰 패스
+    // ⭐당첨금은 슬롯 상단 유저정보(DAKA/보유코인) 자리에 표시(task 2). 꽝(0)/미션표시 중엔 DAKA 유지하고 타이밍만 맞춤.
+    if (this.missionBannerActive || win <= 0) {
+      await this.wait(dur);
       return;
     }
-    this.matchImg?.setVisible(false); // 상단 배너: MATCH=1SPIN → 최종 당첨금
-    this.bannerShowedWin = true; // 이후 메시지 종료 시 MATCH=1SPIN 대신 당첨금 유지
+    this.userNameText?.setVisible(false); // DAKA 정보 숨김 → 당첨금 노출
+    this.userCoinText?.setVisible(false);
+    this.bannerShowedWin = true;
     await this.rollNumber(this.finalScoreText, '', win, dur);
   }
 
@@ -1779,12 +1772,16 @@ export class PlayScene extends Phaser.Scene {
   // ── 연출 ───────────────────────────────────────────────
   /** 새 라운드 시작 시점에만 호출 — 이전 게임의 결과를 비운다(미리 지우지 않음). */
   private beginRound(): void {
-    for (const n of [this.infoLeft, this.infoMid]) { // ⭐최종(finalScoreText)은 상단 배너에 유지(직전 당첨 표시)
+    for (const n of [this.infoLeft, this.infoMid]) {
       this.tweens.killTweensOf(n.container);
       n.setText('');
       n.container.setScale(1);
       n.setAlpha(1);
     }
+    // ⭐새 라운드: 직전 당첨금 숨기고 슬롯 상단 유저정보(DAKA/보유코인) 복원(task 2).
+    this.finalScoreText.setAlpha(0);
+    this.userNameText?.setVisible(true);
+    this.userCoinText?.setVisible(true);
     this.hidePlaying();
     this.hideInfoIcons(); // 새 라운드 시작 — 아이콘도 비움
   }
