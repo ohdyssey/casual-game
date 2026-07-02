@@ -78,6 +78,8 @@ export const DESIGN_H = 2400;
 
 // ⭐경제 파라미터는 순수 SSOT 모듈(playParams.ts)에서 import — 경제 콘솔(econ)이 같은 모듈을 읽어 값 추적(드리프트 없음).
 const DAILY_SPIN_KEY = 'socialcasino_daily_v2'; // 마지막 일일 지급 날짜(YYYY-MM-DD). ⚠️v2=1레벨 재설정 → 첫 실행 정확히 200스핀(일일보너스 미지급). 구 v1 폐기.
+/** 하단 "현재/레벨기본" 표기의 **레벨기본**(재생상한) 임시값 — 추후 코인마스터식 재생(playParams.spinRegenCap)으로 대체. */
+const SPIN_LEVEL_BASE = 50;
 /** 망치 등장 후 — **닫힌 커튼 뒤에서** Stage1 을 띄우기까지(ms). HammerFxScene 의 [CURTAIN_CLOSE_MS(300), CURTAIN_OPEN_AT(1300)] 사이여야 커튼이 가린다(열림이 곧 등장). */
 const STAGE_BEHIND_CURTAIN_MS = 280; // 스피드업: 380→280(여전히 닫힌 커튼 구간 내)
 // ⭐라운드 페이싱은 pace.ts(SSOT)로 이관 — 퍼즐 매치 속도에 따라 슬롯/라운드 텀이 적응(따라잡기).
@@ -316,9 +318,10 @@ export class PlayScene extends Phaser.Scene {
       // ⭐하단 베팅 "10" 텍스트(task 4) — +/- 버튼으로 조절.
       this.betText = findObj((n) => n.name === '250/50 복사') as Phaser.GameObjects.Text | undefined;
       this.betText?.setText(String(this.spinBet));
-      // ⭐스핀젬 회수 비행 목표 = 하단 250/50 노드 위치.
+      // ⭐하단 스핀 보유량 = 250/50 노드에 바인딩(요청: 정확 표시) + 스핀젬 회수 비행 목표.
       const spinNode = findObj((n) => n.name === '250/50') as Phaser.GameObjects.Text | undefined;
       if (spinNode) {
+        this.spinText = spinNode;
         this.spinBarX = spinNode.x;
         this.spinBarY = spinNode.y;
       }
@@ -617,7 +620,7 @@ export class PlayScene extends Phaser.Scene {
   private refreshHud(): void {
     this.coinText.setText(this.fmt(this.coins));
     this.fitCoinText(); // ⭐자릿수 많아지면 코인 폰트 축소(요청)
-    this.spinText?.setText(this.fmt(this.spins));
+    this.refreshSpinHolding(); // 하단 스핀 보유량(현재/레벨기본) 갱신
     saveCoins(this.coins); // ⭐공유 지갑 영속 — My Hotel(HotelScene) 업그레이드가 같은 잔액을 본다
     this.savePlayer(); // ⭐스핀·베팅·잭팟 영속(재시작 시 리셋 방지, 요청) — refreshHud 가 공통 상태변경 길목
     // (잭팟 배너 폐기 — 최종 당첨금은 finalScoreText 가 상단 배너에 표시. 코인은 헤더에 표시.)
@@ -912,20 +915,17 @@ export class PlayScene extends Phaser.Scene {
     if (!fillBar) return undefined; // 게이지 노드 없음 → 미배치(구 main.json 호환)
     const collectGem = byKey('up_NewUI_03-2') as Phaser.GameObjects.Image | undefined; // 타겟 아이콘(수집 대상 — 미션마다 교체)
     const finalBadge = byKey('up_NewUI_03-8') as Phaser.GameObjects.Image | undefined; // 보상 배지(스핀)
-    const timerText = byId('layer_12_copy8') as Phaser.GameObjects.Text | undefined; // "00:02:15"(제한시간)
-    const gd = fillBar.depth;
-    // "현재/목표"(50/300) — 레이아웃에 없어 진행 바 위에 신설.
-    const currentText = this.add
-      .text(fillBar.x, fillBar.y, '0/0', { fontFamily: '"Luckiest Guy", sans-serif', fontSize: '26px', color: '#ffffff', stroke: '#2a1640', strokeThickness: 4 })
-      .setOrigin(0.5)
-      .setDepth(gd + 5);
-    // 보상 금액 — 보상 배지 아래 신설.
-    const finalText = finalBadge
-      ? this.add
-          .text(finalBadge.x, finalBadge.y + finalBadge.displayHeight * 0.5 + 10, '0', { fontFamily: '"Luckiest Guy", sans-serif', fontSize: '20px', color: '#ffe27a', stroke: '#2a1640', strokeThickness: 4 })
-          .setOrigin(0.5)
-          .setDepth(gd + 5)
-      : undefined;
+    // ⭐게이지 텍스트는 **디자이너 노드**(에디터 폰트/색/크기)에 바인딩 — 코드가 새로 만들지 않음(중복 텍스트 방지, 요청).
+    const timerText = byId('layer_12_copy8') as Phaser.GameObjects.Text | undefined; // "02:15"(Fredoka, 제한시간)
+    const currentText = byId('layer_15') as Phaser.GameObjects.Text | undefined; // "50/300"(Luckiest Guy, 현재/목표)
+    const finalText = byId('layer_15_copy') as Phaser.GameObjects.Text | undefined; // "120"(보상 스핀량)
+    // ⭐게이지 바 좌우 크기를 **보상(스핀) 위치까지** 확장(요청) — 우측 끝을 보상 배터리(03-7) 직전까지 늘린다.
+    const battery = byKey('up_NewUI_03-7') as Phaser.GameObjects.Image | undefined;
+    const leftX = fillBar.x - fillBar.displayWidth / 2;
+    const rightX = battery ? battery.x - battery.displayWidth / 2 - 6 : fillBar.x + fillBar.displayWidth / 2;
+    if (rightX > leftX + fillBar.displayWidth) {
+      fillBar.setPosition((leftX + rightX) / 2, fillBar.y).setDisplaySize(rightX - leftX, fillBar.displayHeight);
+    }
     const nodes: GaugeNodeRefs = { fillBar, currentText, timerText, collectGem, finalBadge, finalText };
     this.collectGemImg = collectGem; // 미션마다 타겟 아이콘 텍스처 교체(applyGaugeGem)
     if (collectGem) this.gaugeTargetPt = { x: collectGem.x, y: collectGem.y }; // 수집 코인 비행 목표
@@ -1533,7 +1533,12 @@ export class PlayScene extends Phaser.Scene {
   private grantSpins(n: number): void {
     if (n <= 0) return;
     this.spins += n;
-    this.spinText?.setText(this.fmt(this.spins));
+    this.refreshSpinHolding();
+  }
+
+  /** ⭐하단 스핀 보유량 표시 = **현재/레벨기본**(요청 "250/50" 포맷, 정확 반영). 레벨기본은 재생상한(추후 코인마스터 재생 연동). */
+  private refreshSpinHolding(): void {
+    this.spinText?.setText(`${this.fmt(this.spins)}/${SPIN_LEVEL_BASE}`);
   }
 
   /** ⭐대박 시 스핀 소량 환급(작은 상승니) — win/베팅 티어로 spinBet × g. 보조 레버(주 균형은 ρ_gem·마일스톤). */
@@ -1754,9 +1759,9 @@ export class PlayScene extends Phaser.Scene {
     this.bigWinTween = this.tweens.add({ targets: o, v: win, duration: countDur, ease: 'Cubic.easeOut', onUpdate: () => n.setValue(o.v) });
     this.tweens.add({ targets: n.container, scaleX: 1, scaleY: 1, duration: 200, ease: 'Back.easeOut' });
     this.tweens.add({ targets: n.container, scaleX: 1.16, scaleY: 1.16, duration: 150, delay: countDur, yoyo: true });
-    // ② 떠 있다가 떨어지며 사라짐 — ⭐**밝기 유지**(알파 페이드 제거: 떨어지며 어두워지던 문제 해결, 요청).
-    //   사라짐은 **축소(scale→0)** 로 처리해 끝까지 골드로 밝게 둔 채 작아지며 없어진다.
-    this.tweens.add({ targets: n.container, y: startY + 560, duration: 700, delay: countDur + 140, ease: 'Quad.easeIn' });
+    // ② 떠 있다가 떨어지며 사라짐 — ⭐**밝기 유지**(알파 페이드 제거). 사라짐은 축소(scale→0)로 끝까지 골드 밝게.
+    //   ⭐요청: 코인드랍이 하단 **MATCH 배너(최종 당첨금, y≈1056)와 겹치지 않게** 낙하폭을 슬롯 영역 안으로 제한(560→220).
+    this.tweens.add({ targets: n.container, y: startY + 220, duration: 700, delay: countDur + 140, ease: 'Quad.easeIn' });
     this.tweens.add({
       targets: n.container,
       scaleX: 0,

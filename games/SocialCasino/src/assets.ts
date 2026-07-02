@@ -57,16 +57,18 @@ export const SLOT_SYMBOL_KEYS: ReadonlyArray<string> = [
   'up_NewUI_SlotSymbol_08', // 망치(ATTACK)
 ];
 
-/** 매치-3 퍼즐 아이콘 10종(디자이너 신 아트 up_NewUI_Puzzle_01~10). 색/모양 10가지 구분.
- *  ⚠️ 2026-07-02 재설계: 구 up_Gem_T01_01~07 → 신 아트로 리포인트(boardView 가 type%TYPES 로 선택). */
+/** 매치-3 퍼즐 아이콘(신 아트 up_NewUI_Puzzle_*). boardView 가 앞에서 TYPES 개만 사용(type%TYPES).
+ *  ⚠️ 2026-07-02 요청: **노란 스타(06)와 코인-스타(01)가 혼동** → 앞 6종은 서로 다른 모양으로 배치하고
+ *  둘 중 별(06)만 사용(코인 01 제외). 색: 06별(노랑)·02칩(파랑)·03다이아(보라)·04하트(빨강)·05방패(초록)·07선물(보라 상자, 다이아와 형태 구분). */
 export const PUZZLE_TILE_KEYS: ReadonlyArray<string> = [
+  'up_NewUI_Puzzle_06', // 별(노랑)
+  'up_NewUI_Puzzle_02', // 칩(파랑)
+  'up_NewUI_Puzzle_03', // 다이아(보라)
+  'up_NewUI_Puzzle_04', // 하트(빨강)
+  'up_NewUI_Puzzle_05', // 방패(초록)
+  'up_NewUI_Puzzle_07', // 선물(보라 상자)
+  // ↓ TYPES=6 에선 미사용(예비). 01 코인은 06 별과 혼동되어 앞쪽에서 제외.
   'up_NewUI_Puzzle_01',
-  'up_NewUI_Puzzle_02',
-  'up_NewUI_Puzzle_03',
-  'up_NewUI_Puzzle_04',
-  'up_NewUI_Puzzle_05',
-  'up_NewUI_Puzzle_06',
-  'up_NewUI_Puzzle_07',
   'up_NewUI_Puzzle_08',
   'up_NewUI_Puzzle_09',
   'up_NewUI_Puzzle_10',

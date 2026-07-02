@@ -64,7 +64,8 @@ export class RewardGaugeView {
     //   'DSEG7 Classic' = index.html @font-face(public/fonts/DSEG7Classic-Bold.woff2, weight 700). 미로드 시 폴백 monospace.
     //   ⚠️weight 700 명시(setFontStyle 'bold') → 굵은(700) 페이스 확정 + **동색 스트로크**로 세그먼트를 더 두껍게(요청 "굵은 폰트").
     const tt = this.nodes.timerText;
-    if (tt) {
+    // ⭐가로형(신 게이지)은 **에디터 지정 폰트/색/크기 그대로**(요청: 디지털폰트 금지) — DSEG7 오버라이드는 세로형(구)만.
+    if (tt && !horizontal) {
       tt.setFontFamily('"DSEG7 Classic", "Russo One", monospace').setFontStyle('bold');
       // ⭐디지털 폰트를 **약간 작게**(요청) — DSEG7 은 같은 px 에서 일반 폰트보다 크게 보여 에디터값×배율로 축소.
       const basePx = parseInt(String(tt.style.fontSize), 10) || 44;

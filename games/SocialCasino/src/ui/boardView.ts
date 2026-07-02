@@ -47,9 +47,9 @@ export interface ResolvedInfo {
   readonly cleared: number;
 }
 
-/** 사용할 **일반 젬 종류 수**(신 아트 up_NewUI_Puzzle_01~10 중). ⭐2026-07-02 요청: 특수젬 제거 + 신규젬 도입 →
- *  7종으로 확대(구 5종). 종류↑ = 매칭 난이도↑지만 신규젬 다양성 확보(7×7 보드와 조합). */
-const TYPES = 7;
+/** 사용할 **일반 젬 종류 수**(PUZZLE_TILE_KEYS 앞에서 TYPES 개). ⭐2026-07-02 요청: 미션 완수가 너무 어려움(종류 과다) →
+ *  7→**6종**으로 하향(종류↓ = 매칭 쉬움 = 미션 진행↑). 앞 6종은 색/모양 구분(노랑 별/코인 혼동 회피 — assets.PUZZLE_TILE_KEYS 참고). */
+const TYPES = 6;
 const SPARK_TEX = 'sc_spark';
 
 /**
