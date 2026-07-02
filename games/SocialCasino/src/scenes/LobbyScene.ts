@@ -11,13 +11,14 @@
 import Phaser from 'phaser';
 import { DESIGN_W, DESIGN_H } from './PlayScene.js';
 import { buildLayout, type LayoutDoc } from '../ui/layoutLoader.js';
-import { buildNewHeader, NEW_HEADER_KEYS } from '../ui/newHeader.js';
+import { buildNewHeader, NEW_HEADER_KEYS, buildSideMenus, SIDE_MENU_KEYS } from '../ui/newHeader.js';
 import { uploadPath, ensureFonts, collectLayoutFonts } from '../assets.js';
 import { loadCoins } from '../logic/wallet.js';
 import { loadSpins } from '../logic/playerState.js';
 import { SHOP_CATALOG, applyPurchase, type ShopKind, type ShopItem } from '../logic/shop.js';
 import { formatCompact } from '../logic/hotelUpgrade.js';
 import { openSettingsMenu } from '../ui/settingsMenu.js';
+import { showToast } from '../ui/dialogBox.js';
 import { startBgm } from '../audio.js';
 import { FountainSpray } from '../ui/fountainSpray.js';
 
@@ -38,8 +39,6 @@ export const POPUP_LAYOUT_PATH = 'ui/layouts/blank_copy.json';
 /** ⭐상점 화면(에디터 "빈 화면" — blank_4.json, 720×1600). 로비 Shop 아이콘 → 팝업 오버레이로 1.5× 스케일 렌더. */
 export const SHOP_LAYOUT_KEY = 'shop_layout';
 export const SHOP_LAYOUT_PATH = 'ui/layouts/blank_4.json';
-/** 로비 상점 아이콘(좌상단). 키 버전업 견디게 위치 폴백(x<270·200<y<420). */
-const SHOP_ICON_KEY = 'up_SC_UI_30-1';
 
 /** ⭐구매 결정(구매/취소) 팝업 — 디자이너 에디터 "구매결정"(blank_5_copy.json, 720×1600). 상점 구매 버튼 탭 시 확인 팝업. */
 export const CONFIRM_LAYOUT_KEY = 'confirm_layout';
@@ -59,12 +58,8 @@ const CP = {
 const KIND_LABEL: Record<ShopKind, string> = { coins: 'GOLD', spins: 'SPINS', gems: 'GEMS' };
 const KIND_ICON: Record<ShopKind, string> = { coins: 'up_CoinItem_01_v2', spins: 'up_SpinItem_02_v2', gems: 'up_GemItem_01_v2' };
 
-/** PLAY 버튼 텍스처 키(에디터 노드 "플레이 아이콘"). ⭐2026-06-29 에디터 재변경(up_SC_UI_34→up_SC_UI_34-1). */
+/** PLAY 버튼 텍스처 키 — blank_2 가 최소화돼 코드로 배치(중앙 하단). */
 const PLAY_KEY = 'up_SC_UI_34-1';
-
-/** ⭐My Hotel 진입 = 로비 하단 메뉴 2번째 아이콘(blank_2 라벨 "My Hotel"). 베이스 키 up_SC_UI_38 의 버전 변형
- *  (`up_SC_UI_38_v3`/`_v4` …)을 **접두 매칭**으로 견딘다 — 디자이너 재익스포트로 버전이 바뀌어도 배선 유지(2026-06-30 v3→v4로 진입 불가 버그 수정). (1번 up_SC_UI_37* 는 "Today".) */
-const HOTEL_MENU_PREFIX = 'up_SC_UI_38';
 
 export class LobbyScene extends Phaser.Scene {
   /** 열려 있는 이벤트 팝업 레이어(딤 배경 + 팝업 오브젝트). 없으면 닫힌 상태. */
@@ -114,8 +109,8 @@ export class LobbyScene extends Phaser.Scene {
         queued++;
       }
     }
-    // ⭐신 헤더(up_NewUI_04-*)는 blank_2 노드가 아니므로 별도 적재(로비 직접진입/매니페스트 레이스 대비).
-    for (const key of NEW_HEADER_KEYS) {
+    // ⭐신 헤더(up_NewUI_04-*)·좌우 세로메뉴(up_NewUI_07-*)·PLAY(up_SC_UI_34-1)는 최소화된 blank_2 노드가 아니므로 별도 적재.
+    for (const key of [...NEW_HEADER_KEYS, ...SIDE_MENU_KEYS, PLAY_KEY]) {
       if (!this.textures.exists(key)) {
         this.load.image(key, uploadPath(key));
         queued++;
@@ -179,46 +174,27 @@ export class LobbyScene extends Phaser.Scene {
     this.spinHeaderText = undefined; // 신 헤더엔 스핀 표기 없음(게임 내 250/50 로 이동)
     this.refreshHeaderCurrencies();
 
-    // PLAY 노드: 키(up_SC_UI_34) 우선, 못 찾으면 이름("플레이 아이콘", '복사' 배너 제외)으로 폴백.
-    const entries = index.entries();
-    const playObj =
-      entries.find((e) => e.node.key === PLAY_KEY)?.obj ??
-      entries.find((e) => (e.node.name ?? '').startsWith('플레이') && !(e.node.name ?? '').includes('복사'))?.obj;
-
-    if (playObj) {
-      this.wirePlay(playObj as Phaser.GameObjects.Image);
-    } else if (import.meta.env?.DEV) {
-      console.warn(`[lobby] PLAY 노드(${PLAY_KEY})를 찾지 못함 — 레이아웃 키 확인 필요`);
+    // ⭐로비 UI 코드 배치(디자이너 blank_2 = 배경+캐릭터만 최소화됨) — 좌우 세로메뉴 + 게임 진입 PLAY(요청).
+    //   좌/우 세로 메뉴(요청: 게임 로비화면에 좌우 세로 메뉴 배치) — 게임화면(grp_5/grp_6)과 동일 아이콘.
+    const menus = buildSideMenus(this);
+    const wireMenu = (key: string, fn: (img: Phaser.GameObjects.Image) => void): void => {
+      const o = menus[key];
+      if (o) fn(o);
+    };
+    wireMenu('up_NewUI_07-5', (o) => this.wireShopButton(o)); // 좌1 = 아이템샵 → 상점 팝업
+    wireMenu('up_NewUI_07-1', (o) => this.wireEventButton(o)); // 우1 = 일일리그/이벤트
+    wireMenu('up_NewUI_07-2', (o) => this.wireHotelButton(o)); // 우2 = 마이호텔 → hotel 씬
+    for (const [key, o] of Object.entries(menus)) {
+      if (key === 'up_NewUI_07-5' || key === 'up_NewUI_07-1' || key === 'up_NewUI_07-2') continue;
+      o.setInteractive({ useHandCursor: true }).on('pointerdown', () => showToast(this, '준비중', { y: DESIGN_H * 0.5 }));
     }
 
-    // 이벤트 버튼 = 좌측 하단 사이드 아이콘(화면상 Shop 아래 선물상자). 아이콘 art/키가 버전업돼도
-    //   견고하도록 **위치**로 식별(좌측 열 x<270 · 하단 행 480<y<800).
-    const eventObj = entries.find(
-      (e) => e.node.type === 'image' && e.node.x < 270 && e.node.y > 480 && e.node.y < 800,
-    )?.obj as Phaser.GameObjects.Image | undefined;
-    if (eventObj) {
-      this.wireEventButton(eventObj);
+    // ⭐게임 진입 PLAY 버튼(중앙 하단) — blank_2 에 PLAY 노드가 없어 코드로 배치·배선(요청: 게임 진입 가능하게).
+    if (this.textures.exists(PLAY_KEY)) {
+      const play = this.add.image(540, 1900, PLAY_KEY).setDisplaySize(530, 214).setDepth(595);
+      this.wirePlay(play);
     } else if (import.meta.env?.DEV) {
-      console.warn('[lobby] 이벤트 버튼(좌측 하단 아이콘)을 찾지 못함 — 레이아웃 좌표 확인 필요');
-    }
-
-    // ⭐My Hotel 진입 — 하단 메뉴 아이콘(up_SC_UI_38* 접두 매칭) → hotel 씬. 버전 접미(_v3/_v4) 변경에 견딤.
-    const hotelObj = entries.find((e) => (e.node.key ?? '').startsWith(HOTEL_MENU_PREFIX))?.obj as Phaser.GameObjects.Image | undefined;
-    if (hotelObj) {
-      this.wireHotelButton(hotelObj);
-    } else if (import.meta.env?.DEV) {
-      console.warn(`[lobby] My Hotel 메뉴 아이콘(${HOTEL_MENU_PREFIX}*)을 찾지 못함 — 레이아웃 키 확인 필요`);
-    }
-
-    // ⭐상점 아이콘(좌상단) → 상점 팝업. 키 우선, 위치(x<270·200<y<420) 폴백.
-    const shopObj = (entries.find((e) => e.node.key === SHOP_ICON_KEY) ??
-      entries.find((e) => e.node.type === 'image' && e.node.x < 270 && e.node.y > 200 && e.node.y < 420))?.obj as
-      | Phaser.GameObjects.Image
-      | undefined;
-    if (shopObj) {
-      this.wireShopButton(shopObj);
-    } else if (import.meta.env?.DEV) {
-      console.warn(`[lobby] 상점 아이콘(${SHOP_ICON_KEY})을 찾지 못함 — 레이아웃 키/좌표 확인 필요`);
+      console.warn(`[lobby] PLAY 텍스처(${PLAY_KEY}) 없음 — 진입 버튼 미배치`);
     }
 
     // (헤더 햄버거 메뉴는 신 헤더(buildNewHeader)의 up_NewUI_04-6 노드가 담당 — 구 투명 히트존 폐지.)

@@ -27,6 +27,38 @@ const DEPTH = 600; // 게임/로비 요소 위
 
 const fmt = (n: number): string => Math.max(0, Math.round(n)).toLocaleString('en-US');
 
+/** 좌/우 세로 메뉴(main_copy grp_5 우메뉴 · grp_6 좌메뉴)의 아이콘 키·좌표(1080×2400 실측). */
+interface SideMenuItem {
+  readonly key: string;
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+const SIDE_MENU_LAYOUT: ReadonlyArray<SideMenuItem> = [
+  { key: 'up_NewUI_07-1', x: 982, y: 257, w: 155, h: 152 }, // 우: 일일리그 순위
+  { key: 'up_NewUI_07-2', x: 982, y: 455, w: 155, h: 171 },
+  { key: 'up_NewUI_07-3', x: 982, y: 654, w: 155, h: 158 },
+  { key: 'up_NewUI_07-4', x: 985, y: 856, w: 162, h: 137 },
+  { key: 'up_NewUI_07-5', x: 88, y: 248, w: 131, h: 134 }, // 좌: 아이템샵
+  { key: 'up_NewUI_07-6', x: 88, y: 436, w: 131, h: 126 },
+  { key: 'up_NewUI_07-7', x: 88, y: 624, w: 131, h: 129 },
+  { key: 'up_NewUI_07-8', x: 88, y: 812, w: 131, h: 126 },
+];
+
+/** 세로 메뉴 텍스처 키(누락 방지 직접 적재용). */
+export const SIDE_MENU_KEYS: ReadonlyArray<string> = SIDE_MENU_LAYOUT.map((i) => i.key);
+
+/** ⭐좌/우 세로 메뉴를 배치(요청: 게임 로비화면에 좌우 세로 메뉴). 생성된 아이콘 이미지를 key→Image 로 반환(호출부가 배선). */
+export function buildSideMenus(scene: Phaser.Scene, depth = 590): Record<string, Phaser.GameObjects.Image> {
+  const out: Record<string, Phaser.GameObjects.Image> = {};
+  for (const it of SIDE_MENU_LAYOUT) {
+    if (!scene.textures.exists(it.key)) continue;
+    out[it.key] = scene.add.image(it.x, it.y, it.key).setDisplaySize(it.w, it.h).setDepth(depth);
+  }
+  return out;
+}
+
 /** 신 헤더를 그린다(코인=공유 지갑 기본). onMenu 지정 시 햄버거 탭 배선. */
 export function buildNewHeader(
   scene: Phaser.Scene,
