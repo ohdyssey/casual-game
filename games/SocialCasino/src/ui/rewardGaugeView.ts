@@ -48,11 +48,17 @@ export class RewardGaugeView {
   private timerBaseColor = '#ffffff'; // 평상시 타이머 색(레이아웃 지정값 보존)
   private timerUrgent = false; // 현재 긴급(빨강 깜빡) 상태 — 전환 시에만 트윈 갱신
   private timerPulse?: Phaser.Tweens.Tween;
+  // ⭐가로형(2026-07-02, main_copy 슬롯게이지 바) — 왼→오른쪽 채움. 세로형(구 캡슐)과 분기.
+  private readonly horizontal: boolean;
+  private fillLeftX = 0; // 가로형 채움 시작 x(바 좌측 모서리)
+  private barY = 0; // 가로형 바 세로중심
+  private barH = 0; // 가로형 바 높이
 
-  constructor(scene: Phaser.Scene, nodes: GaugeNodeRefs, config: RewardGaugeConfig) {
+  constructor(scene: Phaser.Scene, nodes: GaugeNodeRefs, config: RewardGaugeConfig, horizontal = false) {
     this.scene = scene;
     this.nodes = nodes;
     this.config = config;
+    this.horizontal = horizontal;
     this.timerBaseColor = (nodes.timerText?.style?.color as string | undefined) || '#ffffff';
     // ⭐타이머 = **디지털 시계(7-세그먼트 LCD) 폰트, 굵게**(요청). 에디터 지정 폰트(Russo One)를 의도적으로 덮어씀(숫자/콜론만 쓰므로 DSEG7 적합).
     //   'DSEG7 Classic' = index.html @font-face(public/fonts/DSEG7Classic-Bold.woff2, weight 700). 미로드 시 폴백 monospace.
@@ -72,7 +78,18 @@ export class RewardGaugeView {
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.timerPulse?.remove());
 
     const bar = nodes.fillBar;
-    if (bar) {
+    if (bar && horizontal) {
+      // ⭐가로형: 디자이너 진행 바(핑크)를 좌→우로 마스크 채움. 캡슐 리사이즈 없이 폭 비율만.
+      this.fillLeftX = bar.x - bar.displayWidth / 2;
+      this.fillRange = bar.displayWidth;
+      this.barY = bar.y;
+      this.barH = bar.displayHeight;
+      const g = scene.make.graphics({});
+      bar.setMask(g.createGeometryMask());
+      this.maskG = g;
+      this.drawMask(0);
+      scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => g.destroy());
+    } else if (bar) {
       const barW = bar.displayWidth;
       const fin = nodes.finalBadge;
       // ⭐채움 범위 = **출발선(0%) ~ 최종 보상(100%)** — 캡슐을 그 범위로 재배치/리사이즈해 **길이가 퍼센트에 정비례**(요청).
@@ -124,11 +141,16 @@ export class RewardGaugeView {
     const g = this.maskG;
     if (!g) return;
     const r = ratio < 0 ? 0 : ratio > 1 ? 1 : ratio;
-    const h = r <= 0 ? 0 : Math.max(MIN_FILL_PX, this.fillRange * r);
-    const top = this.fillBottomY - h;
     g.clear();
     g.fillStyle(0xffffff);
-    g.fillRect(this.barX - this.barW / 2 - 6, top, this.barW + 12, h + 4);
+    if (this.horizontal) {
+      const w = r <= 0 ? 0 : Math.max(MIN_FILL_PX, this.fillRange * r);
+      g.fillRect(this.fillLeftX - 4, this.barY - this.barH / 2 - 4, w + 4, this.barH + 8); // 좌→우 채움
+    } else {
+      const h = r <= 0 ? 0 : Math.max(MIN_FILL_PX, this.fillRange * r);
+      const top = this.fillBottomY - h;
+      g.fillRect(this.barX - this.barW / 2 - 6, top, this.barW + 12, h + 4); // 바닥→위 채움
+    }
   }
 
   /** 채움 비율(0..1). animate=true 면 부드럽게 채워 오른다. */

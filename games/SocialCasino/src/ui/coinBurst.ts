@@ -35,8 +35,9 @@ export class CoinBurst {
    */
   static streamPlan(amount: number, bet: number): { duration: number; quantity: number } {
     const mult = amount / Math.max(1, bet);
-    const duration = Phaser.Math.Clamp(Math.round(450 + mult * 100), 550, 2600); // 0.55s ~ 2.6s
-    const quantity = Phaser.Math.Clamp(Math.round(1.5 + mult * 0.14), 2, 7); // 방출당 2~7개
+    // ⭐2026-07-02 요청: 코인드랍 연출 규모를 기존 대비 **70%** 로 축소(길이·굵기 동시 하향).
+    const duration = Phaser.Math.Clamp(Math.round((450 + mult * 100) * 0.7), 400, 1820); // ~0.4s ~ 1.82s
+    const quantity = Phaser.Math.Clamp(Math.round((1.5 + mult * 0.14) * 0.7), 1, 5); // 방출당 1~5개
     return { duration, quantity };
   }
 

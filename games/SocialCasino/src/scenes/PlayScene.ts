@@ -169,7 +169,6 @@ export class PlayScene extends Phaser.Scene {
   private userNameText?: Phaser.GameObjects.Text; // 슬롯 상단 유저명(DAKA) — 라운드 당첨 시 숨김(task 2)
   private userCoinText?: Phaser.GameObjects.Text; // 슬롯 상단 보유코인(5,000,000) — 라운드 당첨 시 숨김(task 2)
   private betText?: Phaser.GameObjects.Text; // 하단 베팅 "10" 텍스트 — +/- 로 조절(task 4)
-  private gaugeBar = { x: 540, y: 516, w: 542, h: 56 }; // 슬롯 정보 바(슬롯게이지 layer_19) — 정보표시 패널(task 3)
   private spinText?: Phaser.GameObjects.Text; // 보유 스핀 표시(GO 하단 바)
   private matchImg?: Phaser.GameObjects.Image; // 타이틀 배너의 "MATCH = 1 SPIN" 텍스트(첫 당첨 전 idle 표시)
   private missionBannerText?: Phaser.GameObjects.Text; // ⭐미션 시작/종료 메시지를 상단 타이틀 배너(419 자리)에 표시(요청)
@@ -314,9 +313,6 @@ export class PlayScene extends Phaser.Scene {
       this.userCoinText = findObj((n) => (n as { text?: string }).text === '5,000,000') as Phaser.GameObjects.Text | undefined;
       this.userNameText?.setOrigin(0, 0.5);
       this.userCoinText?.setOrigin(0, 0.5);
-      // ⭐정보표시 패널 = 슬롯게이지 바(layer_19) — 여기 내부에 퍼즐/슬롯 정보 표시(task 3).
-      const gaugeNode = layout.entries().find((e) => e.node.id === 'layer_19')?.node;
-      if (gaugeNode) this.gaugeBar = { x: gaugeNode.x, y: gaugeNode.y, w: gaugeNode.w ?? 542, h: gaugeNode.h ?? 56 };
       // ⭐하단 베팅 "10" 텍스트(task 4) — +/- 버튼으로 조절.
       this.betText = findObj((n) => n.name === '250/50 복사') as Phaser.GameObjects.Text | undefined;
       this.betText?.setText(String(this.spinBet));
@@ -326,6 +322,22 @@ export class PlayScene extends Phaser.Scene {
         this.spinBarX = spinNode.x;
         this.spinBarY = spinNode.y;
       }
+      // ⭐하단 내비 배선(요청: 마이호텔 작동) — 홈→로비, 마이호텔→hotel 씬, 카드/친구→준비중 토스트.
+      const wireNav = (key: string, onTap: () => void): void => {
+        const o = findObj((n) => (n.key ?? '') === key) as Phaser.GameObjects.Image | undefined;
+        if (!o) return;
+        const sx = o.scaleX;
+        const sy = o.scaleY;
+        o.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
+          this.sfx?.play('click', 0.5);
+          this.tweens.add({ targets: o, scaleX: sx * 0.9, scaleY: sy * 0.9, duration: 90, yoyo: true, ease: 'Quad.easeOut' });
+          onTap();
+        });
+      };
+      wireNav('up_NewUI_05-1', () => this.goHome()); // 홈 → 로비
+      wireNav('up_NewUI_05-2', () => this.goHotel()); // 마이호텔 → hotel 씬(요청)
+      wireNav('up_NewUI_05-3', () => showToast(this, 'CARDS 준비중', { y: DESIGN_H * 0.5 }));
+      wireNav('up_NewUI_05-4', () => showToast(this, 'FRIENDS 준비중', { y: DESIGN_H * 0.5 }));
     }
 
     this.geom = computeGeom(safeDoc);
@@ -551,23 +563,17 @@ export class PlayScene extends Phaser.Scene {
     // 일일 지급 안내 텍스트(현재 숨김 — 250/50 재생 UI 는 후속 P5). updateRechargeText 가 참조하므로 생성만 보장.
     this.rechargeText = this.text(this.spinBarX, this.spinBarY + 44, '', 17, '#cfe8ff').setVisible(false);
 
-    // 타이틀 배너(up_SC_UI_07-1) = "MATCH = 1 SPIN"(항상 표시). 당첨금은 상단 유저정보 자리에 별도 표시(task 2).
+    // ⭐주요 정보창(요청) = MATCH=1SPIN 배너 위치(tt, 릴 아래). idle=matchImg("MATCH=1SPIN"),
+    //   매치 시 이 메시지를 값으로 대치: 퍼즐 ×N → 슬롯 ×M(순차) → 최종 당첨금(롤링, **다음 턴 시작까지 유지**).
     const tt = a.titleText ?? a.title ?? { x: 540, y: 1056, w: 457, h: 65 };
     if (this.textures.exists('up_SC_UI_07-1')) {
       this.matchImg = this.add.image(tt.x, tt.y, 'up_SC_UI_07-1').setDisplaySize(tt.w, tt.h).setDepth(100);
     }
-
-    // ⭐정보표시(task 3+5) = 슬롯게이지 바 내부의 **단일 슬롯**. 라벨 상시표시 폐지 —
-    //   매치 시 데이터와 함께 순차 표시(퍼즐 ×N → 사라짐 → 슬롯 +M → 보상금액은 상단 유저정보 자리).
-    const g = this.gaugeBar;
-    const gy = g.y;
-    this.infoLeft = new FancyNumber(this, g.x, gy, 42, 221, g.w * 0.86); // 퍼즐/슬롯 순차 표시
-    // ⭐최종 당첨금 = **슬롯 상단 유저정보(DAKA/보유코인) 자리**(task 2). 라운드 당첨 시 DAKA 숨기고 여기 롤링 표시.
-    const winX = this.userCoinText?.x ?? 474;
-    const winY = this.userNameText && this.userCoinText ? (this.userNameText.y + this.userCoinText.y) / 2 : 401;
-    this.finalScoreText = new FancyNumber(this, winX + 130, winY, 76, 205, 470);
+    this.infoLeft = new FancyNumber(this, tt.x, tt.y, 58, 221, tt.w * 1.5); // 퍼즐/슬롯 배수 순차(라벨 포함)
+    this.infoLeft.setAlpha(0);
+    this.finalScoreText = new FancyNumber(this, tt.x, tt.y, 74, 222, tt.w * 1.5); // 최종 당첨금(롤링)
     this.finalScoreText.setAlpha(0);
-    // 미션 시작/종료 메시지(타이틀 배너 자리). 표시 중 MATCH=1SPIN 숨김. (게이지 미배치 시 미발동)
+    // 미션 시작/종료 메시지(같은 배너 자리). 표시 중 MATCH=1SPIN 숨김. (게이지 미배치 시 미발동)
     this.missionBannerMaxW = tt.w * 0.92;
     this.missionBannerText = this.add
       .text(tt.x, tt.y, '', { fontFamily: '"Luckiest Guy", "Do Hyeon", sans-serif', fontSize: '46px', color: '#ffe27a', stroke: '#2a1640', strokeThickness: 8, align: 'center' })
@@ -575,9 +581,8 @@ export class PlayScene extends Phaser.Scene {
       .setDepth(230)
       .setVisible(false);
     this.missionBannerText.setShadow(0, 4, 'rgba(0,0,0,0.6)', 7, false, true);
-    // 라운드 진행 전 안내(정보 바 중앙). 결과가 나오면 위 2칸으로 대체.
-    this.playingText = this.scoreText(g.x, gy, 'MATCH OR SPIN!', 24, '#ffe9b8');
-    this.playingText.setDepth(221);
+    // playingText: 배너 idle 은 matchImg 가 담당 → 비가시(hidePlaying/beginRound 호환용 생성만).
+    this.playingText = this.scoreText(tt.x, tt.y, '', 24, '#ffe9b8').setVisible(false);
     // 대박 카운트업 숫자(코인 드랍 영역) — 기본 숨김.
     this.bigWinNum = new BigNumber(this, 540, 700, 120, 320);
     this.bigWinNum.setAlpha(0);
@@ -589,20 +594,20 @@ export class PlayScene extends Phaser.Scene {
     this.betText?.setText(String(this.spinBet));
   }
 
-  /** 베팅 "10" 좌우에 −/+ 버튼 배치(task 4) — 눌러 베팅 사다리 조절. */
+  /** 베팅 "10" 좌우 조절(task 4) — ⭐요청: **이미지(디자이너 바 아트)의 +/- 버튼을 사용**, 새 버튼 그리지 않음.
+   *   베팅 바(up_NewUI_06-3, "10" 노드) 좌우 끝에 **투명 히트존**만 얹어 아트의 +/- 를 눌러 조절한다. */
   private buildBetButtons(): void {
     const bx = this.betText?.x ?? 537;
     const by = this.betText?.y ?? 2087;
-    const mk = (x: number, label: string, dir: number): void => {
-      const c = this.add.circle(x, by, 30, 0x2a1640, 0.85).setStrokeStyle(3, 0xffd23d).setDepth(300);
-      c.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.adjustBetLadder(dir));
+    const hit = (x: number, dir: number): void => {
       this.add
-        .text(x, by - 2, label, { fontFamily: '"Luckiest Guy", sans-serif', fontSize: '40px', color: '#ffd23d' })
-        .setOrigin(0.5)
-        .setDepth(301);
+        .rectangle(x, by, 80, 92, 0x000000, 0)
+        .setDepth(300)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => this.adjustBetLadder(dir));
     };
-    mk(bx - 96, '−', -1);
-    mk(bx + 96, '+', +1);
+    hit(bx - 96, -1); // − (아트의 좌측 버튼)
+    hit(bx + 96, +1); // + (아트의 우측 버튼)
   }
 
   private fmt(n: number): string {
@@ -655,6 +660,13 @@ export class PlayScene extends Phaser.Scene {
     this.fadeSpinLoop();
     this.cameras.main.fadeOut(220, 26, 16, 48);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.start('lobby'));
+  }
+
+  /** ⭐마이호텔(hotel 씬)로 이동(요청: 하단 마이호텔 버튼 작동) — 회전음 정리 + 페이드아웃 후 전환. */
+  private goHotel(): void {
+    this.fadeSpinLoop();
+    this.cameras.main.fadeOut(220, 26, 16, 48);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.start('hotel'));
   }
 
   // ── 입력 ───────────────────────────────────────────────
@@ -888,41 +900,39 @@ export class PlayScene extends Phaser.Scene {
     this.rechargeText.setText(`일일 +${DAILY_SPINS}`); // 연속 카운트다운 폐지 → 일일 지급 안내
   }
 
-  // ── 단계별 보상 게이지(EARN SPINS) ──────────────────────────────
-  /** main.json grp_2 노드를 찾아 게이지 뷰 생성(채움바 없으면 미배치 → 생략). */
+  // ── 보상 미션 게이지(DAKA 아래 가로 바) ──────────────────────────────
+  /** ⭐2026-07-02 요청: 미션보상 게이지를 main_copy **슬롯게이지 영역(DAKA 아래)** 에 정밀 배치.
+   *   구성: 타겟 아이콘(03-2, 수집 대상) · 진행 바(03-3, 좌→우 채움) · "현재/목표"(신설 텍스트) · 제한시간(00:02:15 노드) · 보상 배지(03-8, 스핀).
+   *   진행 바 노드 없으면 미배치(구 화면 호환). RewardGaugeView 는 **가로형(horizontal)** 으로 생성. */
   private buildGaugeView(layout: ReturnType<typeof buildLayout>): RewardGaugeView | undefined {
     const entries = layout.entries();
     const byKey = (k: string): Phaser.GameObjects.GameObject | undefined => entries.find((e) => e.node.key === k)?.obj;
     const byId = (id: string): Phaser.GameObjects.GameObject | undefined => entries.find((e) => e.node.id === id)?.obj;
-    const fillBar = byKey('up_SC_UI_53') as Phaser.GameObjects.Image | undefined;
-    if (!fillBar) return undefined;
-    const nodes: GaugeNodeRefs = {
-      fillBar,
-      currentText: byId('layer_16') as Phaser.GameObjects.Text | undefined,
-      targetText: byId('layer_16_copy') as Phaser.GameObjects.Text | undefined,
-      timerText: byId('layer_16_copy2') as Phaser.GameObjects.Text | undefined, // ⭐새 디자인 타이머(노랑 "1:59", grp_2) — 구 layer_18 대체
-      timerFrame: byKey('up_SC_UI_52-5') as Phaser.GameObjects.Image | undefined, // 타이머 패널 — 타이머를 이 프레임 정중앙에 배치(요청)
-      milestoneText: byId('layer_17_copy') as Phaser.GameObjects.Text | undefined, // (새 디자인엔 없음 → undefined, 마일스톤 미사용)
-      finalText: byId('layer_17') as Phaser.GameObjects.Text | undefined, // 최종 보상액("300" 자리 — 상단 배지)
-      milestoneBadge: byKey('up_SC_UI_51-2_v2') as Phaser.GameObjects.Image | undefined, // (새 디자인엔 없음 → undefined)
-      finalBadge: byKey('up_SC_UI_54_v2') as Phaser.GameObjects.Image | undefined, // 최종 보상 배지(목표아이템)
-      milestoneCluster: [byKey('up_SC_UI_51'), byKey('up_SC_UI_51-1'), byKey('up_SC_UI_51-2_v2'), byKey('up_SC_UI_54_v3'), byId('layer_17_copy')].filter(Boolean) as Phaser.GameObjects.GameObject[],
-    };
-    // ⭐새 디자인: 구 타이머 노드(layer_18 "1:00:00", 우측 어두운색)는 layer_16_copy2 로 대체됨 → 잔상 숨김.
-    (byId('layer_18') as (Phaser.GameObjects.Text & { setVisible: (v: boolean) => unknown }) | undefined)?.setVisible(false);
-    // ⭐수집목표 아이콘(디자인 up_T01_05=룰렛휠) → **현재 미션 수집 젬**으로 교체(applyGaugeGem 에서). 위치=코인 비행 목표.
-    const collectGem = byKey('up_T01_05') as Phaser.GameObjects.Image | undefined;
-    this.collectGemImg = collectGem;
-    if (collectGem) this.gaugeTargetPt = { x: collectGem.x, y: collectGem.y };
-    nodes.collectGem = collectGem; // 채움 시작점(이 코인 위부터 채움)
-    this.milestoneBadgeImg = nodes.milestoneBadge; // 보상 비행 시작점(중간/최종)
-    this.finalBadgeImg = nodes.finalBadge;
-    // ⭐테스트용 리셋(DEV) — "EARN SPINS!" 헤더(up_SC_UI_55) 탭 시 게이지 진행 0 으로 리셋(요청).
-    if (import.meta.env?.DEV) {
-      const header = byKey('up_SC_UI_55') as Phaser.GameObjects.Image | undefined;
-      header?.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.resetGauge());
-    }
-    return new RewardGaugeView(this, nodes, GAUGE_CONFIG);
+    const fillBar = byKey('up_NewUI_03-3') as Phaser.GameObjects.Image | undefined; // 진행 바(핑크)
+    if (!fillBar) return undefined; // 게이지 노드 없음 → 미배치(구 main.json 호환)
+    const collectGem = byKey('up_NewUI_03-2') as Phaser.GameObjects.Image | undefined; // 타겟 아이콘(수집 대상 — 미션마다 교체)
+    const finalBadge = byKey('up_NewUI_03-8') as Phaser.GameObjects.Image | undefined; // 보상 배지(스핀)
+    const timerText = byId('layer_12_copy8') as Phaser.GameObjects.Text | undefined; // "00:02:15"(제한시간)
+    const gd = fillBar.depth;
+    // "현재/목표"(50/300) — 레이아웃에 없어 진행 바 위에 신설.
+    const currentText = this.add
+      .text(fillBar.x, fillBar.y, '0/0', { fontFamily: '"Luckiest Guy", sans-serif', fontSize: '26px', color: '#ffffff', stroke: '#2a1640', strokeThickness: 4 })
+      .setOrigin(0.5)
+      .setDepth(gd + 5);
+    // 보상 금액 — 보상 배지 아래 신설.
+    const finalText = finalBadge
+      ? this.add
+          .text(finalBadge.x, finalBadge.y + finalBadge.displayHeight * 0.5 + 10, '0', { fontFamily: '"Luckiest Guy", sans-serif', fontSize: '20px', color: '#ffe27a', stroke: '#2a1640', strokeThickness: 4 })
+          .setOrigin(0.5)
+          .setDepth(gd + 5)
+      : undefined;
+    const nodes: GaugeNodeRefs = { fillBar, currentText, timerText, collectGem, finalBadge, finalText };
+    this.collectGemImg = collectGem; // 미션마다 타겟 아이콘 텍스처 교체(applyGaugeGem)
+    if (collectGem) this.gaugeTargetPt = { x: collectGem.x, y: collectGem.y }; // 수집 코인 비행 목표
+    this.milestoneBadgeImg = undefined; // 중간 보상 미사용
+    this.finalBadgeImg = finalBadge; // 최종 보상 비행 시작점
+    if (import.meta.env?.DEV) (globalThis as Record<string, unknown>).__resetGauge = () => this.resetGauge();
+    return new RewardGaugeView(this, nodes, GAUGE_CONFIG, true); // horizontal=true
   }
 
   /** 보상 게이지 **완전 리셋**(테스트용 — DEV 헤더 탭). 진행 0 + 첫 젬으로 + 표시/영속 갱신. */
@@ -1096,10 +1106,9 @@ export class PlayScene extends Phaser.Scene {
       await this.wait(dur);
       return;
     }
-    // ⭐순차 마무리(task 5): 정보 바의 슬롯 결과를 비우고 → 상단 유저정보 자리에 합산 보상금액 표시.
-    this.tweens.add({ targets: this.infoLeft.container, alpha: 0, duration: 150, ease: 'Quad.easeIn' });
-    this.userNameText?.setVisible(false); // DAKA 정보 숨김 → 당첨금 노출
-    this.userCoinText?.setVisible(false);
+    // ⭐순차 마무리(요청): 슬롯 배수 표시를 비우고 → 같은 배너 자리에 **합산 최종 당첨금** 롤링(다음 턴까지 유지).
+    this.infoLeft.setAlpha(0);
+    this.matchImg?.setVisible(false);
     this.bannerShowedWin = true;
     await this.rollNumber(this.finalScoreText, '', win, dur);
   }
@@ -1593,8 +1602,10 @@ export class PlayScene extends Phaser.Scene {
   /** ① 퍼즐 결과 표시(정보 바에 "PUZZLE ×N" 데이터와 함께 팝) → 멀티플라이어 반환. 슬롯 결과가 이어서 이 자리를 대체(순차). */
   private showPuzzleResult(mult: number): number {
     this.hidePlaying();
+    this.matchImg?.setVisible(false); // MATCH=1SPIN 메시지 → 값으로 대치(요청)
+    this.finalScoreText.setAlpha(0); // 직전 턴 최종값 정리(새 시퀀스 시작)
     this.infoLeft.setAlpha(1);
-    this.popScore(this.infoLeft, `PUZZLE  ×${mult.toFixed(1)}`, mult >= 5 ? '#ff7a3c' : '#fff04a');
+    this.popScore(this.infoLeft, `PUZZLE ×${mult.toFixed(1)}`, mult >= 5 ? '#ff7a3c' : '#fff04a');
     return mult;
   }
 
@@ -1608,6 +1619,7 @@ export class PlayScene extends Phaser.Scene {
    */
   private showSlotResult(outcome: SpinOutcome): number {
     this.hidePlaying();
+    this.matchImg?.setVisible(false);
     this.infoLeft.setAlpha(1);
     // 어택/레이드: 배너는 즉시(릴 정지 직후), 스테이지 예약은 stageHold 로 보류(슬롯 회전 후 승격).
     if (outcome.kind === 'attack' || outcome.kind === 'raid') {
@@ -1618,15 +1630,15 @@ export class PlayScene extends Phaser.Scene {
       this.popScore(this.infoLeft, outcome.kind === 'attack' ? 'ATTACK!' : 'RAID!', outcome.kind === 'attack' ? '#ff6a6a' : '#ffd23d');
       return 0; // 코인은 스테이지(어택=다운그레이드/레이드=룰렛)에서 지급
     }
-    // 코인 3매치: coinBase × 코인베팅 × 럭 × RTP스케일(오버라이드 반영). ⚠️정확한 밸런스는 econ 콘솔 튜닝(P6).
+    // 코인 3매치: coinBase × 코인베팅 × 럭 × RTP스케일(오버라이드 반영). ⚠️정확한 밸런스는 econ 콘솔 튜닝.
     let slotPayout = 0;
     if (outcome.kind === 'coin') {
       slotPayout = Math.round(outcome.coinBase * this.bet * luckMultiplier(this.rng, luckTableNow()) * slotRtpScaleNow());
       if (this.forceBigWin) slotPayout = this.bet * this.nextForcedMult(); // 연출 검증: 높은 배수 강제(순환)
       if (slotPayout > 0) slotPayout = Math.max(this.bet, slotPayout); // 최소 베팅액 보장(진짜 슬롯과 동일)
     }
-    // 퍼즐 데이터가 사라지고 이 자리를 슬롯 결과가 대체(순차, task 5).
-    this.popScore(this.infoLeft, slotPayout > 0 ? `SLOT  +${this.fmt(slotPayout)}` : 'SLOT  —', '#9be1ff');
+    // 퍼즐 데이터가 사라지고 이 자리를 슬롯 **배수(×N)** 가 대치(요청 이미지: "SLOT ×20"). 최종 코인은 finalizeWin.
+    this.popScore(this.infoLeft, outcome.coinBase > 0 ? `SLOT ×${outcome.coinBase}` : 'SLOT —', '#9be1ff');
     return slotPayout; // 최종 획득(퍼즐 멀티 반영)은 finalizeWin 에서
   }
 
@@ -1763,15 +1775,13 @@ export class PlayScene extends Phaser.Scene {
   // ── 연출 ───────────────────────────────────────────────
   /** 새 라운드 시작 시점에만 호출 — 이전 게임의 결과를 비운다(미리 지우지 않음). */
   private beginRound(): void {
-    // 정보 바(단일 슬롯) 비움 — 라벨 상시표시 폐지(task 5).
+    // ⭐새 라운드 시작: 직전 값(퍼즐/슬롯/최종) 정리 → 이어서 showPuzzleResult 가 퍼즐 배수 표시(순차, 요청).
+    //   DAKA/보유코인은 항상 표시(유저정보) — 더 이상 당첨금으로 대치하지 않음. 배너 최종값은 다음 턴 시작(=여기)에서 정리.
     this.tweens.killTweensOf(this.infoLeft.container);
     this.infoLeft.setText('');
     this.infoLeft.container.setScale(1);
-    this.infoLeft.setAlpha(1);
-    // ⭐새 라운드: 직전 당첨금 숨기고 슬롯 상단 유저정보(DAKA/보유코인) 복원(task 2).
+    this.infoLeft.setAlpha(0);
     this.finalScoreText.setAlpha(0);
-    this.userNameText?.setVisible(true);
-    this.userCoinText?.setVisible(true);
     this.hidePlaying();
     this.hideInfoIcons(); // 새 라운드 시작 — 아이콘도 비움
   }
