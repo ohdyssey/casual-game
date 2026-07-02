@@ -919,13 +919,8 @@ export class PlayScene extends Phaser.Scene {
     const timerText = byId('layer_12_copy8') as Phaser.GameObjects.Text | undefined; // "02:15"(Fredoka, 제한시간)
     const currentText = byId('layer_15') as Phaser.GameObjects.Text | undefined; // "50/300"(Luckiest Guy, 현재/목표)
     const finalText = byId('layer_15_copy') as Phaser.GameObjects.Text | undefined; // "120"(보상 스핀량)
-    // ⭐게이지 바 좌우 크기를 **보상(스핀) 위치까지** 확장(요청) — 우측 끝을 보상 배터리(03-7) 직전까지 늘린다.
-    const battery = byKey('up_NewUI_03-7') as Phaser.GameObjects.Image | undefined;
-    const leftX = fillBar.x - fillBar.displayWidth / 2;
-    const rightX = battery ? battery.x - battery.displayWidth / 2 - 6 : fillBar.x + fillBar.displayWidth / 2;
-    if (rightX > leftX + fillBar.displayWidth) {
-      fillBar.setPosition((leftX + rightX) / 2, fillBar.y).setDisplaySize(rightX - leftX, fillBar.displayHeight);
-    }
+    // ⭐게이지 바는 **디자이너 배치 크기 그대로**(요청: 좌우로 임의 늘리기 금지). 채움은 네이티브 폭 안에서 진행.
+    //   (바를 보상 위치까지 늘리려면 에디터에서 03-3 노드 크기를 조정하면 코드가 그 크기를 그대로 읽는다.)
     const nodes: GaugeNodeRefs = { fillBar, currentText, timerText, collectGem, finalBadge, finalText };
     this.collectGemImg = collectGem; // 미션마다 타겟 아이콘 텍스처 교체(applyGaugeGem)
     if (collectGem) this.gaugeTargetPt = { x: collectGem.x, y: collectGem.y }; // 수집 코인 비행 목표

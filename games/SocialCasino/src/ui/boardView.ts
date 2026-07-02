@@ -47,9 +47,9 @@ export interface ResolvedInfo {
   readonly cleared: number;
 }
 
-/** 사용할 **일반 젬 종류 수**(PUZZLE_TILE_KEYS 앞에서 TYPES 개). ⭐2026-07-02 요청: 미션 완수가 너무 어려움(종류 과다) →
- *  7→**6종**으로 하향(종류↓ = 매칭 쉬움 = 미션 진행↑). 앞 6종은 색/모양 구분(노랑 별/코인 혼동 회피 — assets.PUZZLE_TILE_KEYS 참고). */
-const TYPES = 6;
+/** 사용할 **일반 젬 종류 수**(PUZZLE_TILE_KEYS 앞에서 TYPES 개). ⭐2026-07-02 요청: 미션 난이도↓ + 08/09 포함 + 상자/코인 제외 +
+ *  **모든 색 상이**(같은 색 금지) → 색이 전부 다른 **5종**으로 확정(별·다이아·방패·번개·배터리). 종류↓ = 매칭 쉬움 = 미션 진행↑. */
+const TYPES = 5;
 const SPARK_TEX = 'sc_spark';
 
 /**

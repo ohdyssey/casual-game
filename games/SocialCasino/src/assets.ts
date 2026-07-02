@@ -58,19 +58,20 @@ export const SLOT_SYMBOL_KEYS: ReadonlyArray<string> = [
 ];
 
 /** 매치-3 퍼즐 아이콘(신 아트 up_NewUI_Puzzle_*). boardView 가 앞에서 TYPES 개만 사용(type%TYPES).
- *  ⚠️ 2026-07-02 요청: **노란 스타(06)와 코인-스타(01)가 혼동** → 앞 6종은 서로 다른 모양으로 배치하고
- *  둘 중 별(06)만 사용(코인 01 제외). 색: 06별(노랑)·02칩(파랑)·03다이아(보라)·04하트(빨강)·05방패(초록)·07선물(보라 상자, 다이아와 형태 구분). */
+ *  ⚠️ 2026-07-02 요청: 상자(07) 사용금지 · 08(번개)/09(배터리·스핀)을 **일반 타일**로 사용(특수 취급 X) ·
+ *  노란 별(06)/코인(01) 혼동 회피(코인 제외) · **모든 색을 다르게**(같은 색 금지) → 앞 5종은 색 전부 상이:
+ *  06별(노랑)·03다이아(보라)·05방패(초록)·08번개(빨강)·09배터리(파랑). (하트04=빨강·칩02=파랑은 08/09와 색 겹쳐 제외.) */
 export const PUZZLE_TILE_KEYS: ReadonlyArray<string> = [
   'up_NewUI_Puzzle_06', // 별(노랑)
-  'up_NewUI_Puzzle_02', // 칩(파랑)
   'up_NewUI_Puzzle_03', // 다이아(보라)
-  'up_NewUI_Puzzle_04', // 하트(빨강)
   'up_NewUI_Puzzle_05', // 방패(초록)
-  'up_NewUI_Puzzle_07', // 선물(보라 상자)
-  // ↓ TYPES=6 에선 미사용(예비). 01 코인은 06 별과 혼동되어 앞쪽에서 제외.
+  'up_NewUI_Puzzle_08', // 번개(빨강) — 일반 타일
+  'up_NewUI_Puzzle_09', // 배터리/스핀(파랑) — 일반 타일
+  // ↓ TYPES 밖(예비). 07 상자=사용금지 · 01 코인=별과 혼동 · 04 하트(빨강)·02 칩(파랑)=색 겹침으로 제외.
+  'up_NewUI_Puzzle_02',
+  'up_NewUI_Puzzle_04',
+  'up_NewUI_Puzzle_07',
   'up_NewUI_Puzzle_01',
-  'up_NewUI_Puzzle_08',
-  'up_NewUI_Puzzle_09',
   'up_NewUI_Puzzle_10',
 ];
 
