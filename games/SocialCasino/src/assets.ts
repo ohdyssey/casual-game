@@ -57,22 +57,17 @@ export const SLOT_SYMBOL_KEYS: ReadonlyArray<string> = [
   'up_NewUI_SlotSymbol_08', // 망치(ATTACK)
 ];
 
-/** 매치-3 퍼즐 아이콘(신 아트 up_NewUI_Puzzle_*). boardView 가 앞에서 TYPES 개만 사용(type%TYPES).
- *  ⚠️ 2026-07-02 요청: 상자(07) 사용금지 · 08(번개)/09(배터리·스핀)을 **일반 타일**로 사용(특수 취급 X) ·
- *  노란 별(06)/코인(01) 혼동 회피(코인 제외) · **모든 색을 다르게**(같은 색 금지) → 앞 5종은 색 전부 상이:
- *  06별(노랑)·03다이아(보라)·05방패(초록)·08번개(빨강)·09배터리(파랑). (하트04=빨강·칩02=파랑은 08/09와 색 겹쳐 제외.) */
+/** 매치-3 퍼즐 일반 젬 7종(디자이너 Gem/Type01 — T01_01~07, 소스 D:\캐쥬얼 게임\SocialCasino\Gem\Type01).
+ *  ⚠️ 2026-07-02 요청: **이전 퍼즐 디자인/UI 원복** — 신 아트(up_NewUI_Puzzle_*)에서 구 Gem/Type01 로 복귀.
+ *  boardView 가 앞에서 TYPES(=5) 개만 사용. 특수 젬(공격/약탈/스핀)·매치 FX 도 함께 원복(SPECIAL_TILE_KEYS/SPECIAL_FX_KEY). */
 export const PUZZLE_TILE_KEYS: ReadonlyArray<string> = [
-  'up_NewUI_Puzzle_06', // 별(노랑)
-  'up_NewUI_Puzzle_03', // 다이아(보라)
-  'up_NewUI_Puzzle_05', // 방패(초록)
-  'up_NewUI_Puzzle_08', // 번개(빨강) — 일반 타일
-  'up_NewUI_Puzzle_09', // 배터리/스핀(파랑) — 일반 타일
-  // ↓ TYPES 밖(예비). 07 상자=사용금지 · 01 코인=별과 혼동 · 04 하트(빨강)·02 칩(파랑)=색 겹침으로 제외.
-  'up_NewUI_Puzzle_02',
-  'up_NewUI_Puzzle_04',
-  'up_NewUI_Puzzle_07',
-  'up_NewUI_Puzzle_01',
-  'up_NewUI_Puzzle_10',
+  'up_Gem_T01_01',
+  'up_Gem_T01_02',
+  'up_Gem_T01_03',
+  'up_Gem_T01_04',
+  'up_Gem_T01_05',
+  'up_Gem_T01_06',
+  'up_Gem_T01_07',
 ];
 
 /** ⭐**보상 게이지 수집 대상 = 노란 별 코인**(up_Gem_T01_01 = 퍼즐 타입 0). 이 코인을 매치로 제거한 수만 게이지에 누적된다.

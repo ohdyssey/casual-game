@@ -47,8 +47,8 @@ export interface ResolvedInfo {
   readonly cleared: number;
 }
 
-/** 사용할 **일반 젬 종류 수**(PUZZLE_TILE_KEYS 앞에서 TYPES 개). ⭐2026-07-02 요청: 미션 난이도↓ + 08/09 포함 + 상자/코인 제외 +
- *  **모든 색 상이**(같은 색 금지) → 색이 전부 다른 **5종**으로 확정(별·다이아·방패·번개·배터리). 종류↓ = 매칭 쉬움 = 미션 진행↑. */
+/** 사용할 **일반 젬 종류 수**(PUZZLE_TILE_KEYS=Gem/Type01 7종 중 앞에서 TYPES 개). ⭐2026-07-02 **원복**:
+ *  이전 퍼즐(Gem/Type01)의 균형값 **5종**(구 게임 튜닝값 — 7×7 보드에서 매칭 쉬워 미션 진행 원활). 특수젬은 종류무관 한 그룹이라 별도. */
 const TYPES = 5;
 const SPARK_TEX = 'sc_spark';
 
@@ -88,10 +88,10 @@ const BOARD_GEN_TRIES = 12;
  *   (어떤 특수든 인접 3개면 매치)이라 8개로 충분. 36칸 중 특수 ~8칸 → 일반 5색 가독성 유지.
  *   ⚠️특수 빈도가 원본의 ~⅔ 이므로 **PlayScene.specialMatchMult 를 ~1.5배로 보정**(3→8·4→15·5→30·6+→150)해
  *     스핀/공격/약탈 경제 throughput 평탄 유지(슬롯/퍼즐 RTP 는 특수 수와 무관 — 불변). */
-// ⭐2026-07-02 요청: **특수젬 제거**(어택/레이드는 슬롯 3매치로 이전됨). chance/cap/seed = 0 → 보드는 일반 신규젬만.
-const SPECIAL_SPAWN: SpecialSpawn = { chance: 0, cap: 0 };
-/** 시작/셔플 시 즉시 심는 특수 젬 수 — 0(특수젬 폐지). */
-const SPECIAL_SEED = 0;
+// ⭐2026-07-02 요청 **원복**: 이전 퍼즐 특수젬(공격/약탈/스핀) + 매치 FX 복귀. 36칸 중 특수 ~8칸.
+const SPECIAL_SPAWN: SpecialSpawn = { chance: 0.13, cap: 8 };
+/** 시작/셔플 시 즉시 심는 특수 젬 수 — 캡(8)의 ~¾ 로 시작. */
+const SPECIAL_SEED = 6;
 
 /**
  * AI 자동매치 우선순위 가중치(요청) — **특수젬 먼저, 그 중 스핀젬 최우선**(유저에게 가장 유리).

@@ -40,7 +40,7 @@ import { BigNumber } from '../ui/bigNumber.js';
 import { Confetti } from '../ui/confetti.js';
 import { CoinBurst } from '../ui/coinBurst.js';
 import type { SpinOutcome } from '../logic/slot3.js';
-import { SPECIAL_SPIN, tierForStage } from '../logic/board.js';
+import { SPECIAL_SPIN, SPECIAL_ATTACK, SPECIAL_RAID, tierForStage } from '../logic/board.js';
 import { deserializeHotel, totalLevel, cityLevel, currentStage, createHotelState, HOTEL_SAVE_KEY, formatCompact, type HotelState } from '../logic/hotelUpgrade.js';
 import { incomeMultiplier, missionTarget, cityCost } from '../logic/progression.js';
 import {
@@ -64,7 +64,7 @@ import { recordSnapshot } from '../econ/telemetry.js';
 import {
   START_COINS, START_SPINS, BET_LADDER, BET_START, COIN_DENOM,
   spinRefundMult, BIGWIN_SPIN_BIG_X, BIGWIN_SPIN_BIG, BIGWIN_SPIN_MEGA_X, BIGWIN_SPIN_MEGA,
-  DAILY_SPINS,
+  DAILY_SPINS, specialMatchMult,
 } from '../logic/playParams.js';
 import { slotRtpScaleNow, luckTableNow, raidStakeScaleNow, attackSpinStakeScaleNow, missionsNow } from '../logic/econOverrides.js';
 import { openSettingsMenu } from '../ui/settingsMenu.js';
@@ -788,8 +788,7 @@ export class PlayScene extends Phaser.Scene {
 
   private onPuzzle(info: ResolvedInfo): void {
     this.pace = recordMatch(this.pace, this.time.now); // ⭐매치 페이스 기록(연속 매치가 빠를수록 슬롯 가속)
-    // ⭐매치 = 스핀 연료 생산(요청: 특수젬 제거 → 스핀은 매치가 생산). 라운드가 spinBet 를 소모하므로 그 이상 지급 = 순증(연료 축적).
-    this.grantSpins(this.spinBet + Math.max(1, Math.ceil(info.cleared / 4)));
+    // ⭐2026-07-02 원복: 스핀 연료는 **스핀 젬**(onCollectSpecials)으로 복귀 — 매치 즉시지급(임시안) 제거.
     this.scoreQueue.push(info.puzzleMult);
     void this.playRounds();
   }
@@ -800,10 +799,36 @@ export class PlayScene extends Phaser.Scene {
    *   슬롯 회전 완결까지 떠 있다가 → maybeEnterStage(망치 등장)에서 정리(망치 연출이 텍스트를 이어받음).
    *   조건: 해당 종류 **2개 이상** 매칭(동률이면 공격). 위력 = 베팅 × 매치크기 배수 × 콤보.
    */
-  private onStageTrigger(_steps: number[][], _combo: number): void {
-    // ⭐2026-07-02 재설계: 어택(망치)/레이드(금화)는 **슬롯 3매치**로 이전(showSlotResult). 보드 스페셜 젬 트리거 폐지.
-    //   (퍼즐 매치는 스핀 연료만 생산 — 스핀 젬 회수는 onCollectSpecials 가 계속 담당.)
-    //   TODO(P5): boardView 의 어택/레이드 스페셜 젬 스폰 자체를 비활성(스핀 젬만 유지)해 죽은 젬 제거.
+  private onStageTrigger(steps: number[][], combo: number): void {
+    // ⭐2026-07-02 **원복**: 이전 퍼즐 특수젬(공격/약탈)으로 스테이지 발동 복귀(스핀 젬은 onCollectSpecials).
+    //   ⚠️슬롯(망치/금화)도 어택/레이드를 발동하므로 현재 **보드+슬롯 양쪽**에서 발동됨(범위 조정 원하면 지시).
+    let attackPower = 0;
+    let raidPower = 0;
+    let totalAttack = 0;
+    let totalRaid = 0;
+    for (const step of steps) {
+      const a = step[SPECIAL_ATTACK] ?? 0;
+      const r = step[SPECIAL_RAID] ?? 0;
+      if (a > 0) {
+        attackPower += this.spinBet * specialMatchMult(a);
+        totalAttack += a;
+      }
+      if (r > 0) {
+        raidPower += this.spinBet * specialMatchMult(r);
+        totalRaid += r;
+      }
+    }
+    const cmb = Math.max(1, combo);
+    attackPower *= cmb;
+    raidPower *= cmb;
+    if (totalAttack >= 2 && totalAttack >= totalRaid) {
+      this.stageHold = { type: 'attack', power: attackPower };
+      this.showActivationBanner('attack', attackPower);
+    } else if (totalRaid >= 2) {
+      this.stageHold = { type: 'raid', power: raidPower };
+      this.showActivationBanner('raid', raidPower);
+    }
+    if (this.stageHold && this.gaugeStageStartedMs == null) this.gaugeStageStartedMs = Date.now();
   }
 
   /**
