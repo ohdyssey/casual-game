@@ -1,7 +1,12 @@
 /**
  * reward/data — CashPOP 리워드 셸의 목(mock) 데이터.
  *   Phase A(프론트 mock) 전용. Phase B(백엔드) 에서 서버 응답으로 교체.
- *   제공된 CashPOP 디자인 목업 기준: 통화=캐시(원) 단일, 미션=순서대로 나열되는 리스트.
+ *
+ * 통화 이중화(2026-07-06 사용자 지시 — 직접 현금 지급 금지):
+ *   💎 다이아 = 환전 가능한 보상 재화. 모든 미션/광고/시즌 보상은 다이아로 지급되고,
+ *       교환소에서 최소 허들을 넘겨야 캐시(원)로 전환 → 출금. (벤치마크 CP→CM 구조)
+ *   🏆 P     = 랭킹 전용 포인트. 환전 불가, 주간 시즌 순위 경쟁에만 쓰이고 시즌마다 리셋.
+ *   💵 캐시(원) = 교환소 전환으로만 생기는 출금 대기 잔액. 미션이 직접 주지 않는다.
  */
 
 /** 미션 종류 — 완료 시 처리 분기. */
@@ -13,39 +18,53 @@ export interface Mission {
   icon: string;
   title: string;
   desc: string;
-  /** 고정 보상(원). 0 이면 가변(rewardText 표시). */
+  /** 고정 보상(💎 다이아). 0 이면 가변(rewardText 표시). 캐시(원)를 직접 주지 않는다. */
   reward: number;
-  /** 가변 보상 표기(예: '최대 1,000원'). */
+  /** 가변 보상 표기(예: '최대 10,000💎'). */
   rewardText?: string;
   /** 버튼 라벨(받기/시청/도전/시작/초대/열기). */
   cta: string;
   kind: MissionKind;
   /** kind==='game' 일 때 연결할 미니게임 id(games.config). */
   gameId?: string;
-  /** 완료 시 병행 지급되는 리그 포인트(P). 광고류는 2배 가중(경쟁 구조가 광고 시청을 견인). */
+  /** 완료 시 병행 지급되는 리그 포인트(P) — 랭킹 전용, 환전 불가. 광고류는 2배 가중. */
   pts: number;
 }
 
 /** 오늘의 미션 — 위에서 아래로 '순서대로' 수행하는 리스트. 게임 미션이 중간에 편입된다. */
 export const MISSIONS: readonly Mission[] = [
-  { id: 'attend', icon: '📅', title: '출석 체크', desc: '매일 접속하고 캐시 받기', reward: 100, cta: '받기', kind: 'attend', pts: 50 },
-  { id: 'ad1', icon: '📺', title: '광고 시청', desc: '광고 보고 캐시 적립', reward: 50, cta: '시청', kind: 'ad', pts: 100 },
-  { id: 'game-store', icon: '🏪', title: '미니게임 · 열정편의점', desc: '한 판 플레이하고 캐시 적립', reward: 100, cta: '시작', kind: 'game', gameId: 'store', pts: 80 },
-  { id: 'roulette', icon: '🎡', title: '행운 룰렛', desc: '룰렛을 돌려 캐시 획득', reward: 0, rewardText: '최대 1,000원', cta: '도전', kind: 'roulette', pts: 50 },
-  { id: 'game-fishing', icon: '🎣', title: '미니게임 · Fish & Go', desc: '한 판 플레이하고 캐시 적립', reward: 100, cta: '시작', kind: 'game', gameId: 'fishing', pts: 80 },
-  { id: 'invite', icon: '🧑‍🤝‍🧑', title: '친구 초대', desc: '친구 초대하고 캐시 받기', reward: 500, cta: '초대', kind: 'invite', pts: 100 },
-  { id: 'ad2', icon: '📺', title: '보너스 광고', desc: '한 번 더 보고 추가 적립', reward: 80, cta: '시청', kind: 'ad', pts: 100 },
+  { id: 'attend', icon: '📅', title: '출석 체크', desc: '매일 접속하고 다이아 받기', reward: 1000, cta: '받기', kind: 'attend', pts: 50 },
+  { id: 'ad1', icon: '📺', title: '광고 시청', desc: '광고 보고 다이아 적립', reward: 500, cta: '시청', kind: 'ad', pts: 100 },
+  { id: 'game-store', icon: '🏪', title: '미니게임 · 열정편의점', desc: '한 판 플레이하고 다이아 적립', reward: 1000, cta: '시작', kind: 'game', gameId: 'store', pts: 80 },
+  { id: 'roulette', icon: '🎡', title: '행운 룰렛', desc: '룰렛을 돌려 다이아 획득', reward: 0, rewardText: '최대 10,000💎', cta: '도전', kind: 'roulette', pts: 50 },
+  { id: 'game-fishing', icon: '🎣', title: '미니게임 · Fish & Go', desc: '한 판 플레이하고 다이아 적립', reward: 1000, cta: '시작', kind: 'game', gameId: 'fishing', pts: 80 },
+  { id: 'invite', icon: '🧑‍🤝‍🧑', title: '친구 초대', desc: '친구 초대하고 다이아 받기', reward: 5000, cta: '초대', kind: 'invite', pts: 100 },
+  { id: 'ad2', icon: '📺', title: '보너스 광고', desc: '한 번 더 보고 추가 적립', reward: 800, cta: '시청', kind: 'ad', pts: 100 },
   { id: 'coupon', icon: '🎟️', title: '쿠폰 등록', desc: '보유 쿠폰 등록하고 적립', reward: 0, rewardText: '쿠폰함', cta: '열기', kind: 'coupon', pts: 0 },
 ];
 
-/** 오늘의 적립 목표(원) — 적립 현황 진행바. */
-export const GOAL_WON = 2000;
+/** 오늘의 적립 목표(💎) — 적립 현황 진행바. */
+export const GOAL_DIA = 20000;
 
-/** 최소 출금 금액(원). */
+/** 최소 출금 금액(원) — 교환소에서 전환된 캐시에만 적용. */
 export const WITHDRAW_MIN = 100;
 
-/** 룰렛 보상 후보(원) — mock. */
-export const ROULETTE_PRIZES = [0, 50, 100, 200, 500, 1000] as const;
+/** 룰렛 보상 후보(💎) — mock. */
+export const ROULETTE_PRIZES = [0, 500, 1000, 2000, 5000, 10000] as const;
+
+/* ─────────── 교환소(💎 → 원) — 이중화의 허들 ───────────
+ * 다이아는 바로 현금이 아니다: 환율 10:1 로 전환해야 하고, 최소 수량을 모아야 한다.
+ * (벤치마크 실측: 10,000 CP = 1,000 CM, 최소 100,000 CP 부터 — 전환 허들이 체류를 만든다)
+ */
+
+/** 환율 — 다이아 N개 = 1원. */
+export const DIA_PER_WON = 10;
+
+/** 최소 전환 수량(💎). 이보다 적으면 전환 불가(=계속 모으게 하는 허들). */
+export const EXCHANGE_MIN_DIA = 10000;
+
+/** 전환 단위(💎) — 이 단위로 끊어서 전환. */
+export const EXCHANGE_UNIT_DIA = 1000;
 
 /* ─────────── 리그(주간 시즌 경쟁) — 미션리워드 앱 구조 벤치마크 ───────────
  * 핵심: ① 순위 구간별 계단식 캐시 차등(1위 파격 + 전원 참여보상)
@@ -53,25 +72,25 @@ export const ROULETTE_PRIZES = [0, 50, 100, 200, 500, 1000] as const;
  *       ③ 주사위 = P 가속 부스터. 광고 시청으로 충전(+유료 패키지 mock)
  */
 
-/** 시즌 순위 구간별 보상(원). from~to 순위 포함, 위에서부터 탐색. */
+/** 시즌 순위 구간별 보상(💎 다이아 — 환전은 교환소에서). from~to 순위 포함, 위에서부터 탐색. */
 export interface LeagueTier {
   from: number;
   to: number;
-  cash: number;
+  dia: number;
 }
 
-/** 시즌 보상표 — 총원 100명(나+봇 99) 기준 계단식 차등. */
+/** 시즌 보상표 — 총원 100명(나+봇 99) 기준 계단식 차등(💎). */
 export const LEAGUE_TIERS: readonly LeagueTier[] = [
-  { from: 1, to: 1, cash: 10000 },
-  { from: 2, to: 3, cash: 5000 },
-  { from: 4, to: 10, cash: 2000 },
-  { from: 11, to: 30, cash: 1000 },
-  { from: 31, to: 60, cash: 500 },
-  { from: 61, to: 100, cash: 200 },
+  { from: 1, to: 1, dia: 100000 },
+  { from: 2, to: 3, dia: 50000 },
+  { from: 4, to: 10, dia: 20000 },
+  { from: 11, to: 30, dia: 10000 },
+  { from: 31, to: 60, dia: 5000 },
+  { from: 61, to: 100, dia: 2000 },
 ];
 
-/** 시즌 참여(P>0) 전원 보상(원) — 순위 보상과 별도 합산. */
-export const LEAGUE_JOIN_CASH = 100;
+/** 시즌 참여(P>0) 전원 보상(💎) — 순위 보상과 별도 합산. */
+export const LEAGUE_JOIN_DIA = 1000;
 
 /** 리그 총원(나 포함). */
 export const LEAGUE_SIZE = 100;

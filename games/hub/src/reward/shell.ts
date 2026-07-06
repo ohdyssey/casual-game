@@ -2,9 +2,13 @@
  * reward/shell — CashPOP 인앱 리워드 셸(전체화면 오버레이).
  *
  * 방향: 허브=리워드 플랫폼, 게임=종속 미니게임. 그리드 1번 CashPOP 카드로 이 셸을 연다.
- * 디자인: 제공된 CashPOP 목업(라이트 테마·파란 포인트). 통화=캐시(원) 단일.
- *   홈 = 캐시카드(출금) → 오늘의 적립 현황(목표 진행바) → 광고 배너 → 오늘의 미션(순서대로 리스트) → 이벤트.
- *   하단 5탭: 홈/광고/내 캐시/친구/더보기.
+ * 디자인: 제공된 CashPOP 목업(라이트 테마·파란 포인트).
+ *
+ * 통화 이중화(직접 현금 지급 금지):
+ *   💎 다이아 = 환전 가능 보상 재화(모든 미션/광고/시즌 보상) → 교환소에서 캐시(원) 전환 → 출금.
+ *   🏆 P     = 랭킹 전용 포인트(환전 불가, 주간 시즌 리셋) — league.ts.
+ *   홈 = 다이아카드(교환하기) → 오늘의 적립 현황 → 리그 카드 → 광고 배너 → 오늘의 미션 → 이벤트.
+ *   하단 5탭: 홈/리그/광고/교환소/더보기.
  * Phase A(프론트 mock): 잔액/적립은 localStorage. 실정산은 Phase B(백엔드).
  *
  * ⚠️ 게임 실행은 **기존 방식(launchGame) 그대로** 사용 — 변경 금지(그리드 카드와 동일 경로).
@@ -15,12 +19,15 @@ import { launchGame, isPlayable } from '../launcher.js';
 import { loadIdentity } from '../leaderboard.js';
 import {
   MISSIONS,
-  GOAL_WON,
+  GOAL_DIA,
   WITHDRAW_MIN,
   ROULETTE_PRIZES,
   AD_DICE,
   AD_PTS,
   GAME_MIN_PLAY_MS,
+  DIA_PER_WON,
+  EXCHANGE_MIN_DIA,
+  EXCHANGE_UNIT_DIA,
   type Mission,
 } from './data.js';
 import { addDice, addPts, settleIfNeeded, slotBonus, withSlotBonus, type SeasonResult } from './league.js';
@@ -40,10 +47,13 @@ interface GameEntry {
   prodUrl?: string;
 }
 
-/* ── 캐시(원) 목 저장 — 실정산은 Phase B ── */
+/* ── 지갑 목 저장 — 실정산은 Phase B ── */
+/** 💎 다이아(환전 가능 보상 재화) — 모든 지급의 1차 도착지. */
+const DIA_KEY = 'cashpop_dia_v1';
+/** 💵 캐시(원) — 교환소 전환으로만 증가하는 출금 대기 잔액. */
 const CASH_KEY = 'cashpop_cash_v1';
-/** '오늘' 스코프 저장(자정 리셋): 오늘 적립액 / 완료 미션 / P 2배 수령 미션. */
-const TODAY_KEY = 'cashpop_today_v2';
+/** '오늘' 스코프 저장(자정 리셋): 오늘 적립 다이아 / 완료 미션 / P 2배 수령 미션. */
+const TODAY_KEY = 'cashpop_today_v3';
 const DONE_KEY = 'cashpop_done_v2';
 const DOUBLE_KEY = 'cashpop_double_v2';
 /** 게임 미션 실행 마커 — 같은 창 이동이라 복귀(다음 셸 오픈) 때 회수해 지급 판정. */
@@ -89,24 +99,25 @@ const saveDone = (s: Set<string>): void => saveDailySet(DONE_KEY, s);
 const doubledSet = (): Set<string> => dailySet(DOUBLE_KEY);
 const saveDoubled = (s: Set<string>): void => saveDailySet(DOUBLE_KEY, s);
 
-/** 오늘 적립액(원) — 날짜가 바뀌면 0부터. */
-const todayWon = (): number => {
+/** 오늘 적립 다이아(💎) — 날짜가 바뀌면 0부터. */
+const todayDia = (): number => {
   try {
-    const raw = JSON.parse(localStorage.getItem(TODAY_KEY) || 'null') as { d?: string; won?: number } | null;
-    return raw && raw.d === dayStr() ? Number(raw.won) || 0 : 0;
+    const raw = JSON.parse(localStorage.getItem(TODAY_KEY) || 'null') as { d?: string; dia?: number } | null;
+    return raw && raw.d === dayStr() ? Number(raw.dia) || 0 : 0;
   } catch {
     return 0;
   }
 };
-const addTodayWon = (n: number): void => {
+const addTodayDia = (n: number): void => {
   try {
-    localStorage.setItem(TODAY_KEY, JSON.stringify({ d: dayStr(), won: todayWon() + n }));
+    localStorage.setItem(TODAY_KEY, JSON.stringify({ d: dayStr(), dia: todayDia() + n }));
   } catch {
     /* 무시 */
   }
 };
 
 const won = (n: number): string => `${n.toLocaleString()}원`;
+const dia = (n: number): string => `${n.toLocaleString()}💎`;
 const esc = (s: string): string =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
@@ -134,9 +145,10 @@ function injectStyles(): void {
     .rw-hello{font-size:22px;color:#1B2438;margin:8px 2px 2px}
     .rw-hello b{color:#2E6BFF;font-weight:800}
     .rw-hello2{color:#8A94A6;font-size:14px;margin:0 2px 16px}
-    /* 캐시 카드 */
+    /* 캐시 카드(파랑=원) / 다이아 카드(보라=환전 재화) */
     .rw-cash{border-radius:22px;padding:20px;color:#fff;margin-bottom:16px;
       background:linear-gradient(135deg,#3B82F6,#2563EB);box-shadow:0 14px 30px rgba(37,99,235,.32)}
+    .rw-cash.dia{background:linear-gradient(135deg,#7C5CFF,#4A6CFF);box-shadow:0 14px 30px rgba(92,92,255,.32)}
     .rw-cash-top{display:flex;align-items:center;justify-content:space-between;font-size:15px}
     .rw-cash-top .wd{background:rgba(255,255,255,.18);border:0;color:#fff;font-family:inherit;font-size:13.5px;padding:8px 13px;border-radius:999px;cursor:pointer}
     .rw-cash-amt{font-size:42px;font-weight:800;margin:8px 0 14px;letter-spacing:-1px}
@@ -236,7 +248,7 @@ export function openRewardShell(onClose?: () => void): void {
     `<button data-v="home"><span class="ni">🏠</span>홈</button>` +
     `<button data-v="league"><span class="ni">🏆</span>리그</button>` +
     `<button data-v="ad"><span class="ni">📺</span>광고</button>` +
-    `<button data-v="cash"><span class="ni">💳</span>내 캐시</button>` +
+    `<button data-v="cash"><span class="ni">💱</span>교환소</button>` +
     `<button data-v="more"><span class="ni">☰</span>더보기</button>` +
     `</nav>`;
   document.body.appendChild(layer);
@@ -257,21 +269,21 @@ export function openRewardShell(onClose?: () => void): void {
   // 상단 우측 '허브로 가기' — 셸을 닫아 뒤의 허브 화면으로 돌아간다(모든 탭 공통).
   layer.querySelector('.rw-hubback')!.addEventListener('click', close);
 
-  /** 캐시 지급(원) — 잔액+오늘적립(날짜 스코프) 갱신. */
-  const grant = (amount: number): void => {
+  /** 다이아 지급(💎) — 모든 보상의 1차 도착지. 캐시(원)는 교환소 전환으로만 생긴다. */
+  const grantDia = (amount: number): void => {
     if (amount <= 0) return;
-    setNum(CASH_KEY, num(CASH_KEY) + amount);
-    addTodayWon(amount);
+    setNum(DIA_KEY, num(DIA_KEY) + amount);
+    addTodayDia(amount);
     onClose?.(); // 허브 지갑바도 갱신(같은 출처)
   };
-  /** 미션 완료 — 캐시 + 리그 P 병행 지급(시간대 보너스 반영, P가 쌓이면 자동 시즌 참여). */
+  /** 미션 완료 — 다이아 + 리그 P 병행 지급(시간대 보너스는 P만, P가 쌓이면 자동 시즌 참여). */
   const complete = (id: string, amount: number, label = '적립', pts = 0): void => {
     const d = doneSet();
     if (!d.has(id)) {
       d.add(id);
       saveDone(d);
     }
-    grant(amount);
+    grantDia(amount);
     let ptxt = '';
     if (pts > 0) {
       const t = Date.now();
@@ -279,7 +291,7 @@ export function openRewardShell(onClose?: () => void): void {
       addPts(boosted, t);
       ptxt = ` · 리그 P+${boosted}`;
     }
-    toast(`🎁 ${label} · +${won(amount)}${ptxt}`);
+    toast(`🎁 ${label} · +${dia(amount)}${ptxt}`);
   };
 
   const setNav = (v: View): void =>
@@ -288,9 +300,9 @@ export function openRewardShell(onClose?: () => void): void {
   const render = (v: View): void => {
     setNav(v);
     body.scrollTop = 0;
-    if (v === 'home') renderHome(body, render, complete, grant);
+    if (v === 'home') renderHome(body, render, complete);
     else if (v === 'league') renderLeague(body, { rerender: () => render('league') });
-    else if (v === 'ad') renderAd(body, grant);
+    else if (v === 'ad') renderAd(body, grantDia);
     else if (v === 'cash') renderCash(body, () => render('cash'));
     else if (v === 'friends') renderFriends(body, complete);
     else renderMore(body, close, render);
@@ -300,10 +312,10 @@ export function openRewardShell(onClose?: () => void): void {
     b.addEventListener('click', () => render(b.dataset.v as View)),
   );
 
-  // 시즌 롤오버 정산 — 지난 시즌 순위 보상을 캐시로 즉시 지급 + 결과 모달(주 1회, mock).
+  // 시즌 롤오버 정산 — 지난 시즌 순위 보상을 다이아로 즉시 지급 + 결과 모달(주 1회, mock).
   const settled = settleIfNeeded(Date.now());
   if (settled) {
-    grant(settled.cash);
+    grantDia(settled.dia);
     showSeasonModal(layer, settled);
   }
 
@@ -329,7 +341,7 @@ export function openRewardShell(onClose?: () => void): void {
   render('home');
 }
 
-/** 시즌 종료 결과 모달 — 보상은 이미 지급된 상태(정보 표시 + 새 시즌 안내). */
+/** 시즌 종료 결과 모달 — 보상(💎)은 이미 지급된 상태(정보 표시 + 새 시즌 안내). */
 function showSeasonModal(layer: HTMLElement, res: SeasonResult): void {
   const wrap = document.createElement('div');
   wrap.className = 'rw-modal';
@@ -338,8 +350,8 @@ function showSeasonModal(layer: HTMLElement, res: SeasonResult): void {
     `<div class="big">🏁</div>` +
     `<b class="tt">시즌 종료!</b>` +
     `<div class="row">지난 시즌 <b>${res.rank}위</b> · ${res.pts.toLocaleString()}P</div>` +
-    `<div class="cash">+${res.cash.toLocaleString()}원 지급 완료</div>` +
-    `<p>새 시즌이 시작됐어요 — 이번 주 랭킹에 다시 도전하세요!</p>` +
+    `<div class="cash">+${res.dia.toLocaleString()}💎 지급 완료</div>` +
+    `<p>받은 다이아는 교환소에서 캐시로 바꿀 수 있어요.<br/>P는 랭킹 전용 — 새 시즌과 함께 0부터 다시!</p>` +
     `<button class="rw-cta" data-ok style="margin:10px 0 0">확인</button>` +
     `</div>`;
   wrap.querySelector('[data-ok]')!.addEventListener('click', () => wrap.remove());
@@ -375,8 +387,8 @@ function spinRoulette(onDone: (prize: number) => void): void {
     const bx = wrap.querySelector<HTMLElement>('.bx')!;
     bx.innerHTML =
       `<div class="big">${prize > 0 ? '🎉' : '😢'}</div>` +
-      `<b class="tt">${prize > 0 ? `+${prize.toLocaleString()}원 당첨!` : '아쉽게 꽝!'}</b>` +
-      `<p>${prize > 0 ? '캐시가 바로 적립돼요' : '참여 리그 P는 지급돼요 — 내일 다시 도전!'}</p>` +
+      `<b class="tt">${prize > 0 ? `+${prize.toLocaleString()}💎 당첨!` : '아쉽게 꽝!'}</b>` +
+      `<p>${prize > 0 ? '다이아가 바로 적립돼요' : '참여 리그 P는 지급돼요 — 내일 다시 도전!'}</p>` +
       `<button class="rw-cta" data-ok style="margin:10px 0 0">확인</button>`;
     bx.querySelector('[data-ok]')!.addEventListener('click', () => {
       wrap.remove();
@@ -414,15 +426,11 @@ function runInvite(m: Mission, complete: CompleteFn, rerender: () => void): void
 }
 
 /* ─────────── 홈 ─────────── */
-function renderHome(
-  body: HTMLElement,
-  go: (v: View) => void,
-  complete: CompleteFn,
-  grant: (n: number) => void,
-): void {
+function renderHome(body: HTMLElement, go: (v: View) => void, complete: CompleteFn): void {
+  const diamonds = num(DIA_KEY);
   const cash = num(CASH_KEY);
-  const today = todayWon();
-  const pct = Math.min(100, Math.round((today / GOAL_WON) * 100));
+  const today = todayDia();
+  const pct = Math.min(100, Math.round((today / GOAL_DIA) * 100));
   const id = loadIdentity().id;
   const done = doneSet();
   const doubled = doubledSet();
@@ -447,29 +455,29 @@ function renderHome(
   body.innerHTML =
     `<div class="rw-top"><img class="rw-logo" src="art/CashPOP_logo_t.webp" alt="CashPOP" /></div>` +
     `<div class="rw-hello">안녕하세요, <b>${esc(id)}</b>님! 👋</div>` +
-    `<p class="rw-hello2">광고를 보고 현금 보상을 받아가세요!</p>` +
-    // 캐시 카드
-    `<div class="rw-cash">` +
-    `<div class="rw-cash-top"><span>사용 가능한 캐시 ⓘ</span><button class="wd" data-go="cash">출금하기 ›</button></div>` +
-    `<div class="rw-cash-amt">${cash.toLocaleString()}<small>원</small></div>` +
-    `<div class="rw-cash-foot"><span>💳 ${WITHDRAW_MIN}원부터 출금 가능</span><span>🛡️ 안전하고 빠른 지급</span></div>` +
+    `<p class="rw-hello2">광고 보고 다이아 모아 현금으로 바꿔가세요!</p>` +
+    // 다이아 카드(환전 재화) — 캐시(원)는 교환소 전환으로만
+    `<div class="rw-cash dia">` +
+    `<div class="rw-cash-top"><span>내 다이아 💎 ⓘ</span><button class="wd" data-go="cash">교환하기 ›</button></div>` +
+    `<div class="rw-cash-amt">${diamonds.toLocaleString()}<small>💎</small></div>` +
+    `<div class="rw-cash-foot"><span>💵 캐시 ${won(cash)} · 출금 대기</span><span>💱 ${EXCHANGE_MIN_DIA.toLocaleString()}💎부터 전환</span></div>` +
     `</div>` +
     // 오늘의 적립 현황
     `<div class="rw-panel">` +
     `<div class="rw-panel-h"><b>오늘의 적립 현황</b><span>📅</span></div>` +
     `<div class="rw-earn">` +
-    `<div class="rw-earn-col"><span class="ic">🪙</span><div><small>오늘 적립</small><b>${today.toLocaleString()}원</b></div></div>` +
+    `<div class="rw-earn-col"><span class="ic">💎</span><div><small>오늘 적립</small><b>${today.toLocaleString()}</b></div></div>` +
     `<div class="rw-earn-col"><span class="ic">🎯</span><div><small>목표 달성률</small><b>${pct}%</b></div></div>` +
     `</div>` +
     `<div class="rw-bar"><i style="width:${pct}%"></i></div>` +
-    `<div class="rw-goal">목표 ${won(GOAL_WON)}</div>` +
+    `<div class="rw-goal">목표 ${dia(GOAL_DIA)}</div>` +
     `</div>` +
     // 리그 카드 — 순위 경쟁 진입점(광고를 더 보게 만드는 구조의 전면 노출)
     leagueHomeCard(Date.now()) +
     // 광고 배너
     `<button class="rw-adbn" data-ad>` +
-    `<span class="pl">▶</span><span class="tx"><b>광고 보고 적립하기</b><span>광고 시청하고 캐시 받기</span></span>` +
-    `<span class="rw-pill">+50~200원</span></button>` +
+    `<span class="pl">▶</span><span class="tx"><b>광고 보고 적립하기</b><span>광고 시청하고 다이아 받기</span></span>` +
+    `<span class="rw-pill">+500~2,000💎</span></button>` +
     // 오늘의 미션(순서대로) — 보너스 시간대엔 P 배수 안내로 교체
     `<div class="rw-h2"><span>오늘의 미션</span><small>${
       bonus ? `${bonus.icon} ${bonus.name} 보너스 — P ×${bonus.mult} (${bonus.until}까지)` : '순서대로 완료하고 캐시를 모으세요'
@@ -490,7 +498,7 @@ function renderHome(
   body.querySelectorAll<HTMLElement>('.rw-mission').forEach((row) => {
     const m = MISSIONS.find((x) => x.id === row.dataset.id)!;
     row.querySelector<HTMLButtonElement>('[data-act]')?.addEventListener('click', () => {
-      const rerender = (): void => renderHome(body, go, complete, grant);
+      const rerender = (): void => renderHome(body, go, complete);
       if (doneSet().has(m.id)) claimDouble(m, rerender);
       else runMission(m, complete, rerender);
     });
@@ -570,21 +578,21 @@ function runMission(m: Mission, complete: CompleteFn, rerender: () => void): voi
 }
 
 /* ─────────── 광고 탭 ─────────── */
-function renderAd(body: HTMLElement, grant: (n: number) => void): void {
+function renderAd(body: HTMLElement, grantDia: (n: number) => void): void {
   const offers = [
-    { id: 'ad-video', icon: '📺', label: '영상 광고 시청', sub: '30초 광고 보고 적립', min: 50, max: 200 },
-    { id: 'ad-offer', icon: '🎁', label: '오퍼월 참여', sub: '앱 설치·미션 완료', min: 100, max: 500 },
-    { id: 'ad-daily', icon: '☀️', label: '출석 리워드 광고', sub: '하루 1회 보너스', min: 80, max: 150 },
+    { id: 'ad-video', icon: '📺', label: '영상 광고 시청', sub: '30초 광고 보고 적립', min: 500, max: 2000 },
+    { id: 'ad-offer', icon: '🎁', label: '오퍼월 참여', sub: '앱 설치·미션 완료', min: 1000, max: 5000 },
+    { id: 'ad-daily', icon: '☀️', label: '출석 리워드 광고', sub: '하루 1회 보너스', min: 800, max: 1500 },
   ];
   body.innerHTML =
     `<div class="rw-h2"><span>📺 광고 보고 적립</span></div>` +
-    `<p class="rw-note">광고를 보면 캐시와 함께 리그 P·주사위가 쌓여요 — 볼수록 순위가 올라갑니다.</p>` +
+    `<p class="rw-note">광고를 보면 다이아(환전용)와 리그 P(랭킹용)·주사위가 함께 쌓여요.</p>` +
     offers
       .map(
         (o) =>
           `<div class="rw-lr" data-id="${o.id}" data-min="${o.min}" data-max="${o.max}">` +
           `<span><b>${o.icon} ${esc(o.label)}</b><small>${esc(o.sub)} · 🏆 P+${AD_PTS} 🎲+${AD_DICE}</small></span>` +
-          `<button class="rw-mbtn">시청 <em>+${o.min}~${o.max}원</em></button></div>`,
+          `<button class="rw-mbtn">시청 <em>+${o.min.toLocaleString()}~${o.max.toLocaleString()}💎</em></button></div>`,
       )
       .join('');
   body.querySelectorAll<HTMLElement>('.rw-lr').forEach((row) => {
@@ -596,12 +604,12 @@ function renderAd(body: HTMLElement, grant: (n: number) => void): void {
       // 시청 게이트 — 광고를 끝까지 본 뒤에만 지급.
       playAd(() => {
         const prize = min + Math.floor(Math.random() * (max - min + 1));
-        grant(prize);
+        grantDia(prize);
         const t = Date.now();
         const gained = withSlotBonus(AD_PTS, t); // 광고 = 리그 P 2배 가중 재화(+시간대 보너스)
         addPts(gained, t);
         addDice(AD_DICE, t);
-        toast(`🎁 광고 시청 완료 · +${won(prize)} · P+${gained} · 🎲+${AD_DICE}`);
+        toast(`🎁 광고 시청 완료 · +${dia(prize)} · P+${gained} · 🎲+${AD_DICE}`);
         btn.textContent = '완료';
         btn.disabled = true;
       });
@@ -609,20 +617,51 @@ function renderAd(body: HTMLElement, grant: (n: number) => void): void {
   });
 }
 
-/* ─────────── 내 캐시 탭(출금) ─────────── */
+/* ─────────── 교환소 탭 — 💎 → 원 전환(허들) + 출금 ─────────── */
 function renderCash(body: HTMLElement, rerender: () => void): void {
+  const diamonds = num(DIA_KEY);
   const cash = num(CASH_KEY);
+  // 전환 가능액 — 최소 허들을 넘겼을 때만, 단위로 끊어서(잔량은 남아 다음 목표가 된다).
+  const usable = diamonds >= EXCHANGE_MIN_DIA ? Math.floor(diamonds / EXCHANGE_UNIT_DIA) * EXCHANGE_UNIT_DIA : 0;
+  const usableWon = usable / DIA_PER_WON;
+  const lack = Math.max(0, EXCHANGE_MIN_DIA - diamonds);
+  const pct = Math.min(100, Math.round((diamonds / EXCHANGE_MIN_DIA) * 100));
   const canWithdraw = cash >= WITHDRAW_MIN;
   body.innerHTML =
-    `<div class="rw-cash" style="margin-top:6px">` +
+    // 다이아(환전 재화) 카드
+    `<div class="rw-cash dia" style="margin-top:6px">` +
+    `<div class="rw-cash-top"><span>내 다이아 💎</span></div>` +
+    `<div class="rw-cash-amt">${diamonds.toLocaleString()}<small>💎</small></div>` +
+    `<div class="rw-cash-foot"><span>오늘 +${todayDia().toLocaleString()}💎</span><span>💱 ${EXCHANGE_UNIT_DIA.toLocaleString()}💎 단위 전환</span></div>` +
+    `</div>` +
+    // 전환 패널(허들 진행바)
+    `<div class="rw-panel">` +
+    `<div class="rw-panel-h"><b>💱 캐시 전환</b><small style="color:#8A94A6">${EXCHANGE_MIN_DIA.toLocaleString()}💎 = ${(EXCHANGE_MIN_DIA / DIA_PER_WON).toLocaleString()}원</small></div>` +
+    `<div class="rw-goal" style="text-align:left;margin-bottom:8px">환율 ${DIA_PER_WON}💎 = 1원 · 최소 ${EXCHANGE_MIN_DIA.toLocaleString()}💎부터 전환 가능</div>` +
+    `<div class="rw-bar"><i style="width:${pct}%"></i></div>` +
+    `<div class="rw-goal">${diamonds.toLocaleString()} / ${EXCHANGE_MIN_DIA.toLocaleString()}💎</div>` +
+    `<button class="rw-cta" id="rw-ex" style="margin-top:10px"${usable > 0 ? '' : ' disabled'}>` +
+    (usable > 0 ? `${usable.toLocaleString()}💎 → ${usableWon.toLocaleString()}원 전환하기` : `${lack.toLocaleString()}💎 더 모으면 전환 가능`) +
+    `</button>` +
+    `</div>` +
+    // 캐시(원) 카드 + 출금
+    `<div class="rw-cash">` +
     `<div class="rw-cash-top"><span>사용 가능한 캐시</span></div>` +
     `<div class="rw-cash-amt">${cash.toLocaleString()}<small>원</small></div>` +
     `<div class="rw-cash-foot"><span>💳 ${WITHDRAW_MIN}원부터 출금 가능</span><span>🛡️ 안전하고 빠른 지급</span></div>` +
     `</div>` +
     `<button class="rw-cta" id="rw-wd"${canWithdraw ? '' : ' disabled'}>${canWithdraw ? `${cash.toLocaleString()}원 출금하기` : `출금은 ${WITHDRAW_MIN}원부터 가능해요`}</button>` +
-    `<div class="rw-h2"><span>적립 내역</span></div>` +
-    `<div class="rw-lr"><span><b>오늘 적립</b><small>미션·광고 적립 합계 (자정 리셋)</small></span><b style="color:#2E6BFF">${todayWon().toLocaleString()}원</b></div>` +
-    `<p class="rw-note">※ 실제 출금(페이머니·계좌 이체)은 백엔드 연동(Phase B) 이후 활성화됩니다.</p>`;
+    `<p class="rw-note">※ 미션·광고 보상은 모두 다이아로 지급되며, 캐시는 전환으로만 생깁니다.<br/>실제 출금(페이머니·계좌 이체)은 백엔드 연동(Phase B) 이후 활성화됩니다.</p>`;
+  // 전환 — 다이아 차감 + 캐시 가산(원)
+  body.querySelector<HTMLButtonElement>('#rw-ex')?.addEventListener('click', () => {
+    const d = num(DIA_KEY);
+    if (d < EXCHANGE_MIN_DIA) return;
+    const use = Math.floor(d / EXCHANGE_UNIT_DIA) * EXCHANGE_UNIT_DIA;
+    setNum(DIA_KEY, d - use);
+    setNum(CASH_KEY, num(CASH_KEY) + use / DIA_PER_WON);
+    toast(`💱 전환 완료 · ${use.toLocaleString()}💎 → ${(use / DIA_PER_WON).toLocaleString()}원`);
+    rerender();
+  });
   const wd = body.querySelector<HTMLButtonElement>('#rw-wd');
   wd?.addEventListener('click', () => {
     if (num(CASH_KEY) < WITHDRAW_MIN) return;
@@ -640,8 +679,8 @@ function renderFriends(body: HTMLElement, complete: CompleteFn): void {
     `<div class="rw-h2"><span>👥 친구 초대</span></div>` +
     `<div class="rw-panel"><div class="rw-panel-h"><b>내 초대 코드</b></div>` +
     `<div style="font-size:22px;color:#2E6BFF;text-align:center;letter-spacing:1px">${esc(code)}</div>` +
-    `<p class="rw-note" style="margin-bottom:0">친구가 가입하면 나도 친구도 <b>+500원</b></p></div>` +
-    `<button class="rw-cta" id="rw-inv">친구 초대하고 +500원 받기</button>` +
+    `<p class="rw-note" style="margin-bottom:0">친구가 가입하면 나도 친구도 <b>+5,000💎</b></p></div>` +
+    `<button class="rw-cta" id="rw-inv">친구 초대하고 +5,000💎 받기</button>` +
     `<p class="rw-note">※ 공유·복사가 실행된 뒤 지급됩니다. 실제 초대 추적은 백엔드(Phase B) 연동 시 활성화됩니다.</p>`;
   body.querySelector<HTMLButtonElement>('#rw-inv')!.addEventListener('click', () => {
     runInvite(invite, complete, () => renderFriends(body, complete));
@@ -654,7 +693,7 @@ function renderMore(body: HTMLElement, closeShell: () => void, go: (v: View) => 
   body.innerHTML =
     `<div class="rw-h2"><span>⚙️ 더보기</span></div>` +
     `<div class="rw-lr"><span><b>🙋 ${esc(loadIdentity().id)} 님</b><small>CashPOP 리워드 회원</small></span></div>` +
-    `<div class="rw-lr" id="rw-go-friends" style="cursor:pointer"><span><b>👥 친구 초대</b><small>나도 친구도 +500원</small></span><span aria-hidden="true">›</span></div>` +
+    `<div class="rw-lr" id="rw-go-friends" style="cursor:pointer"><span><b>👥 친구 초대</b><small>나도 친구도 +5,000💎</small></span><span aria-hidden="true">›</span></div>` +
     menu.map((m) => `<div class="rw-lr"><span><b>${esc(m)}</b></span><span aria-hidden="true">›</span></div>`).join('') +
     `<button class="rw-cta" id="rw-back" style="background:#fff;color:#2E6BFF;box-shadow:none;border:1px solid #E7EBF2">허브로 돌아가기</button>` +
     `<p class="rw-note">프로필·선물함·내역은 백엔드(Phase B) 연동 시 실데이터로 채워집니다.</p>`;

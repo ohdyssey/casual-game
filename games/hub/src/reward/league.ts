@@ -11,7 +11,7 @@
  */
 import {
   LEAGUE_TIERS,
-  LEAGUE_JOIN_CASH,
+  LEAGUE_JOIN_DIA,
   LEAGUE_SIZE,
   ROLL_MULT,
   ROLL_JACKPOT,
@@ -180,10 +180,10 @@ export function tierFor(rank: number): LeagueTier | null {
   return LEAGUE_TIERS.find((t) => rank >= t.from && rank <= t.to) ?? null;
 }
 
-/** 시즌 종료 시 예상 수령액(원) = 구간 보상 + 참여 보상(P>0). */
+/** 시즌 종료 시 예상 수령액(💎 다이아) = 구간 보상 + 참여 보상(P>0). 환전은 교환소에서. */
 export function rewardFor(rank: number, pts: number): number {
   const tier = pts > 0 ? tierFor(rank) : null;
-  return (tier?.cash ?? 0) + (pts > 0 ? LEAGUE_JOIN_CASH : 0);
+  return (tier?.dia ?? 0) + (pts > 0 ? LEAGUE_JOIN_DIA : 0);
 }
 
 /* ─────────── 로컬 상태(mock) ─────────── */
@@ -224,12 +224,13 @@ export function loadLeague(now: number): LeagueState {
 export interface SeasonResult {
   rank: number;
   pts: number;
-  cash: number;
+  /** 지급 다이아(💎) — 환전 가능 재화. P는 랭킹 전용이라 시즌과 함께 소멸. */
+  dia: number;
 }
 
 /**
  * 시즌 롤오버 정산 — 저장된 키가 지난 시즌이면 그 시즌 '종료 시점' 순위로 보상을 계산하고
- * 새 시즌 상태로 리셋한다. 캐시 지급(grant)은 호출부(셸) 책임.
+ * 새 시즌 상태로 리셋한다. 다이아 지급은 호출부(셸) 책임.
  */
 export function settleIfNeeded(now: number): SeasonResult | null {
   const cur = seasonKey(now);
@@ -243,7 +244,7 @@ export function settleIfNeeded(now: number): SeasonResult | null {
   if (prevStart !== null && s.pts > 0) {
     const prevEnd = prevStart + WEEK - 1;
     const rank = computeBoardAt(s.key, s.pts, prevEnd - prevStart);
-    result = { rank, pts: s.pts, cash: rewardFor(rank, s.pts) };
+    result = { rank, pts: s.pts, dia: rewardFor(rank, s.pts) };
   }
   write({ key: cur, pts: 0, dice: s.dice });
   return result;

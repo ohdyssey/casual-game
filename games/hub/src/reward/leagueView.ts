@@ -8,7 +8,7 @@
  */
 import { toast } from '../account.js';
 import { playAd } from './adPlayer.js';
-import { AD_DICE, AD_PTS, DICE_PACKS, LEAGUE_JOIN_CASH, LEAGUE_TIERS, ROLL_MULT, ROLL_JACKPOT } from './data.js';
+import { AD_DICE, AD_PTS, DICE_PACKS, LEAGUE_JOIN_DIA, LEAGUE_TIERS, ROLL_MULT, ROLL_JACKPOT } from './data.js';
 import {
   addDice,
   addPts,
@@ -100,9 +100,9 @@ export function leagueHomeCard(now: number): string {
   const mid =
     joined
       ? `<div class="rw-earn-col"><span class="ic">🏅</span><div><small>현재 순위</small><b>${myRank}위<span style="font-size:13px;color:#8A94A6"> / ${total}</span></b></div></div>` +
-        `<div class="rw-earn-col"><span class="ic">💰</span><div><small>시즌 종료 예상</small><b>+${est.toLocaleString()}원</b></div></div>`
+        `<div class="rw-earn-col"><span class="ic">💰</span><div><small>시즌 종료 예상</small><b>+${est.toLocaleString()}💎</b></div></div>`
       : `<div class="rw-earn-col"><span class="ic">🏅</span><div><small>참여 상태</small><b style="font-size:16px">미참여</b></div></div>` +
-        `<div class="rw-earn-col"><span class="ic">💰</span><div><small>참여만 해도</small><b>+${LEAGUE_JOIN_CASH}원</b></div></div>`;
+        `<div class="rw-earn-col"><span class="ic">💰</span><div><small>참여만 해도</small><b>+${LEAGUE_JOIN_DIA.toLocaleString()}💎</b></div></div>`;
   return (
     `<div class="rw-panel" data-go-league style="cursor:pointer">` +
     `<div class="rw-panel-h"><b>🏆 주간 리그 · 순위 경쟁</b><span style="color:#7C5CFF;font-size:13px">D-${seasonDday(now)} ›</span></div>` +
@@ -136,12 +136,12 @@ export function renderLeague(body: HTMLElement, ctx: LeagueCtx): void {
   const top = board.rows.slice(0, Math.min(10, board.rows.length));
   const near = board.rows.slice(top.length);
 
-  const tierRow = (t: { from: number; to: number; cash: number }): string => {
+  const tierRow = (t: { from: number; to: number; dia: number }): string => {
     const cur = joined && myTier === t;
     const range = t.from === t.to ? `${t.from}위` : `${t.from} ~ ${t.to}위`;
     return (
       `<div class="rw-lg-tier${cur ? ' cur' : ''}"><span class="rg">${range}${cur ? ' · 내 구간' : ''}</span>` +
-      `<b>+${t.cash.toLocaleString()}원</b></div>`
+      `<b>+${t.dia.toLocaleString()}💎</b></div>`
     );
   };
 
@@ -158,11 +158,11 @@ export function renderLeague(body: HTMLElement, ctx: LeagueCtx): void {
     // 시즌 헤더
     `<div class="rw-lg-hero">` +
     `<div class="tt"><span>🏆 주간 리그 시즌</span><span class="dday">D-${seasonDday(now)}</span></div>` +
-    `<div class="period">${seasonLabel(now)} · 일요일 23:59 종료 후 순위별 캐시 지급</div>` +
+    `<div class="period">${seasonLabel(now)} · 일요일 23:59 종료 후 순위별 다이아 지급</div>` +
     `<div class="rw-lg-stats">` +
     `<div><small>내 포인트</small><b>${st.pts.toLocaleString()}P</b></div>` +
     `<div><small>현재 순위</small><b>${joined ? `${board.myRank}위` : '미참여'}</b></div>` +
-    `<div><small>종료 시 예상</small><b>+${est.toLocaleString()}원</b></div>` +
+    `<div><small>종료 시 예상</small><b>+${est.toLocaleString()}💎</b></div>` +
     `</div>` +
     (bonus
       ? `<div class="rw-lg-slot">${bonus.icon} 지금은 <b>${bonus.name} 보너스</b> — 모든 P 적립 ×${bonus.mult} (${bonus.until}까지)</div>`
@@ -194,7 +194,7 @@ export function renderLeague(body: HTMLElement, ctx: LeagueCtx): void {
     `<div class="rw-h2" style="margin-top:16px"><span>시즌 보상표</span><small>순위 확정 후 자동 지급</small></div>` +
     `<div class="rw-panel" style="padding:14px">` +
     LEAGUE_TIERS.map(tierRow).join('') +
-    `<div class="rw-lg-tier"><span class="rg">참여 보상 (P 1 이상 전원)</span><b>+${LEAGUE_JOIN_CASH.toLocaleString()}원</b></div>` +
+    `<div class="rw-lg-tier"><span class="rg">참여 보상 (P 1 이상 전원)</span><b>+${LEAGUE_JOIN_DIA.toLocaleString()}💎</b></div>` +
     `</div>` +
     // 주사위 충전(mock)
     `<div class="rw-h2"><span>주사위 충전</span><small>많이 살수록 보너스 ↑</small></div>` +
