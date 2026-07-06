@@ -108,3 +108,6 @@ export const SLOT_BONUS_MULT = 1.5;
 
 /** 게임 미션 최소 플레이 시간(ms) — 같은 창 이동 후 이보다 빨리 복귀하면 미지급(mock 판정). */
 export const GAME_MIN_PLAY_MS = 20000;
+
+/** 모의 광고 시청 시간(초) — 데모 5초. 실서비스는 광고 SDK 영상(15~30초)으로 교체. */
+export const AD_DURATION_S = 5;

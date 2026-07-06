@@ -7,6 +7,7 @@
  * 로직/상태는 league.ts, 셸 배선은 shell.ts.
  */
 import { toast } from '../account.js';
+import { playAd } from './adPlayer.js';
 import { AD_DICE, AD_PTS, DICE_PACKS, LEAGUE_JOIN_CASH, LEAGUE_TIERS, ROLL_MULT, ROLL_JACKPOT } from './data.js';
 import {
   addDice,
@@ -212,14 +213,16 @@ export function renderLeague(body: HTMLElement, ctx: LeagueCtx): void {
     ctx.rerender();
   });
 
-  // 광고 → 주사위+P (mock: 즉시 지급, 시간대 보너스 반영)
+  // 광고 → 주사위+P — 모의 광고를 끝까지 본 뒤에만 지급(시간대 보너스 반영).
   body.querySelector<HTMLButtonElement>('[data-lg-ad]')?.addEventListener('click', () => {
-    const t = Date.now();
-    addDice(AD_DICE, t);
-    const gained = withSlotBonus(AD_PTS, t);
-    addPts(gained, t);
-    toast(`📺 광고 시청 완료 · 🎲+${AD_DICE} · P+${gained}`);
-    ctx.rerender();
+    playAd(() => {
+      const t = Date.now();
+      addDice(AD_DICE, t);
+      const gained = withSlotBonus(AD_PTS, t);
+      addPts(gained, t);
+      toast(`📺 광고 시청 완료 · 🎲+${AD_DICE} · P+${gained}`);
+      ctx.rerender();
+    });
   });
 
   // 패키지 구매(mock)

@@ -25,8 +25,12 @@ import {
 } from './data.js';
 import { addDice, addPts, settleIfNeeded, slotBonus, withSlotBonus, type SeasonResult } from './league.js';
 import { leagueHomeCard, renderLeague } from './leagueView.js';
+import { playAd } from './adPlayer.js';
 
 type View = 'home' | 'league' | 'ad' | 'cash' | 'friends' | 'more';
+
+/** 미션 완료 지급 콜백(캐시+리그 P 병행). */
+type CompleteFn = (id: string, amount: number, label?: string, pts?: number) => void;
 
 interface GameEntry {
   id: string;
@@ -38,10 +42,10 @@ interface GameEntry {
 
 /* ── 캐시(원) 목 저장 — 실정산은 Phase B ── */
 const CASH_KEY = 'cashpop_cash_v1';
-const TODAY_KEY = 'cashpop_today_v1';
-const DONE_KEY = 'cashpop_done_v1';
-/** '광고 보고 P 2배'를 이미 받은 미션 id 집합. */
-const DOUBLE_KEY = 'cashpop_double_v1';
+/** '오늘' 스코프 저장(자정 리셋): 오늘 적립액 / 완료 미션 / P 2배 수령 미션. */
+const TODAY_KEY = 'cashpop_today_v2';
+const DONE_KEY = 'cashpop_done_v2';
+const DOUBLE_KEY = 'cashpop_double_v2';
 /** 게임 미션 실행 마커 — 같은 창 이동이라 복귀(다음 셸 오픈) 때 회수해 지급 판정. */
 const PENDING_KEY = 'cashpop_pending_game_v1';
 const num = (k: string): number => {
@@ -58,24 +62,49 @@ const setNum = (k: string, v: number): void => {
     /* 무시 */
   }
 };
-const idSet = (key: string): Set<string> => {
+
+/** 로컬 자정 기준 오늘 날짜 키('2026-07-06') — 일일 미션 리셋 축. */
+const dayStr = (): string => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+/** 날짜 스코프 id 집합 — 저장된 날짜가 오늘이 아니면 빈 집합(=자정 자동 리셋). */
+const dailySet = (key: string): Set<string> => {
   try {
-    return new Set(JSON.parse(localStorage.getItem(key) || '[]') as string[]);
+    const raw = JSON.parse(localStorage.getItem(key) || 'null') as { d?: string; ids?: string[] } | null;
+    return raw && raw.d === dayStr() && Array.isArray(raw.ids) ? new Set(raw.ids) : new Set();
   } catch {
     return new Set();
   }
 };
-const saveIdSet = (key: string, s: Set<string>): void => {
+const saveDailySet = (key: string, s: Set<string>): void => {
   try {
-    localStorage.setItem(key, JSON.stringify([...s]));
+    localStorage.setItem(key, JSON.stringify({ d: dayStr(), ids: [...s] }));
   } catch {
     /* 무시 */
   }
 };
-const doneSet = (): Set<string> => idSet(DONE_KEY);
-const saveDone = (s: Set<string>): void => saveIdSet(DONE_KEY, s);
-const doubledSet = (): Set<string> => idSet(DOUBLE_KEY);
-const saveDoubled = (s: Set<string>): void => saveIdSet(DOUBLE_KEY, s);
+const doneSet = (): Set<string> => dailySet(DONE_KEY);
+const saveDone = (s: Set<string>): void => saveDailySet(DONE_KEY, s);
+const doubledSet = (): Set<string> => dailySet(DOUBLE_KEY);
+const saveDoubled = (s: Set<string>): void => saveDailySet(DOUBLE_KEY, s);
+
+/** 오늘 적립액(원) — 날짜가 바뀌면 0부터. */
+const todayWon = (): number => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(TODAY_KEY) || 'null') as { d?: string; won?: number } | null;
+    return raw && raw.d === dayStr() ? Number(raw.won) || 0 : 0;
+  } catch {
+    return 0;
+  }
+};
+const addTodayWon = (n: number): void => {
+  try {
+    localStorage.setItem(TODAY_KEY, JSON.stringify({ d: dayStr(), won: todayWon() + n }));
+  } catch {
+    /* 무시 */
+  }
+};
 
 const won = (n: number): string => `${n.toLocaleString()}원`;
 const esc = (s: string): string =>
@@ -161,6 +190,8 @@ function injectStyles(): void {
     .rw-modal .row b{color:#7C5CFF}
     .rw-modal .cash{font-size:26px;color:#2E6BFF;font-weight:800;margin:8px 0 2px}
     .rw-modal p{color:#8A94A6;font-size:12.5px;margin:8px 0 2px}
+    .rw-modal .wheel{display:inline-block;animation:rw-spin .5s linear infinite}
+    @keyframes rw-spin{to{transform:rotate(360deg)}}
     /* 이벤트 배너 */
     .rw-event{display:flex;align-items:center;gap:12px;background:#FFF6E0;border:1px solid #FDE9BE;border-radius:18px;padding:15px 16px;margin-top:4px}
     .rw-event .tx{flex:1}
@@ -226,11 +257,11 @@ export function openRewardShell(onClose?: () => void): void {
   // 상단 우측 '허브로 가기' — 셸을 닫아 뒤의 허브 화면으로 돌아간다(모든 탭 공통).
   layer.querySelector('.rw-hubback')!.addEventListener('click', close);
 
-  /** 캐시 지급(원) — 잔액+오늘적립 갱신. */
+  /** 캐시 지급(원) — 잔액+오늘적립(날짜 스코프) 갱신. */
   const grant = (amount: number): void => {
     if (amount <= 0) return;
     setNum(CASH_KEY, num(CASH_KEY) + amount);
-    setNum(TODAY_KEY, num(TODAY_KEY) + amount);
+    addTodayWon(amount);
     onClose?.(); // 허브 지갑바도 갱신(같은 출처)
   };
   /** 미션 완료 — 캐시 + 리그 P 병행 지급(시간대 보너스 반영, P가 쌓이면 자동 시즌 참여). */
@@ -315,27 +346,82 @@ function showSeasonModal(layer: HTMLElement, res: SeasonResult): void {
   layer.appendChild(wrap);
 }
 
-/** 완료 미션의 '광고 보고 P 2배' 수령(미션당 1회, 시간대 보너스 반영). */
+/** 완료 미션의 '광고 보고 P 2배' 수령 — 광고를 끝까지 본 뒤에만 지급(미션당 1회). */
 function claimDouble(m: Mission, rerender: () => void): void {
   const d = doubledSet();
   if (m.pts <= 0 || d.has(m.id)) return;
-  saveDoubled(new Set([...d, m.id]));
-  const t = Date.now();
-  const bonus = withSlotBonus(m.pts, t);
-  addPts(bonus, t);
-  toast(`📺 광고 시청 · ${m.title} P 2배 +${bonus}P`);
-  rerender();
+  playAd(() => {
+    saveDoubled(new Set([...doubledSet(), m.id]));
+    const t = Date.now();
+    const bonus = withSlotBonus(m.pts, t);
+    addPts(bonus, t);
+    toast(`📺 광고 시청 · ${m.title} P 2배 +${bonus}P`);
+    rerender();
+  });
+}
+
+/** 행운 룰렛 — 스핀 연출 후 결과 확정(확인을 눌러야 지급 콜백). */
+function spinRoulette(onDone: (prize: number) => void): void {
+  const layer = document.querySelector<HTMLElement>('.rw-layer');
+  if (!layer) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'rw-modal';
+  wrap.innerHTML =
+    `<div class="bx"><div class="big"><span class="wheel">🎡</span></div>` +
+    `<b class="tt">행운 룰렛</b><div class="row">두구두구...</div></div>`;
+  layer.appendChild(wrap);
+  const prize = ROULETTE_PRIZES[Math.floor(Math.random() * ROULETTE_PRIZES.length)];
+  window.setTimeout(() => {
+    const bx = wrap.querySelector<HTMLElement>('.bx')!;
+    bx.innerHTML =
+      `<div class="big">${prize > 0 ? '🎉' : '😢'}</div>` +
+      `<b class="tt">${prize > 0 ? `+${prize.toLocaleString()}원 당첨!` : '아쉽게 꽝!'}</b>` +
+      `<p>${prize > 0 ? '캐시가 바로 적립돼요' : '참여 리그 P는 지급돼요 — 내일 다시 도전!'}</p>` +
+      `<button class="rw-cta" data-ok style="margin:10px 0 0">확인</button>`;
+    bx.querySelector('[data-ok]')!.addEventListener('click', () => {
+      wrap.remove();
+      onDone(prize);
+    });
+  }, 1800);
+}
+
+/** 친구 초대 — 공유(또는 링크 복사)가 실제로 이뤄진 뒤에만 지급(일 1회). */
+function runInvite(m: Mission, complete: CompleteFn, rerender: () => void): void {
+  if (doneSet().has(m.id)) {
+    toast('오늘은 이미 초대 보상을 받았어요');
+    return;
+  }
+  const link = `${location.origin}${location.pathname}?ref=${encodeURIComponent(loadIdentity().id || 'me')}`;
+  const finish = (): void => {
+    complete(m.id, m.reward, m.title, m.pts);
+    rerender();
+  };
+  const nav = navigator as Navigator & { share?: (d: { title: string; text: string; url: string }) => Promise<void> };
+  if (typeof nav.share === 'function') {
+    nav
+      .share({ title: 'CashPOP', text: '같이 리워드 모으자! 내 초대 링크야 🎁', url: link })
+      .then(finish)
+      .catch(() => toast('공유가 취소되었어요'));
+    return;
+  }
+  navigator.clipboard
+    ?.writeText(link)
+    .then(() => {
+      toast('초대 링크를 복사했어요 · 친구에게 공유하세요');
+      finish();
+    })
+    .catch(() => toast('링크 복사에 실패했어요 — 다시 시도해 주세요'));
 }
 
 /* ─────────── 홈 ─────────── */
 function renderHome(
   body: HTMLElement,
   go: (v: View) => void,
-  complete: (id: string, amount: number, label?: string, pts?: number) => void,
+  complete: CompleteFn,
   grant: (n: number) => void,
 ): void {
   const cash = num(CASH_KEY);
-  const today = num(TODAY_KEY);
+  const today = todayWon();
   const pct = Math.min(100, Math.round((today / GOAL_WON) * 100));
   const id = loadIdentity().id;
   const done = doneSet();
@@ -411,12 +497,13 @@ function renderHome(
   });
 }
 
-/** 미션 종류별 실행. 게임은 **기존 launchGame 그대로**(변경 금지). */
-function runMission(
-  m: Mission,
-  complete: (id: string, amount: number, label?: string, pts?: number) => void,
-  rerender: () => void,
-): void {
+/**
+ * 미션 종류별 실행 — 종류마다 '실제 진행 게이트'를 통과해야 지급된다:
+ *   ad=광고 끝까지 시청 / roulette=스핀 후 결과 / invite=공유·복사 실행 /
+ *   game=복귀 판정(최소 플레이 시간) / attend=오늘 접속(일 1회, 자정 리셋).
+ * 게임은 **기존 launchGame 그대로**(변경 금지).
+ */
+function runMission(m: Mission, complete: CompleteFn, rerender: () => void): void {
   if (m.kind === 'game') {
     const game = (GAMES as GameEntry[]).find((g) => g.id === m.gameId);
     if (!game) return;
@@ -443,18 +530,41 @@ function runMission(
     });
     return;
   }
+  if (m.kind === 'ad') {
+    // 시청 게이트 — 모의 광고를 끝까지 본 뒤에만 지급.
+    playAd(() => {
+      complete(m.id, m.reward, m.title, m.pts);
+      rerender();
+    });
+    return;
+  }
   if (m.kind === 'roulette') {
-    const prize = ROULETTE_PRIZES[Math.floor(Math.random() * ROULETTE_PRIZES.length)];
-    if (prize > 0) complete(m.id, prize, '행운 룰렛', m.pts);
-    else toast('아쉽게 꽝! 내일 다시 도전하세요');
-    if (prize > 0) rerender();
+    spinRoulette((prize) => {
+      if (prize > 0) {
+        complete(m.id, prize, '행운 룰렛', m.pts);
+      } else {
+        // 꽝 — 캐시는 없지만 참여 P는 지급하고 오늘 미션은 소진 처리.
+        const d = doneSet();
+        d.add(m.id);
+        saveDone(d);
+        const t = Date.now();
+        const bonus = withSlotBonus(m.pts, t);
+        addPts(bonus, t);
+        toast(`아쉽게 꽝! 참여 리그 P+${bonus}`);
+      }
+      rerender();
+    });
+    return;
+  }
+  if (m.kind === 'invite') {
+    runInvite(m, complete, rerender);
     return;
   }
   if (m.kind === 'coupon') {
     toast('쿠폰함은 곧 열려요 🎟️');
     return;
   }
-  // attend / ad / invite — 고정 보상 즉시 지급(+리그 P 병행).
+  // attend — 오늘 접속 자체가 완료 조건(일 1회, 자정 리셋).
   complete(m.id, m.reward, m.title, m.pts);
   rerender();
 }
@@ -481,16 +591,20 @@ function renderAd(body: HTMLElement, grant: (n: number) => void): void {
     const min = Number(row.dataset.min),
       max = Number(row.dataset.max);
     row.querySelector<HTMLButtonElement>('.rw-mbtn')!.addEventListener('click', (e) => {
-      const prize = min + Math.floor(Math.random() * (max - min + 1));
-      grant(prize);
-      const t = Date.now();
-      const gained = withSlotBonus(AD_PTS, t); // 광고 = 리그 P 2배 가중 재화(+시간대 보너스)
-      addPts(gained, t);
-      addDice(AD_DICE, t);
-      toast(`🎁 광고 시청 완료 · +${won(prize)} · P+${gained} · 🎲+${AD_DICE}`);
       const btn = e.currentTarget as HTMLButtonElement;
-      btn.textContent = '완료';
-      btn.disabled = true;
+      if (btn.disabled) return;
+      // 시청 게이트 — 광고를 끝까지 본 뒤에만 지급.
+      playAd(() => {
+        const prize = min + Math.floor(Math.random() * (max - min + 1));
+        grant(prize);
+        const t = Date.now();
+        const gained = withSlotBonus(AD_PTS, t); // 광고 = 리그 P 2배 가중 재화(+시간대 보너스)
+        addPts(gained, t);
+        addDice(AD_DICE, t);
+        toast(`🎁 광고 시청 완료 · +${won(prize)} · P+${gained} · 🎲+${AD_DICE}`);
+        btn.textContent = '완료';
+        btn.disabled = true;
+      });
     });
   });
 }
@@ -507,7 +621,7 @@ function renderCash(body: HTMLElement, rerender: () => void): void {
     `</div>` +
     `<button class="rw-cta" id="rw-wd"${canWithdraw ? '' : ' disabled'}>${canWithdraw ? `${cash.toLocaleString()}원 출금하기` : `출금은 ${WITHDRAW_MIN}원부터 가능해요`}</button>` +
     `<div class="rw-h2"><span>적립 내역</span></div>` +
-    `<div class="rw-lr"><span><b>오늘 적립</b><small>미션·광고 적립 합계</small></span><b style="color:#2E6BFF">${num(TODAY_KEY).toLocaleString()}원</b></div>` +
+    `<div class="rw-lr"><span><b>오늘 적립</b><small>미션·광고 적립 합계 (자정 리셋)</small></span><b style="color:#2E6BFF">${todayWon().toLocaleString()}원</b></div>` +
     `<p class="rw-note">※ 실제 출금(페이머니·계좌 이체)은 백엔드 연동(Phase B) 이후 활성화됩니다.</p>`;
   const wd = body.querySelector<HTMLButtonElement>('#rw-wd');
   wd?.addEventListener('click', () => {
@@ -519,8 +633,8 @@ function renderCash(body: HTMLElement, rerender: () => void): void {
 }
 
 /* ─────────── 친구(더보기에서 진입 — 하단 탭 자리는 리그에 양보) ─────────── */
-function renderFriends(body: HTMLElement, complete: (id: string, amount: number, label?: string, pts?: number) => void): void {
-  const invite = MISSIONS.find((m) => m.id === 'invite');
+function renderFriends(body: HTMLElement, complete: CompleteFn): void {
+  const invite = MISSIONS.find((m) => m.id === 'invite')!;
   const code = 'CASHPOP-' + (loadIdentity().id || 'USER').toUpperCase().slice(0, 6);
   body.innerHTML =
     `<div class="rw-h2"><span>👥 친구 초대</span></div>` +
@@ -528,10 +642,9 @@ function renderFriends(body: HTMLElement, complete: (id: string, amount: number,
     `<div style="font-size:22px;color:#2E6BFF;text-align:center;letter-spacing:1px">${esc(code)}</div>` +
     `<p class="rw-note" style="margin-bottom:0">친구가 가입하면 나도 친구도 <b>+500원</b></p></div>` +
     `<button class="rw-cta" id="rw-inv">친구 초대하고 +500원 받기</button>` +
-    `<p class="rw-note">※ 실제 초대 추적·지급은 백엔드(Phase B) 연동 시 활성화됩니다.</p>`;
+    `<p class="rw-note">※ 공유·복사가 실행된 뒤 지급됩니다. 실제 초대 추적은 백엔드(Phase B) 연동 시 활성화됩니다.</p>`;
   body.querySelector<HTMLButtonElement>('#rw-inv')!.addEventListener('click', () => {
-    complete('invite', 500, '친구 초대', invite?.pts ?? 0);
-    toast('초대 링크를 복사했어요 · 친구에게 공유하세요');
+    runInvite(invite, complete, () => renderFriends(body, complete));
   });
 }
 
