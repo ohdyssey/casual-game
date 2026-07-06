@@ -440,7 +440,7 @@ function renderHome(body: HTMLElement, go: (v: View) => void, complete: Complete
     const isDone = done.has(m.id);
     // 완료 후에도 P 미션은 '광고 보고 2배' 1회가 남는다(출석 체크인 ×2 구조 이식).
     const canDouble = isDone && m.pts > 0 && !doubled.has(m.id);
-    const reward = m.reward > 0 ? `+${won(m.reward)}` : m.rewardText || '';
+    const reward = m.reward > 0 ? `+${dia(m.reward)}` : m.rewardText || '';
     const btn = !isDone ? `${esc(m.cta)}<em>${reward}</em>` : canDouble ? '📺 P 2배' : '완료';
     return (
       `<div class="rw-mission${isDone && !canDouble ? ' done' : ''}" data-id="${esc(m.id)}">` +
