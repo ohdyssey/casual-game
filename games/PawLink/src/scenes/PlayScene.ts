@@ -11,7 +11,7 @@
 import Phaser from 'phaser';
 import { UI_LAYOUT_KEY, SPARK_KEY } from '../assets.js';
 import { buildLayout, type LayoutDoc, type LayoutIndex } from '../ui/layoutLoader.js';
-import { fillCoverLayout } from '@casual/core';
+import { fillCoverLayout, startCountdown } from '@casual/core';
 import { BoardView } from '../ui/boardView.js';
 import type { Panel } from '../logic/gridLayout.js';
 import {
@@ -47,7 +47,8 @@ const SCORE_KEY = 'pawlink_best_v1';
 const TIMESTOP_SEC = 8;
 const ADVANCE_MS = 1100;
 
-type Phase = 'playing' | 'cleared' | 'timeup';
+/** 'intro' = 시작 3·2·1 카운트다운 중(타이머·자동진행 정지, 입력은 오버레이가 흡수). */
+type Phase = 'intro' | 'playing' | 'cleared' | 'timeup';
 type Booster = 'hint' | 'shuffle' | 'timeStop' | 'autoLink' | 'bomb';
 
 export class PlayScene extends Phaser.Scene {
@@ -143,6 +144,15 @@ export class PlayScene extends Phaser.Scene {
     this.combo = 0;
     this.boosters = { hint: 5, shuffle: 4, timeStop: 3, autoLink: 3, bomb: 2 };
     this.newLevel();
+
+    // 타임어택 — 첫 레벨은 3·2·1 카운트다운(코어 공용) 후 시작. 이후 레벨 전환은 즉시.
+    this.phase = 'intro';
+    void startCountdown(this).then(() => {
+      if (this.phase === 'intro') {
+        this.phase = 'playing';
+        this.phaseT = 0;
+      }
+    });
   }
 
   // ── 셋업 ─────────────────────────────────────────────────────
@@ -450,7 +460,8 @@ export class PlayScene extends Phaser.Scene {
         }
       }
       this.updateTimeText();
-    } else {
+    } else if (this.phase !== 'intro') {
+      // intro(시작 카운트다운)는 자동 레벨 전환 대상이 아니다.
       this.phaseT += dt;
       if (this.phaseT > ADVANCE_MS / 1000) {
         this.hidePopup();

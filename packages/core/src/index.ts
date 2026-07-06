@@ -15,6 +15,8 @@ export * from './systems/backGuard.js';
 export * from './systems/healthMonitor.js';
 // 단계별 보상 게이지(EARN SPINS류 타임드 이벤트) — 프레임워크 무관 기본 시스템.
 export * from './systems/rewardGauge.js';
+// 타임어택 게임 공용 '3·2·1 → START!' 시작 카운트다운 오버레이.
+export * from './systems/startCountdown.js';
 export * from './game-shell.js';
 export type { GameModule } from './game-shell.js';
 // 에디터(phaser-ui-editor) 런타임 — 노드 anim 재생 + spriteDocClip/도형 로더 함수(단일 공용 사본).
