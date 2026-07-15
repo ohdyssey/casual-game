@@ -55,8 +55,20 @@ const BONUS_ART: Record<number, string> = {
   5: 'up_Solitare_UI_08-4',
   10: 'up_Solitare_UI_08-10',
 };
-// 보너스 값 발생 가중치 — **숫자가 클수록 낮은 빈도**(+1 흔함 … +10 희귀).
-const BONUS_WEIGHT: Record<number, number> = { 1: 40, 2: 26, 3: 18, 5: 11, 10: 5 };
+// 보너스 값 **역빈도(∝ 1/N) 정확 할당 패턴** — 확률 추첨은 표본 노이즈로 +10 이 +5 보다 자주 나오는
+//   역전이 생길 수 있어, 64레벨 주기에 +1×30 · +2×15 · +3×10 · +5×6 · +10×3 (= 1/1:1/2:1/3:1/5:1/10)
+//   을 결정적 셔플로 미리 배치한다. 레벨→패턴 인덱스 고정 → 주기 안에서 비율이 정확히 역빈도.
+const BONUS_PATTERN: readonly number[] = (() => {
+  const counts: ReadonlyArray<readonly [number, number]> = [[1, 30], [2, 15], [3, 10], [5, 6], [10, 3]];
+  const arr: number[] = [];
+  for (const [v, c] of counts) for (let i = 0; i < c; i++) arr.push(v);
+  const rng = seededRng(424242); // 고정 시드 — 모든 클라에서 동일 패턴.
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+})();
 
 // 에디터 저작 레벨 팩(public/levels/cardLevels.json) 캐시 키.
 const EDITOR_PACK_KEY = 'editorLevelPack';
@@ -450,17 +462,9 @@ export class PlayScene extends Phaser.Scene {
     // 둘째 슬롯(있으면) = 보너스 +N. 값은 레벨 시드로 결정적 선택.
     const values = BONUS_VALUES.filter((v) => this.textures.exists(BONUS_ART[v]));
     if (shuffled.length >= 2 && values.length) {
-      // **가중 추첨** — 숫자가 클수록 낮은 빈도(BONUS_WEIGHT).
-      const total = values.reduce((s, v) => s + (BONUS_WEIGHT[v] ?? 1), 0);
-      let r = rng() * total;
-      let count = values[0];
-      for (const v of values) {
-        r -= BONUS_WEIGHT[v] ?? 1;
-        if (r <= 0) {
-          count = v;
-          break;
-        }
-      }
+      // **역빈도 패턴 할당** — 레벨→패턴 인덱스 고정(+1 최다 … +10 최희귀, 64레벨 주기 비율 보장).
+      const want = BONUS_PATTERN[(this.level - 1) % BONUS_PATTERN.length];
+      const count = values.includes(want) ? want : values[0]; // 아트 미로드 시 +1 폴백.
       this.bonusSlot = { id: shuffled[1], count };
       this.bonusTriggered = false;
     }
@@ -2194,6 +2198,7 @@ export class PlayScene extends Phaser.Scene {
       const ey = srcY + drop;
       const ctrlX = srcX + dx * 0.55;
       const ctrlY = srcY - rise;
+      const GROW = 1.75; // 낙하하며 이 배율까지 **크게 확대** → 상승 회수에서 축소.
       this.tweens.addCounter({
         from: 0,
         to: 1,
@@ -2206,15 +2211,18 @@ export class PlayScene extends Phaser.Scene {
           img.x = u * u * srcX + 2 * u * t * ctrlX + t * t * ex;
           img.y = u * u * srcY + 2 * u * t * ctrlY + t * t * ey;
           img.setAngle(dx * 0.35 * t);
+          // 떨어지는 동안 점점 커진다(확대) — 회수 직전이 가장 크다.
+          const s = Phaser.Math.Linear(1, GROW, t);
+          img.setScale(bsx * s, bsy * s);
         },
         onComplete: () => {
-          // ② 상승 회수 — 잠깐 머문 뒤 헤더 카운터로 가속·축소하며 날아간다(하나씩 타라락).
+          // ② 상승 회수 — 확대된 상태에서 잠깐 머문 뒤, **축소되며** 헤더 카운터로 날아간다(하나씩 타라락).
           this.tweens.add({
             targets: img,
             x: target.x,
             y: target.y,
-            scaleX: bsx * 0.3,
-            scaleY: bsy * 0.3,
+            scaleX: bsx * 0.25,
+            scaleY: bsy * 0.25,
             angle: 0,
             alpha: 0.9,
             duration: Phaser.Math.Between(420, 540),

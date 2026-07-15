@@ -69,6 +69,7 @@ const LOT1L_CX = W / 2 - LOT_DX; // **좌측 부지** 중심 x(-540) — 좌로 
 // **좌측 공공건물 타워** — 메인타워 왼쪽 부지(LOT1L_CX)에 공공건물 5개를 기존 타워 방식으로 **프리빌트**(항상 완공 상태).
 const OFFICE_FLOORS = 3; // 공공건물 층 수 — **초기 릴리스는 3층까지만**(이후 5층으로 업그레이드 예정). 아트는 5개 준비됨.
 const OFFICE_CX = LOT1L_CX; // 좌측 부지 중심(-540).
+const UI_OFFICE_KEY = 'ui_office'; // 공공건물 에디터 저작 레이아웃(home_copy2.json) — 관리자 캐릭터 배치 좌표 소스.
 
 /** 사이드 부지 1개. cx=부지 중심 x, ruinKey=폐건물 텍스처(**고유·중복금지**), saveKey=저장키. */
 interface SideLot {
@@ -279,11 +280,14 @@ export class HomeScene extends Phaser.Scene {
     // **점포 코인 수령 말풍선** — 말머리 풍선(UI_11) + 코인 아이콘(UI_2-3).
     if (!this.textures.exists(CLAIM_BUBBLE_KEY)) this.load.image(CLAIM_BUBBLE_KEY, 'ui/uploads/up_Solitare_UI_11.png');
     if (!this.textures.exists(CLAIM_COIN_KEY)) this.load.image(CLAIM_COIN_KEY, 'ui/uploads/up_Solitare_UI_2-3.png');
-    // **좌측 공공건물 타워(5층 프리빌트)** — 소방서 등 5개 공공건물 아트.
+    // **좌측 공공건물 타워** — 공공건물 아트 + 관리자(officer) 캐릭터 + 저작 레이아웃(캐릭터 배치 좌표).
     for (let i = 1; i <= OFFICE_FLOORS; i++) {
-      const k = `up_Slitare_Office_${pad2(i)}`;
-      if (!this.textures.exists(k)) this.load.image(k, `ui/uploads/${k}.png`);
+      const b = `up_Slitare_Office_${pad2(i)}`;
+      if (!this.textures.exists(b)) this.load.image(b, `ui/uploads/${b}.png`);
+      const c = `up_Solirare_Officer_${pad2(i)}`;
+      if (!this.textures.exists(c)) this.load.image(c, `ui/uploads/${c}.png`);
     }
+    this.load.json(UI_OFFICE_KEY, 'ui/layouts/home_copy2.json'); // 관리자 배치 좌표(빌딩 대비 상대).
   }
 
   /** 에디터 저작 레벨 수(1부터 연속). 번들 팩 + localStorage 병합 기준. 최소 1(항상 1레벨은 시도 가능). */
@@ -1130,6 +1134,10 @@ export class HomeScene extends Phaser.Scene {
     this.officeFloors = []; // 씬 재사용 대비: 스테일 참조 비움(오브젝트는 씬 재시작이 파괴).
     const fw = LOT2_FLOOR_W;
     const fh = LOT2_FLOOR_H;
+    // 공공건물 에디터(home_copy2) 노드 — 관리자 캐릭터의 **빌딩 대비 상대 위치**를 읽어 게임 층에 적용.
+    const officeDoc = (this.cache.json.get(UI_OFFICE_KEY) ?? null) as { nodes?: Array<{ key?: string; x: number; y: number; w?: number; h?: number }> } | null;
+    const nodes = officeDoc?.nodes ?? [];
+    const findByKey = (part: string): (typeof nodes)[number] | undefined => nodes.find((n) => (n.key ?? '').includes(part));
     for (let level = 1; level <= OFFICE_FLOORS; level++) {
       const key = `up_Slitare_Office_${pad2(level)}`;
       if (!this.textures.exists(key)) continue; // 아트 없으면 건너뜀(방어).
@@ -1137,6 +1145,29 @@ export class HomeScene extends Phaser.Scene {
       const img = this.add.image(OFFICE_CX, y, key).setDisplaySize(fw, fh).setDepth(this.floorDepth(level));
       this.pinToWorld(img); // 월드(타워와 함께 스크롤) — uiCam 제외.
       this.officeFloors.push(img);
+      // **관리자 캐릭터를 건물 중앙(저작 위치)에** — home_copy2 의 Officer 노드를 빌딩 대비 상대로 배치.
+      const chrKey = `up_Solirare_Officer_${pad2(level)}`;
+      const bNode = findByKey(`Office_${pad2(level)}_v2`) ?? findByKey(`Office_${pad2(level)}`);
+      const oNode = findByKey(`Officer_${pad2(level)}`);
+      let chr: Phaser.GameObjects.Image | undefined;
+      if (oNode && this.textures.exists(chrKey)) {
+        const s = fh / (bNode?.h ?? fh); // 저작 빌딩 높이 → 게임 표시(fh) 스케일.
+        const offX = bNode ? (oNode.x - bNode.x) * s : 0;
+        const offY = bNode ? (oNode.y - bNode.y) * s : fh * 0.1;
+        chr = this.add
+          .image(OFFICE_CX + offX, y + offY, chrKey)
+          .setDisplaySize((oNode.w ?? 110) * s, (oNode.h ?? 240) * s)
+          .setDepth(this.floorDepth(level) + 1); // 자기 층 앞(캐릭터가 건물 안에 보이게), 다음 층 뒤.
+        this.pinToWorld(chr);
+      }
+      // **2층+ 앞 유리팬스** — 메인타워와 동일 스타일(y+fh*0.33·폭690·depth+2, 관리자=유리 바로 뒤).
+      //   1층(지면 로비)은 유리팬스 없음(타워1/타워2 1층 예외와 동일). 5층까지 업그레이드 시 자동 적용.
+      if (level !== 1 && this.textures.exists('up_Slitare_BG_Glass')) {
+        const glass = this.add.image(OFFICE_CX, y + fh * 0.33, 'up_Slitare_BG_Glass').setDepth(this.floorDepth(level) + 2);
+        glass.setDisplaySize(690, glass.height * (690 / glass.width));
+        this.pinToWorld(glass);
+        if (chr) chr.setDepth(glass.depth - 0.5); // 관리자=유리 바로 뒤.
+      }
     }
   }
 

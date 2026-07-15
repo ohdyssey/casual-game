@@ -11,6 +11,12 @@
       "name": "플레이 진입",
       "file": "ui/layouts/blank.json",
       "category": "custom"
+    },
+    {
+      "id": "home_copy2",
+      "name": "공공건물",
+      "file": "ui/layouts/home_copy2.json",
+      "category": "custom"
     }
   ]
 }
