@@ -81,6 +81,7 @@ interface SideLot {
   built: boolean;
   demolished: boolean; // 철거 완료(빈 부지, 1층 미건설).
   ruin?: Phaser.GameObjects.Image; // 코드로 생성한 폐건물.
+  forSale?: Phaser.GameObjects.Image; // 폐건물 앞 'FOR SALE' 표지판(건설/철거 시 제거).
   floor?: { img: Phaser.GameObjects.Image; char?: Phaser.GameObjects.Image };
   btn?: Phaser.GameObjects.Container;
   hint?: Phaser.GameObjects.Text;
@@ -89,6 +90,9 @@ interface SideLot {
 const RUIN_W = 760; // 폐건물 표시 폭(공통) — 높이는 텍스처 비율 보존.
 const GROUND_Y = 2221; // 지면(1층 건물 밑면) — 폐건물 밑면을 여기에 맞춘다.
 const RUIN_DEPTH = 40; // 폐건물 depth — 프롭/1층(≤18) 앞, 근경 차(51) 뒤(부지의 주요 건물).
+const FOR_SALE_VARIANTS = 3; // 'FOR SALE' 표지판 변형 수(UI_24-1~3) — 부지별 순환 배치.
+const FOR_SALE_BOX = 230; // 표지판 최대 표시 박스(정사각) — 세로/가로 변형 모두 비율 보존해 이 안에 맞춤.
+const FOR_SALE_DEPTH = RUIN_DEPTH + 1.5; // 폐건물 바로 앞(지면 표지판) — 근경 차보다는 뒤.
 // **중경 패럴랙스 계수**(applyParallax·중경 도로 통행 공용) — 가로는 근경보다 느리게(붙어 이동 방지),
 //   세로는 미세하게만(근경 침범 방지). 중경 도로에 얹는 자동차도 이 계수로 동기화한다.
 const PARALLAX_MID_X = 0.72;
@@ -223,6 +227,7 @@ export class HomeScene extends Phaser.Scene {
   private lot2Roof?: Phaser.GameObjects.Image; // 스테이지2 지붕(최상층 위).
   private lot2BuildBtn?: Phaser.GameObjects.Container; // 스테이지2 'N층 건설' 버튼.
   private lot2Ruin?: Phaser.GameObjects.Image; // 우 내측 부지 폐건물(코드 선배치).
+  private lot2ForSale?: Phaser.GameObjects.Image; // 우 내측 폐건물 앞 'FOR SALE' 표지판.
   // **사이드 부지들**(좌 내/외 · 우 외 — 폐건물 철거→1층 파일럿). 우 내(lot2)는 다층 시스템 별도.
   private sideLots: SideLot[] = [];
   private scrollBaseZoom = 1; // 스크롤 미세 줌 기준(원래 줌=1). 이동 시 축소→멈추면 원복.
@@ -288,6 +293,11 @@ export class HomeScene extends Phaser.Scene {
       if (!this.textures.exists(c)) this.load.image(c, `ui/uploads/${c}.png`);
     }
     this.load.json(UI_OFFICE_KEY, 'ui/layouts/home_copy2.json'); // 관리자 배치 좌표(빌딩 대비 상대).
+    // **구입 가능한 폐건물 앞 'FOR SALE' 표지판**(UI_24-1~3, 부지별 변형) — 건설 시 삭제.
+    for (let n = 1; n <= FOR_SALE_VARIANTS; n++) {
+      const k = `up_Solitare_UI_24-${n}`;
+      if (!this.textures.exists(k)) this.load.image(k, `ui/uploads/${k}.png`);
+    }
   }
 
   /** 에디터 저작 레벨 수(1부터 연속). 번들 팩 + localStorage 병합 기준. 최소 1(항상 1레벨은 시도 가능). */
@@ -321,6 +331,7 @@ export class HomeScene extends Phaser.Scene {
     this.lot2BuildBtn = undefined;
     this.lot2Roof = undefined;
     this.lot2Ruin = undefined;
+    this.lot2ForSale = undefined;
     this.lot2FloorObjs.clear();
     this.sideLots = []; // 사이드 부지 리스트 리셋(setupSideLots 가 저장으로 재구성).
     this.scrollMaxX = 0; // setupLot2/사이드 부지가 다시 열어준다(미실행 시 수평 스크롤 차단).
@@ -1232,6 +1243,7 @@ export class HomeScene extends Phaser.Scene {
       return;
     }
     this.lot2Ruin = this.spawnRuin(LOT2_CX, 'up_Slitare_BG_Ruin_05'); // 폐건물 코드 선배치(고유).
+    this.lot2ForSale = this.spawnForSaleSign(LOT2_CX, FOR_SALE_VARIANTS - 1); // 'FOR SALE'(우 내측 = 마지막 변형).
     const btnY = this.lot2Ruin ? this.lot2Ruin.y - this.lot2Ruin.displayHeight / 2 + 60 : 1780;
     if (!this.lotsUnlocked()) {
       this.lot2Hint = this.lotLockLabel(LOT2_CX, btnY); // 메인타워 10층 완공 전 = 구입 잠금.
@@ -1259,11 +1271,12 @@ export class HomeScene extends Phaser.Scene {
     if (this.lot2Built || this.constructing) return;
     this.constructing = true; // 연출 중 스크롤/입력 잠금.
     sfx('button');
-    for (const o of [this.lot2Btn, this.lot2Hint]) {
-      if (o) this.tweens.add({ targets: o, alpha: 0, duration: 300, onComplete: () => o.destroy() });
+    for (const o of [this.lot2Btn, this.lot2Hint, this.lot2ForSale]) {
+      if (o) this.tweens.add({ targets: o, alpha: 0, duration: 300, onComplete: () => o.destroy() }); // 표지판도 함께 제거.
     }
     this.lot2Btn = undefined;
     this.lot2Hint = undefined;
+    this.lot2ForSale = undefined;
     const ruin = this.lot2Ruin;
     this.lot2Ruin = undefined;
     this.panToLot2Floor(1, 700);
@@ -1520,6 +1533,25 @@ export class HomeScene extends Phaser.Scene {
     return img;
   }
 
+  /**
+   * **'FOR SALE' 표지판 선배치** — 구입 가능한 폐건물 앞(좌측 인도, 입구 안 가림)에 지면으로 세운다.
+   *   variant(0-base)로 UI_24-1~3 순환 → 부지마다 다른 표지판. 세로/가로 변형 모두 정사각 박스에 비율 보존 맞춤.
+   *   depth=폐건물 바로 앞. 건설/철거 시 호출부에서 제거한다.
+   */
+  private spawnForSaleSign(cx: number, variant: number): Phaser.GameObjects.Image | undefined {
+    const n = (((variant % FOR_SALE_VARIANTS) + FOR_SALE_VARIANTS) % FOR_SALE_VARIANTS) + 1; // 1..3 순환.
+    const key = `up_Solitare_UI_24-${n}`;
+    if (!this.textures.exists(key)) return undefined;
+    const src = this.textures.get(key).getSourceImage() as { width: number; height: number };
+    const scale = Math.min(FOR_SALE_BOX / Math.max(1, src.width), FOR_SALE_BOX / Math.max(1, src.height)); // 박스 안 맞춤.
+    const w = src.width * scale;
+    const h = src.height * scale;
+    const x = cx - RUIN_W * 0.3; // 건물 앞-좌측(입구 안 가리게).
+    const img = this.add.image(x, GROUND_Y - h / 2, key).setDisplaySize(w, h).setDepth(FOR_SALE_DEPTH); // 지면에 세움.
+    this.pinToWorld(img);
+    return img;
+  }
+
   /** 한 사이드 부지 세팅 — 3상태: 건설됨=1층 / 철거됨=빈 부지+건설버튼 / 아니면 폐건물+구입버튼. */
   private setupSideLot(lot: SideLot, savedBuilt: boolean, savedDemolished: boolean): void {
     if (savedBuilt) {
@@ -1535,6 +1567,7 @@ export class HomeScene extends Phaser.Scene {
       return;
     }
     lot.ruin = this.spawnRuin(lot.cx, lot.ruinKey); // 폐건물 선배치(잠금 여부와 무관하게 항상 표시).
+    lot.forSale = this.spawnForSaleSign(lot.cx, this.sideLots.indexOf(lot)); // 구입 가능한 폐건물 앞 'FOR SALE'(부지별 변형).
     if (!this.lotsUnlocked()) {
       const by = lot.ruin ? lot.ruin.y - lot.ruin.displayHeight / 2 + 60 : 1780;
       lot.hint = this.lotLockLabel(lot.cx, by); // **메인타워 10층 완공 전 = 구입 잠금**(폐건물만 + 자물쇠 안내).
@@ -1630,11 +1663,12 @@ export class HomeScene extends Phaser.Scene {
     if (lot.built || lot.demolished || this.constructing) return;
     this.constructing = true;
     sfx('button');
-    for (const o of [lot.btn, lot.hint]) {
-      if (o) this.tweens.add({ targets: o, alpha: 0, duration: 300, onComplete: () => o.destroy() });
+    for (const o of [lot.btn, lot.hint, lot.forSale]) {
+      if (o) this.tweens.add({ targets: o, alpha: 0, duration: 300, onComplete: () => o.destroy() }); // 표지판도 함께 페이드 제거.
     }
     lot.btn = undefined;
     lot.hint = undefined;
+    lot.forSale = undefined;
     const ruin = lot.ruin;
     lot.ruin = undefined;
     this.panToSide(lot, 700);
@@ -1959,12 +1993,13 @@ export class HomeScene extends Phaser.Scene {
     }
     this.lot2Built = true;
     this.lot2Floors = 1;
-    // 매입/힌트 버튼 제거.
-    for (const o of [this.lot2Btn, this.lot2Hint]) {
+    // 매입/힌트 버튼 + 표지판 제거(방어 — 보통 철거 시 이미 제거됨).
+    for (const o of [this.lot2Btn, this.lot2Hint, this.lot2ForSale]) {
       if (o) this.tweens.add({ targets: o, alpha: 0, duration: 400, onComplete: () => o.destroy() });
     }
     this.lot2Btn = undefined;
     this.lot2Hint = undefined;
+    this.lot2ForSale = undefined;
     sfx('button');
     const objs = this.renderLot2Floor(1, false);
     if (objs) this.raiseLot2Floor(objs, 1);
