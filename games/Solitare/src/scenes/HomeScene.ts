@@ -1645,7 +1645,7 @@ export class HomeScene extends Phaser.Scene {
         const base = { fontFamily: '"Jua", sans-serif', color: '#ffffff', align: 'center' as const, fontStyle: 'bold', wordWrap: { width: wrap } };
         const tTitle = dress(this.add.text(0, 0, title, { ...base, fontSize: '36px' }).setOrigin(0.5, 0));
         const tDesc = dress(this.add.text(0, 0, desc, { ...base, fontSize: '28px', lineSpacing: -4 }).setOrigin(0.5, 0));
-        const gap = 4;
+        const gap = -2; // 제목↔설명 줄간 — 제목 아래 여백만 살짝 당기고, 너무 좁지 않게 자연스러운 간격 유지.
         const totalH = tTitle.height + gap + tDesc.height;
         tTitle.y = -totalH / 2;
         tDesc.y = tTitle.y + tTitle.height + gap;
