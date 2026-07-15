@@ -127,6 +127,12 @@ const CONTINUE_DEPTH_LIFT = 60;
 
 // ── 점포(층) 코인 누적 → 말풍선 수령 ─────────────────────────────────────
 const FLOOR_COIN_GOAL = 100; // 이 값(100) 누적 시 점원 위 말풍선(수령 대기) + **상한 고정(수령 전까지 정지)**.
+// **상점(층)별 손님 방문 수익** — 상점마다 수익성이 다르다: 고층(건설비 비싼 고급 상점)일수록 방문 1회 수익↑.
+//   [1층 2 … 10층 15] — 기존 일률(3~4)을 대체. 고층은 은행(100) 이 빨리 차 수령 빈도도 높아진다.
+const FLOOR_VISIT_YIELD = [0, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15] as const;
+const visitYieldFor = (floor: number): number => FLOOR_VISIT_YIELD[((floor - 1) % 10) + 1];
+// 사이드 부지(단층 파일럿 상점) 수익 — 부지(stage)마다 다르게.
+const SIDE_LOT_YIELD: Record<number, number> = { 4: 5, 5: 7, 6: 9 };
 const CLAIM_BUBBLE_KEY = 'up_Solitare_UI_11'; // 말머리 풍선(주문 말풍선 재사용).
 const CLAIM_COIN_KEY = 'up_Solitare_UI_2-3'; // 말풍선에 띄울 코인 아이콘.
 const CUST_COIN_SPIN = 'custCoinSpin'; // 손님 드랍과 동일한 스핀 코인 애니 키(customers.ts).
@@ -1619,12 +1625,12 @@ export class HomeScene extends Phaser.Scene {
       const y = ruinTop + LOT_SIGN_OVERLAP - h / 2; // 하단이 지붕 꼭대기 뒤로 OVERLAP 겹치고 **나머지는 지붕 위 하늘로** 솟는다.
       board = this.add.image(cx, y, key).setDisplaySize(LOT_SIGN_W, h).setDepth(LOT_SIGN_DEPTH);
       this.pinToWorld(board);
-      panelY = y + h * 0.02; // 크림 패널(헤더 아래·다리 위 중앙) 위에 텍스트.
+      panelY = y - h * 0.04; // 크림 패널(헤더 아래·다리 위) 세로 중앙에 텍스트.
     }
     let text: Phaser.GameObjects.Text | undefined;
     if (message) {
       text = this.add
-        .text(cx, panelY, message, { fontFamily: '"Jua", sans-serif', fontSize: '32px', color: '#ffffff', align: 'center', fontStyle: 'bold' })
+        .text(cx, panelY, message, { fontFamily: '"Jua", sans-serif', fontSize: '32px', color: '#ffffff', align: 'center', fontStyle: 'bold', lineSpacing: -10 })
         .setOrigin(0.5)
         .setDepth(LOT_SIGN_TEXT_DEPTH);
       text.setStroke('#5a3410', 7); // 크림/파랑 패널 모두 가독(흰 글자+진갈색 외곽선).
@@ -1817,6 +1823,7 @@ export class HomeScene extends Phaser.Scene {
       depth,
       floor: 1,
       stage: lot.stage,
+      coinYield: SIDE_LOT_YIELD[lot.stage] ?? 5, // 사이드 부지 상점별 수익성(부지마다 다름).
     });
   }
 
@@ -2234,6 +2241,7 @@ export class HomeScene extends Phaser.Scene {
       depth,
       floor: level,
       stage: 2,
+      coinYield: visitYieldFor(level), // 스테이지2 도 층별 수익성 동일 곡선.
     });
   }
 
@@ -3278,7 +3286,8 @@ export class HomeScene extends Phaser.Scene {
       // depth = **이 층 유리팬스 바로 뒤**(유리가 손님을 가림). 유리 없으면 아트 살짝 앞. 버튼(120+)보다 훨씬 아래.
       depth: glass ? glass.depth - 0.3 : (f.depth ?? 0) + 1.8,
       floor: level,
-      onSatisfied: (fl, coins) => this.accrueFloorCoins(fl, coins), // 만족 방문 → 떨어뜨린 코인 수만큼 누적.
+      onSatisfied: (fl, coins) => this.accrueFloorCoins(fl, coins), // 만족 방문 → 상점 수익만큼 누적.
+      coinYield: visitYieldFor(level), // **상점별 수익성** — 고층일수록 방문 1회 수익↑.
     };
   }
 
