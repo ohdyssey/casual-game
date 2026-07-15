@@ -1804,10 +1804,12 @@ export class HomeScene extends Phaser.Scene {
         const boardW = place.boardWFrac * dw;
         const h = boardW * (src.height / Math.max(1, src.width)); // 텍스처 비율 보존.
         const raise = h * LOT_SIGN_RAISE_FRAC; // 간판을 조금 위로(지붕에 덜 파묻히게) — 간판높이 기준이라 부지 간 일관.
-        board = this.add.image(ruin.x + place.boardXFrac * dw, ruinTop + place.boardVFrac * dh - raise, key).setDisplaySize(boardW, h).setDepth(LOT_SIGN_DEPTH);
+        const by = ruinTop + place.boardVFrac * dh - raise;
+        board = this.add.image(ruin.x + place.boardXFrac * dw, by, key).setDisplaySize(boardW, h).setDepth(LOT_SIGN_DEPTH);
         this.pinToWorld(board);
-        panelX = ruin.x + place.textXFrac * dw;
-        panelY = ruinTop + place.textVFrac * dh - raise; // 텍스트도 같이 올려 패널 유지.
+        // **텍스트는 간판 패널 중앙**(검출) — 간판 위치/올림과 무관하게 항상 중앙(사용자 요청: 간판 중앙에 텍스트).
+        panelX = board.x;
+        panelY = by + (this.panelCenterRatio(key) - 0.5) * h;
       } else {
         // 폴백(저작 배치 없음) — 실지붕에 얹고 밝은 패널 중심 검출.
         const h = LOT_SIGN_W * (src.height / Math.max(1, src.width));
