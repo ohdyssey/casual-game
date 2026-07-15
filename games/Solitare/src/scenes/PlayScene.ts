@@ -2168,8 +2168,68 @@ export class PlayScene extends Phaser.Scene {
   }
 
   /**
+   * **보상 버스트 회수** — 아이콘 자리에서 count 개의 입자가 사방으로 튀며 **아래로 떨어지듯** 흩어졌다가,
+   *   잠깐 머문 뒤 하나씩 스태거로 **위(헤더 카운터)로 빨려 올라간다**. (낙하 → 상승 회수)
+   */
+  private rewardBurstFly(
+    srcX: number,
+    srcY: number,
+    texKey: string,
+    count: number,
+    target: { x: number; y: number },
+    dispW: number,
+  ): void {
+    if (!this.textures.exists(texKey) || count <= 0) return;
+    for (let i = 0; i < count; i++) {
+      const img = this.add.image(srcX, srcY, texKey).setDepth(2100);
+      const src = img.texture.getSourceImage() as { width: number; height: number };
+      img.setDisplaySize(dispW, dispW * (src.height / src.width));
+      const bsx = img.scaleX;
+      const bsy = img.scaleY;
+      // ① 낙하 — 좌우로 흩어지며 살짝 떠올랐다가(포물선 정점) 아래로 떨어진다.
+      const dx = Phaser.Math.Between(-190, 190);
+      const rise = Phaser.Math.Between(20, 110);
+      const drop = Phaser.Math.Between(110, 300);
+      const ex = srcX + dx;
+      const ey = srcY + drop;
+      const ctrlX = srcX + dx * 0.55;
+      const ctrlY = srcY - rise;
+      this.tweens.addCounter({
+        from: 0,
+        to: 1,
+        duration: Phaser.Math.Between(320, 460),
+        delay: i * 18,
+        ease: 'Sine.easeIn',
+        onUpdate: (tw) => {
+          const t = tw.getValue() ?? 0;
+          const u = 1 - t;
+          img.x = u * u * srcX + 2 * u * t * ctrlX + t * t * ex;
+          img.y = u * u * srcY + 2 * u * t * ctrlY + t * t * ey;
+          img.setAngle(dx * 0.35 * t);
+        },
+        onComplete: () => {
+          // ② 상승 회수 — 잠깐 머문 뒤 헤더 카운터로 가속·축소하며 날아간다(하나씩 타라락).
+          this.tweens.add({
+            targets: img,
+            x: target.x,
+            y: target.y,
+            scaleX: bsx * 0.3,
+            scaleY: bsy * 0.3,
+            angle: 0,
+            alpha: 0.9,
+            duration: Phaser.Math.Between(420, 540),
+            delay: 70 + i * 34,
+            ease: 'Cubic.easeIn',
+            onComplete: () => img.destroy(),
+          });
+        },
+      });
+    }
+  }
+
+  /**
    * 레벨 클리어 보상 팝업 — **크게 묘사**(잘했어요! · 별 3 · 큰 코인/다이아 값). 넥스트/홈을 누르면
-   *   그 시점에 **코인·다이아가 상단 헤더로 빨려 들어가고**(suck) 이동한다.
+   *   그 시점에 **코인·다이아 입자가 흩어져 떨어졌다가 상단 헤더로 빨려 올라가고**(버스트 회수) 이동한다.
    */
   private showMissionReward(stars: number, coins: number, diamonds: number): void {
     const layer = this.add.container(0, 0).setDepth(2000);
@@ -2231,39 +2291,28 @@ export class PlayScene extends Phaser.Scene {
       this.tweens.add({ targets: g, scaleX: bsx, scaleY: bsy, duration: 360, delay: 700, ease: 'Back.easeOut' });
     }
 
-    // ── 넥스트/홈 버튼 → **코인·다이아가 헤더로 빨려 들어간 뒤** 이동. ──
+    // ── 넥스트/홈 버튼 → **보상 버스트 회수**(입자 낙하 → 헤더로 상승) 뒤 이동. ──
     const hasNext = this.level + 1 <= this.editorLevels;
     const go = (fn: () => void): void => {
-      // **과장 회수** — ① 먼저 크게 부풀렸다가 ② 헤더로 빨려 들어감(작아지며 가속). 코인(좌)·다이아(우).
-      const coinTarget = { x: 360, y: 90 };
-      const gemTarget = this.header?.diamondAnchor ?? { x: W - 260, y: 90 };
+      const coinTarget = { x: 360, y: 90 }; // 좌상단 코인 카운터.
+      const gemTarget = this.header?.diamondAnchor ?? { x: W - 260, y: 90 }; // 우상단 다이아 카운터.
       sfx('coin_burst', { volume: 0.35 });
       this.cameras.main.shake(160, 0.004); // 살짝 임팩트.
-      // 코인: 팝(×1.7) → 빨림.
+      // 큰 아이콘·숫자는 팝하며 소멸 — 그 자리에서 입자 버스트로 교대.
       this.tweens.add({
-        targets: [coinIcon, coinNum],
-        scaleX: '*=1.7',
-        scaleY: '*=1.7',
-        duration: 240,
-        ease: 'Back.easeOut',
-        onComplete: () => {
-          this.tweens.add({ targets: [coinIcon, coinNum], x: coinTarget.x, y: coinTarget.y, scaleX: '*=0.1', scaleY: '*=0.1', alpha: 0.05, duration: 520, ease: 'Cubic.easeIn' });
-        },
+        targets: [coinIcon, coinNum, ...(gemIcon ? [gemIcon] : [])],
+        scaleX: '*=1.5',
+        scaleY: '*=1.5',
+        alpha: 0,
+        duration: 260,
+        ease: 'Quad.easeOut',
       });
-      if (gemIcon) {
-        const g = gemIcon;
-        this.tweens.add({
-          targets: g,
-          scaleX: '*=1.7',
-          scaleY: '*=1.7',
-          duration: 240,
-          ease: 'Back.easeOut',
-          onComplete: () => {
-            this.tweens.add({ targets: g, x: gemTarget.x, y: gemTarget.y, scaleX: '*=0.12', scaleY: '*=0.12', alpha: 0.05, duration: 520, ease: 'Cubic.easeIn' });
-          },
-        });
-      }
-      this.time.delayedCall(840, fn); // 팝(240)+빨림(520)+여유 후 이동.
+      // 코인: 금액 비례 여러 개(8~16) 가 흩어져 떨어졌다가 → 좌상단으로 하나씩 상승 회수.
+      const coinN = Phaser.Math.Clamp(Math.round(coins / 125), 8, 16);
+      this.rewardBurstFly(coinX, rewardY, 'up_Solitare_UI_2_3', coinN, coinTarget, 92);
+      // 다이아: **보상 갯수만큼** 생성되어 떨어졌다가 → 우상단 다이아 카운터로 상승 회수.
+      if (diamonds > 0) this.rewardBurstFly(cx + 210, rewardY, 'up_Solitare_UI_2_2', diamonds, gemTarget, 96);
+      this.time.delayedCall(1900, fn); // 낙하+스태거 상승이 끝난 뒤 이동.
     };
     const btns: Array<{ key: string; on: () => void }> = [
       ...(hasNext ? [{ key: 'up_Solitare_UI_23_1', on: () => this.scene.start('play', { level: this.level + 1 }) }] : []),

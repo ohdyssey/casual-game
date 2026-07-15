@@ -66,6 +66,9 @@ const BOTTOM_SAFE = 30; // 하단 여백 — 뷰 하단이 근경(지면) 안쪽
 const LOT_DX = 1080; // **두 번째 부지(우측 타워) 가로 오프셋** = 한 화면. 지면(도로/중경 복사)이 이미 우측을 덮음.
 const LOT2_CX = W / 2 + LOT_DX; // 두 번째 타워(우측 부지) 중심 x(1620).
 const LOT1L_CX = W / 2 - LOT_DX; // **좌측 부지** 중심 x(-540) — 좌로 한 화면 팬하면 중앙에 온다.
+// **좌측 공공건물 타워** — 메인타워 왼쪽 부지(LOT1L_CX)에 공공건물 5개를 기존 타워 방식으로 **프리빌트**(항상 완공 상태).
+const OFFICE_FLOORS = 5; // 공공건물 층 수(소방서 등 5개).
+const OFFICE_CX = LOT1L_CX; // 좌측 부지 중심(-540).
 
 /** 사이드 부지 1개. cx=부지 중심 x, ruinKey=폐건물 텍스처(**고유·중복금지**), saveKey=저장키. */
 interface SideLot {
@@ -275,6 +278,11 @@ export class HomeScene extends Phaser.Scene {
     // **점포 코인 수령 말풍선** — 말머리 풍선(UI_11) + 코인 아이콘(UI_2-3).
     if (!this.textures.exists(CLAIM_BUBBLE_KEY)) this.load.image(CLAIM_BUBBLE_KEY, 'ui/uploads/up_Solitare_UI_11.png');
     if (!this.textures.exists(CLAIM_COIN_KEY)) this.load.image(CLAIM_COIN_KEY, 'ui/uploads/up_Solitare_UI_2-3.png');
+    // **좌측 공공건물 타워(5층 프리빌트)** — 소방서 등 5개 공공건물 아트.
+    for (let i = 1; i <= OFFICE_FLOORS; i++) {
+      const k = `up_Slitare_Office_${pad2(i)}`;
+      if (!this.textures.exists(k)) this.load.image(k, `ui/uploads/${k}.png`);
+    }
   }
 
   /** 에디터 저작 레벨 수(1부터 연속). 번들 팩 + localStorage 병합 기준. 최소 1(항상 1레벨은 시도 가능). */
@@ -1106,9 +1114,27 @@ export class HomeScene extends Phaser.Scene {
     this.applyPropShadows(idx); // 건물·가로등·소화전·화분 발밑 접지 그림자.
     this.setupLot2(); // 우측 내측 부지(lot2, 다층) 구입·건설 + 우측 팬 개방.
     this.setupSideLots(); // 좌 내/외·우 외 부지(폐건물 철거→1층) + 좌우 팬 개방.
+    this.buildOfficeTower(); // **좌측 공공건물 타워(5층) 프리빌트** — 메인타워 왼쪽 부지에 미리 완공 배치.
     // **각 부지 건물 좌우에 프롭**(가로등/소화전/화분) — 타워(중앙)는 home.json 이 이미 배치. 5개 부지에 코드 생성.
     for (const cx of [LOT1L_CX - LOT_DX, LOT1L_CX, LOT2_CX, LOT2_CX + LOT_DX, LOT2_CX + 2 * LOT_DX]) this.addLotProps(cx);
     this.extendRoad(); // 도로가 최외곽 부지까지 자동으로 이어지도록 타일 확장(끊김 방지).
+  }
+
+  /**
+   * **좌측 공공건물 타워(프리빌트)** — 메인타워 왼쪽 부지(OFFICE_CX=-540)에 공공건물 5개(소방서 등)를
+   *   기존 타워 층 스택 방식(동일 폭 LOT2_FLOOR_W·높이 LOT2_FLOOR_H·겹침 LOT2_SMALL_OVERLAP·1층 지면 동일)으로
+   *   **항상 완공 상태로 미리 배치**한다. 정적(비상호작용) 월드 오브젝트라 타워와 함께 스크롤(좌로 한 화면 팬 시 중앙).
+   */
+  private buildOfficeTower(): void {
+    const fw = LOT2_FLOOR_W;
+    const fh = LOT2_FLOOR_H;
+    for (let level = 1; level <= OFFICE_FLOORS; level++) {
+      const key = `up_Slitare_Office_${pad2(level)}`;
+      if (!this.textures.exists(key)) continue; // 아트 없으면 건너뜀(방어).
+      const y = LOT2_FLOOR1_Y - (level - 1) * (fh - LOT2_SMALL_OVERLAP); // 동일 높이 층을 위로 스택.
+      const img = this.add.image(OFFICE_CX, y, key).setDisplaySize(fw, fh).setDepth(this.floorDepth(level));
+      this.pinToWorld(img); // 월드(타워와 함께 스크롤) — uiCam 제외.
+    }
   }
 
   /**
@@ -1424,7 +1450,7 @@ export class HomeScene extends Phaser.Scene {
     this.hideLayoutRuins(); // home.json Ruin 노드는 숨김(중복 방지).
     // **폐건물 5개(lot2 포함) 각기 다른 텍스처**(중복 금지). 여기 4개(좌2·우2) + lot2(우 내측, Ruin_05).
     this.sideLots = [
-      { cx: LOT1L_CX, ruinKey: 'up_Slitare_BG_Ruin_01', saveKey: 'L1', hintText: '← 새 부지', hintX: 45, built: false, demolished: false, stage: 3 },
+      // ⚠️ 좌측 첫 부지(LOT1L_CX)는 **공공건물 타워 프리빌트**(buildOfficeTower)가 차지 → 폐건물 부지에서 제외.
       { cx: LOT1L_CX - LOT_DX, ruinKey: 'up_Slitare_BG_Ruin_02', saveKey: 'L2', hintText: '← 새 부지', hintX: 45, built: false, demolished: false, stage: 4 },
       { cx: LOT2_CX + LOT_DX, ruinKey: 'up_Slitare_BG_Ruin_03', saveKey: 'R2', hintText: '새 부지 →', hintX: 1035, built: false, demolished: false, stage: 5 },
       { cx: LOT2_CX + 2 * LOT_DX, ruinKey: 'up_Slitare_BG_Ruin_04', saveKey: 'R3', hintText: '새 부지 →', hintX: 1035, built: false, demolished: false, stage: 6 },
