@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "kind": "cardBoard",
+  "id": "brick-wall-3",
+  "name": "벽돌벽 3열 (Brick Wall 3-row)",
+  "family": "walls",
+  "note": "스크린샷 2 재현. 3열 캐스케이드 벽(위→아래 5·6·7). 하단행이 앞(최상위 레이어)=오픈, 위 두 행은 반칸 오프셋으로 뒤에서 가려짐=폴드. 스크린샷은 플레이 중 하단 일부가 제거된 상태이며, 템플릿의 시작 상태는 하단행 전체 오픈.",
+  "frame": { "designW": 2640, "designH": 1080 },
+  "grid": { "unitX": 230, "unitY": 95, "half": true },
+  "deck": { "type": "standard52", "packs": 1 },
+  "budget": { "board": 18, "stock": 28 },
+  "tags": { "difficultyBand": 3, "symmetrySafe": true, "maxLayer": 2 },
+  "piles": [
+    { "id": "board", "kind": "cascade", "arrange": "occlusion" },
+    { "id": "stock", "kind": "stock", "arrange": "stack" },
+    { "id": "waste", "kind": "waste", "arrange": "single" }
+  ],
+  "slots": [
+    { "id": "t0", "pile": "board", "x": 860,  "y": 300, "layer": 0, "face": "fold" },
+    { "id": "t1", "pile": "board", "x": 1090, "y": 300, "layer": 0, "face": "fold" },
+    { "id": "t2", "pile": "board", "x": 1320, "y": 300, "layer": 0, "face": "fold" },
+    { "id": "t3", "pile": "board", "x": 1550, "y": 300, "layer": 0, "face": "fold" },
+    { "id": "t4", "pile": "board", "x": 1780, "y": 300, "layer": 0, "face": "fold" },
+    { "id": "m0", "pile": "board", "x": 745,  "y": 395, "layer": 1, "face": "fold" },
+    { "id": "m1", "pile": "board", "x": 975,  "y": 395, "layer": 1, "face": "fold" },
+    { "id": "m2", "pile": "board", "x": 1205, "y": 395, "layer": 1, "face": "fold" },
+    { "id": "m3", "pile": "board", "x": 1435, "y": 395, "layer": 1, "face": "fold" },
+    { "id": "m4", "pile": "board", "x": 1665, "y": 395, "layer": 1, "face": "fold" },
+    { "id": "m5", "pile": "board", "x": 1895, "y": 395, "layer": 1, "face": "fold" },
+    { "id": "b0", "pile": "board", "x": 630,  "y": 490, "layer": 2, "face": "open" },
+    { "id": "b1", "pile": "board", "x": 860,  "y": 490, "layer": 2, "face": "open" },
+    { "id": "b2", "pile": "board", "x": 1090, "y": 490, "layer": 2, "face": "open" },
+    { "id": "b3", "pile": "board", "x": 1320, "y": 490, "layer": 2, "face": "open" },
+    { "id": "b4", "pile": "board", "x": 1550, "y": 490, "layer": 2, "face": "open" },
+    { "id": "b5", "pile": "board", "x": 1780, "y": 490, "layer": 2, "face": "open" },
+    { "id": "b6", "pile": "board", "x": 2010, "y": 490, "layer": 2, "face": "open" }
+  ]
+}

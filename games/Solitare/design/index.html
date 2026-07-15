@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>솔리테어 하이츠 · 에셋 디자인 보드</title>
+<!--
+  무빌드 단일 HTML(바닐라, 의존성 0). file:// 더블클릭 또는 dev 서버 /design/ 로 연다.
+  목적: "어떤 에셋을, 어디에, 어떤 크기/이름으로" 만들지 한눈에 보고 착수.
+  화면 배치의 SSOT 는 phaser-ui-editor → public/ui/layouts/{main,home}.json.
+-->
+<style>
+  :root{ --accent:#E86FA6; --ink:#2c2014; --muted:#8a7a8c; --line:#eddbe8; --ok:#3CB54A; --todo:#E2A02F; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; }
+  body{ font-family:'Jua','Segoe UI',system-ui,sans-serif; background:linear-gradient(160deg,#2a1830,#160e1f); color:#f3e7f0; padding:24px; line-height:1.5; }
+  h1{ font-size:26px; margin:0; } h2{ font-size:19px; margin:28px 0 12px; color:#ffd9f0; border-bottom:2px solid var(--accent); padding-bottom:6px; }
+  .wrap{ max-width:1180px; margin:0 auto; }
+  .pill{ background:var(--accent); color:#2a1830; font-weight:700; padding:3px 12px; border-radius:999px; font-size:13px; }
+  .grid2{ display:grid; grid-template-columns:360px 1fr; gap:28px; align-items:start; }
+  .screen{ position:relative; width:360px; height:800px; background:linear-gradient(#9ad0f5,#f7c9e4); border:3px solid #fff; border-radius:16px; overflow:hidden; }
+  .zone{ position:absolute; left:2%; width:96%; border:2px dashed rgba(122,45,90,.55); border-radius:10px; background:rgba(255,255,255,.14); font-size:12px; color:#3a1030; padding:6px 8px; }
+  table{ border-collapse:collapse; width:100%; font-size:14px; } th,td{ border:1px solid var(--line); padding:6px 10px; text-align:left; color:#2c2014; background:#fff8fd; }
+  th{ background:#ffe9f6; } .muted{ color:var(--muted); font-size:13px; }
+  .cardrow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .card{ width:66px; height:92px; border-radius:10px; background:#fffdf7; border:2px solid #d9cdbf; display:flex; align-items:center; justify-content:center; font-size:26px; color:#1c2b3a; box-shadow:0 3px 6px rgba(0,0,0,.2); }
+  .card.red{ color:#e23b3b; } .back{ background:#2f6fe0; border-color:#fff; }
+  .todo{ color:var(--todo); font-weight:700; } .ok{ color:var(--ok); font-weight:700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>솔리테어 하이츠 <span class="pill">에셋 디자인 보드</span></h1>
+    <p class="muted">TriPeaks + ±1 순환(A↔K) · 세로 HD 1080×2400 · accent #E86FA6</p>
+    <p style="margin-top:10px;">
+      <a href="card-editor.html" style="display:inline-block;background:#2fa85a;color:#fff;font-weight:700;padding:8px 16px;border-radius:10px;text-decoration:none;margin-right:8px;">🃏 카드 배치 에디터</a>
+      <a href="floor-editor.html" style="display:inline-block;background:#c07be0;color:#fff;font-weight:700;padding:8px 16px;border-radius:10px;text-decoration:none;">🏢 층(Floor) 디자인 에디터</a>
+    </p>
+  </header>
+
+  <div class="grid2">
+    <div>
+      <h2>플레이 화면 청사진</h2>
+      <div class="screen" id="screen"></div>
+      <p class="muted">1080×2400 을 0.333 배로 축소. 붉은 점선 = 코드 드로우 플레이스홀더 영역(에디터 저작 시 대체).</p>
+    </div>
+    <div>
+      <h2>카드 미리보기 (코드 드로우 → 정식 에셋 교체)</h2>
+      <div class="cardrow">
+        <div class="card red">A♥</div><div class="card">K♠</div><div class="card red">7♦</div><div class="card">10♣</div>
+        <div class="card back"></div><div class="card back"></div>
+      </div>
+      <h2>에셋 체크리스트</h2>
+      <table>
+        <tr><th>키</th><th>내용</th><th>수량</th><th>상태</th></tr>
+        <tr><td>up_Solitaire_CARD_&lt;S/H/D/C&gt;&lt;1..13&gt;</td><td>카드 앞면</td><td>52</td><td class="todo">TODO</td></tr>
+        <tr><td>up_Solitaire_CARD_back</td><td>카드 뒷면</td><td>1</td><td class="todo">TODO</td></tr>
+        <tr><td>up_Solitaire_BG_&lt;floor&gt;</td><td>층 배경</td><td>5</td><td class="todo">TODO</td></tr>
+        <tr><td>up_Solitaire_TOWER</td><td>타워 홈 배경(이미지1)</td><td>1</td><td class="todo">TODO</td></tr>
+        <tr><td>loading/{bg,logo,start_on,start_off}.png</td><td>포털 로딩</td><td>4</td><td class="todo">TODO</td></tr>
+      </table>
+      <h2>층(레벨) 테마</h2>
+      <table>
+        <tr><th>id</th><th>이름</th><th>서브</th></tr>
+        <tr><td>bakery</td><td>Golden Crust</td><td>BAKERY</td></tr>
+        <tr><td>coffee</td><td>Bean &amp; Bloom</td><td>COFFEE SHOP</td></tr>
+        <tr><td>seafood</td><td>Ocean Flame</td><td>SEAFOOD GRILL</td></tr>
+        <tr><td>ramen</td><td>Ramen Yokocho</td><td>ラーメン横丁</td></tr>
+        <tr><td>dessert</td><td>Sweet Escape</td><td>DESSERT BAR</td></tr>
+      </table>
+      <p class="muted">네이밍·내보내기 규약은 <b>ASSETS.md</b> 참조. 카드 키는 <code>cardFaceKey(suit,rank)</code> 계약과 1:1.</p>
+    </div>
+  </div>
+</div>
+<script>
+  // 청사진 영역(1080×2400 기준 y값을 0.333 배로 축소해 배치).
+  const S = 800/2400;
+  const zones = [
+    [0, 170, '상단 HUD — 코인 · 콤보 · 남은 카드 · 홈'],
+    [260, 120, '층 배너 — 상점 이름/서브/층수'],
+    [460, 540, '피크 보드 — 3피크 28장(행 3/6/9/10), 아래 행이 앞'],
+    [1150, 300, '스톡(뽑기 더미) + 웨이스트(기준 카드)'],
+  ];
+  const el = document.getElementById('screen');
+  for (const [y,h,label] of zones){
+    const d = document.createElement('div');
+    d.className='zone'; d.style.top=(y*S)+'px'; d.style.height=(h*S)+'px'; d.textContent=label;
+    el.appendChild(d);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "screens": [
+    {
+      "id": "home_copy",
+      "name": "타워 건설 템플릿",
+      "file": "ui/layouts/home_copy.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank",
+      "name": "플레이 진입",
+      "file": "ui/layouts/blank.json",
+      "category": "custom"
+    }
+  ]
+}

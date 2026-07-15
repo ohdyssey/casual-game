@@ -1,0 +1,2408 @@
+<meta charset="utf-8">
+<title>카드 배치 템플릿 에디터</title>
+<style>
+  :root {
+    --accent:#2fa85a; --accent-2:#38c268; --blue:#3f8ef0; --gold:#f4bd3d; --red:#e0453e; --amber:#f0932b;
+    --ground:#eef0f7; --surface:#fff; --surface-2:#f6f7fc; --surface-3:#eceef6;
+    --ink:#1a1d2e; --ink-2:#545a72; --ink-3:#8b90a8; --line:#e2e4ef; --line-2:#cfd2e2;
+    --sky-1:#8fd0ff; --sky-2:#bfe6ff; --floor:#c8a97e;
+    --shadow:0 18px 40px -26px rgba(20,24,55,.4);
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --ground:#0b0e1e;--surface:#14172b;--surface-2:#1a1e34;--surface-3:#222641;
+    --ink:#eef0fb;--ink-2:#a6abc7;--ink-3:#6d7395;--line:#262b45;--line-2:#343a5b;
+    --shadow:0 18px 44px -28px rgba(0,0,0,.75);}}
+  :root[data-theme="light"]{--ground:#eef0f7;--surface:#fff;--surface-2:#f6f7fc;--surface-3:#eceef6;--ink:#1a1d2e;--ink-2:#545a72;--ink-3:#8b90a8;--line:#e2e4ef;--line-2:#cfd2e2;--shadow:0 18px 40px -26px rgba(20,24,55,.4);}
+  :root[data-theme="dark"]{--ground:#0b0e1e;--surface:#14172b;--surface-2:#1a1e34;--surface-3:#222641;--ink:#eef0fb;--ink-2:#a6abc7;--ink-3:#6d7395;--line:#262b45;--line-2:#343a5b;--shadow:0 18px 44px -28px rgba(0,0,0,.75);}
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden;}
+  button,input,select{font-family:inherit;}
+  ::selection{background:color-mix(in srgb,var(--accent) 35%,transparent);}
+
+  .app{display:grid;grid-template-rows:auto auto 1fr;height:100vh;}
+  header{display:flex;align-items:center;gap:14px;padding:11px 18px;border-bottom:1px solid var(--line);background:var(--surface);}
+  header .logo{font-weight:800;letter-spacing:-.01em;font-size:16px;display:flex;align-items:center;gap:9px;}
+  header .logo .dot{width:10px;height:14px;border-radius:3px;background:linear-gradient(160deg,var(--blue),#2b63c6);box-shadow:0 2px 5px rgba(0,0,0,.3);}
+  header .sub{font-size:12px;color:var(--ink-3);}
+  header .sp{flex:1;}
+  .btn{border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);border-radius:9px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:.14s;}
+  .btn:hover{border-color:var(--accent);color:var(--ink);}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn.primary:hover{background:var(--accent-2);}
+  .btn.sm{padding:5px 9px;font-size:11.5px;border-radius:7px;}
+  .btn.danger:hover{border-color:var(--red);color:var(--red);}
+
+  main{display:grid;grid-template-columns:var(--leftw,240px) 6px 1fr 6px var(--rightw,320px);min-height:0;}
+  /* 패널 폭 조절 리사이저 — 끌어서 좌우폭 변경(좌·우 공용) */
+  .resizer{cursor:col-resize;position:relative;z-index:30;background:var(--surface);}
+  .resizer::before{content:"";position:absolute;top:0;bottom:0;left:2px;width:2px;background:var(--line-2);border-radius:2px;transition:.12s;}
+  .resizer:hover::before,.resizer.drag::before{background:var(--blue);left:1px;width:4px;}
+  .pane{overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:18px;}
+  .pane.left{background:var(--surface);}
+  .pane.right{border-left:1px solid var(--line);background:var(--surface);}
+  /* 테마 스크롤바 — 기본 브라우저 막대(밝은 회색) 대신 서피스/블루 톤. Firefox=thin, WebKit=오버레이형. */
+  *{scrollbar-width:thin;scrollbar-color:var(--line-2) transparent;}
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:8px;border:2px solid var(--surface);background-clip:padding-box;}
+  ::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--blue) 55%,var(--line-2));background-clip:padding-box;}
+  ::-webkit-scrollbar-corner{background:transparent;}
+  .grp{display:flex;flex-direction:column;gap:10px;}
+  .grp>.h{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);display:flex;align-items:center;gap:8px;}
+  .grp>.h::after{content:"";flex:1;height:1px;background:var(--line);}
+  .grp>.h .step{width:16px;height:16px;border-radius:50%;background:var(--accent);color:#fff;font:800 10px/16px system-ui;text-align:center;letter-spacing:0;}
+
+  /* canvas */
+  .stagewrap{position:relative;min-height:0;padding:16px;display:flex;align-items:center;justify-content:center;overflow:hidden;
+     background:radial-gradient(circle at 30% 8%,color-mix(in srgb,var(--blue) 7%,transparent),transparent 45%),var(--ground);}
+  .stagewrap.panning{cursor:grabbing;}
+  .stage{position:relative;height:100%;aspect-ratio:1080/2400;max-width:100%;border-radius:20px;overflow:hidden;will-change:transform;
+     box-shadow:var(--shadow);touch-action:none;user-select:none;
+     background:#10203e url("../public/ui/uploads/up_Solitaire_BG_Back01.png") center top/cover no-repeat;}
+  .board{position:absolute;inset:0;z-index:5;}
+  .gridlay{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .15s;z-index:3;}
+  .gridlay.on{opacity:1;}
+
+  /* context zones */
+  .zone{position:absolute;left:0;right:0;pointer-events:none;z-index:2;}
+  .zone.top{top:0;background:linear-gradient(180deg,rgba(30,40,80,.05),transparent);}
+  .zone.bot{bottom:0;background:linear-gradient(0deg,rgba(30,40,80,.06),transparent);}
+  .zone .lbl{position:absolute;left:50%;transform:translateX(-50%);font:700 11px system-ui;letter-spacing:.04em;color:rgba(40,45,70,.5);white-space:nowrap;}
+  .zone.top .lbl{top:10px;} .zone.bot .lbl{bottom:8px;}
+  .shopbar{position:absolute;left:6%;right:6%;top:34%;height:38%;border-radius:10px;border:2px dashed rgba(60,50,40,.25);display:grid;place-items:center;color:rgba(60,50,40,.4);font:700 12px system-ui;}
+  .playbound{position:absolute;pointer-events:none;z-index:4;border:2px dashed color-mix(in srgb,var(--accent) 60%,transparent);border-radius:14px;background:color-mix(in srgb,var(--accent) 4%,transparent);display:grid;place-items:center;}
+  .playhint{color:color-mix(in srgb,var(--accent) 80%,var(--ink));font:700 clamp(13px,1.6vw,17px)/1.5 system-ui;text-align:center;opacity:.8;padding:16px;}
+  .playhint span{font-weight:500;color:var(--ink-2);font-size:.85em;}
+  .mockstock{position:absolute;z-index:2;display:flex;align-items:center;gap:5%;}
+  .mockcard{border-radius:12%/9%;box-shadow:0 3px 8px rgba(0,0,0,.25);}
+  .mockcard.back{background:linear-gradient(158deg,#56a2f6,#2b63c6);border:1.5px solid rgba(255,255,255,.5);}
+  .mockcard.face{background:#fff;border:1.5px solid rgba(0,0,0,.12);}
+
+  .card{position:absolute;border-radius:11%/8%;cursor:grab;transition:box-shadow .12s;}
+  .card .inner{position:absolute;inset:0;border-radius:inherit;display:grid;place-items:center;overflow:hidden;}
+  .card.fold .inner{background:#2f6fe0 url("../public/ui/uploads/up_Solitaire_CARD_back.png") center/cover no-repeat;border:1.4px solid rgba(255,255,255,.6);}
+  .card.fold .inner::before, .card.fold .inner::after{display:none;} /* 실제 뒷면 아트 사용 → 코드드로우 패턴 숨김 */
+  .card.fold .inner::before{content:"";width:40%;aspect-ratio:1;transform:rotate(45deg);background:rgba(255,255,255,.15);border:1.4px solid rgba(255,255,255,.7);border-radius:16%;}
+  .card.fold .inner::after{content:"";position:absolute;width:15%;aspect-ratio:1;background:rgba(255,255,255,.85);border-radius:50% 50% 50% 0;transform:rotate(45deg);}
+  .card.open .inner{background:linear-gradient(160deg,#fffdf8,#f1efe6);border:1.4px solid rgba(0,0,0,.14);}
+  .card.open .inner::before{content:"◆";color:rgba(60,80,140,.14);font-size:min(3.4vw,26px);}
+  .card .lay{position:absolute;top:5%;right:8%;min-width:14px;height:14px;padding:0 2px;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:700 8.5px/14px ui-monospace,monospace;text-align:center;opacity:0;transition:.12s;}
+  .card.showlay .lay{opacity:1;}
+  .card .warn{position:absolute;top:5%;left:8%;width:13px;height:13px;border-radius:50%;background:var(--amber);color:#3a2500;font:800 9px/13px system-ui;text-align:center;display:none;}
+  /* 노출된 카드를 일부러 폴드(뒷면)로 두는 것은 이제 허용된 저작 선택 → 경고 숨김 */
+  .card.open{box-shadow:0 0 0 2px var(--gold),0 6px 12px -4px rgba(0,0,0,.5);}
+  .card.sel{box-shadow:0 0 0 3px var(--accent),0 12px 22px -6px rgba(0,0,0,.6)!important;} /* 선택해도 레이어 순서 유지(최상단으로 안 올림) */
+  .card:active{cursor:grabbing;}
+  .ghost{position:absolute;border-radius:11%/8%;pointer-events:none;z-index:8000;opacity:.55;display:none;border:2px dashed;}
+  .ghost.open{background:rgba(255,255,255,.5);border-color:var(--gold);}
+  .ghost.fold{background:rgba(63,142,240,.4);border-color:#fff;}
+  /* stroke authoring — live chain preview */
+  .preview{position:absolute;inset:0;pointer-events:none;z-index:8500;display:none;}
+  .pcard{position:absolute;border-radius:11%/8%;opacity:.6;box-shadow:0 4px 11px -3px rgba(0,0,0,.5);}
+  .pcard.fold{background:linear-gradient(158deg,#56a2f6,#3f8ef0 46%,#2b63c6);border:1.4px solid rgba(255,255,255,.55);}
+  .pcard.open{opacity:.85;background:linear-gradient(160deg,#fff,#eef1fa);border:1.4px solid var(--gold);box-shadow:0 0 0 2px var(--gold),0 5px 12px -3px rgba(0,0,0,.5);}
+  .strokearrow{position:absolute;pointer-events:none;z-index:8501;display:none;}
+  .strokearrow line{stroke:var(--gold);stroke-width:3;stroke-dasharray:7 6;stroke-linecap:round;opacity:.75;}
+  .strokearrow polygon{fill:var(--gold);opacity:.85;}
+  /* marquee multi-select */
+  .marquee{position:absolute;pointer-events:none;z-index:8600;display:none;border:1.5px solid var(--accent);
+     background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:4px;}
+  /* explode (펼침) — fanned card gets a lift + transition */
+  .card.pop{box-shadow:0 10px 26px -8px rgba(0,0,0,.65)!important;transition:left .16s cubic-bezier(.22,1,.36,1),transform .16s;}
+  .board.exploding .card:not(.pop){opacity:.35;}
+  /* multi-select inspector: align/distribute buttons */
+  .sublbl{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:2px 0 4px;}
+  .alignrow{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:6px;}
+  .alignrow button{border:1px solid var(--line-2);background:var(--surface-2);color:var(--ink-2);border-radius:7px;padding:8px 0;font-size:15px;cursor:pointer;line-height:1;transition:.12s;}
+  .alignrow button:hover:not([disabled]){border-color:var(--accent);color:var(--ink);background:color-mix(in srgb,var(--accent) 8%,var(--surface-2));}
+  .alignrow button[disabled]{opacity:.35;cursor:not-allowed;}
+  .dimx{color:var(--ink-3);font-weight:600;}
+  /* shape stamp handles (B) */
+  .handles{position:absolute;inset:0;z-index:8700;pointer-events:none;display:none;}
+  .shapebox{position:absolute;border:1.5px dashed var(--gold);border-radius:9px;pointer-events:none;background:color-mix(in srgb,var(--gold) 7%,transparent);}
+  .handle{position:absolute;width:13px;height:13px;margin:-6.5px 0 0 -6.5px;border-radius:50%;background:var(--gold);border:1.5px solid rgba(255,255,255,.85);box-shadow:0 1px 4px rgba(0,0,0,.35);pointer-events:auto;touch-action:none;opacity:.5;transition:background .12s,transform .12s,opacity .12s;}
+  .handle:hover{opacity:1;background:var(--amber);transform:scale(1.35);}
+  .handle.rot{background:var(--blue);border-color:rgba(255,255,255,.85);}
+  .handle.rot:hover{background:#2b63c6;}
+  .handle.xf{width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-radius:3px;background:var(--accent);} /* 바운딩박스 변형 핸들(사각) */
+  .handle.xf:hover{background:var(--accent-2);}
+  .rotstem{position:absolute;height:2px;background:color-mix(in srgb,var(--blue) 70%,transparent);pointer-events:none;}
+  .stepper{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;color:var(--ink-2);}
+  .stepper>span{flex:1;}
+  .stepper>b{min-width:34px;text-align:center;font:700 12.5px ui-monospace,monospace;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .stepper button{width:26px;height:26px;border:1px solid var(--line-2);background:var(--surface-2);color:var(--ink-2);border-radius:7px;font-size:15px;line-height:1;cursor:pointer;}
+  .stepper button:hover{border-color:var(--accent);color:var(--ink);}
+  /* cover graph links (C) */
+  .coverlinks{position:absolute;inset:0;z-index:400;pointer-events:none;display:none;}
+  .coverlinks line{stroke:rgba(224,69,62,.55);stroke-width:2;}
+  .coverlinks circle{fill:none;stroke:var(--gold);stroke-width:2.5;}
+  /* 스마트 정렬 가이드 — 드래그 중 다른 카드의 모서리/중심과 정렬되면 분홍선 표시 + 흡착 */
+  .snapg{position:absolute;inset:0;z-index:460;pointer-events:none;}
+  .snapg .gv{position:absolute;top:0;height:100%;width:0;border-left:1px dashed #ff5a9e;}
+  .snapg .gh{position:absolute;left:0;width:100%;height:0;border-top:1px dashed #ff5a9e;}
+  /* 숨김/잠금 레이어 표시 */
+  .card.hiddenlay{display:none !important;}
+  .lyr.locked .lyname{opacity:.55;}
+  .lyr.hidden .lyname{opacity:.4;text-decoration:line-through;}
+  .lyrename{width:100%;background:var(--surface-3);border:1px solid var(--blue);border-radius:6px;padding:2px 6px;font:600 12px system-ui;color:var(--ink);}
+  /* play verification (D) */
+  .pbrank{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:.9;font:800 clamp(12px,2.9vw,25px) Arial,system-ui;color:#26344a;}
+  .pbrank.red{color:#e8402f;}
+  .pbrank i{font-style:normal;font-size:.64em;margin-top:.05em;}
+  .card.pbcleared{opacity:.14;transition:opacity .3s;}
+  .board.playing .card{cursor:default;}
+  .wastebadge{position:absolute;left:50%;top:46px;transform:translateX(-50%);z-index:10001;display:none;
+     background:rgba(10,12,26,.82);backdrop-filter:blur(6px);color:#fff;border:1px solid var(--gold);
+     border-radius:20px;padding:6px 14px;font:700 13px system-ui;box-shadow:0 6px 18px -6px rgba(0,0,0,.6);}
+  .packbadge{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:10002;display:none;
+     background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#fff;border:1px solid rgba(255,255,255,.35);
+     border-radius:20px;padding:6px 16px;font:800 13px system-ui;box-shadow:0 6px 18px -6px rgba(0,0,0,.6);}
+  /* 재생 연출: 스톡·웨이스트 파일 + 날아가는 카드 + 노출 뒤집기 */
+  .pbpile{pointer-events:none;z-index:9000;transition:none;}
+  .pbpile .cnt{position:absolute;inset:0;display:grid;place-items:center;font:800 clamp(14px,2.6vw,22px) system-ui;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7);}
+  .pbfly-layer{position:absolute;inset:0;pointer-events:none;z-index:9600;}
+  .pbfly{position:absolute;z-index:9600;box-shadow:0 8px 20px -6px rgba(0,0,0,.55);
+     transition:left .42s cubic-bezier(.34,.02,.2,1),top .42s cubic-bezier(.34,.02,.2,1);}
+  .card.reveal{animation:none;}
+  .card.reveal .inner{animation:pbflip .36s cubic-bezier(.3,1.3,.5,1);transform-origin:center;}
+  @keyframes pbflip{0%{transform:rotateY(-88deg) scale(.86);opacity:.4;}55%{transform:rotateY(12deg) scale(1.04);opacity:1;}100%{transform:rotateY(0) scale(1);}}
+  /* 겹침/비겹침 명확 표시: 노출(안 겹침)=초록 링, 가려짐(겹침)=어둡게 */
+  .card.expo{box-shadow:0 0 0 3px #2fbf5e, 0 6px 15px -4px rgba(0,0,0,.55) !important;}
+  .card.covd .inner{filter:brightness(.82);}
+  .card.covd::after{content:"";position:absolute;inset:0;border-radius:inherit;background:rgba(8,14,30,.24);pointer-events:none;}
+  .stage.pbmode .tools, .stage.pbmode .hud, .stage.pbmode .playbound, .stage.pbmode .zone .lbl, .stage.pbmode .shopbar, .stage.pbmode .mockstock{opacity:0;pointer-events:none;transition:opacity .2s;}
+  /* 게임 UI 도입: 상점층(상단) + 다크 보드 패널 — 재생 중 실제 게임처럼 */
+  .gamefloor{position:absolute;left:0;top:0;width:100%;z-index:1;opacity:0;pointer-events:none;transition:opacity .3s;filter:drop-shadow(0 6px 12px rgba(0,0,0,.4));}
+  .gamepanel{position:absolute;left:2.5%;right:2.5%;top:23.5%;bottom:6%;z-index:1;border-radius:26px;opacity:0;pointer-events:none;transition:opacity .3s;
+     background:linear-gradient(180deg,rgba(6,10,26,.72),rgba(6,10,26,.82));box-shadow:inset 0 0 70px rgba(0,0,0,.5),0 10px 30px -10px rgba(0,0,0,.6);}
+  .stage.pbmode .gamefloor, .stage.pbmode .gamepanel{opacity:1;}
+  .note.good{color:var(--accent);font-weight:600;} .note.bad{color:var(--red);font-weight:600;}
+
+  /* overlays */
+  .hud{position:absolute;top:10px;left:10px;display:flex;gap:7px;flex-wrap:wrap;z-index:10000;}
+  .pill{background:rgba(10,12,26,.6);backdrop-filter:blur(6px);color:#fff;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:5px 11px;font:600 11.5px system-ui;display:flex;align-items:center;gap:6px;}
+  .pill b{font:700 11.5px ui-monospace,monospace;font-variant-numeric:tabular-nums;}
+  .pill .g{color:var(--gold);} .pill .bl{color:#8fc0ff;} .pill.warn{border-color:var(--amber);color:#ffd9a6;}
+  /* 상단 툴바 — 헤더 바로 아래 최상단 스트립(캔버스 위 부유 아님) */
+  .tools{display:flex;gap:5px;flex-wrap:wrap;align-items:center;padding:7px 16px;background:var(--surface);border-bottom:1px solid var(--line);z-index:40;}
+  .app.playing .tools{opacity:.25;pointer-events:none;}
+  .tgrp{font:700 9px system-ui;letter-spacing:.06em;color:var(--ink-3);padding:0 1px;}
+  .tsep{width:1px;height:18px;background:var(--line-2);}
+  .tool{background:var(--surface-2);color:var(--ink);border:1px solid var(--line-2);border-radius:9px;padding:6px 10px;font:600 12px system-ui;cursor:pointer;display:inline-flex;gap:6px;align-items:center;transition:.12s;}
+  .tool:hover{border-color:var(--accent);color:var(--ink);}
+  .tool.act{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .tool.dim{opacity:.45;}
+  .tool.act.fold{background:var(--blue);border-color:var(--blue);}
+  .swatch{width:13px;height:18px;border-radius:3px;}
+  .swatch.o{background:#fff;border:1.5px solid var(--gold);}
+  .swatch.f{background:linear-gradient(160deg,#4a97f2,#2c66c8);}
+
+  /* brush picker (left, prominent) */
+  /* 셰이프 카테고리 탭 */
+  .shapetabs{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:8px;}
+  .shtab{flex:1 1 auto;border:1px solid var(--line-2);background:var(--surface-2);color:var(--ink-2);border-radius:7px;padding:5px 6px;font:700 11px system-ui;cursor:pointer;transition:.12s;}
+  .shtab:hover{border-color:var(--blue);}
+  .shtab.on{background:var(--blue);border-color:var(--blue);color:#fff;}
+  .shapegrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
+  /* 고급 난이도 조정 */
+  .advdiff{border:1px solid var(--line);border-radius:8px;padding:2px 9px 8px;background:var(--surface-2);}
+  .advdiff summary{cursor:pointer;font:700 11px system-ui;color:var(--ink-2);padding:6px 0;list-style:none;letter-spacing:.02em;}
+  .advdiff summary::-webkit-details-marker{display:none;}
+  .advdiff summary::before{content:"▸ ";color:var(--blue);}
+  .advdiff[open] summary::before{content:"▾ ";}
+  .advdiff summary:hover{color:var(--ink);}
+  .brushpick{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+  .brushpick.tool3{grid-template-columns:1fr 1fr 1fr;gap:7px;}
+  .bcard.sel .big{background:repeating-linear-gradient(45deg,var(--surface-3),var(--surface-3) 4px,var(--line-2) 4px,var(--line-2) 8px);border:2px dashed var(--ink-3);}
+  .bcard{border:1.5px solid var(--line);border-radius:12px;padding:11px 9px;cursor:pointer;text-align:center;background:var(--surface-2);transition:.14s;display:flex;flex-direction:column;align-items:center;gap:7px;}
+  .bcard:hover{border-color:var(--line-2);}
+  .bcard.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,var(--surface-2));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent);}
+  .bcard .big{width:30px;height:42px;border-radius:6px;box-shadow:0 3px 7px rgba(0,0,0,.28);}
+  .bcard.open .big{background:#fff;border:2px solid var(--gold);}
+  .bcard.fold .big{background:linear-gradient(158deg,#56a2f6,#2b63c6);border:2px solid rgba(255,255,255,.6);}
+  .bcard .t{font-size:13px;font-weight:800;}
+  .bcard .d{font-size:10px;color:var(--ink-3);line-height:1.3;}
+
+  /* library */
+  .lib{display:flex;flex-direction:column;gap:6px;}
+  .libitem{display:flex;align-items:center;gap:9px;padding:8px 9px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);cursor:pointer;transition:.12s;}
+  .libitem:hover{border-color:var(--accent);}
+  .libitem.cur{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface-2));}
+  .libitem .mini{width:34px;height:44px;border-radius:5px;background:linear-gradient(180deg,#9fd4ff,#e2d3b4);position:relative;overflow:hidden;flex:none;border:1px solid var(--line);}
+  .libitem .mini i{position:absolute;border-radius:1px;}
+  .libitem .tx{min-width:0;flex:1;}
+  .libitem .tx .n{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .libitem .tx .m{font-size:10.5px;color:var(--ink-3);}
+  .libitem .del{opacity:0;color:var(--ink-3);border:0;background:none;cursor:pointer;font-size:15px;padding:2px 4px;}
+  .libitem:hover .del{opacity:1;}
+  .libitem .del:hover{color:var(--red);}
+
+  .row{display:flex;gap:8px;align-items:center;}
+  .row.wrap{flex-wrap:wrap;}
+  label.f{display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:600;color:var(--ink-3);flex:1;}
+  input.t,select.t{width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:12.5px;color:var(--ink);}
+  input.t:focus,select.t:focus{outline:none;border-color:var(--accent);}
+  input.num{font:600 12.5px ui-monospace,monospace;}
+  .seg{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .seg button{flex:1;border:0;background:none;padding:7px;font-size:12px;font-weight:600;color:var(--ink-3);cursor:pointer;}
+  .seg button.on{background:var(--accent);color:#fff;}
+  .kv{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2);}
+  .kv b{font:700 12.5px ui-monospace,monospace;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .empty{font-size:12px;color:var(--ink-3);padding:10px;text-align:center;border:1px dashed var(--line-2);border-radius:9px;}
+  .note{font-size:11px;color:var(--ink-3);line-height:1.5;}
+  .note code{font:600 10.5px ui-monospace,monospace;color:var(--accent);}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .spacerow{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;}
+  .spacerow button{border:1px solid var(--line-2);background:var(--surface-2);color:var(--ink-2);border-radius:6px;padding:8px 0;font:700 12px ui-monospace,monospace;cursor:pointer;transition:.12s;}
+  .spacerow button:hover{border-color:var(--accent);color:var(--ink);}
+  .spacerow button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+  /* 삽입/편집 모드 전환 */
+  .modesw{display:inline-flex;background:var(--surface-2);border:1px solid var(--line-2);border-radius:10px;overflow:hidden;margin-left:10px;flex:0 0 auto;}
+  .modesw button{border:0;background:none;padding:7px 18px;font:800 13px system-ui;color:var(--ink-3);cursor:pointer;transition:.12s;}
+  .modesw button.on{background:var(--accent);color:#fff;}
+  .modesw button:not(.on):hover{color:var(--ink);}
+  /* 삽입/편집 단일화 — 모드 구분 없이 도구(선택/오픈/폴드/셰이프)로 전환. 모든 패널 상시 표시. */
+  /* 숫자 레벨 그리드 */
+  .lvlgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;min-height:4px;}
+  .lvlchip{position:relative;border:1px solid var(--line-2);background:var(--surface-2);border-radius:8px;padding:8px 0 5px;font:800 15px system-ui;color:var(--ink);cursor:pointer;transition:.12s;}
+  .lvlchip:hover{border-color:var(--accent);}
+  .lvlchip small{display:block;font:600 9px ui-monospace,monospace;color:var(--ink-3);}
+  .lvlchip i{position:absolute;top:0;right:3px;font-style:normal;font-size:13px;color:var(--ink-3);opacity:0;}
+  .lvlchip:hover i{opacity:1;} .lvlchip i:hover{color:var(--red);}
+  .lvlchip .ldup{position:absolute;top:1px;left:3px;font-size:11px;color:var(--ink-3);opacity:0;cursor:pointer;line-height:1;}
+  .lvlchip:hover .ldup{opacity:1;} .lvlchip .ldup:hover{color:var(--accent);}
+  .lvlchip.cur{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--surface-2));box-shadow:0 0 0 1px var(--accent) inset;}
+  .lvlchip.cur::after{content:"편집중";position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);font:800 7px system-ui;letter-spacing:.05em;color:#fff;background:var(--accent);border-radius:4px;padding:1px 4px;}
+  #lvlCur{font-size:11px;color:var(--ink-2);}
+  #lvlCur b{color:var(--accent);}
+  /* 섹션·그룹·레이어 목록 */
+  .layerlist{display:flex;flex-direction:column;gap:4px;max-height:230px;overflow-y:auto;margin-bottom:8px;padding-right:2px;}
+  .lyr{display:flex;align-items:center;flex-wrap:wrap;gap:4px;row-gap:5px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:8px;padding:6px 8px;cursor:pointer;transition:.12s;}
+  .lyr:hover{border-color:var(--accent);}
+  .lyr.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 20%,var(--surface-2));box-shadow:inset 3px 0 0 var(--accent);}
+  .lysel{flex:0 0 auto;font:800 9px system-ui;color:#fff;background:var(--accent);border-radius:5px;padding:2px 6px;}
+  .lysel.part{background:var(--amber);color:#3a2500;}
+  .lyr.ung{cursor:default;opacity:.7;border-style:dashed;}
+  .lyr.ung:hover{border-color:var(--line-2);}
+  .lyname{flex:1 1 88px;min-width:70px;font:700 12px system-ui;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lycount{flex:0 0 auto;font:700 10px ui-monospace,monospace;color:var(--ink-3);background:var(--ground);border-radius:5px;padding:2px 6px;}
+  .lyb{flex:0 0 auto;border:0;background:none;color:var(--ink-3);font-size:11px;cursor:pointer;padding:2px 2px;border-radius:5px;line-height:1;}
+  .lyb:hover{color:var(--ink);background:var(--ground);}
+  .lyb.x:hover{color:var(--red);}
+  /* 해답 재생 컨트롤 */
+  .pbbar{height:7px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:5px;overflow:hidden;margin:10px 0 5px;}
+  .pbbarfill{height:100%;background:var(--accent);width:0;transition:width .12s ease;}
+  .pbbtns{display:flex;gap:5px;margin-top:6px;}
+  .pbbtns .btn{padding:6px 7px;min-width:0;}
+  .pbbtns button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .pbbtns button:disabled{opacity:.4;cursor:default;}
+  #pbMove{margin-left:auto;}
+  /* 카드 오픈/폴드 진단 */
+  .cdiag{border-radius:9px;padding:8px 10px;margin-bottom:10px;font:600 11.5px system-ui;line-height:1.5;}
+  .cdiag.op{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--ink);}
+  .cdiag.fo{background:color-mix(in srgb,var(--blue) 16%,transparent);color:var(--ink);}
+  .cdiag b{color:var(--ink);}
+  /* 레벨 가이드 */
+  .guide{margin:10px 0 4px;border:1px solid var(--line-2);border-radius:10px;padding:9px 11px;background:var(--surface-2);}
+  .guide .grow{display:grid;grid-template-columns:minmax(52px,auto) 1fr;gap:8px;align-items:baseline;padding:3px 0;font:600 12px system-ui;color:var(--ink-2);}
+  .guide .grow>span:first-child{white-space:nowrap;}
+  .guide .grow>b{color:var(--ink);font:700 12.5px system-ui;text-align:right;justify-self:end;line-height:1.35;}
+  .guide .grow small{color:var(--ink-3);font:600 10px ui-monospace,monospace;margin-left:4px;white-space:nowrap;}
+  .guide .gdiff b{color:var(--gold);letter-spacing:1px;}
+  .guide .gstk{border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);border-radius:5px;width:19px;height:19px;font-size:12px;line-height:1;cursor:pointer;padding:0;vertical-align:middle;}
+  .guide .gstk:hover{border-color:var(--blue);color:var(--ink);}
+  .guide .gsep{height:1px;background:var(--line-2);margin:6px 0;}
+  .guide .gnote{margin-top:7px;font:600 11px system-ui;line-height:1.45;border-radius:7px;padding:6px 8px;}
+  .guide .gnote.warn{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--ink);}
+  .guide .gnote.ok{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--ink);}
+  .guide .gnote.dim{background:transparent;color:var(--ink-3);padding:2px 0;}
+  /* 선택 그룹/레이어 헤더 + 미세 이동 패드 */
+  .selhead{border:1px solid var(--accent);border-radius:10px;padding:9px;margin-bottom:10px;background:color-mix(in srgb,var(--accent) 8%,var(--surface-2));}
+  .shrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
+  .shname{font:800 13px system-ui;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .shcnt{flex:0 0 auto;font:700 10px ui-monospace,monospace;color:#fff;background:var(--accent);border-radius:5px;padding:2px 7px;}
+  .nudge{margin-top:8px;display:flex;flex-direction:column;align-items:center;gap:3px;}
+  .ndrow{display:flex;align-items:center;justify-content:center;gap:3px;}
+  .nudge button{width:34px;height:26px;border:1px solid var(--line-2);background:var(--surface-2);color:var(--ink);border-radius:7px;cursor:pointer;font-size:12px;}
+  .nudge button:hover{border-color:var(--accent);}
+  .ndlbl{width:66px;text-align:center;font:600 8.5px system-ui;color:var(--ink-3);line-height:1.2;}
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--ground);padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:99999;box-shadow:0 10px 30px -10px rgba(0,0,0,.5);}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* help modal */
+  .modal{position:fixed;inset:0;background:rgba(8,10,22,.6);backdrop-filter:blur(3px);display:none;place-items:center;z-index:99998;padding:20px;}
+  .modal.show{display:grid;}
+  .sheet{background:var(--surface);border:1px solid var(--line);border-radius:18px;max-width:520px;width:100%;padding:26px;box-shadow:0 30px 70px -30px rgba(0,0,0,.6);}
+  .sheet h2{margin:0 0 4px;font-size:21px;font-weight:800;}
+  .sheet .lead{color:var(--ink-2);font-size:13.5px;margin:0 0 20px;}
+  /* 원문자 ⓘ 도움말 아이콘 — 섹션 헤더에 붙여 클릭 시 상세 설명 팝업. */
+  .info{width:16px;height:16px;flex:0 0 auto;border:none;border-radius:50%;background:var(--line-2);color:var(--surface);
+    font:italic 700 11px/16px Georgia,serif;text-align:center;cursor:pointer;padding:0;transition:.12s;letter-spacing:0;text-transform:none;}
+  .info:hover{background:var(--blue);color:#fff;transform:scale(1.12);}
+  .ihead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;}
+  .ihead h2{margin:0;font-size:19px;font-weight:800;}
+  .ibody{color:var(--ink-2);font-size:13px;line-height:1.72;max-height:64vh;overflow-y:auto;}
+  .ibody b{color:var(--ink);}
+  .ibody h4{margin:15px 0 5px;font-size:12.5px;color:var(--ink);font-weight:700;}
+  .ibody h4:first-child{margin-top:0;}
+  .ibody ul{margin:6px 0;padding-left:17px;}
+  .ibody li{margin:4px 0;}
+  .ibody code{background:var(--surface-2);padding:1px 5px;border-radius:5px;font-size:11.5px;border:1px solid var(--line);}
+  .ibody .kbd{display:inline-block;background:var(--surface-2);border:1px solid var(--line-2);border-bottom-width:2px;border-radius:5px;padding:0 5px;font:600 11px system-ui;color:var(--ink-2);}
+  .steps{display:flex;flex-direction:column;gap:14px;margin-bottom:22px;}
+  .stepi{display:flex;gap:13px;align-items:flex-start;}
+  .stepi .n{width:26px;height:26px;border-radius:8px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);font:800 13px/26px system-ui;text-align:center;flex:none;}
+  .stepi .tt{font-size:13.5px;}
+  .stepi .tt b{font-weight:800;}
+  .stepi .tt span{color:var(--ink-3);}
+  .kbd{font:600 11px ui-monospace,monospace;background:var(--surface-2);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--ink-2);}
+
+  @media (max-width:980px){main{grid-template-columns:1fr;grid-template-rows:auto auto 1fr;} .pane{max-height:210px;} .resizer{display:none;} .pane.left{order:2;} .stagewrap{order:1;min-height:60vh;} .pane.right{order:3;}}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+</style>
+
+<div class="app">
+  <header>
+    <span class="logo"><span class="dot"></span>카드 배치 에디터</span>
+    <span class="sub" id="modeHint">도구를 골라 편집·삽입하세요. 왼쪽 <b>도구</b>에서 선택/오픈/폴드/셰이프.</span>
+    <span class="sp"></span>
+    <a class="btn sm" href="floor-editor.html" title="층(Floor) 디자인 에디터(별개 창)">🏢 층 에디터</a>
+    <button class="btn sm" id="helpBtn">? 사용법</button>
+    <button class="btn sm" id="undoBtn" title="실행취소 (Ctrl+Z)">↶ 취소</button>
+    <button class="btn sm" id="themeBtn">◐ 테마</button>
+  </header>
+
+  <!-- 상단 툴바 — 최상단 스트립 -->
+  <div class="tools">
+    <span class="tgrp">스냅</span>
+    <button class="tool" id="tSnap" title="간격 프리셋(1~8) 격자에 자석 스냅">▦ 스냅</button>
+    <button class="tool" id="tLattice" title="게임과 동일한 커버 격자에 스냅 (반칸 스태거·행 피치)">▤ 커버격자</button>
+    <span class="tsep"></span><span class="tgrp">표시</span>
+    <button class="tool" id="tGrid" title="격자선 표시">＃ 격자</button>
+    <button class="tool" id="tLay" title="각 카드 레이어 번호">① 레이어</button>
+    <button class="tool" id="tCover" title="커버(가림) 관계를 선으로 표시 — 난이도 그래프">⧉ 커버선</button>
+    <span class="tsep"></span><span class="tgrp">편집</span>
+    <button class="tool" id="tTangent" title="스트로크를 경로 방향으로 회전(아치·갈런드용)">↻ 접선</button>
+    <button class="tool" id="tJitter" title="선택(없으면 전체)에 미세 회전·위치 지터 — 손 배치 느낌">🖐 손맛</button>
+    <button class="tool" id="tRealign" title="손맛으로 흐트러진 카드를 다시 정렬 — 회전 0°·격자 스냅">▦ 정돈</button>
+    <button class="tool" id="tSpread" title="완전히 포개진 카드를 펼쳐 뒤 카드가 보이게 — 앞 카드 최대 50%만 덮음(커버 관계 유지)">⇱ 겹침펼치기</button>
+    <button class="tool" id="tFlipZ" title="겹침(덮는/덮이는) 순서 반전 — 선택(없으면 전체). 같은 층 앞뒤도 반전">⇅ 겹침반전</button>
+    <button class="tool" id="tDedup" title="같은 자리에 완전히 포개진 중복 카드 제거(배치≠표시 원인)">⊟ 중복정리</button>
+    <button class="tool" id="tMirror" title="보드 전체 좌우 대칭 복제">⇋ 전체대칭</button>
+    <span class="tsep"></span><span class="tgrp">확대</span>
+    <button class="tool" id="tZoomOut" title="축소 (Alt+휠로도 가능)">－</button>
+    <button class="tool" id="tZoomReset" title="100% (Alt+더블클릭)">100%</button>
+    <button class="tool" id="tZoomIn" title="확대 (Alt+휠로도 가능)">＋</button>
+    <span class="tsep"></span>
+    <button class="tool" id="tClear" title="보드 비우기">✕ 비우기</button>
+  </div>
+
+  <main>
+    <!-- LEFT -->
+    <aside class="pane left">
+      <div class="grp">
+        <div class="h"><span class="step">1</span> 도구 <button class="info" data-info="tools" title="도움말" aria-label="도움말">i</button></div>
+        <div class="brushpick tool3">
+          <div class="bcard sel on" id="bSelect"><div class="big"></div><div class="t">✋ 선택</div><div class="d">카드/그룹 편집·이동</div></div>
+          <div class="bcard open" id="bOpen"><div class="big"></div><div class="t">오픈</div><div class="d">앞면 카드 삽입</div></div>
+          <div class="bcard fold" id="bFold"><div class="big"></div><div class="t">폴드</div><div class="d">뒷면 카드 삽입</div></div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <div class="h">셰이프 스탬프 <button class="info" data-info="shapes" title="도움말" aria-label="도움말">i</button></div>
+        <div class="shapetabs" id="shapeTabs"></div>
+        <div class="shapegrid" id="shapeGrid"></div>
+      </div>
+
+      <div class="grp">
+        <div class="h">섹션 · 그룹 · 레이어 <button class="info" data-info="layers" title="도움말" aria-label="도움말">i</button></div>
+        <div class="layerlist" id="layerList"></div>
+        <div class="grid2">
+          <button class="btn sm" id="gMake">▣ 그룹 만들기</button>
+          <button class="btn sm" id="gUngroup">▢ 해제</button>
+        </div>
+        <div class="grid2">
+          <button class="btn sm" id="gDup">⧉ 복제</button>
+          <button class="btn sm primary" id="gMirror">⇋ 반전복제</button>
+        </div>
+        <div class="row" style="align-items:center;gap:6px">
+          <span class="note" style="flex:0 0 auto">그룹 회전</span>
+          <button class="btn sm" id="gRotL">↺ −15°</button>
+          <button class="btn sm" id="gRotR">↻ +15°</button>
+        </div>
+      </div>
+
+      <div class="grp">
+        <div class="h">간격 (겹침 프리셋 1~8) <button class="info" data-info="spacing" title="도움말" aria-label="도움말">i</button></div>
+        <div class="spacerow" id="spaceRow">
+          <button data-sp="1">1</button><button data-sp="2">2</button><button data-sp="3">3</button><button data-sp="4">4</button>
+          <button data-sp="5">5</button><button data-sp="6">6</button><button data-sp="7">7</button><button data-sp="8">8</button>
+        </div>
+      </div>
+
+      <div class="grp">
+        <div class="h">숫자 레벨 저장 · 게임 적용 <button class="info" data-info="levelsave" title="도움말" aria-label="도움말">i</button></div>
+        <div class="row" style="align-items:flex-end">
+          <label class="f" style="max-width:76px">레벨 번호<input class="t num" id="lvlNum" type="number" min="1" value="1"></label>
+          <button class="btn sm primary" id="lvlSaveBtn" style="flex:1">💾 이 레벨 저장 → 게임 적용</button>
+        </div>
+        <div class="kv" id="lvlCur">편집 중: <b>새 보드(미저장)</b></div>
+        <div class="lvlgrid" id="lvlGrid"></div>
+        <div class="grid2">
+          <button class="btn sm" id="lvlExport">레벨팩 내보내기(배포용)</button>
+          <button class="btn sm" id="lvlImport">가져오기</button>
+        </div>
+        <button class="btn sm primary" id="lvlApplyAll" style="width:100%;margin-top:6px">⭳ 커밋 레벨팩 전체 적용(파일 → 게임)</button>
+        <input type="file" id="lvlFile" accept="application/json" hidden>
+      </div>
+
+      <div class="grp">
+        <div class="h">라이브러리 · 파일 <button class="info" data-info="library" title="도움말" aria-label="도움말">i</button></div>
+        <div class="lib" id="lib"></div>
+        <div class="row">
+          <button class="btn sm primary" id="saveLib" style="flex:1">＋ 현재 저장</button>
+          <button class="btn sm" id="newTpl" style="flex:1">빈 보드</button>
+        </div>
+        <div class="grid2">
+          <button class="btn sm" id="expOne">JSON 내보내기</button>
+          <button class="btn sm" id="impBtn">JSON 가져오기</button>
+        </div>
+        <input type="file" id="impFile" accept="application/json" multiple hidden>
+      </div>
+    </aside>
+
+    <div class="resizer" id="resizer" title="끌어서 왼쪽 패널 폭 조절 · 더블클릭=기본값"></div>
+
+    <!-- CANVAS -->
+    <section class="stagewrap">
+      <div class="stage" id="stage">
+        <img class="gamefloor" id="gameFloor" src="../public/ui/uploads/up_Solitaire_BG_01.png" alt="">
+        <div class="gamepanel" id="gamePanel"></div>
+        <div class="zone top" id="zTop"><span class="lbl">상단 · 상점 / HUD (배치 영역 아님)</span>
+          <div class="shopbar">상점 배너</div></div>
+        <div class="zone bot" id="zBot"><span class="lbl">하단 · 뽑기 / 버튼</span>
+          <div class="mockstock" id="mockstock">
+            <div class="mockcard back"></div><div class="mockcard face"></div>
+          </div></div>
+        <div class="playbound" id="playbound"><div class="playhint" id="playhint">여기를 클릭해 카드를 놓으세요<br><span>왼쪽에서 오픈/폴드를 고른 뒤 · 위에 겹치면 레이어가 쌓입니다</span></div></div>
+        <canvas class="gridlay" id="gridlay"></canvas>
+        <div class="board" id="board"></div>
+        <div class="snapg" id="snapg"></div>
+        <svg class="coverlinks" id="coverlinks"></svg>
+        <div class="preview" id="preview"></div>
+        <svg class="strokearrow" id="strokearrow"><line id="saLine"/><polygon id="saHead"/></svg>
+        <div class="marquee" id="marquee"></div>
+        <div class="handles" id="handles"></div>
+        <div class="wastebadge" id="wasteBadge"></div>
+        <div class="packbadge" id="packBadge"></div>
+        <div class="card fold pbpile" id="pbStock" style="display:none"></div>
+        <div class="card open pbpile" id="pbWaste" style="display:none"></div>
+        <div class="pbfly-layer" id="pbFly"></div>
+        <div class="ghost" id="ghost"></div>
+        <div class="hud">
+          <span class="pill" id="pBudget">보드 <b id="hBoard">0</b>/<b id="hTarget">0</b></span>
+          <span class="pill">뽑기 <b class="bl" id="hStock">21</b></span>
+          <span class="pill" id="pOF">오픈 <b class="g" id="hOpen">0</b>·폴드 <b class="bl" id="hFold">0</b></span>
+        </div>
+      </div>
+    </section>
+
+    <div class="resizer" id="resizerR" title="끌어서 오른쪽 패널 폭 조절 · 더블클릭=기본값"></div>
+
+    <!-- RIGHT -->
+    <aside class="pane right">
+      <div class="grp">
+        <div class="h"><span class="step">2</span> 레벨 설정 <button class="info" data-info="settings" title="도움말" aria-label="도움말">i</button></div>
+        <label class="f">이름<input class="t" id="mName" placeholder="예: 삼봉 아크"></label>
+        <div class="row">
+          <label class="f">패밀리
+            <select class="t" id="mFamily">
+              <option value="peaks">Peaks 봉우리</option><option value="pyramids">Pyramids 피라미드</option>
+              <option value="walls">Walls 벽돌벽</option><option value="fans">Fans 부채꼴</option>
+              <option value="diamonds">Diamonds 마름모</option><option value="arches">Arches 아치</option>
+              <option value="waves">Waves 물결</option><option value="crosses">Crosses 십자·별</option>
+              <option value="rings">Rings 고리·왕관</option><option value="clusters">Clusters 산개</option>
+              <option value="symbols">Symbols 심볼</option><option value="grids">Grids 격자</option>
+            </select>
+          </label>
+        </div>
+        <div class="row">
+          <label class="f">보드 목표<input class="t num" id="mTarget" type="number" min="1" value="30"></label>
+          <label class="f">뽑기(stock)<input class="t num" id="mStock" type="number" min="0" value="21"></label>
+        </div>
+        <div class="row">
+          <label class="f">난이도 등급
+            <select class="t" id="mDiff"><option value="1">★ 쉬움</option><option value="2" selected>★★ 보통</option><option value="3">★★★ 어려움</option></select>
+          </label>
+        </div>
+        <details class="advdiff" id="mAdv">
+          <summary>고급 조정 — 연쇄·뽑기매칭·스톡 개별 설정</summary>
+          <div class="row">
+            <label class="f">연속매칭
+              <select class="t" id="mChain"><option value="">자동(등급)</option><option value="low">낮음(어려움)</option><option value="mid">보통</option><option value="high">높음(쉬움)</option><option value="vhigh">아주 높음(매우 쉬움)</option></select>
+            </label>
+            <label class="f">뽑기매칭
+              <select class="t" id="mFeed"><option value="">자동(등급)</option><option value="low">낮음(어려움)</option><option value="mid">보통</option><option value="high">높음(쉬움)</option><option value="vhigh">아주 높음(매우 쉬움)</option></select>
+            </label>
+          </div>
+          <div class="note" style="margin-top:4px">스톡 수는 위 <b>뽑기(stock)</b> 칸에서 조절합니다. '자동'은 등급 기본값을 사용합니다.</div>
+        </details>
+        <div class="row">
+          <label class="f">프레임 W<input class="t num" id="mFW" type="number" value="1080"></label>
+          <label class="f">프레임 H<input class="t num" id="mFH" type="number" value="2400"></label>
+        </div>
+        <div class="kv">ID <b id="mId">–</b></div>
+      </div>
+
+      <div class="grp">
+        <div class="h">선택 · 그룹/레이어 편집 <button class="info" data-info="inspector" title="도움말" aria-label="도움말">i</button></div>
+        <div id="selHead"></div>
+        <div id="insp"></div>
+      </div>
+
+      <div class="grp">
+        <div class="h"><span class="step">3</span> 풀이 검증 · 해답 재생 <button class="info" data-info="verify" title="도움말" aria-label="도움말">i</button></div>
+        <div class="kv">유도 오픈 <b id="vDerived">0</b> · 최대 레이어 <b id="vLayer">0</b></div>
+        <div class="note" id="vMsg">–</div>
+        <button class="btn sm primary" id="solveBtn" style="width:100%">▶ 풀이 검증 (아슬아슬 딜 탐색)</button>
+        <div class="note" id="vSolve">이 배열이 <b>어떤 딜로든 풀리는지</b>(타이트 스톡) DFS로 검사합니다. 통과하면 아래 <b>해답 재생</b> 컨트롤이 열립니다.</div>
+        <div class="guide" id="levelGuide"></div>
+        <div id="pbCtl" style="display:none">
+          <div class="pbbar"><div class="pbbarfill" id="pbFill"></div></div>
+          <div class="kv"><span id="pbProg">0 / 0</span><span class="dimx" id="pbMove">시작</span></div>
+          <div class="pbbtns">
+            <button class="btn sm" id="pbFirstBtn" title="처음으로">⏮</button>
+            <button class="btn sm" id="pbPrev" title="이전 수">◀</button>
+            <button class="btn sm primary" id="playBtn" title="재생 / 일시정지" style="flex:1">▶ 재생</button>
+            <button class="btn sm" id="pbNextBtn" title="다음 수">▶</button>
+            <button class="btn sm" id="pbCloseBtn" title="재생 종료(편집 복귀)">✕</button>
+          </div>
+          <div class="pbbtns" id="pbSpd">
+            <span class="note" style="flex:0 0 auto;align-self:center;margin:0">배속</span>
+            <button class="btn sm" data-spd="2">0.5×</button>
+            <button class="btn sm on" data-spd="1">1×</button>
+            <button class="btn sm" data-spd="0.5">2×</button>
+            <button class="btn sm" data-spd="0.25">4×</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal" id="help">
+  <div class="sheet">
+    <h2>🃏 3단계로 배치</h2>
+    <p class="lead">카드 <b>값·그림이 아니라 배치·배열</b>만 정합니다. 값은 게임이 딜 때 배정합니다.</p>
+    <div class="steps">
+      <div class="stepi"><div class="n">1</div><div class="tt"><b>브러시 고르기</b> — <span>왼쪽에서 <b>오픈</b>(앞면·바로 낼 카드) 또는 <b>폴드</b>(뒷면·가려진 카드)를 선택.</span></div></div>
+      <div class="stepi"><div class="n">2</div><div class="tt"><b>클릭 = 1장 · 끌기 = 줄기</b> — <span>중앙 플레이 영역을 <b>클릭</b>하면 카드 1장. 빈 곳을 <b>끌면</b> 경로를 따라 카드 줄기가 깔리고, 끄는 <b>방향으로 층이 쌓여</b>(끝점=오픈) 부채꼴·팬 컬럼이 한 번에. 카드를 끌면 이동, <span class="kbd">Alt</span>+클릭 삭제.</span></div></div>
+      <div class="stepi"><div class="n">3</div><div class="tt"><b>확인·저장</b> — <span>오른쪽에서 오픈 카드가 최소 1장인지 검증한 뒤 <b>현재 저장</b> 또는 <b>JSON 내보내기</b>.</span></div></div>
+    </div>
+    <div class="row"><span class="note" style="flex:1">단축키 <span class="kbd">V</span> 선택도구 · <span class="kbd">Ctrl+A</span> 전체선택 · 끌기=마퀴 · <span class="kbd">Shift</span>+클릭 추가 · <span class="kbd">Ctrl(⌘)</span>+클릭 개별 카드 · <span class="kbd">Alt</span>+휠/드래그 확대·이동 · <span class="kbd">X</span> 펼쳐보기 · <span class="kbd">Del</span> 삭제 · <span class="kbd">F</span> 뒤집기 · <span class="kbd">[ ]</span> 레이어 · 방향키 이동 · <span class="kbd">Ctrl+Z</span> 취소</span>
+      <button class="btn primary" id="helpClose">시작하기</button></div>
+  </div>
+</div>
+
+<div class="modal" id="infoModal">
+  <div class="sheet">
+    <div class="ihead"><h2 id="infoTitle">도움말</h2><button class="btn sm" id="infoClose">✕ 닫기</button></div>
+    <div class="ibody" id="infoBody"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const CARD_W=120, CARD_H=164, OVERLAP_MIN=0.01, SAME_LAYER_MIN=0.01, SNAP_X=60, SNAP_Y=47; // 카드 크기=게임 표시 1:1 통일(120×164). 게임 PlayScene CARD_SIZE=1.0 과 동일 픽셀.
+// SAME_LAYER_MIN=같은 층 카드끼리 커버 임계(면적비, 1%). **무조건 앞 카드가 조금이라도 겹치면 뒤 카드는 덮임(오픈 안 됨).** 겹치기 싫으면 간격을 벌려 놓을 것.
+// OVERLAP_MIN=커버 판정 임계(면적비). **위 레이어 카드가 조금이라도 겹치면(≥1%) 아래 카드는 덮인 것 → 자동오픈 안 됨.** (딱 붙음/edge-touch=0은 제외)
+// 커버 격자(C) — 게임 PlayScene 기하와 일치: col 1칸=카드폭, 반칸(0.5)=스태거, 행 피치=pyUnit≈CARD_H*0.58.
+//   이 격자에 스냅하면 겹침에서 유도된 커버가 게임의 col±0.5 규칙과 정확히 수렴(에디터=게임).
+const LAT_X=CARD_W/2, LAT_Y=Math.round(CARD_H*0.58);  // 66 · 106
+const STROKE_STEP=67;   // 스트로크 카드 간 경로 간격(px) — 작을수록 겹침(커버)↑
+const STROKE_MIN=26;    // 이 거리 넘게 끌어야 '스트로크', 아니면 클릭=1장
+const $=s=>document.querySelector(s);
+const board=$("#board"), stage=$("#stage"), gridlay=$("#gridlay"), ghost=$("#ghost");
+
+// ── 캔버스 확대/축소·이동 — Alt+휠=커서 기준 확대/축소, Alt+드래그=이동(팬), Alt+더블클릭/100%=원위치 ──
+//   stage 에 CSS transform 만 적용 → toDesign(board.getBoundingClientRect 기반)이 좌표를 자동 보정(배치·선택 정확).
+const stagewrap=document.querySelector(".stagewrap");
+let zoom=1, panX=0, panY=0, panning=null;
+function applyView(){ stage.style.transformOrigin="center center"; stage.style.transform=`translate(${panX}px,${panY}px) scale(${zoom})`; }
+function updateZoomLabel(){ const b=$("#tZoomReset"); if(b) b.textContent=Math.round(zoom*100)+"%"; }
+function setZoom(z,mx,my){ const w=stagewrap.getBoundingClientRect(), S0x=w.left+w.width/2, S0y=w.top+w.height/2;
+  if(mx==null){ mx=S0x; my=S0y; } const nz=clamp(z,0.4,6);
+  panX=(mx-S0x)-(mx-S0x-panX)*(nz/zoom); panY=(my-S0y)-(my-S0y-panY)*(nz/zoom); // 커서 지점 고정
+  zoom=nz; applyView(); updateZoomLabel(); }
+function resetView(){ zoom=1; panX=0; panY=0; applyView(); updateZoomLabel(); }
+stagewrap.addEventListener("wheel",e=>{ if(!e.altKey) return; e.preventDefault(); setZoom(zoom*(e.deltaY<0?1.12:0.892), e.clientX, e.clientY); }, {passive:false});
+stagewrap.addEventListener("pointerdown",e=>{ if(!e.altKey||e.button!==0) return; e.preventDefault(); e.stopPropagation(); // Alt+드래그=팬(캡처단계로 보드보다 먼저 가로챔)
+  panning={x:e.clientX,y:e.clientY,px:panX,py:panY}; stagewrap.classList.add("panning"); try{stagewrap.setPointerCapture(e.pointerId);}catch{} }, true);
+stagewrap.addEventListener("pointermove",e=>{ if(!panning) return; panX=panning.px+(e.clientX-panning.x); panY=panning.py+(e.clientY-panning.y); applyView(); }, true);
+stagewrap.addEventListener("pointerup",()=>{ if(panning){ panning=null; stagewrap.classList.remove("panning"); } }, true);
+stagewrap.addEventListener("dblclick",e=>{ if(e.altKey){ e.preventDefault(); resetView(); } });
+
+let S=blank(), selected=null, brush="open", snap=true, showGrid=false, showLay=false;
+let strokeOn=true, strokeDraw=null;
+let sel=new Set(), tool="select", marquee=null, explodeHold=false, explodeSet=null, lastPt=null;
+// 통합 도구(tool): "select"=편집(선택·이동·그룹) / "open"·"fold"=카드 삽입 브러시. 모드 구분 없음.
+let activeShape=null, shapeDrag=null;
+let lattice=false, showCover=false, tangentRot=false;
+let gidc=1, spacing=6, gmeta={}; // 그룹 id 카운터 · 간격 프리셋(1~8) · 그룹 이름 레지스트리(gid→이름)
+let gHidden={}, gLocked={}, clip=null; // 그룹별 숨김/잠금 레지스트리(gid→true) · 클립보드
+let curLevel=null; // 현재 불러온/저장한 숫자 레벨 번호(칩 하이라이트·표시용)
+function isHidden(s){ return !!(s.gid && gHidden[s.gid]); } // 숨김=렌더/선택 제외(커버·솔버에는 여전히 존재)
+function isLocked(s){ return !!(s.gid && gLocked[s.gid]); } // 잠금=캔버스 이동·삭제·선택 보호(레이어 패널로 해제)
+// 스마트 정렬 가이드 — 값들을 2px 이내로 병합, 임계 내 최근접 탐색.
+function mergeLines(arr){ const s=[...arr].sort((a,b)=>a-b), out=[];
+  for(const v of s){ const o=out[out.length-1]; if(o && Math.abs(o.sum/o.n - v)<=2){ o.sum+=v; o.n++; } else out.push({sum:v,n:1}); }
+  return out.map(o=>o.sum/o.n); }
+function nearestGuide(arr,val,tol){ let best=null; for(const a of arr){ const d=Math.abs(a-val); if(d<=tol&&(!best||d<best.dd)) best={v:a,dd:d}; } return best; }
+// 드래그 중인 선택의 bbox 3점(좌/중/우·상/중/하)이 다른 카드의 모서리/중심(및 프레임 중심)과 8px 내로 맞으면 흡착.
+function alignSnap(dx,dy){
+  if(!drag||!drag.orig||!drag.orig.length) return {dx,dy,vs:[],hs:[]};
+  const moving=new Set(drag.orig.map(o=>o.o.id));
+  let L=Infinity,R=-Infinity,T=Infinity,B=-Infinity;
+  drag.orig.forEach(({x,y})=>{ L=Math.min(L,x-CARD_W/2); R=Math.max(R,x+CARD_W/2); T=Math.min(T,y-CARD_H/2); B=Math.max(B,y+CARD_H/2); });
+  L+=dx; R+=dx; T+=dy; B+=dy; const CX=(L+R)/2, CY=(T+B)/2;
+  const xs=[S.frame.w/2], ys=[S.frame.h/2];
+  S.slots.forEach(s=>{ if(moving.has(s.id)||isHidden(s)) return; xs.push(s.x-CARD_W/2,s.x,s.x+CARD_W/2); ys.push(s.y-CARD_H/2,s.y,s.y+CARD_H/2); });
+  const XV=mergeLines(xs), YV=mergeLines(ys), TOL=8; let bx=null,by=null;
+  for(const off of [L,CX,R]){ const g=nearestGuide(XV,off,TOL); if(g&&(!bx||g.dd<bx.dd)) bx={line:g.v,d:off-g.v,dd:g.dd}; }
+  for(const off of [T,CY,B]){ const g=nearestGuide(YV,off,TOL); if(g&&(!by||g.dd<by.dd)) by={line:g.v,d:off-g.v,dd:g.dd}; }
+  const vs=[], hs=[]; if(bx){ dx-=bx.d; vs.push(bx.line); } if(by){ dy-=by.d; hs.push(by.line); }
+  return {dx,dy,vs,hs};
+}
+function drawGuides(vs,hs){ const g=$("#snapg"); if(!g) return;
+  g.innerHTML = vs.map(x=>`<div class="gv" style="left:${x/S.frame.w*100}%"></div>`).join("")
+             + hs.map(y=>`<div class="gh" style="top:${y/S.frame.h*100}%"></div>`).join(""); }
+function clearGuides(){ const g=$("#snapg"); if(g) g.innerHTML=""; }
+let shapeDefs={}; // 셰이프 파라미터 보존(gid→{type,rows,cols,spread,curve,cx,cy}) — 평탄화 후에도 재편집 가능
+let lastSolve=null, lastDiff=null, loadedDeal=null, playing=false, pbTimer=null, pbStepIdx=0, pbCleared=null, pbWaste=0, pbBoardRanks=null, solPath=null, pbCoveredBy=null, pbStockLeft=0, pbExposed=null, pbJustRevealed=null, pbSuits=null, pbWasteSuit="♠";
+let pbSeq=[], pbSpeed=1, pbRunning=false; // 해답 재생: 수순 · 배속(간격 배율) · 재생중 여부
+let tT=null; // 토스트 타이머 — 부팅 중 setSpacing→toast가 먼저 호출되므로 최상단에서 선언(TDZ 방지)
+let idc=1, history=[];
+
+// 스냅 — 커버격자(lattice) 우선, 아니면 **간격 프리셋(1~8)** 격자. 임의 간격 없이 8단계로만 배열.
+//   간격 n: 가로 피치 = n×(카드폭/8), 세로 피치 = n×(카드높이/8). 8=카드 딱 붙음, 4=반겹침, 1=강한겹침.
+function spX(){ return Math.max(8, Math.round(spacing*CARD_W/8)); }
+function spY(){ return Math.max(8, Math.round(spacing*CARD_H/8)); }
+function stepX(){ return lattice?LAT_X:spX(); }
+function stepY(){ return lattice?LAT_Y:spY(); }
+function snapOn(){ return lattice||snap; }
+function doSnap(x,y){ if(!snapOn()) return {x,y}; return {x:Math.round(x/stepX())*stepX(), y:Math.round(y/stepY())*stepY()}; }
+// 자석 스냅 — 자유롭게(부드럽게) 움직이다 간격 격자선 근처(피치의 MAG_TOL 이내)에서만 딸깍 붙음.
+const MAG_TOL=0.34;
+function magnet(v,step){ const q=Math.round(v/step)*step; return Math.abs(v-q)<=step*MAG_TOL ? q : v; }
+function magSnapDelta(dx,dy){ return snapOn() ? {dx:magnet(dx,stepX()), dy:magnet(dy,stepY())} : {dx,dy}; }
+
+function blank(){ return {id:"new-template",name:"",family:"peaks",band:3,difficulty:2,diffChain:"",diffFeed:"",frame:{w:1080,h:2400},stock:21,target:30,slots:[],shapes:[]}; }
+function uid(){ return "s"+(idc++); }
+function slug(s){ return (s||"template").trim().toLowerCase().replace(/[^\w가-힣\s-]/g,"").replace(/\s+/g,"-").replace(/-+/g,"-").slice(0,40)||"template"; } // 한글 리터럴 — 파일 최상단 <meta charset="utf-8"> 필수(http 서빙 시 Latin-1 오독→정규식 파싱오류 방지)
+// 배치 영역 = **게임 보드 영역과 동일**(PlayScene: BOARD_LEFT 55·RIGHT 1025 / TOP 680·BOTTOM 1950, 1080×2400 기준)
+//   → 이 영역을 꽉 채우는 배치는 게임에서 스케일 1(=카드 크기 그대로) 로 렌더 → 에디터=게임 사이즈 일치.
+function zone(){ const f=S.frame; return {x0:f.w*0.051,y0:f.h*0.2833,x1:f.w*0.9491,y1:f.h*0.8125}; }
+
+// cover model (§2.5)
+// 회전 반영 겹침(OBB): 카드는 rot 만큼 돌아간 사각형이므로 축정렬 박스가 아니라 실제 회전 사각형의 교집합 면적으로 판정.
+//   링·스파이럴처럼 각 카드가 다른 각도로 돌면 축정렬 겹침은 각도에 따라 0.01~0.24로 요동쳐 오검출 → 시각적으로 겹쳤는데 오픈되는 버그.
+function _corners(c,w,h){ const r=(c.rot||0)*Math.PI/180, co=Math.cos(r), s=Math.sin(r), hw=w/2, hh=h/2;
+  return [[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(p=>({x:c.x+p[0]*co-p[1]*s, y:c.y+p[0]*s+p[1]*co})); }
+function _polyArea(p){ let a=0; for(let i=0;i<p.length;i++){ const j=(i+1)%p.length; a+=p[i].x*p[j].y-p[j].x*p[i].y; } return Math.abs(a)/2; }
+function _segX(p1,p2,a,b){ const d=(p1.x-p2.x)*(a.y-b.y)-(p1.y-p2.y)*(a.x-b.x); if(!d) return p1;
+  const t=((p1.x-a.x)*(a.y-b.y)-(p1.y-a.y)*(a.x-b.x))/d; return {x:p1.x+t*(p2.x-p1.x), y:p1.y+t*(p2.y-p1.y)}; }
+function _clipPoly(sub,cl){ let out=sub; const cx=cl.reduce((s,p)=>s+p.x,0)/cl.length, cy=cl.reduce((s,p)=>s+p.y,0)/cl.length; // Sutherland–Hodgman
+  for(let i=0;i<cl.length;i++){ const a=cl[i], b=cl[(i+1)%cl.length];
+    const side=(x,y)=>(x-a.x)*(b.y-a.y)-(y-a.y)*(b.x-a.x), ref=side(cx,cy);
+    const ins=p=>side(p.x,p.y)*ref>=0, inp=out; out=[];
+    for(let j=0;j<inp.length;j++){ const cur=inp[j], prev=inp[(j+inp.length-1)%inp.length], ci=ins(cur), pi=ins(prev);
+      if(ci){ if(!pi) out.push(_segX(prev,cur,a,b)); out.push(cur); } else if(pi) out.push(_segX(prev,cur,a,b)); }
+    if(!out.length) return []; }
+  return out; }
+function overlap(a,b){ return _polyArea(_clipPoly(_corners(a,CARD_W,CARD_H),_corners(b,CARD_W,CARD_H)))/(CARD_W*CARD_H); }
+// 커버 = **시각적으로 앞에 있는 카드**(층이 더 높거나, 같은 층이면 나중에 그린=배열상 뒤 인덱스)가 s와 겹치면 덮음.
+//   다른 층: ≥1% · 같은 층: ≥15%(이웃 카드 오검출 방지). → "위에 겹친 카드가 있으면 아래는 오픈 안 됨"이 링/스파이럴에도 적용.
+function coverOf(s){ const si=S.slots.indexOf(s);
+  return S.slots.filter((o,oi)=>{ if(o===s) return false;
+    const front = o.layer>s.layer || (o.layer===s.layer && oi>si); if(!front) return false;
+    return overlap(s,o) >= (o.layer===s.layer ? SAME_LAYER_MIN : OVERLAP_MIN); }); }
+function layerAt(x,y){ let mx=-1; const p={x,y}; for(const o of S.slots) if(overlap(p,o)>=OVERLAP_MIN) mx=Math.max(mx,o.layer); return mx+1; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function fit(x,y){ const z=zone(); return {x:clamp(x,z.x0+CARD_W/2,z.x1-CARD_W/2), y:clamp(y,z.y0+CARD_H/2,z.y1-CARD_H/2)}; }
+
+// ── 승리가능성 검증(D) — 게임 solvable.ts(isWinnable DFS + dealWinnable) 이식 ──
+//   에디터는 배치만 저작 → 값은 딜 시 배정. "이 배열이 어떤 딜로든 풀리는가"를 단일 52덱 재딜로 탐색.
+const RANK_LBL={1:"A",11:"J",12:"Q",13:"K"};
+function rankLabel(r){ return RANK_LBL[r]||String(r); }
+// 게임 디자인: 무늬는 시각용(매칭은 랭크만·무늬 무시). ♠♥♦♣ + 빨강(♥♦)/검정(♠♣).
+const SUIT_SYM=["♠","♥","♦","♣"];
+function suitRed(s){ return s==="♥"||s==="♦"; }
+function suitOf(k){ return SUIT_SYM[((k%4)+4)%4]; }
+function cardFaceHTML(rank,suit){ return `<span class="pbrank${suitRed(suit)?" red":""}">${rankLabel(rank)}<i>${suit}</i></span>`; }
+function rankAdj(a,b){ const d=Math.abs(a-b); return a>0&&b>0&&(d===1||d===12); } // ±1, 무늬 무시, 순환 A↔K 포함
+function buildCoveredBy(){ const idx=new Map(); S.slots.forEach((s,i)=>idx.set(s.id,i));
+  return S.slots.map(s=>coverOf(s).map(c=>idx.get(c.id)).filter(v=>v!=null)); }
+function isWinnableRanks(boardRanks,stockRanks,startWaste,coveredBy,nodeCap,capture){
+  const n=boardRanks.length; solPath=null; if(n===0){ if(capture)solPath=[]; return true; }
+  const cleared=new Array(n).fill(false); let clearedNum=0,clearedCount=0,nodes=0; const visited=new Set(), path=[];
+  const exposed=i=>{ const cb=coveredBy[i]; for(let k=0;k<cb.length;k++) if(!cleared[cb[k]]) return false; return true; };
+  function dfs(sp,wr){
+    if(clearedCount===n){ if(capture)solPath=path.slice(); return true; }
+    if(nodes++>nodeCap) return false;
+    const key=clearedNum+","+sp+","+wr; if(visited.has(key)) return false; visited.add(key);
+    for(let i=0;i<n;i++){ if(!cleared[i]&&rankAdj(boardRanks[i],wr)&&exposed(i)){
+      cleared[i]=true; clearedNum+=2**i; clearedCount++; path.push({t:"p",i});
+      if(dfs(sp,boardRanks[i])) return true;
+      path.pop(); cleared[i]=false; clearedNum-=2**i; clearedCount--; } }
+    if(sp<stockRanks.length){ const dr=stockRanks[stockRanks.length-1-sp]; path.push({t:"d",r:dr}); if(dfs(sp+1,dr)) return true; path.pop(); } // ★게임과 동일: 스톡은 끝에서 뽑음
+    return false;
+  }
+  return dfs(0,startWaste);
+}
+function checkWinnable(){
+  const n=S.slots.length;
+  if(n===0) return {ok:false,msg:"빈 보드 — 카드를 배치하세요"};
+  if(n>103) return {ok:false,msg:`보드 ${n}장 > 103 — 2덱으로 딜 불가(보드 ≤103)`};
+  const derivedOpen=S.slots.filter(s=>coverOf(s).length===0).length;
+  if(derivedOpen===0) return {ok:false,msg:"오픈(노출) 카드 0 — 시작 시 낼 카드가 없어 플레이 불가"};
+  // 새 규칙: 표준 2덱(104=각 랭크 8, 무늬 무시). **타이트 스톡(아슬아슬)** — 보드 ~0.7배부터
+  //   승리 가능한 최소 스톡을 찾는다(스톡 과다 = 무한드로우 = 난이도 붕괴 방지, 레퍼런스 board30/stock21).
+  const coveredBy=buildCoveredBy(), base=[]; for(let s=0;s<8;s++)for(let r=1;r<=13;r++)base.push(r);
+  const maxStock=103-n, startM=Math.min(maxStock,Math.max(6,Math.round(n*0.3))); // 게임 findMinWinnableStock 와 동일 floor(6)
+  for(let M=startM; M<=maxStock; M+=2){ // 작은 스텝 + 많은 시도 → 타이트 딜을 안정적으로 발견(아슬아슬)
+    for(let t=0;t<220;t++){
+      const d=base.slice(); for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}
+      // 게임 딜과 동일 제약: 보드는 랭크당 ≤3장(selectVariedBoard). 나머지로 웨이스트+스톡 → 검증=게임 정합.
+      const bd=[], rest=[], rc={};
+      for(const r of d){ if(bd.length<n && (rc[r]||0)<3){ bd.push(r); rc[r]=(rc[r]||0)+1; } else rest.push(r); }
+      if(bd.length<n) continue;
+      const boardRanks=bd, waste=rest[0], stockRanks=rest.slice(1,1+M);
+      if(isWinnableRanks(boardRanks,stockRanks,waste,coveredBy,15000,true))
+        return {ok:true,msg:`✓ 풀림 (보드 ${n} · 스톡 ${M} · 아슬아슬)`,boardRanks,stockRanks,waste,budget:M,path:solPath,restStock:rest.slice(1)}; // restStock=여유 스톡 확장용(저장 딜)
+    }
+  }
+  return {ok:false,msg:`✗ 승리 못 찾음 — 구조가 너무 어려움`};
+}
+
+// ── 난이도 측정(게임 difficulty.ts 이식) ──
+//   완벽 솔버(위 isWinnableRanks)는 항상 이김 → 난이도 = **실수하는 greedy 플레이어의 승률**.
+//   세 요소(연쇄·뽑기매칭·스톡)가 나쁠수록 greedy 가 막히고/헛뽑고/재시도 부족으로 진다 = 승률↓ = 난이도↑.
+const GRADE_CUTS={easy:0.85,medium:0.55}; // wr≥0.85 쉬움 · ≥0.55 보통 · 그 외 어려움
+const GRADE_TARGET_WR={1:0.92,2:0.7,3:0.42};
+const CHAIN_TARGET={low:0.7,mid:1.3,high:2.2,vhigh:3.2}, FEED_TARGET={low:0.32,mid:0.52,high:0.75,vhigh:0.9}; // 고급 조정 목표값(게임 difficulty.ts 와 동일)
+const FLABEL={low:"낮음",mid:"보통",high:"높음",vhigh:"아주 높음"};
+const GRADE_LABEL={1:"★ 쉬움",2:"★★ 보통",3:"★★★ 어려움"};
+function gradeFromWR(wr){ return wr>=GRADE_CUTS.easy?1:(wr>=GRADE_CUTS.medium?2:3); }
+function slackForGrade(g,n){ return g===1?Math.max(4,Math.round(n*0.35)):g===2?Math.max(2,Math.round(n*0.12)):0; }
+// i 를 제거하면 새로 노출되는 카드 수(greedy 휴리스틱). coversList[i] = i 를 덮개로 갖는 카드들.
+function buildCoversList(coveredBy){ const cl=coveredBy.map(()=>[]);
+  for(let o=0;o<coveredBy.length;o++) for(const i of coveredBy[o]) cl[i].push(o); return cl; }
+function unlockGainRanks(i,cleared,coveredBy,coversList){ let g=0;
+  for(const o of coversList[i]){ if(cleared[o]) continue;
+    if(coveredBy[o].every(c=>c===i||cleared[c])) g++; } return g; }
+// 한 판 greedy(실수하는 보통 플레이어): 매칭되는 노출카드 중 가장 많이 여는 수(동점 랜덤), 없으면 뽑기. 이기면 true.
+function greedyPlayoutRanks(boardRanks,stockRanks,startWaste,coveredBy,coversList,rng){
+  const n=boardRanks.length; const cleared=new Array(n).fill(false); let cc=0, sp=0, wr=startWaste;
+  const exposed=i=>{ const cb=coveredBy[i]; for(let k=0;k<cb.length;k++) if(!cleared[cb[k]]) return false; return true; };
+  const cap=(n+stockRanks.length)*3+20;
+  for(let guard=0;guard<cap;guard++){
+    if(cc===n) return true;
+    let bestGain=-1, best=[];
+    for(let i=0;i<n;i++){ if(!cleared[i]&&rankAdj(boardRanks[i],wr)&&exposed(i)){
+      const g=unlockGainRanks(i,cleared,coveredBy,coversList);
+      if(g>bestGain){bestGain=g;best=[i];} else if(g===bestGain) best.push(i); } }
+    if(best.length){ const i=best[Math.floor(rng()*best.length)]; cleared[i]=true; cc++; wr=boardRanks[i]; }
+    else if(sp<stockRanks.length){ wr=stockRanks[stockRanks.length-1-sp]; sp++; } // ★게임과 동일: 스톡 끝에서 뽑음
+    else return false;
+  }
+  return cc===n;
+}
+function greedyWinRateRanks(boardRanks,stockRanks,startWaste,coveredBy,tries){
+  const cl=buildCoversList(coveredBy); let wins=0;
+  for(let t=0;t<tries;t++) if(greedyPlayoutRanks(boardRanks,stockRanks,startWaste,coveredBy,cl,Math.random)) wins++;
+  return wins/tries;
+}
+// 스톡 M 에서 승리 가능한 딜 1개 샘플(랭크당 ≤3 보드, 나머지 웨이스트+스톡). 없으면 null.
+function sampleWinnableAt(M,coveredBy,n,tries){
+  const base=[]; for(let s=0;s<8;s++)for(let r=1;r<=13;r++)base.push(r);
+  for(let t=0;t<tries;t++){
+    const d=base.slice(); for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}
+    const bd=[],rest=[],rc={};
+    for(const r of d){ if(bd.length<n&&(rc[r]||0)<3){bd.push(r);rc[r]=(rc[r]||0)+1;} else rest.push(r); }
+    if(bd.length<n) continue;
+    const boardRanks=bd, waste=rest[0], stockRanks=rest.slice(1,1+M);
+    if(isWinnableRanks(boardRanks,stockRanks,waste,coveredBy,15000,false)) return {boardRanks,stockRanks,waste};
+  }
+  return null;
+}
+// 목표 등급으로 난이도 측정 — checkWinnable 이 준 최소 스톡 minM 에 등급별 여유를 얹고,
+//   그 스톡에서 등급대에 맞는 딜을 선택 샘플링해 greedy 승률·3요소 분해치를 잰다.
+function measureDifficulty(minM, targetGrade){
+  const n=S.slots.length, maxStock=103-n, coveredBy=buildCoveredBy();
+  const M=Math.min(maxStock,minM+slackForGrade(targetGrade,n));
+  const advChain=S.diffChain||"", advFeed=S.diffFeed||"", useAdv=!!(advChain||advFeed); // 고급 조정 목표
+  const tChain=advChain?CHAIN_TARGET[advChain]:null, tFeed=advFeed?FEED_TARGET[advFeed]:null;
+  let best=null, bestErr=Infinity;
+  for(let t=0;t<40;t++){
+    const deal=sampleWinnableAt(M,coveredBy,n,60); if(!deal) continue;
+    if(useAdv){ // 지정한 연쇄/뽑기매칭 목표에 가장 가까운 딜 선택(게임 dealForGrade 와 동일)
+      const f=traceFactors(deal.boardRanks,deal.stockRanks,deal.waste,coveredBy,M,n);
+      const err=(tChain!=null?Math.abs(f.chain-tChain)/2:0)+(tFeed!=null?Math.abs(f.feed-tFeed):0);
+      if(err<bestErr){bestErr=err;best=deal;}
+    } else {
+      const wr=greedyWinRateRanks(deal.boardRanks,deal.stockRanks,deal.waste,coveredBy,10);
+      if(gradeFromWR(wr)===targetGrade){ best=deal; break; }
+      const err=Math.abs(wr-GRADE_TARGET_WR[targetGrade]); if(err<bestErr){bestErr=err;best=deal;}
+    }
+  }
+  if(!best) return null;
+  const wrFinal=greedyWinRateRanks(best.boardRanks,best.stockRanks,best.waste,coveredBy,40);
+  const f=traceFactors(best.boardRanks,best.stockRanks,best.waste,coveredBy,M,n); // 3요소 분해
+  // **등급에 맞춰 고른 딜을 그대로 반환** → 저장(초기 딜)이 이 등급 적합 딜을 쓰게(아슬아슬한 checkWinnable 딜 대신).
+  return {grade:gradeFromWR(wrFinal),measuredWR:wrFinal,stock:M,factors:f,target:targetGrade,adv:{chain:advChain,feed:advFeed},
+    deal:{board:best.boardRanks.slice(), waste:best.waste, stock:best.stockRanks.slice()}};
+}
+// 대표 1판 greedy 트레이스 → chain(뽑기 1회당 플레이)·feed(유용한 뽑기 비율)·supply(스톡/보드).
+function traceFactors(boardRanks,stockRanks,startWaste,coveredBy,M,n){
+  const cl=buildCoversList(coveredBy); const cleared=new Array(n).fill(false); let cc=0,sp=0,wr=startWaste,plays=0,draws=0,useful=0;
+  const exposed=i=>{ const cb=coveredBy[i]; for(let k=0;k<cb.length;k++) if(!cleared[cb[k]]) return false; return true; };
+  const anyMove=()=>{ for(let i=0;i<n;i++) if(!cleared[i]&&rankAdj(boardRanks[i],wr)&&exposed(i)) return true; return false; };
+  const cap=(n+stockRanks.length)*3+20;
+  for(let guard=0;guard<cap;guard++){ if(cc===n) break;
+    let bestGain=-1,best=[];
+    for(let i=0;i<n;i++){ if(!cleared[i]&&rankAdj(boardRanks[i],wr)&&exposed(i)){
+      const g=unlockGainRanks(i,cleared,coveredBy,cl); if(g>bestGain){bestGain=g;best=[i];} else if(g===bestGain) best.push(i); } }
+    if(best.length){ const i=best[Math.floor(Math.random()*best.length)]; cleared[i]=true; cc++; wr=boardRanks[i]; plays++; }
+    else if(sp<stockRanks.length){ wr=stockRanks[stockRanks.length-1-sp]; sp++; draws++; if(anyMove()) useful++; } // ★게임과 동일: 스톡 끝에서 뽑음
+    else break;
+  }
+  return { chain: draws>0?plays/(draws+1):plays, feed: draws>0?useful/draws:1, supply: n>0?M/n:0 };
+}
+
+// 해답 재생 — 검증에서 찾은 승리 딜의 카드값을 보여주며 클리어 순서를 애니메이션
+// 현재 cleared 기준 노출(exposed) 인덱스 집합 = coveredBy 가 모두 제거된, 아직 안 낸 카드.
+function computeExposed(){ const set=new Set();
+  for(let i=0;i<pbCoveredBy.length;i++){ if(pbCleared.has(i)) continue;
+    if(pbCoveredBy[i].every(c=>pbCleared.has(c))) set.add(i); }
+  return set; }
+function stockPos(){ return {x:S.frame.w*0.435, y:S.frame.h*0.892}; } // 게임 STOCK {470,2140}
+function wastePos(){ return {x:S.frame.w*0.593, y:S.frame.h*0.892}; } // 게임 WASTE {640,2140}
+function pbCardBox(el,x,y){ el.style.left=(x-CARD_W/2)/S.frame.w*100+"%"; el.style.top=(y-CARD_H/2)/S.frame.h*100+"%";
+  el.style.width=CARD_W/S.frame.w*100+"%"; el.style.height=CARD_H/S.frame.h*100+"%"; }
+const FLY_MS=440; // 카드 이동 시간 = 웨이스트 숫자 갱신 시점(동시)
+function showStock(){ const st=$("#pbStock"); if(!st)return; st.style.display="block"; pbCardBox(st,stockPos().x,stockPos().y); st.innerHTML=`<div class="inner"></div><span class="cnt">${pbStockLeft}</span>`; }
+function showWaste(rank,suit){ const wa=$("#pbWaste"); if(!wa)return; wa.style.display="block"; pbCardBox(wa,wastePos().x,wastePos().y); wa.innerHTML=`<div class="inner">${cardFaceHTML(rank,suit)}</div>`; }
+function showPiles(){ showStock(); showWaste(pbWaste,pbWasteSuit); } // 초기 표시
+function hidePiles(){ ["pbStock","pbWaste"].forEach(id=>{const e=$("#"+id);if(e){e.style.display="none";e.innerHTML="";}}); const f=$("#pbFly"); if(f)f.innerHTML=""; }
+// 낸(또는 뽑은) 카드를 시작점 → 웨이스트로 날려보냄. **도착하는 순간** 웨이스트 숫자를 그 카드로 바꿈(동시).
+function flyCard(x,y,rank,suit){ const f=$("#pbFly"); if(!f)return; const wp=wastePos();
+  const el=document.createElement("div"); el.className="card open pbfly"; pbCardBox(el,x,y);
+  el.innerHTML=`<div class="inner">${cardFaceHTML(rank,suit)}</div>`; f.appendChild(el);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>pbCardBox(el,wp.x,wp.y)));
+  setTimeout(()=>{ showWaste(rank,suit); el.remove(); }, FLY_MS); // 카드 도착=숫자 변경(동시)
+}
+// 재생 준비 — lastSolve 딜/수순으로 상태 세팅(타이머는 아직)
+function pbEnter(){ pbBoardRanks=lastSolve.boardRanks; pbSuits=pbBoardRanks.map((r,i)=>suitOf(i*5+r));
+  pbCoveredBy=buildCoveredBy(); pbSeq=lastSolve.path||[]; playing=true; pbCleared=new Set(); pbStepIdx=0; pbExposed=new Set(); }
+// k수까지 진행한 상태(cleared·스톡·웨이스트) 계산 — 이전 수/처음으로 되감기용
+function pbStateAt(k){ const cleared=new Set(); let stockLeft=(S.stock>0?S.stock:(lastSolve.stockRanks||[]).length), waste=lastSolve.waste, wsuit=suitOf(waste*3+1); // 스톡 총량=실제 배치되는 뽑기 수(S.stock)
+  for(let j=0;j<k;j++){ const mv=pbSeq[j];
+    if(mv.t==="p"){ waste=pbBoardRanks[mv.i]; wsuit=pbSuits[mv.i]; cleared.add(mv.i); }
+    else { waste=mv.r; wsuit=suitOf(mv.r*3+j+1); stockLeft=Math.max(0,stockLeft-1); } }
+  return {cleared,stockLeft,waste,wsuit}; }
+// k수로 즉시 이동(되감기/점프) — 애니 없이 상태 반영
+function pbSeek(k){ k=Math.max(0,Math.min(pbSeq.length,k)); const prevEx=pbExposed||new Set();
+  pbStepIdx=k; const st=pbStateAt(k); pbCleared=st.cleared; pbStockLeft=st.stockLeft; pbWaste=st.waste; pbWasteSuit=st.wsuit;
+  const now=computeExposed(); pbJustRevealed=new Set(); now.forEach(i=>{ if(!prevEx.has(i)) pbJustRevealed.add(i); }); pbExposed=now;
+  render(); showStock(); showWaste(pbWaste,pbWasteSuit); pbUpdateControls(); }
+// 한 수 전진(카드 날림 애니 포함)
+function pbFinish(){ // 재생 끝 → 편집 화면 복귀(컨트롤은 유지, ↻로 다시재생). playing=false 라 보드 편집 가능.
+  if(pbTimer){clearInterval(pbTimer);pbTimer=null;} pbRunning=false; playing=false; hideWasteBadge(); hidePiles(); render(); pbUpdateControls(); toast("해답 재생 완료 ✓ — 편집 화면 복귀"); }
+function pbTick(){ if(pbStepIdx>=pbSeq.length){ pbFinish(); return; }
+  const mv=pbSeq[pbStepIdx];
+  if(mv.t==="p"){ const s=S.slots[mv.i]; pbWaste=pbBoardRanks[mv.i]; pbWasteSuit=pbSuits[mv.i]; flyCard(s.x,s.y,pbWaste,pbWasteSuit); pbCleared.add(mv.i); }
+  else { const sp=stockPos(); pbWaste=mv.r; pbWasteSuit=suitOf(mv.r*3+pbStepIdx+1); flyCard(sp.x,sp.y,pbWaste,pbWasteSuit); pbStockLeft=Math.max(0,pbStockLeft-1); }
+  pbStepIdx++;
+  const now=computeExposed(); pbJustRevealed=new Set(); now.forEach(i=>{ if(!pbExposed.has(i)) pbJustRevealed.add(i); }); pbExposed=now;
+  render(); showStock(); pbUpdateControls(); } // 스톡 즉시 · 웨이스트 숫자는 flyCard 도착 시(동시)
+function pbIntervalMs(){ return Math.max(120, Math.round(640*pbSpeed)); }
+function pbPlay(){ if(!playing) return; if(pbStepIdx>=pbSeq.length) pbSeek(0); pbRunning=true;
+  if(pbTimer)clearInterval(pbTimer); pbTimer=setInterval(pbTick, pbIntervalMs()); pbUpdateControls(); }
+function pbPause(){ if(pbTimer){clearInterval(pbTimer);pbTimer=null;} pbRunning=false; pbUpdateControls(); }
+function pbTogglePlay(){ if(!playing){ startPlayback(); return; } pbRunning?pbPause():pbPlay(); }
+function pbNext(){ if(!playing){ startPlayback(); pbPause(); return; } pbPause(); pbTick(); }
+function pbPrev(){ if(!playing) return; pbPause(); pbSeek(pbStepIdx-1); }
+function pbFirstStep(){ if(!playing) return; pbPause(); pbSeek(0); }
+function pbSetSpeed(m){ pbSpeed=m; document.querySelectorAll("#pbSpd button").forEach(b=>b.classList.toggle("on",+b.dataset.spd===m)); if(pbRunning)pbPlay(); }
+function pbUpdateControls(){ const tot=pbSeq.length, k=pbStepIdx;
+  const fill=$("#pbFill"); if(fill)fill.style.width=(tot?k/tot*100:0)+"%";
+  const pr=$("#pbProg"); if(pr)pr.textContent=k+" / "+tot;
+  const mv=$("#pbMove"); if(mv){ let t="시작"; if(k>0){ const m=pbSeq[k-1]; t=m.t==="p"?("보드 "+rankLabel(pbBoardRanks[m.i])+" 냄"):("스톡 "+rankLabel(m.r)+" 뽑음"); } mv.textContent=t; }
+  const pv=$("#pbPrev"), nx=$("#pbNextBtn"); if(pv)pv.disabled=!playing||k<=0; if(nx)nx.disabled=!playing||k>=tot;
+  const b=$("#playBtn"); if(b)b.textContent=pbRunning?"■ 일시정지":(k>=tot&&tot?"↻ 다시재생":"▶ 재생"); }
+// 재생 시작(버튼·팩 자동재생 공용)
+function startPlayback(){ if(!lastSolve||!lastSolve.ok) return; stopPlayback();
+  pbEnter(); $("#pbCtl").style.display="block"; showPiles(); pbSeek(0); pbPlay(); }
+function stopPlayback(){ if(pbTimer){clearInterval(pbTimer);pbTimer=null;} pbRunning=false;
+  if(playing){ playing=false; hideWasteBadge(); hidePiles(); render(); } const b=$("#playBtn"); if(b)b.textContent="▶ 재생"; }
+function pbClose(){ stopPlayback(); const c=$("#pbCtl"); if(c)c.style.display="none"; } // 재생 종료(편집 복귀)
+function showWasteBadge(){ const b=$("#wasteBadge"); if(!b)return; b.textContent="웨이스트 ▸ "+rankLabel(pbWaste); b.style.display="block"; }
+function hideWasteBadge(){ const b=$("#wasteBadge"); if(b)b.style.display="none"; }
+
+
+function snapshot(){ history.push(JSON.stringify(S.slots)); if(history.length>80) history.shift();
+  if(!playing){ lastDiff=null; loadedDeal=null; const c=$("#pbCtl"); if(c&&c.style.display!=="none"){ c.style.display="none"; lastSolve=null; } } } // 보드를 바꾸면 이전 해답·난이도·저장딜은 무효
+function undo(){ if(!history.length) return; S.slots=JSON.parse(history.pop()); clearSel(); flattenAll(); render(); toast("실행취소"); }
+
+function place(x,y){
+  snapshot();
+  const q=doSnap(x,y); x=q.x; y=q.y;
+  const p=fit(x,y);
+  const s={id:uid(),x:p.x,y:p.y,layer:layerAt(p.x,p.y),face:brush};
+  S.slots.push(s); selectOnly(s.id); render();
+}
+function delSlot(id){ snapshot(); S.slots=S.slots.filter(s=>s.id!==id && s.pierOf!==id); sel.delete(id); if(selected===id) selected=[...sel].pop()||null; render(); }
+function selSlot(){ return S.slots.find(s=>s.id===selected); }
+
+// ── 선택 모델 — sel(Set)=다중선택, selected=주(primary, 인스펙터·앵커) ──
+function clearSel(){ sel.clear(); selected=null; }
+function selectOnly(id){ sel=new Set(id?[id]:[]); selected=id||null; }
+function selectAdd(id){ sel.add(id); selected=id; }
+function selectToggle(id){ if(sel.has(id)){ sel.delete(id); if(selected===id) selected=[...sel].pop()||null; } else { sel.add(id); selected=id; } }
+function selectIds(ids){ sel=new Set(ids); selected=ids.length?ids[ids.length-1]:null; }
+function selSlots(){ return S.slots.filter(s=>sel.has(s.id)); }
+function selectAll(){ flattenAll(); selectIds(S.slots.map(s=>s.id)); render(); }
+// ── 클립보드 — 복사/붙여넣기/복제(Ctrl+C/V/D). 상대 gid 매핑 보존, 오프셋 배치 ──
+function snapClip(ss){ return ss.map(s=>({x:s.x,y:s.y,layer:s.layer,face:s.face,rot:s.rot||0,gid:s.gid||null})); }
+function pasteList(list,off){ if(!list||!list.length) return; snapshot();
+  const gmap={}; const add=list.map(c=>{ let gid=null;
+    if(c.gid){ if(!gmap[c.gid]){ const ng="G"+(gidc++); gmeta[ng]="붙여넣기 "+ng.replace(/\D/g,''); gmap[c.gid]=ng; } gid=gmap[c.gid]; }
+    const f=fit(c.x+off,c.y+off); return {id:uid(),x:f.x,y:f.y,layer:c.layer,face:c.face,rot:c.rot||0,...(gid?{gid}:{})}; });
+  S.slots.push(...add); selectIds(add.map(a=>a.id)); render(); return add.length; }
+function copySel(){ const ss=selSlots().filter(s=>!isLocked(s)); if(!ss.length) return; clip=snapClip(ss); toast(ss.length+"장 복사"); }
+function pasteClip(){ const n=pasteList(clip,16); if(n) toast(n+"장 붙여넣기"); }
+function duplicateSel(){ const ss=selSlots().filter(s=>!isLocked(s)); if(!ss.length) return; const n=pasteList(snapClip(ss),Math.round(CARD_W*0.3)); if(n) toast(n+"장 복제"); }
+
+// ── 그룹 구조(수동 편집) — 카드 묶음을 단위로 복제·반전복제·회전 ──
+function groupSlots(gid){ return S.slots.filter(s=>s.gid===gid); }
+function selGroups(){ return [...new Set(selSlots().map(s=>s.gid).filter(Boolean))]; }
+function makeGroup(){ const ss=selSlots(); if(ss.length<2){toast("2장 이상 선택");return;} snapshot();
+  const g="G"+(gidc++); gmeta[g]="그룹 "+g.replace(/\D/g,''); ss.forEach(s=>s.gid=g); selectGroup(g); toast(ss.length+"장 → "+gmeta[g]); }
+function ungroupSel(){ const ss=selSlots(); if(!ss.length)return; snapshot(); ss.forEach(s=>delete s.gid); render(); toast("그룹 해제"); }
+// 복제 / **반전복제**(좌↔우 대칭: x를 프레임 중심 기준 반사·회전 부호 반전 → 좌측 레이어를 우측에 대칭 생성)
+function dupGroupSel(mirror){ const ss=selSlots(); if(!ss.length)return; snapshot();
+  const g="G"+(gidc++), cx=S.frame.w/2; gmeta[g]=(mirror?"반전복제 ":"복제 ")+g.replace(/\D/g,'');
+  const add=ss.map(s=>{ let nx,nr;
+    if(mirror){ nx=2*cx-s.x; nr=-(s.rot||0); } else { nx=s.x+Math.round(CARD_W*1.1); nr=s.rot||0; }
+    const f=fit(nx,s.y); return {id:uid(),gid:g,x:f.x,y:f.y,layer:s.layer,face:s.face,rot:nr}; });
+  S.slots.push(...add); selectIds(add.map(a=>a.id)); render(); toast(gmeta[g]+" "+add.length+"장"); }
+// 그룹 전체 회전 — 무게중심 기준으로 위치 회전 + 각 카드 개별 회전(deg)
+function rotateGroupSel(deg){ const ss=selSlots(); if(ss.length<1)return; snapshot();
+  const cx=ss.reduce((a,s)=>a+s.x,0)/ss.length, cy=ss.reduce((a,s)=>a+s.y,0)/ss.length;
+  const r=deg*Math.PI/180, co=Math.cos(r), si=Math.sin(r);
+  ss.forEach(s=>{ const dx=s.x-cx, dy=s.y-cy; const f=fit(cx+dx*co-dy*si, cy+dx*si+dy*co); s.x=f.x; s.y=f.y; s.rot=(s.rot||0)+deg; });
+  render(); toast("그룹 회전 "+deg+"°"); }
+
+// ── 레이어 패널(섹션·그룹·레이어) — 각 그룹을 레이어 항목으로 나열·선택·이동·삭제 ──
+function groupOrder(){ const seen=new Set(), out=[]; S.slots.forEach(s=>{ if(s.gid && !seen.has(s.gid)){ seen.add(s.gid); out.push(s.gid); } }); return out; }
+function groupName(g){ return gmeta[g] || ("그룹 "+String(g).replace(/^(G|sh)/,"")); }
+function selectGroup(g){ flattenAll(); selectIds(groupSlots(g).map(s=>s.id)); render(); }
+function deleteGroup(g){ snapshot(); const ids=new Set(groupSlots(g).map(s=>s.id));
+  S.slots=S.slots.filter(s=>!ids.has(s.id) && !(s.pierOf&&ids.has(s.pierOf))); delete gmeta[g]; delete gHidden[g]; delete gLocked[g]; clearSel(); render(); toast("그룹 삭제"); }
+function setGroupFace(g,face){ snapshot(); groupSlots(g).forEach(s=>s.face=face); render(); toast(groupName(g)+" 모두 "+(face==="open"?"오픈":"폴드")); }
+function groupToFront(g){ snapshot(); const gs=groupSlots(g); if(!gs.length)return; // 그룹을 최상위 레이어로(다른 카드를 가림)
+  const maxL=S.slots.reduce((m,s)=>Math.max(m,s.layer),0), gmin=Math.min(...gs.map(s=>s.layer)); const off=maxL+1-gmin;
+  gs.forEach(s=>s.layer+=off); render(); toast(groupName(g)+" 앞으로"); }
+function groupToBack(g){ snapshot(); const gs=groupSlots(g); if(!gs.length)return; // 그룹을 최하위 레이어로(다른 카드에 가려짐)
+  const gmax=Math.max(...gs.map(s=>s.layer)); gs.forEach(s=>s.layer-=gmax+1);
+  const minL=S.slots.reduce((m,s)=>Math.min(m,s.layer),0); if(minL<0) S.slots.forEach(s=>s.layer-=minL); render(); toast(groupName(g)+" 뒤로"); }
+function renderLayers(){ const box=$("#layerList"); if(!box) return;
+  const gs=groupOrder(), selG=new Set(selGroups());
+  let html=gs.map(g=>{ const gs2=groupSlots(g), cnt=gs2.length, selN=gs2.filter(s=>sel.has(s.id)).length, on=selN>0, op=gs2.filter(s=>s.face==="open").length;
+    const badge=on?(selN===cnt?`<span class="lysel">● 선택 ${cnt}</span>`:`<span class="lysel part">◐ ${selN}/${cnt}</span>`):"";
+    const hid=!!gHidden[g], lok=!!gLocked[g];
+    return `<div class="lyr${on?' on':''}${hid?' hidden':''}${lok?' locked':''}" data-g="${g}"><span class="lyname" data-sel="${g}" data-rename="${g}" title="더블클릭 = 이름 변경">${groupName(g)}</span>${badge}`
+      +`<span class="lycount" title="오픈 ${op}·폴드 ${cnt-op}">${op}/${cnt}</span>`
+      +`<button class="lyb" data-hide="${g}" title="${hid?'숨김 해제':'숨기기'}">${hid?'🚫':'👁'}</button>`
+      +`<button class="lyb" data-lock="${g}" title="${lok?'잠금 해제':'잠금'}">${lok?'🔒':'🔓'}</button>`
+      +`<button class="lyb" data-open="${g}" title="그룹 전체 오픈">◐</button><button class="lyb" data-fold="${g}" title="그룹 전체 폴드">●</button>`
+      +`<button class="lyb" data-up="${g}" title="앞으로(위 레이어)">▲</button><button class="lyb" data-dn="${g}" title="뒤로(아래 레이어)">▼</button>`
+      +`<button class="lyb x" data-del="${g}" title="그룹 삭제">×</button></div>`; }).join("");
+  const ungS=S.slots.filter(s=>!s.gid), ung=ungS.length, ungSel=ungS.filter(s=>sel.has(s.id)).length;
+  if(ung) html+=`<div class="lyr ung${ungSel?' on':''}" data-selung="1"><span class="lyname">· 그룹 없음(개별 카드)</span>${ungSel?`<span class="lysel">● ${ungSel}</span>`:""}<span class="lycount">${ung}</span><button class="lyb" data-groupung="1" title="개별 카드를 한 그룹으로 묶기">▣</button></div>`;
+  box.innerHTML=html||`<div class="empty" style="padding:8px 4px">스탬프를 찍거나 카드를 <b>그룹 만들기</b>로 묶으면<br>여기에 레이어 항목이 생깁니다.</div>`;
+  const onRow=box.querySelector(".lyr.on"); if(onRow&&onRow.scrollIntoView) onRow.scrollIntoView({block:"nearest"}); // 선택된 레이어 자동 스크롤
+}
+
+// 선택이 단일 그룹에 속하면 그 그룹 정보(표시·그룹편집용)
+function selGroupInfo(){ const gids=selGroups(); if(gids.length!==1) return null; const g=gids[0], all=groupSlots(g);
+  return {g, name:groupName(g), cnt:all.length, selN:all.filter(s=>sel.has(s.id)).length}; }
+// 미세 이동 — 선택 카드를 dx,dy(px)만큼(자석 없이 정밀)
+function nudgeSel(dx,dy){ const ss=selSlots().filter(s=>!isLocked(s)); if(!ss.length)return; snapshot(); ss.forEach(s=>{ const f=fit(s.x+dx,s.y+dy); s.x=f.x; s.y=f.y; }); render(); }
+// 그룹/선택 크기 조절 — 무게중심 기준으로 카드 간격(배치)을 f배 확대/축소(카드 크기는 고정). 선택 유지.
+function scaleSel(f){ const ss=selSlots(); if(ss.length<2)return; snapshot();
+  const cx=ss.reduce((a,s)=>a+s.x,0)/ss.length, cy=ss.reduce((a,s)=>a+s.y,0)/ss.length;
+  ss.forEach(s=>{ const p=fit(cx+(s.x-cx)*f, cy+(s.y-cy)*f); s.x=p.x; s.y=p.y; }); render(); toast("크기 "+(f>1?"확대":"축소")); }
+// 카드 추가(행/열 확장) — 선택의 가장자리 행(또는 열)을 한 피치 바깥으로 복제해 카드를 늘린다.
+//   axis='col'(좌우 열) | 'row'(상하 행), sign=+1(오른쪽/아래)·-1(왼쪽/위). 라이브 셰이프는 먼저 확정(flatten)해 추가분 보존.
+function growSel(axis,sign){ flattenAll(); const ss=selSlots().filter(s=>!isLocked(s)); if(!ss.length)return; snapshot();
+  const horiz=(axis==="col"), pitch=horiz?spX():spY();
+  const vals=ss.map(s=>horiz?s.x:s.y), edge=sign>0?Math.max(...vals):Math.min(...vals);
+  const line=ss.filter(s=>Math.abs((horiz?s.x:s.y)-edge)<=pitch*0.6);
+  const add=line.map(s=>{ const f=horiz?fit(s.x+sign*pitch,s.y):fit(s.x,s.y+sign*pitch);
+    return {id:uid(),x:f.x,y:f.y,layer:s.layer,face:s.face,rot:s.rot||0,...(s.gid?{gid:s.gid}:{})}; });
+  S.slots.push(...add); selectIds([...ss.map(s=>s.id),...add.map(a=>a.id)]); render();
+  toast(add.length+"장 추가 · "+(horiz?"열":"행")); }
+
+// 점 아래 카드들(위층 먼저) — Alt+클릭 z-순환 / 익스플로드 대상
+function cardsAtPoint(p){ return S.slots.filter(s=> Math.abs(p.x-s.x)<=CARD_W/2 && Math.abs(p.y-s.y)<=CARD_H/2 ).sort((a,b)=>b.layer-a.layer); }
+function cycleSelectAt(p){ const hits=cardsAtPoint(p); if(!hits.length){ clearSel(); return; } const i=hits.findIndex(s=>s.id===selected); selectOnly(hits[(i+1)%hits.length].id); }
+
+// ── 일괄 편집(다중선택) ──
+function setFaceSel(f){ const ss=selSlots(); if(!ss.length)return; snapshot(); ss.forEach(s=>s.face=f); render(); }
+function layerSel(d){ const ss=selSlots(); if(!ss.length)return; snapshot(); ss.forEach(s=>s.layer=Math.max(0,s.layer+d)); render(); }
+function delSel(){ const kill=new Set(selSlots().filter(s=>!isLocked(s)).map(s=>s.id)); if(!kill.size)return; snapshot(); S.slots=S.slots.filter(s=>!kill.has(s.id) && !(s.pierOf&&kill.has(s.pierOf))); clearSel(); render(); toast("삭제"); }
+function dupSel(){ const ss=selSlots(); if(!ss.length)return; snapshot();
+  const add=ss.map(s=>{ const f=fit(s.x+stepX(),s.y+stepY()); return {id:uid(),x:f.x,y:f.y,layer:s.layer,face:s.face}; });
+  S.slots.push(...add); selectIds(add.map(a=>a.id)); render(); toast(add.length+"장 복제"); }
+
+// ── 정렬 / 분포(다중선택) ──
+function alignSel(kind){ const ss=selSlots(); if(ss.length<2)return; snapshot();
+  const xs=ss.map(s=>s.x), ys=ss.map(s=>s.y);
+  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),cx=(minX+maxX)/2,cy=(minY+maxY)/2;
+  ss.forEach(s=>{ let x=s.x,y=s.y;
+    if(kind==="left")x=minX; else if(kind==="cx")x=cx; else if(kind==="right")x=maxX;
+    else if(kind==="top")y=minY; else if(kind==="cy")y=cy; else if(kind==="bot")y=maxY;
+    const f=fit(x,y); s.x=f.x; s.y=f.y; });
+  render(); }
+function distSel(axis){ const ss=selSlots().slice(); if(ss.length<3)return; snapshot();
+  ss.sort((a,b)=> axis==="x"? a.x-b.x : a.y-b.y);
+  const first=ss[0], last=ss[ss.length-1], span=(axis==="x"?last.x-first.x:last.y-first.y)/(ss.length-1);
+  ss.forEach((s,i)=>{ if(axis==="x"){ const f=fit(first.x+span*i,s.y); s.x=f.x; } else { const f=fit(s.x,first.y+span*i); s.y=f.y; } });
+  render(); }
+
+// ── 셰이프 스탬프(B) — 파라메트릭 형태를 찍고 캔버스 핸들로 벌림·행수·곡률을 실시간 변형 ──
+//   셰이프는 라이브 편집 편의 레이어(S.shapes). 카드는 S.slots에 shapeId 태그로 생성.
+//   자유 편집(평탄화)하면 shapeId를 떼어 일반 카드가 됨 → A/선택도구로 개별 손질.
+const SHAPES={
+  peak:   {name:"봉우리", rows:4, gap:83, spread:93, curve:0},
+  pyramid:{name:"피라미드", rows:5, gap:88, spread:103, curve:0},
+  diamond:{name:"마름모", rows:5, gap:79, spread:94, curve:0},
+  fan:    {name:"부채꼴", rows:3, cols:5, gap:72, spread:103, curve:71},
+  pillar: {name:"필러", rows:4, cols:4, gap:74, spread:118, curve:0},
+  tableau:{name:"태블로", rows:3, cols:6, gap:46, spread:104, curve:0},
+  garland:{name:"갈런드", rows:1, cols:7, gap:0, spread:94, curve:58},
+  ring:   {name:"링", rows:1, cols:8, gap:79, spread:136, curve:0},
+  wing:   {name:"윙", rows:4, cols:4, gap:58, spread:76, curve:47},
+  heart:  {name:"하트", rows:1, cols:12, gap:0, spread:150, curve:0},
+  star:   {name:"별", rows:1, cols:5, gap:0, spread:150, curve:0},
+  cross:  {name:"십자", rows:3, cols:1, gap:96, spread:70, curve:0},
+  chevron:{name:"갈매기", rows:4, cols:4, gap:82, spread:74, curve:0},
+  spiral: {name:"나선", rows:1, cols:12, gap:0, spread:150, curve:0},
+  wave:   {name:"물결", rows:2, cols:7, gap:92, spread:98, curve:60},
+  crown:  {name:"왕관", rows:1, cols:5, gap:92, spread:98, curve:0},
+  flower: {name:"꽃", rows:1, cols:6, gap:0, spread:130, curve:0},
+  // ── 구조 블록(합성용 기본 소스) — 그리드·원호·행·열: 스탬프를 여러 개 배치해 복합 구조(예: 격자 2개+원호)를 만든다 ──
+  grid:   {name:"그리드", rows:3, cols:4, gap:92, spread:104, curve:0},
+  arc:    {name:"원호", rows:1, cols:7, gap:0, spread:150, curve:120},
+  pinwheel:{name:"핀휠", rows:3, cols:5, gap:0, spread:150, curve:0}, // 방사 회전 팔(레퍼런스 로제트/핀휠)
+  row:    {name:"행", rows:1, cols:6, gap:92, spread:104, curve:0},
+  column: {name:"열", rows:5, cols:1, gap:92, spread:104, curve:0},
+};
+// ── 격자 셀 기반 셰이프(한글 자모 + 도형) — cells=[[col,row],...] 를 spread 피치로 배치(모두 layer0) ──
+//   col/row 는 소수 허용(대각선). 겹침(커버)은 spread 로 designer 가 조절. 렌더 오픈/폴드는 커버로 자동 판정.
+const GRID_SHAPES={
+  // 한글 자음 14
+  jg:{name:"ㄱ", cells:[[0,0],[1,0],[2,0],[2,1],[2,2]]},
+  jn:{name:"ㄴ", cells:[[0,0],[0,1],[0,2],[1,2],[2,2]]},
+  jd:{name:"ㄷ", cells:[[0,0],[1,0],[2,0],[0,1],[0,2],[1,2],[2,2]]},
+  jr:{name:"ㄹ", cells:[[0,0],[1,0],[2,0],[2,1],[0,2],[1,2],[2,2],[0,3],[0,4],[1,4],[2,4]]},
+  jm:{name:"ㅁ", cells:[[0,0],[1,0],[2,0],[0,1],[2,1],[0,2],[1,2],[2,2]]},
+  jb:{name:"ㅂ", cells:[[0,0],[0,1],[0,2],[2,0],[2,1],[2,2],[1,1],[1,2]]},
+  js:{name:"ㅅ", cells:[[1,0],[0.5,1],[0,2],[1.5,1],[2,2]]},
+  jo:{name:"ㅇ", cells:[[0.5,0],[1.5,0],[2,1],[1.5,2],[0.5,2],[0,1]]},
+  jj:{name:"ㅈ", cells:[[0,0],[1,0],[2,0],[1,1],[0,2],[2,2]]},
+  jc:{name:"ㅊ", cells:[[1,0],[0,1],[1,1],[2,1],[0.4,2],[1.6,2]]},
+  jk:{name:"ㅋ", cells:[[0,0],[1,0],[2,0],[2,1],[2,2],[0,1],[1,1]]},
+  jt:{name:"ㅌ", cells:[[0,0],[0,1],[0,2],[1,0],[2,0],[1,1],[2,1],[1,2],[2,2]]},
+  jp:{name:"ㅍ", cells:[[0,0],[1,0],[2,0],[0,1],[2,1],[0,2],[1,2],[2,2]]},
+  jh:{name:"ㅎ", cells:[[1,0],[0,1],[1,1],[2,1],[0.5,2],[1.5,2],[1,2.9]]},
+  // 도형 / 창의
+  square:  {name:"네모", cells:[[0,0],[1,0],[2,0],[0,1],[2,1],[0,2],[1,2],[2,2]]},
+  triangle:{name:"세모", cells:[[1,0],[0.5,1],[1.5,1],[0,2],[1,2],[2,2]]},
+  hexagon: {name:"육각", cells:[[0.5,0],[1.5,0],[2,1],[1.5,2],[0.5,2],[0,1]]},
+  xshape:  {name:"엑스", cells:[[0,0],[2,0],[1,1],[0,2],[2,2]]},
+  arrow:   {name:"화살표", cells:[[0,1],[1,1],[2,1],[1,0],[3,1],[1,2]]},
+  zigzag:  {name:"지그재그", cells:[[0,0],[1,1],[2,0],[3,1],[4,0]]},
+  bolt:    {name:"번개", cells:[[1,0],[0,1],[1,1],[2,2],[1,2],[2,3]]},
+  hourglass:{name:"모래시계", cells:[[0,0],[1,0],[2,0],[1,1],[0,2],[1,2],[2,2]]},
+  grid9:   {name:"격자", cells:[[0,0],[1,0],[2,0],[0,1],[1,1],[2,1],[0,2],[1,2],[2,2]]},
+  tshape:  {name:"티(T)", cells:[[0,0],[1,0],[2,0],[1,1],[1,2]]},
+  hshape:  {name:"에이치(H)", cells:[[0,0],[0,1],[0,2],[2,0],[2,1],[2,2],[1,1]]},
+};
+Object.keys(GRID_SHAPES).forEach(k=>{ SHAPES[k]={name:GRID_SHAPES[k].name, rows:1, cols:1, gap:0, spread:118, curve:0}; });
+const COLS_TYPES=["fan","pillar","tableau","garland","ring","wing","heart","chevron","spiral","wave","crown","flower","grid","arc","row","column","pinwheel"]; // rows 대신 cols(개수)가 주 파라미터
+const CURVE_TYPES=["fan","garland","wing","wave","arc"];                     // 곡률 핸들 노출
+// 카드 수 확장 두 축(행렬)의 라벨 — {r:행 라벨, c:열 라벨}. 없는 축은 undefined(스텝퍼 숨김).
+const SHAPE_AXES={
+  peak:{r:"단(높이)",c:"봉우리 수"}, pyramid:{r:"단",c:"반복"}, diamond:{r:"단",c:"반복"},
+  fan:{r:"열당 카드",c:"열 수"}, pillar:{r:"높이",c:"기둥 수"}, tableau:{r:"높이",c:"열 수"},
+  grid:{r:"행",c:"열"}, row:{r:"행",c:"열"}, column:{r:"행",c:"열"},
+  garland:{r:"아치 겹",c:"개수"}, wave:{r:"행",c:"개수"}, chevron:{r:"겹",c:"행당 카드"},
+  ring:{r:"동심 링",c:"개수"}, arc:{r:"동심 호",c:"개수"}, star:{r:"동심",c:"꼭지 수"},
+  flower:{r:"꽃잎 링",c:"꽃잎 수"}, spiral:{r:"팔(arm)",c:"개수"}, heart:{r:"동심 하트",c:"윤곽 수"},
+  cross:{r:"팔 길이",c:"팔 두께"}, wing:{r:null,c:"날개 카드"}, crown:{r:"베이스 깊이",c:"뾰족 수"},
+  pinwheel:{r:"팔당 카드",c:"팔 수"},
+};
+function shapeAxes(t){ return GRID_SHAPES[t]?{r:"세로 밀도",c:"가로 밀도"}:(SHAPE_AXES[t]||{r:"행",c:"열"}); }
+// 상하(세로 pitch=gap) 크기 핸들을 쓰는 셰이프 — 방사형/원호/하트/격자셀(자모·도형)은 spread(반지름/간격) 하나로 크기 결정하므로 제외.
+function hasGap(t){ return !GRID_SHAPES[t] && !["ring","star","flower","arc","spiral","heart","pinwheel"].includes(t); }
+function getShape(id){ return S.shapes.find(s=>s.id===id); }
+// spread 핸들 스케일 — **현재 카드 배치에서 실측**(가장 먼 카드의 x오프셋/현재 spread). 셰이프 공식과 무관하게 정확 → 끌기가 비례 스케일(임의로 튀지 않음).
+function unitsHalf(sh){ const ss=S.slots.filter(s=>s.shapeId===sh.id);
+  if(ss.length && sh.spread>0){ const maxOff=Math.max(...ss.map(s=>Math.abs(s.x-sh.cx))); if(maxOff>1) return Math.max(0.5, maxOff/sh.spread); }
+  if(GRID_SHAPES[sh.type]){ const cols=GRID_SHAPES[sh.type].cells.map(c=>c[0]); const cMid=(Math.min(...cols)+Math.max(...cols))/2; return Math.max(0.5,Math.max(...cols)-cMid); }
+  if(["ring","star","flower","spiral","heart","arc"].includes(sh.type)) return 1; const w=COLS_TYPES.includes(sh.type)?sh.cols:sh.rows; return Math.max(0.5,(w-1)/2); }
+// 격자 셀 밀도(행렬) — 인접(거리≤1) 셀 쌍 사이에 카드를 끼운다. 가로 인접=dc-1개·세로 인접=dr-1개·대각=max. 중복 제거.
+function densifyCellsXY(cells, dc, dr){ dc=Math.max(1,dc); dr=Math.max(1,dr); if(dc<=1&&dr<=1) return cells.slice();
+  const out=cells.map(c=>c.slice()), seen=new Set(cells.map(c=>c[0].toFixed(2)+","+c[1].toFixed(2)));
+  const add=(x,y)=>{ const key=x.toFixed(2)+","+y.toFixed(2); if(!seen.has(key)){ seen.add(key); out.push([x,y]); } };
+  for(let i=0;i<cells.length;i++)for(let j=i+1;j<cells.length;j++){ const a=cells[i],b=cells[j];
+    const dx=b[0]-a[0], dy=b[1]-a[1]; if(Math.hypot(dx,dy)>1.5) continue; // 가로/세로(1.0)+대각(√2≈1.41) 인접까지
+    const seg=Math.abs(dx)>Math.abs(dy)+0.01?dc:Math.abs(dy)>Math.abs(dx)+0.01?dr:Math.max(dc,dr);
+    for(let k=1;k<seg;k++) add(a[0]+dx*k/seg, a[1]+dy*k/seg); }
+  return out; }
+// ── 셰이프 → 카드 좌표 — **모든 셰이프가 rows(R)·cols(C) 두 축으로 카드 수를 확장**(행렬). cx=중심x, cy=상단 앵커 ──
+//   축 의미는 셰이프마다 다름(SHAPE_AXES 라벨 참고): 격자형=행×열 · 방사형=동심 링×개수 · 삼각형=단×반복 · 자모/도형=세로밀도×가로밀도.
+function buildShapeCards(sh){
+  const {type,cx,cy,gap,spread,curve}=sh, R=Math.max(1,sh.rows||1), C=Math.max(1,sh.cols||1), out=[];
+  const P=(x,y,layer,face,rot)=>{ const c={x,y,layer:layer||0,face:face||"open"}; if(rot)c.rot=Math.round(rot); out.push(c); };
+  if(GRID_SHAPES[type]){ const cells=densifyCellsXY(GRID_SHAPES[type].cells, Math.min(4,C), Math.min(4,R)); // C=가로밀도·R=세로밀도
+    const cols=cells.map(c=>c[0]), cMid=(Math.min(...cols)+Math.max(...cols))/2;
+    cells.forEach(([col,row])=>P(cx+(col-cMid)*spread, cy+row*spread, 0, "open")); }
+  else if(type==="peak"||type==="pyramid"||type==="diamond"){ const motifW=Math.max(R*spread, spread*2)*1.12; // C=모티프 가로 반복, R=단수
+    for(let m=0;m<C;m++){ const ox=cx+(m-(C-1)/2)*motifW;
+      if(type==="peak"){ for(let r=0;r<R;r++){const n=r+1,L=R-1-r;for(let i=0;i<n;i++)P(ox+(i-(n-1)/2)*spread,cy+r*gap,L,r===0?"open":"fold");} }
+      else if(type==="pyramid"){ for(let r=0;r<R;r++){const n=r+1,L=r;for(let i=0;i<n;i++)P(ox+(i-(n-1)/2)*spread,cy+r*gap,L,r===R-1?"open":"fold");} }
+      else { const mid=(R-1)/2; for(let r=0;r<R;r++){const w=r<=mid?r+1:R-r,L=R-1-r;for(let i=0;i<w;i++)P(ox+(i-(w-1)/2)*spread,cy+r*gap,L,r===0?"open":"fold");} } } }
+  else if(type==="fan"){ for(let j=0;j<C;j++){const t=C>1?(j-(C-1)/2)/((C-1)/2):0,arc=-curve*(1-t*t),cxj=cx+(j-(C-1)/2)*spread;for(let k=0;k<R;k++)P(cxj,cy+arc+k*gap,R-1-k,k===0?"open":"fold");} } // C=열·R=열당 카드
+  else if(type==="pillar"){ for(let j=0;j<C;j++){const x=cx+(j-(C-1)/2)*spread;for(let k=0;k<R;k++)P(x,cy+k*gap,R-1-k,k===0?"open":"fold");} } // C=기둥·R=높이
+  else if(type==="grid"||type==="row"||type==="column"){ for(let k=0;k<R;k++)for(let j=0;j<C;j++) P(cx+(j-(C-1)/2)*spread, cy+k*gap, 0, "open"); } // C×R 격자
+  else if(type==="tableau"){ for(let j=0;j<C;j++)for(let k=0;k<R;k++)P(cx+(j-(C-1)/2)*spread,cy+k*gap,k,k===R-1?"open":"fold"); } // C=열·R=높이(바닥 오픈)
+  else if(type==="garland"){ for(let r=0;r<R;r++){ const pts=[]; // C=개수·R=아치 겹
+      for(let j=0;j<C;j++){const u=C>1?(j-(C-1)/2)/((C-1)/2):0;pts.push({x:cx+(j-(C-1)/2)*spread,y:cy+r*gap+curve*(1-u*u)});}
+      for(let j=0;j<C;j++){const a=pts[Math.max(0,j-1)],b=pts[Math.min(C-1,j+1)];P(pts[j].x,pts[j].y,R-1-r,r===0?"open":"fold",clamp(-Math.round(Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI),-45,45));} } }
+  else if(type==="wave"){ for(let r=0;r<R;r++){const L=R-1-r;for(let j=0;j<C;j++){const u=C>1?j/(C-1):0;P(cx+(j-(C-1)/2)*spread,cy+r*gap+Math.sin(u*Math.PI*2)*curve,L,r===0?"open":"fold");}} } // C=개수·R=행
+  else if(type==="chevron"){ const per=Math.max(2,C);for(let r=0;r<R;r++){const L=R-1-r;for(let i=0;i<per;i++){const o=i-(per-1)/2;P(cx+o*spread,cy+r*gap*0.55+Math.abs(o)*gap*0.5,L,r===0?"open":"fold");}} } // C=행당·R=겹
+  else if(type==="ring"){ for(let r=0;r<R;r++){const rad=spread*(1-r*0.34);if(rad<26)break;for(let j=0;j<C;j++){const ang=-Math.PI/2+j*2*Math.PI/C;P(cx+rad*Math.cos(ang),cy+spread+rad*Math.sin(ang),R-1-r,r===0?"open":"fold",ang*180/Math.PI+90);}} } // C=개수·R=동심 링
+  else if(type==="arc"){ const span=clamp(curve,20,320)*Math.PI/180,start=-Math.PI/2-span/2;for(let r=0;r<R;r++){const rad=Math.max(40,spread-r*Math.round(spread*0.26));for(let i=0;i<C;i++){const t=C>1?i/(C-1):0.5,ang=start+t*span;P(cx+rad*Math.cos(ang),cy+spread+rad*Math.sin(ang),R-1-r,r===0?"open":"fold",ang*180/Math.PI+90);}} } // C=개수·R=동심 호
+  else if(type==="pinwheel"){ const arms=Math.max(2,C), per=Math.max(2,R), R0=Math.max(spread,60), swirl=0.55; // C=팔 수·R=팔당 카드. 각 팔=중심→바깥 부채(끝=노출)+접선 회전(핀휠 소용돌이)
+    for(let a=0;a<arms;a++){ const base=a*2*Math.PI/arms - Math.PI/2;
+      for(let k=0;k<per;k++){ const t=per>1?k/(per-1):0, rad=R0*(0.28+0.72*t), ang=base+swirl*(1-t); // 안쪽 카드가 접선으로 기울어 소용돌이
+        P(cx+rad*Math.cos(ang), cy+R0+rad*Math.sin(ang), k, k===per-1?"open":"fold", ang*180/Math.PI+90); } } } // 바깥(k=per-1)=위=노출
+  else if(type==="star"){ const PT=Math.max(4,C),rad0=spread;for(let r=0;r<R;r++){const rad=rad0*(1-r*0.32);if(rad<24)break;for(let i=0;i<PT*2;i++){const ang=-Math.PI/2+i*Math.PI/PT,rr=(i%2===0)?rad:rad*0.46;P(cx+rr*Math.cos(ang),cy+rad0+rr*Math.sin(ang),R-1-r,r===0?"open":"fold",ang*180/Math.PI+90);}} } // C=꼭지·R=동심
+  else if(type==="flower"){ const PET=Math.max(4,C),rad=spread*0.9;for(let r=0;r<R;r++){const rr=rad*(1-r*0.42);if(rr<20)break;for(let i=0;i<PET;i++){const ang=-Math.PI/2+i*2*Math.PI/PET;P(cx+rr*Math.cos(ang),cy+rad+rr*Math.sin(ang),1+(R-1-r),"open",ang*180/Math.PI+90);}} P(cx,cy+rad,0,"fold"); } // C=꽃잎·R=꽃잎 링
+  else if(type==="spiral"){ const N=Math.max(6,C),turns=1.7,arms=Math.max(1,R);for(let a=0;a<arms;a++){const a0=a*2*Math.PI/arms;for(let i=0;i<N;i++){const t=N>1?i/(N-1):0,ang=a0+t*turns*2*Math.PI,rad=spread*0.2+t*spread*0.8;P(cx+rad*Math.cos(ang),cy+spread+rad*Math.sin(ang),i,i===N-1?"open":"fold",ang*180/Math.PI);}} } // C=개수·R=팔(arms)
+  else if(type==="heart"){ const N=Math.max(6,C);for(let r=0;r<R;r++){const sc=1-r*0.34;if(sc<0.2)break;const pts=[];for(let i=0;i<N;i++){const th=Math.PI*(1-2*i/N),hx=16*Math.pow(Math.sin(th),3),hy=13*Math.cos(th)-5*Math.cos(2*th)-2*Math.cos(3*th)-Math.cos(4*th);pts.push({x:cx+hx*spread*sc/17,y:cy+spread*0.95-hy*spread*sc/17});}for(let i=0;i<N;i++){const a=pts[(i-1+N)%N],b=pts[(i+1)%N];P(pts[i].x,pts[i].y,R-1-r,r===0?"open":"fold",clamp(Math.round(Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI),-70,70));}} } // C=윤곽·R=동심 하트
+  else if(type==="cross"){ const arm=Math.max(1,R), th=Math.max(1,C), half=(th-1)/2; // R=팔 길이·C=팔 두께
+    const pitchX=spread, pitchY=gap, cyc=cy+arm*pitchY, seen=new Set(); // 좌우=spread(좌우 핸들)·상하=gap(상하 핸들) 독립 조절
+    const put=(gx,gy)=>{ const key=gx+","+gy; if(seen.has(key))return; seen.add(key);
+      const d=Math.max(Math.abs(gx),Math.abs(gy)); P(cx+gx*pitchX, cyc+gy*pitchY, d, d>=arm?"open":"fold"); }; // 팔 끝(d=arm)=노출, 중앙으로 갈수록 덮임
+    for(let k=-arm;k<=arm;k++) for(let w=0;w<th;w++){ put(w-half,k); put(k,w-half); } }
+  else if(type==="wing"){ const per=Math.max(2,C),tilt=Math.round(20+(curve||0)*0.18);for(const side of [-1,1])for(let k=0;k<per;k++)P(cx+side*(18+k*spread*0.62),cy+(per-1-k)*gap*0.55,per-1-k,k===per-1?"open":"fold",side*tilt); } // C=날개 카드
+  else if(type==="crown"){ const pts=Math.max(3,C);for(let d=0;d<R;d++){const baseY=cy+gap*1.15+d*Math.round(gap*0.6);for(let j=0;j<pts;j++){const x=cx+(j-(pts-1)/2)*spread,tall=(j%2===0);P(x,baseY,d,d>0?"fold":"fold");if(d===R-1)P(x,baseY-gap*(tall?1.05:0.55),R,"open");}} } // C=뾰족·R=베이스 깊이
+  return out.map(c=>{ const f=fit(c.x,c.y); return {...c,x:f.x,y:f.y}; });
+}
+function regenShape(sh){
+  S.slots=S.slots.filter(s=>s.shapeId!==sh.id);
+  // 스탬프 카드는 자동으로 하나의 그룹(레이어)을 형성 — shapeId를 그룹키(gid)로 사용해 평탄화 후에도 묶음 유지
+  buildShapeCards(sh).forEach(c=>S.slots.push({id:uid(),shapeId:sh.id,gid:sh.id,x:c.x,y:c.y,layer:c.layer,face:c.face,rot:c.rot||0}));
+  shapeDefs[sh.id]={type:sh.type,rows:sh.rows,cols:sh.cols,spread:sh.spread,curve:sh.curve,cx:sh.cx,cy:sh.cy}; // 파라미터 보존(재편집용)
+}
+// 평탄화된 셰이프 그룹을 다시 라이브 셰이프로 — 조절점(◆)·스텝퍼(행수/벌림/곡률) 재편집 재개.
+function reactivateShape(g){ const def=shapeDefs[g]; if(!def){toast("이 그룹은 셰이프가 아닙니다");return;} snapshot();
+  flattenAll(); // 다른 라이브 셰이프 확정
+  const gs=groupSlots(g);
+  if(gs.length){ const cx=gs.reduce((a,s)=>a+s.x,0)/gs.length, minY=Math.min(...gs.map(s=>s.y)); def.cx=cx; def.cy=minY+CARD_H/2; } // 이동한 현재 위치 반영
+  S.slots=S.slots.filter(s=>s.gid!==g); // 기존 그룹 카드 제거 → 파라미터로 재생성
+  const sh={id:g,type:def.type,cx:def.cx,cy:def.cy,rows:def.rows,cols:def.cols||1,gap:SHAPES[def.type].gap,spread:def.spread,curve:def.curve};
+  S.shapes.push(sh); regenShape(sh); activeShape=g; sel.clear(); selected=null;
+  if(tool!=="select") setTool("select");
+  render(); toast(SHAPES[def.type].name+" 셰이프 재편집 — 조절점(◆)·행수/벌림/곡률 스텝퍼로 조절");
+}
+function stampShape(type){
+  flattenAll(); snapshot();
+  const z=zone(), base=SHAPES[type];
+  const sh={id:"sh"+(idc++),type,cx:S.frame.w/2,cy:type==="ring"?(z.y0+z.y1)/2:z.y0+(type==="pyramid"?150:210),
+    rows:base.rows,cols:base.cols||1,gap:base.gap,spread:base.spread,curve:base.curve};
+  gmeta[sh.id]=base.name+" "+(Object.keys(gmeta).filter(k=>String(gmeta[k]||"").startsWith(base.name)).length+1); // 자동 레이어 이름(예: 봉우리 1)
+  S.shapes.push(sh); regenShape(sh); activeShape=sh.id; sel.clear(); selected=null;
+  if(typeof setTool==="function" && tool!=="select") setTool("select"); // 셰이프 삽입 후엔 선택 도구로(핸들 조절·이동)
+  render(); toast(base.name+" 스탬프 — 핸들(◆)로 형태 조절 · '자유 편집'으로 확정");
+}
+function setShapeParam(k,v){ const sh=getShape(activeShape); if(!sh)return; snapshot();
+  if(k==="rows")sh.rows=clamp(v,1,GRID_SHAPES[sh.type]?4:8); else if(k==="cols")sh.cols=clamp(v,1,GRID_SHAPES[sh.type]?4:9);
+  else if(k==="spread")sh.spread=clamp(v,46,200); else if(k==="curve")sh.curve=clamp(v,-40,220);
+  regenShape(sh); render(); }
+function deleteShape(){ const sh=getShape(activeShape); if(!sh)return; snapshot();
+  S.slots=S.slots.filter(s=>s.shapeId!==sh.id); S.shapes=S.shapes.filter(s=>s.id!==sh.id); activeShape=null; hideHandles(); render(); toast("셰이프 삭제"); }
+function flattenAll(){ if(!S.shapes.length && !activeShape){ hideHandles(); return; }
+  S.slots.forEach(s=>{ delete s.shapeId; }); S.shapes=[]; activeShape=null; hideHandles(); }
+
+// 온캔버스 핸들
+function toDesignClient(cx,cy){ const r=board.getBoundingClientRect(); return {x:(cx-r.left)/r.width*S.frame.w, y:(cy-r.top)/r.height*S.frame.h}; }
+// 핸들 드래그 = **잡은 지점 기준 상대(비율/델타)** 변형 → 잡는 순간 값이 안 튀고 부드럽게 비례.
+function startHandle(e,type){
+  e.stopPropagation(); e.preventDefault(); const sh=getShape(activeShape); if(!sh)return; snapshot();
+  const p0=toDesignClient(e.clientX,e.clientY);
+  const spread0=sh.spread, gap0=sh.gap, curve0=sh.curve, off0=Math.max(8,Math.abs(p0.x-sh.cx)), offy0=Math.max(8,Math.abs(p0.y-sh.cy)); // 잡은 순간 기준값
+  const move=ev=>{ const p=toDesignClient(ev.clientX,ev.clientY);
+    if(type==="spread") sh.spread=clamp(spread0*Math.abs(p.x-sh.cx)/off0,46,200);  // 좌우 크기 = 좌우 거리 비율(안 튐)
+    else if(type==="gap") sh.gap=clamp(gap0*Math.abs(p.y-sh.cy)/offy0,24,240);      // 상하 크기 = 세로 거리 비율(안 튐)
+    else if(type==="curve") sh.curve=clamp(curve0+(p0.y-p.y),-40,320);             // 세로 이동량만큼 곡률 가감
+    regenShape(sh); render(); };
+  const up=()=>{ window.removeEventListener("pointermove",move); window.removeEventListener("pointerup",up); };
+  window.addEventListener("pointermove",move); window.addEventListener("pointerup",up);
+}
+function hideHandles(){ const b=$("#handles"); if(b){ b.style.display="none"; b.innerHTML=""; } }
+function renderHandles(){
+  const box=$("#handles"); if(!box) return; box.innerHTML=""; box.style.display="none";
+  const sh=getShape(activeShape);
+  if(sh){ // 셰이프 변형 핸들
+    const ss=S.slots.filter(s=>s.shapeId===sh.id); if(!ss.length) return;
+    box.style.display="block";
+    const minX=Math.min(...ss.map(s=>s.x))-CARD_W/2, maxX=Math.max(...ss.map(s=>s.x))+CARD_W/2;
+    const minY=Math.min(...ss.map(s=>s.y))-CARD_H/2, maxY=Math.max(...ss.map(s=>s.y))+CARD_H/2;
+    const ol=document.createElement("div"); ol.className="shapebox";
+    ol.style.left=minX/S.frame.w*100+"%"; ol.style.top=minY/S.frame.h*100+"%";
+    ol.style.width=(maxX-minX)/S.frame.w*100+"%"; ol.style.height=(maxY-minY)/S.frame.h*100+"%"; box.appendChild(ol);
+    const mk=(x,y,t,label,cur)=>{ const h=document.createElement("div"); h.className="handle"; h.dataset.h=t; h.title=label;
+      h.style.left=x/S.frame.w*100+"%"; h.style.top=y/S.frame.h*100+"%"; h.style.cursor=cur;
+      h.addEventListener("pointerdown",ev=>startHandle(ev,t)); box.appendChild(h); };
+    mk(maxX+14,(minY+maxY)/2,"spread",(sh.type==="ring"||sh.type==="arc"||sh.type==="pinwheel")?"반지름":GRID_SHAPES[sh.type]?"간격/크기":"좌우 크기","ew-resize");
+    if(hasGap(sh.type)) mk((minX+maxX)/2,maxY+14,"gap","상하 크기","ns-resize"); // 상하(세로) 크기 = gap 피치, 비율식(안 튐)
+    // 행/열 카드 수는 오른쪽 스텝퍼로만 정밀 조절(끌기 핸들은 튀어서 제거). 좌우=spread·상하=gap·곡률=curve 핸들.
+    if(CURVE_TYPES.includes(sh.type)) mk((minX+maxX)/2,minY-14,"curve","곡률 / 벌림각","ns-resize");
+    return;
+  }
+  if(playing) return;
+  const ss=selSlots();
+  // 그룹/다중 선택 → **바운딩박스 변형 핸들**(실제 카드 스케일·비파괴). 카드 추가/삭제로 변형돼도 항상 표시.
+  if(ss.length>=2){
+    box.style.display="block";
+    const minX=Math.min(...ss.map(s=>s.x)), maxX=Math.max(...ss.map(s=>s.x));
+    const minY=Math.min(...ss.map(s=>s.y)), maxY=Math.max(...ss.map(s=>s.y));
+    const bx=minX-CARD_W/2, bX=maxX+CARD_W/2, by=minY-CARD_H/2, bY=maxY+CARD_H/2;
+    const ol=document.createElement("div"); ol.className="shapebox";
+    ol.style.left=bx/S.frame.w*100+"%"; ol.style.top=by/S.frame.h*100+"%";
+    ol.style.width=(bX-bx)/S.frame.w*100+"%"; ol.style.height=(bY-by)/S.frame.h*100+"%"; box.appendChild(ol);
+    const box0={bx,by,bX,bY};
+    const HS=[["nw",bx,by,"nwse-resize"],["ne",bX,by,"nesw-resize"],["sw",bx,bY,"nesw-resize"],["se",bX,bY,"nwse-resize"],
+              ["n",(bx+bX)/2,by,"ns-resize"],["s",(bx+bX)/2,bY,"ns-resize"],["w",bx,(by+bY)/2,"ew-resize"],["e",bX,(by+bY)/2,"ew-resize"]];
+    for(const hh of HS){ const [t,x,y,cur]=hh; const h=document.createElement("div"); h.className="handle xf"; h.dataset.h=t; h.title="드래그로 크기·비율 조절(코너=균등, 변=한 방향)";
+      h.style.left=x/S.frame.w*100+"%"; h.style.top=y/S.frame.h*100+"%"; h.style.cursor=cur;
+      h.addEventListener("pointerdown",ev=>startTransform(ev,t,box0)); box.appendChild(h); }
+    return;
+  }
+  // 단일 선택 카드 → 회전 핸들(카드를 도는 노브)
+  if(ss.length===1){
+    const s=selSlot(); if(!s) return; box.style.display="block";
+    const R=CARD_H/2+30, a=((s.rot||0)-90)*Math.PI/180, hx=s.x+R*Math.cos(a), hy=s.y+R*Math.sin(a);
+    const stem=document.createElement("div"); stem.className="rotstem";
+    stem.style.left=s.x/S.frame.w*100+"%"; stem.style.top=s.y/S.frame.h*100+"%";
+    stem.style.width=R/S.frame.w*100+"%"; stem.style.transformOrigin="left center";
+    stem.style.transform="rotate("+((s.rot||0)-90)+"deg)"; box.appendChild(stem);
+    const h=document.createElement("div"); h.className="handle rot"; h.title="드래그로 회전 · 더블클릭=0°";
+    h.style.left=hx/S.frame.w*100+"%"; h.style.top=hy/S.frame.h*100+"%"; h.style.cursor="grab";
+    h.addEventListener("pointerdown",ev=>startRotate(ev,s));
+    h.addEventListener("dblclick",ev=>{ev.stopPropagation();snapshot();s.rot=0;render();});
+    box.appendChild(h);
+  }
+}
+function startRotate(e,s){ e.stopPropagation(); e.preventDefault(); snapshot();
+  const move=ev=>{ const p=toDesignClient(ev.clientX,ev.clientY);
+    let deg=Math.atan2(p.y-s.y,p.x-s.x)*180/Math.PI+90; if(ev.shiftKey) deg=Math.round(deg/15)*15; else deg=Math.round(deg);
+    s.rot=((deg+180)%360+360)%360-180; render(); };
+  const up=()=>{ window.removeEventListener("pointermove",move); window.removeEventListener("pointerup",up); };
+  window.addEventListener("pointermove",move); window.addEventListener("pointerup",up);
+}
+// 바운딩박스 변형 드래그 — 반대편(코너/변)을 고정점으로 선택 카드 위치를 스케일(카드 크기 고정, 실제 카드 보존).
+function startTransform(e,type,box0){ e.stopPropagation(); e.preventDefault(); snapshot();
+  const ss=selSlots(); const {bx,by,bX,bY}=box0, w0=(bX-bx)||1, h0=(bY-by)||1;
+  const scaleX=type.includes("w")||type.includes("e"), scaleY=type.includes("n")||type.includes("s"), corner=scaleX&&scaleY;
+  const ax = type.includes("w")?bX : type.includes("e")?bx : (bx+bX)/2; // 반대편 x(고정)
+  const ay = type.includes("n")?bY : type.includes("s")?by : (by+bY)/2; // 반대편 y(고정)
+  const orig=ss.map(s=>({s,x:s.x,y:s.y}));
+  const move=ev=>{ const p=toDesignClient(ev.clientX,ev.clientY); let sx=1, sy=1;
+    if(corner){ const d0=Math.hypot(w0,h0), dc=Math.hypot(p.x-ax,p.y-ay); sx=sy=clamp(dc/d0,0.15,6); }
+    else if(scaleX){ sx=clamp(Math.abs(p.x-ax)/w0,0.15,6); }
+    else if(scaleY){ sy=clamp(Math.abs(p.y-ay)/h0,0.15,6); }
+    orig.forEach(({s,x,y})=>{ const f=fit(ax+(x-ax)*sx, ay+(y-ay)*sy); s.x=f.x; s.y=f.y; }); render(); };
+  const up=()=>{ window.removeEventListener("pointermove",move); window.removeEventListener("pointerup",up); };
+  window.addEventListener("pointermove",move); window.addEventListener("pointerup",up);
+}
+// 중복(같은 자리) 카드 — 셰이프를 겹쳐 찍으면 완전히 포개진 카드가 생겨 개수는 늘지만 눈엔 안 보임(배치≠표시).
+const DEDUP_DIST=8; // 이 거리보다 가까운 두 카드는 사실상 같은 자리(진짜 겹쳐찍힌 중복). 깊이(뒷면 pier)는 의도적 근접이라 제외.
+function dupCount(){ const seen=[]; let d=0; for(const s of S.slots){ if(s.pierOf) continue; if(seen.some(o=>Math.hypot(o.x-s.x,o.y-s.y)<DEDUP_DIST)) d++; else seen.push(s); } return d; }
+function dedupeCards(){ // 앞(높은 레이어·나중 인덱스)을 남기고 같은 자리 카드 제거. 깊이(pier) 카드는 대상 아님.
+  const order=S.slots.map((s,i)=>({s,i})).filter(o=>!o.s.pierOf).sort((a,b)=>(b.s.layer-a.s.layer)||(b.i-a.i)); // 앞→뒤(pier 제외)
+  const keep=[], remove=new Set();
+  for(const {s} of order){ if(keep.some(o=>Math.hypot(o.x-s.x,o.y-s.y)<DEDUP_DIST)) remove.add(s.id); else keep.push(s); }
+  if(!remove.size){ toast("중복(같은 자리) 카드 없음"); return; }
+  snapshot(); S.slots=S.slots.filter(s=>!remove.has(s.id) && !(s.pierOf&&remove.has(s.pierOf))); clearSel(); render(); toast(remove.size+"장 중복 제거"); }
+// 겹침(커버) 반전 — 덮는/덮이는 관계를 통째로 뒤집는다. ①레이어 미러(교차 레이어 커버) + ②배열 순서 역순(같은 레이어 커버).
+//   → 같은 층 카드끼리(격자·행 등)도 앞/뒤가 바뀌어 오픈↔폴드가 반전된다(레이어만 뒤집던 기존 한계 해소).
+function invertOverlap(ss){ if(ss.length<2){toast("2장 이상 필요");return;} snapshot();
+  const ids=new Set(ss.map(s=>s.id));
+  const mn=Math.min(...ss.map(s=>s.layer)), mx=Math.max(...ss.map(s=>s.layer));
+  ss.forEach(s=>s.layer=(mn+mx)-s.layer);                       // ① 레이어 반전(교차 레이어)
+  const idxs=[]; S.slots.forEach((s,i)=>{ if(ids.has(s.id)) idxs.push(i); });
+  const rev=idxs.map(i=>S.slots[i]).reverse(); idxs.forEach((i,k)=>S.slots[i]=rev[k]); // ② 배열 순서 역순(같은 레이어)
+  render(); toast("겹침 반전 ("+ss.length+"장)"); }
+function invertLayersSel(){ invertOverlap(selSlots()); }
+function rotSel(d){ const ss=selSlots(); if(!ss.length)return; snapshot();
+  ss.forEach(s=>{ s.rot=clamp(((s.rot||0)+d),-180,180); }); render(); }
+function resetRotSel(){ const ss=selSlots(); if(!ss.length)return; snapshot(); ss.forEach(s=>s.rot=0); render(); }
+// 특정 카드 90° 회전(가로↔세로 전환) — 랩어라운드(180 초과 시 -360). 선택 카드 각각.
+function rot90Sel(){ const ss=selSlots(); if(!ss.length){toast("카드를 선택하세요");return;} snapshot(); ss.forEach(s=>{ let r=(s.rot||0)+90; while(r>180)r-=360; while(r<-180)r+=360; s.rot=r; }); render(); toast(ss.length+"장 90° 회전"); }
+// 유기적 지터(P2) — 선택(없으면 전체)에 미세 회전·위치 난수 = 손 배치 느낌
+function applyJitter(){ const ss=sel.size?selSlots():S.slots; if(!ss.length)return; snapshot();
+  ss.forEach(s=>{ s.rot=clamp(((s.rot||0)+(Math.random()*2-1)*9),-22,22);
+    const f=fit(s.x+(Math.random()*2-1)*5, s.y+(Math.random()*2-1)*5); s.x=f.x; s.y=f.y; });
+  render(); toast(ss.length+"장 손맛 지터(회전·위치)"); }
+// 정돈 — 손맛(지터)으로 흐트러진 카드를 다시 정렬: 회전 0°로 되돌리고 격자 피치에 스냅. 선택 없으면 전체.
+function realignSel(){ const ss=(sel.size?selSlots():S.slots).filter(s=>!isLocked(s)); if(!ss.length)return; snapshot();
+  ss.forEach(s=>{ s.rot=0; const f=fit(Math.round(s.x/stepX())*stepX(), Math.round(s.y/stepY())*stepY()); s.x=f.x; s.y=f.y; });
+  render(); toast(ss.length+"장 정돈 — 회전 0°·격자 정렬"); }
+// 겹침 펼치기 — **완전히 포개져 뒤 카드가 안 보이는 것을 방지.** 앞 카드가 뒤 카드를 PEEK_MAX 초과로 덮으면,
+//   앞 카드를 뒤 카드 중심 반대로 조금씩 밀어 겹침을 PEEK_MAX 이하(=뒤 카드 (1-PEEK_MAX) 이상 보임)로 낮춘다.
+//   목표 겹침(≈0.5)은 커버 임계(1%)보다 훨씬 커서 **커버 관계(=풀이 그래프)는 유지**(솔버빌리티 보존). 선택 없으면 전체.
+const PEEK_MAX=0.5; // 앞 카드가 뒤 카드를 최대 50%까지만 덮음 → 뒤 50%+ 항상 보임
+function countBuried(ss,frontFn){ let c=0; for(let i=0;i<ss.length;i++)for(let j=0;j<ss.length;j++){ if(i!==j&&frontFn(ss[i],ss[j])&&overlap(ss[i],ss[j])>PEEK_MAX)c++; } return c; }
+function spreadPeek(){
+  const ss=(sel.size?selSlots():S.slots).filter(s=>!isLocked(s));
+  if(ss.length<2){toast("2장 이상 필요");return;}
+  const idx=new Map(S.slots.map((s,i)=>[s.id,i]));
+  const front=(a,b)=>b.layer>a.layer||(b.layer===a.layer&&idx.get(b.id)>idx.get(a.id));
+  const before=countBuried(ss,front);
+  if(!before){ toast("과도한 겹침 없음 — 이미 뒤 카드가 보임"); return; }
+  snapshot();
+  const STEP=5;
+  for(let it=0;it<260;it++){ let moved=false;
+    for(let i=0;i<ss.length;i++)for(let j=0;j<ss.length;j++){
+      if(i===j)continue; const a=ss[i], b=ss[j]; if(!front(a,b))continue;
+      if(overlap(a,b)<=PEEK_MAX)continue;
+      let dx=b.x-a.x, dy=b.y-a.y; const len=Math.hypot(dx,dy);
+      if(len<1){ const k=idx.get(b.id)%4; dx=[1,1,-1,-1][k]; dy=[1,-1,1,-1][k]; const l2=Math.hypot(dx,dy); dx/=l2; dy/=l2; } // 같은 자리=대각 펼침
+      else { dx/=len; dy/=len; }
+      const f=fit(b.x+dx*STEP, b.y+dy*STEP); b.x=f.x; b.y=f.y; moved=true;
+    }
+    if(!moved)break;
+  }
+  render();
+  const after=countBuried(ss,front);
+  toast(`겹침 펼침 — 가려진 ${before}쌍 → ${after}쌍 (뒤 카드 ${Math.round((1-PEEK_MAX)*100)}%+ 보임)`);
+}
+// ── 깊이 스택(P3, 피어) — 노출 카드 밑에 뒷면 N장을 겹쳐 두께·난이도 ──
+//   backs = 실제 슬롯(더 낮은 layer·살짝 오프셋 → 앞 카드가 덮음). pierOf 태그로 이동·삭제가 동반.
+//   저장 시엔 일반 카드(미니 캐스케이드)로 나가 게임·솔버가 그대로 소비.
+function pierUnder(s,n){ const add=[]; for(let k=1;k<=n;k++){ const f=fit(s.x+k*2,s.y+k*7);
+  add.push({id:uid(),pierOf:s.id,x:f.x,y:f.y,layer:s.layer-k,face:"fold",rot:s.rot||0}); } return add; }
+function addPierSel(n){ const fronts=selSlots().filter(s=>!s.pierOf); if(!fronts.length)return; snapshot();
+  const all=[]; fronts.forEach(s=>pierUnder(s,n).forEach(c=>all.push(c))); S.slots.push(...all); render(); toast(fronts.length+"장 깊이 +"+n+" (뒷면 피어)"); }
+function withPiers(list){ const ids=new Set(list.map(s=>s.id)); const ex=S.slots.filter(s=>s.pierOf&&ids.has(s.pierOf)&&!ids.has(s.id)); return ex.length?[...list,...ex]:list; }
+
+// ── 스트로크 저작(A) — 끌어서 카드 줄기를 그린다. 진행 방향 = 커버 방향 = 레이어 경사 ──
+// 원시 포인터 경로를 등간격(STROKE_STEP)으로 리샘플 → 경로를 따라 일정 겹침의 사슬.
+function resample(pts,step){
+  if(pts.length<2) return pts.slice();
+  const out=[pts[0]]; let prev=pts[0], acc=0;
+  for(let i=1;i<pts.length;i++){
+    let cur=pts[i], dx=cur.x-prev.x, dy=cur.y-prev.y, d=Math.hypot(dx,dy);
+    while(acc+d>=step){
+      const t=(step-acc)/d, nx=prev.x+dx*t, ny=prev.y+dy*t;
+      out.push({x:nx,y:ny}); prev={x:nx,y:ny}; dx=cur.x-prev.x; dy=cur.y-prev.y; d=Math.hypot(dx,dy); acc=0;
+    }
+    acc+=d; prev=cur;
+  }
+  const last=out[out.length-1], end=pts[pts.length-1];
+  if(Math.hypot(end.x-last.x,end.y-last.y)>step*0.45) out.push(end); // 끝점(정점)은 항상 포함
+  return out;
+}
+// 경로 → 배치될 카드 좌표(스냅·플레이존 클램프·근접 중복 제거).
+function strokePoints(rawPts){
+  let pts=resample(rawPts,STROKE_STEP);
+  pts=pts.map(p=>{ const q=doSnap(p.x,p.y); return fit(q.x,q.y); });
+  return pts.filter((p,i)=> i===0 || Math.hypot(p.x-pts[i-1].x,p.y-pts[i-1].y)>10);
+}
+function previewStroke(rawPts){
+  const pts=strokePoints(rawPts), box=$("#preview");
+  box.innerHTML=""; box.style.display=pts.length?"block":"none";
+  pts.forEach((p,i)=>{
+    const el=document.createElement("div");
+    el.className="pcard "+(i===pts.length-1?"open":"fold");
+    el.style.left=(p.x-CARD_W/2)/S.frame.w*100+"%"; el.style.top=(p.y-CARD_H/2)/S.frame.h*100+"%";
+    el.style.width=CARD_W/S.frame.w*100+"%"; el.style.height=CARD_H/S.frame.h*100+"%"; el.style.zIndex=i;
+    box.appendChild(el);
+  });
+  if(pts.length>=2) drawArrow(pts[0], pts[pts.length-1]); else $("#strokearrow").style.display="none";
+}
+function drawArrow(a,b){ // base → apex 방향 힌트(커버 방향)
+  const r=stage.getBoundingClientRect(), sa=$("#strokearrow");
+  const P=p=>({x:p.x/S.frame.w*r.width, y:p.y/S.frame.h*r.height});
+  const A=P(a), B=P(b); sa.setAttribute("width",r.width); sa.setAttribute("height",r.height);
+  sa.style.display="block";
+  const L=$("#saLine"); L.setAttribute("x1",A.x);L.setAttribute("y1",A.y);L.setAttribute("x2",B.x);L.setAttribute("y2",B.y);
+  const ang=Math.atan2(B.y-A.y,B.x-A.x), s=11;
+  const p1=`${B.x},${B.y}`, p2=`${B.x-s*Math.cos(ang-0.5)},${B.y-s*Math.sin(ang-0.5)}`, p3=`${B.x-s*Math.cos(ang+0.5)},${B.y-s*Math.sin(ang+0.5)}`;
+  $("#saHead").setAttribute("points",`${p1} ${p2} ${p3}`);
+}
+function clearPreview(){ $("#preview").innerHTML=""; $("#preview").style.display="none"; $("#strokearrow").style.display="none"; }
+function commitStroke(rawPts){
+  const pts=strokePoints(rawPts);
+  if(pts.length<2){ place(rawPts[rawPts.length-1].x, rawPts[rawPts.length-1].y); return; }
+  snapshot();
+  let base=0; pts.forEach(p=>{ base=Math.max(base, layerAt(p.x,p.y)); }); // 기존 카드 위로 띄움
+  const added=pts.map((p,i)=>({id:uid(), x:p.x, y:p.y, layer:base+i, face:"fold"}));
+  added[added.length-1].face="open"; // 정점(끝점)=플레이 가능
+  if(tangentRot){ // 접선 회전 — 카드를 경로 접선에 맞춰 바깥으로 벌림(아치/갈런드 splay)
+    for(let i=0;i<pts.length;i++){ const a=pts[Math.max(0,i-1)], b=pts[Math.min(pts.length-1,i+1)];
+      added[i].rot=clamp(-Math.round(Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI),-45,45); } }
+  S.slots.push(...added); selectIds(added.map(a=>a.id)); render();
+  toast(added.length+"장 스트로크"+(tangentRot?" · 접선 회전":" — 방향대로 층"));
+}
+
+// 익스플로드(펼침) — 커서 아래 겹친 스택을 부채꼴로 벌려 개별 선택 가능하게(표시 전용, 데이터 불변)
+function explodeOffsets(){
+  const m=new Map();
+  if(!explodeHold || !explodeSet || explodeSet.size<2) return m;
+  const list=S.slots.filter(s=>explodeSet.has(s.id)).sort((a,b)=>a.layer-b.layer), n=list.length, spread=CARD_W*0.94;
+  list.forEach((s,i)=>m.set(s.id,{dx:(i-(n-1)/2)*spread, rot:(i-(n-1)/2)*3}));
+  return m;
+}
+function render(){
+  stage.style.aspectRatio=S.frame.w+"/"+S.frame.h;
+  layoutZones();
+  board.innerHTML="";
+  const ex=explodeOffsets();
+  const idxMap=playing?new Map(S.slots.map((s,i)=>[s.id,i])):null;
+  board.classList.toggle("exploding",ex.size>0);
+  board.classList.toggle("playing",playing);
+  stage.classList.toggle("pbmode",playing); // 재생 중 에디터 크롬 숨김(게임처럼)
+  document.querySelector(".app").classList.toggle("playing",playing); // 상단 툴바 흐리게
+  S.slots.slice().sort((a,b)=>a.layer-b.layer).forEach(s=>{
+    const pbi=idxMap?idxMap.get(s.id):-1;
+    if(playing&&pbCleared&&pbCleared.has(pbi)) return; // 낸 카드는 보드에서 사라짐(웨이스트로 이동)
+    if(!playing&&isHidden(s)) return; // 숨긴 레이어는 편집 화면에서 그리지 않음(커버·솔버엔 여전히 포함)
+    const el=document.createElement("div");
+    const e=ex.get(s.id);
+    // 재생 중: 커버가 모두 제거된 카드만 앞면(노출). 나머지는 뒷면.
+    let faceCls=s.face, showRank=false, reveal=false, exposedNow;
+    if(playing&&pbCoveredBy){ exposedNow=pbCoveredBy[pbi].every(c=>pbCleared.has(c));
+      faceCls=exposedNow?"open":"fold"; showRank=exposedNow; reveal=exposedNow&&pbJustRevealed&&pbJustRevealed.has(pbi); }
+    // **게임과 동일 표시**: 노출(위에 덮은 카드 없음)=오픈(앞면)·가려짐=폴드(뒷면). 게임은 저작 face 무시하고 커버로만 판정하므로 에디터 표시도 커버 기준으로 통일.
+    else { exposedNow=coverOf(s).length===0; faceCls=exposedNow?"open":"fold"; }
+    // 겹침(가려짐)/비겹침(노출) 명확 표시 — 노출=초록 링, 가려짐=어둡게.
+    el.className="card "+faceCls+(showLay?" showlay":"")+(sel.has(s.id)?" sel":"")+(e?" pop":"")+(reveal?" reveal":"")+(exposedNow?" expo":" covd");
+    if(!playing&&coverOf(s).length===0) el.classList.add("uncovered");
+    el.style.left=(s.x+(e?e.dx:0)-CARD_W/2)/S.frame.w*100+"%";
+    el.style.top=(s.y-CARD_H/2)/S.frame.h*100+"%";
+    el.style.width=CARD_W/S.frame.w*100+"%";
+    el.style.height=CARD_H/S.frame.h*100+"%";
+    el.style.zIndex=(e?900:10)+s.layer;
+    const rot=(s.rot||0)+(e?e.rot:0); if(rot) el.style.transform="rotate("+rot+"deg)";
+    el.dataset.id=s.id;
+    const rk=(playing&&showRank&&pbBoardRanks)?cardFaceHTML(pbBoardRanks[pbi],pbSuits?pbSuits[pbi]:"♠"):"";
+    el.innerHTML=`<div class="inner">${rk}</div><span class="lay">${s.layer}</span><span class="warn" title="위에 겹친 카드가 없는데 폴드입니다">!</span>`;
+    board.appendChild(el);
+  });
+  $("#playhint").style.display=S.slots.length?"none":"block";
+  drawGrid(); drawCover(); updateHud(); updateInsp(); updateMeta(); renderHandles(); renderLayers();
+  if(!playing) saveWipSoon(); // 편집중 보드를 자동 보존(재생 중 제외)
+}
+
+function layoutZones(){
+  const z=zone(), f=S.frame;
+  const topPct=z.y0/f.h*100, botPct=(f.h-z.y1)/f.h*100;
+  $("#zTop").style.height=topPct+"%"; $("#zBot").style.height=botPct+"%";
+  const pb=$("#playbound").style;
+  pb.left=z.x0/f.w*100+"%"; pb.top=z.y0/f.h*100+"%";
+  pb.width=(z.x1-z.x0)/f.w*100+"%"; pb.height=(z.y1-z.y0)/f.h*100+"%";
+  // mock stock sizing
+  const ms=$("#mockstock"); const cw=CARD_W/f.w*100;
+  ms.style.left="30%"; ms.style.bottom="26%";
+  ms.querySelectorAll(".mockcard").forEach(c=>{ c.style.width="min(46px,9vw)"; c.style.aspectRatio=CARD_W+"/"+CARD_H; });
+}
+
+function updateHud(){
+  const n=S.slots.length, open=S.slots.filter(s=>coverOf(s).length===0).length; // 오픈=노출(커버 없음) 카드 수 = 게임 표시 기준 // 표시 오픈 = 노출 && 저작 오픈(커버되면 폴드로 표시)
+  const dups=dupCount();
+  $("#hBoard").textContent=n; $("#hTarget").textContent=S.target; $("#hStock").textContent=S.stock;
+  $("#hOpen").textContent=open; $("#hFold").textContent=n-open;
+  $("#pBudget").classList.toggle("warn",n>S.target||dups>0);
+  $("#pBudget").title = dups>0 ? `⚠ 같은 자리에 포개진 중복 카드 ${dups}장 — 실제 보이는 카드는 ${n-dups}장(툴바 '중복정리'로 제거)` : "";
+  const derived=S.slots.filter(s=>coverOf(s).length===0).length;
+  const maxL=S.slots.reduce((m,s)=>Math.max(m,s.layer),0);
+  $("#vDerived").textContent=derived; $("#vLayer").textContent=maxL;
+  let msg;
+  if(!n) msg="가운데 영역을 클릭해 카드를 놓으세요.";
+  else if(dups>0) msg=`⚠ 같은 자리 중복 카드 ${dups}장 — 실제 보이는 카드는 ${n-dups}장. 툴바 '⊟ 중복정리'로 제거하세요.`;
+  else if(open===0) msg="⚠ 오픈 카드가 없습니다 — 시작 시 낼 카드가 없어 플레이 불가.";
+  else if(derived!==open) msg=`유도 오픈 ${derived} ≠ 저작 오픈 ${open}. 폴드인데 위에 안 겹친 카드(!)를 확인.`;
+  else msg=`✓ 유도 오픈 = 저작 오픈 (${derived}). 모델 정합.`;
+  $("#vMsg").textContent=msg;
+  $("#pOF").classList.toggle("warn",open===0&&n>0);
+  renderGuide();
+}
+
+// 레벨 가이드 — 보드/뽑기 수·풀이 난이도·추가카드 필요 여부. (뽑기·난이도는 '풀이 검증' 후 표시.)
+//   보드가 바뀌면 lastSolve 는 무효(스냅샷에서 초기화) → 검증 다시 필요.
+function renderGuide(){ const box=$("#levelGuide"); if(!box) return;
+  const n=S.slots.length; if(!n){ box.innerHTML=""; return; }
+  const exposed=S.slots.filter(s=>coverOf(s).length===0).length;
+  const maxLayer=S.slots.reduce((m,s)=>Math.max(m,s.layer),0);
+  const solved=lastSolve&&lastSolve.ok?lastSolve:null;
+  let h=`<div class="grow"><span>보드 카드</span><b>${n}장</b></div>`
+    +`<div class="grow"><span>초기 노출</span><b>${exposed}장</b></div>`
+    +`<div class="grow"><span>최대 겹침</span><b>${maxLayer+1}층</b></div>`;
+  if(solved){
+    const path=solved.path||[], draws=path.filter(m=>m.t==="d").length, plays=path.length-draws;
+    // **난이도는 새 등급 시스템(greedy 측정, lastDiff)과 동일 값 사용** — 예전 별점 휴리스틱 제거(설정 등급과 충돌하던 원인).
+    //   스톡도 등급 기반 값(dm.stock)을 표시(예전엔 아슬아슬 '최소 스톡'을 써서 항상 ★★★★★로 보였음).
+    const dm=lastDiff, minStock=(solved.stockRanks||[]).length; // minStock=승리에 필요한 **필수 최소** 뽑기 수
+    const M=S.stock>0?S.stock:(dm?dm.stock:solved.budget), ratio=n?M/n:0; // 실제 배치 스톡 = 오른쪽 '뽑기' 칸(S.stock) — 조절 가능
+    const slack=M-minStock; // 여유 = 실제 배치 − 필수 최소 = **실수 허용 카드 수**(많을수록 쉬움)
+    const slackLabel = slack<0?"부족(게임이 보정)":slack<=1?"빡빡·실수 여지 거의 없음":slack<=Math.max(2,Math.round(minStock*0.5))?"보통":"여유·실수 허용 넉넉";
+    const gradeLabel=dm?GRADE_LABEL[dm.grade]:"검증 필요";
+    const wrPct=dm?Math.round(dm.measuredWR*100):null;
+    const mism = dm && dm.target && dm.grade!==dm.target;
+    h+=`<div class="gsep"></div>`
+      +`<div class="grow"><span>뽑기(스톡)</span><b><button class="gstk" data-stk="-1" title="스톡 줄이기">−</button> ${M}장 <button class="gstk" data-stk="1" title="스톡 늘리기">＋</button></b></div>`
+      +`<div class="grow"><span>필수·여유</span><b>최소 ${minStock} + 여유 <b class="g">${Math.max(0,slack)}</b></b></div>`
+      +`<div class="grow"><span>실수 여유</span><b>${slackLabel} <small>(스톡 ${Math.round(ratio*100)}%)</small></b></div>`
+      +`<div class="grow"><span>해답 수순</span><b>${path.length}수 <small>낸카드 ${plays}·드로우 ${draws}</small></b></div>`
+      +`<div class="grow gdiff"><span>풀이 난이도</span><b>${gradeLabel}${wrPct!=null?` <small>승률 ${wrPct}%</small>`:""}</b></div>`
+      +(mism?`<div class="gnote warn">⚠ 목표는 <b>${GRADE_LABEL[dm.target]}</b>이나 이 배치는 <b>${gradeLabel}</b>에 가깝습니다 — 더 쉽게=간격↑·노출↑ / 더 어렵게=겹침↑·노출↓.</div>`
+        :`<div class="gnote ok">✓ 설정한 난이도 등급으로 딜됩니다(위 <b>난이도 등급</b> 설정 기준).</div>`);
+  } else {
+    h+=`<div class="gnote dim">▶ <b>풀이 검증</b>을 실행하면 뽑기 수·풀이 난이도(설정 등급 기준)가 표시됩니다.</div>`;
+  }
+  box.innerHTML=h;
+}
+
+// 선택된 그룹/레이어 표시 + 그룹 편집 + 미세 이동 패드
+function updateSelHead(ss){ const head=$("#selHead"); if(!head) return;
+  if(!ss.length){ head.innerHTML=""; return; }
+  const gi=selGroupInfo();
+  let h=`<div class="selhead">`;
+  if(gi){ h+=`<div class="shrow"><span class="shname">🗂 ${gi.name}</span><span class="shcnt">${gi.selN===gi.cnt?gi.cnt+"장 전체":gi.selN+" / "+gi.cnt+"장"}</span></div>`
+    +(shapeDefs[gi.g]?`<div class="pbbtns"><button class="btn sm primary" data-ga="reshape" style="flex:1">◆ 셰이프 재편집 (조절점·행수·벌림·곡률)</button></div>`:"")
+    +`<div class="pbbtns"><button class="btn sm" data-ga="open">◐ 오픈</button><button class="btn sm" data-ga="fold">● 폴드</button><button class="btn sm" data-ga="front">▲ 앞</button><button class="btn sm" data-ga="back">▼ 뒤</button></div>`
+    +`<div class="pbbtns"><button class="btn sm" data-ga="rotL">↺15°</button><button class="btn sm" data-ga="rotR">↻15°</button><button class="btn sm" data-ga="dup">⧉ 복제</button><button class="btn sm primary" data-ga="mirror">⇋ 좌우반전</button></div>`
+    +`<div class="pbbtns"><button class="btn sm" data-ga="flipLayer" style="flex:1">⇅ 겹침 반전(앞뒤)</button></div>`
+    +`<div class="pbbtns"><button class="btn sm" data-ga="ungroup">▢ 그룹해제</button><button class="btn sm danger" data-ga="del">🗑 그룹삭제</button></div>`;
+  } else { h+=`<div class="shrow"><span class="shname">${ss.length>1?"▦ 개별 카드":"▢ 개별 카드"}</span><span class="shcnt">${ss.length>1?ss.length+"장 선택":"레이어 "+ss[0].layer}</span></div>`;
+    if(ss.length>1) h+=`<div class="pbbtns"><button class="btn sm" data-ga="makegrp">▣ 그룹으로 묶기</button><button class="btn sm" data-ga="flipLayer">⇅ 겹침 반전</button></div>`; }
+  // 크기 조절 — 선택(2장+) 유지한 채 언제든 확대/축소. (그룹 배열 크기 = 카드 간격)
+  if(ss.length>1) h+=`<div class="pbbtns"><span class="note" style="flex:0 0 auto;align-self:center;margin:0">크기</span><button class="btn sm" data-sc="0.88">➖ 축소</button><button class="btn sm" data-sc="1.14">➕ 확대</button><button class="btn sm" data-sc="0.5" title="반으로">½</button><button class="btn sm" data-sc="2" title="두 배">2×</button></div>`;
+  // 카드 추가(행/열 확장) — 가장자리 행/열을 바깥으로 복제해 카드를 늘림(셰이프 적용 후에도 확장)
+  if(gi||ss.length>=1) h+=`<div class="pbbtns"><span class="note" style="flex:0 0 auto;align-self:center;margin:0">카드 추가</span><button class="btn sm" data-grow="col-1" title="왼쪽에 열 추가">＋열◀</button><button class="btn sm" data-grow="col1" title="오른쪽에 열 추가">＋열▶</button><button class="btn sm" data-grow="row-1" title="위에 행 추가">＋행▲</button><button class="btn sm" data-grow="row1" title="아래에 행 추가">＋행▼</button></div>`;
+  // 미세 이동 패드(정밀) — 클릭 2px · Shift+클릭 1px
+  h+=`<div class="nudge"><div class="ndrow"><button data-nx="0" data-ny="-1">▲</button></div>`
+    +`<div class="ndrow"><button data-nx="-1" data-ny="0">◀</button><span class="ndlbl">미세이동<br>2px·⇧1px</span><button data-nx="1" data-ny="0">▶</button></div>`
+    +`<div class="ndrow"><button data-nx="0" data-ny="1">▼</button></div></div></div>`;
+  head.innerHTML=h;
+  const box=head.querySelector(".selhead");
+  box.onclick=e=>{ const ga=e.target.closest("[data-ga]"), nb=e.target.closest("[data-nx]"), sc=e.target.closest("[data-sc]"), gr=e.target.closest("[data-grow]");
+    if(nb){ const st=e.shiftKey?1:2; nudgeSel(+nb.dataset.nx*st,+nb.dataset.ny*st); return; }
+    if(sc){ scaleSel(+sc.dataset.sc); return; }
+    if(gr){ const v=gr.dataset.grow; growSel(v.startsWith("row")?"row":"col", v.includes("-1")?-1:1); return; }
+    if(!ga) return; const a=ga.dataset.ga, g=gi&&gi.g;
+    if(a==="open")setGroupFace(g,"open"); else if(a==="fold")setGroupFace(g,"fold");
+    else if(a==="front")groupToFront(g); else if(a==="back")groupToBack(g);
+    else if(a==="rotL")rotateGroupSel(-15); else if(a==="rotR")rotateGroupSel(15);
+    else if(a==="dup")dupGroupSel(false); else if(a==="mirror")dupGroupSel(true);
+    else if(a==="ungroup")ungroupSel(); else if(a==="del")deleteGroup(g);
+    else if(a==="reshape")reactivateShape(g);
+    else if(a==="flipLayer")invertLayersSel();
+    else if(a==="makegrp")makeGroup(); };
+}
+function updateInsp(){
+  const box=$("#insp"), ss=selSlots();
+  updateSelHead(ss);
+  const sh=getShape(activeShape);
+  if(sh){ // 셰이프 편집(B)
+    const n=S.slots.filter(s=>s.shapeId===sh.id).length, hasCurve=CURVE_TYPES.includes(sh.type), isRad=sh.type==="ring"||sh.type==="arc"||sh.type==="pinwheel", isGrid=!!GRID_SHAPES[sh.type], ax=shapeAxes(sh.type);
+    box.innerHTML=`
+      <div class="kv" style="margin-bottom:8px"><span><b>${SHAPES[sh.type].name}</b> 셰이프</span><span class="dimx">${n}장</span></div>
+      <div class="kv" style="margin:-2px 0 6px;font-size:10.5px;color:var(--ink-3)">카드 수 = ${ax.r?`<b>${ax.r}</b>(행)`:""}${ax.r&&ax.c?" × ":""}${ax.c?`<b>${ax.c}</b>(열)`:""} 로 확장</div>
+      ${ax.r?`<div class="stepper" data-k="rows"><span>${ax.r}</span><button data-d="-1">−</button><b>${sh.rows}</b><button data-d="1">＋</button></div>`:""}
+      ${ax.c?`<div class="stepper" data-k="cols"><span>${ax.c}</span><button data-d="-1">−</button><b>${sh.cols}</b><button data-d="1">＋</button></div>`:""}
+      <div class="stepper" data-k="spread"><span>${isRad?"반지름":isGrid?"간격/크기":"좌우 벌림"}</span><button data-d="-12">−</button><b>${Math.round(sh.spread)}</b><button data-d="12">＋</button></div>
+      ${hasCurve?`<div class="stepper" data-k="curve"><span>${sh.type==="wing"?"벌림각":sh.type==="arc"?"벌림각":"아치 곡률"}</span><button data-d="-15">−</button><b>${Math.round(sh.curve)}</b><button data-d="15">＋</button></div>`:""}
+      <div class="note" style="margin:8px 0">캔버스 <b>◆ 핸들</b>을 끌어도 됩니다. 완성하면 <b>자유 편집</b>으로 개별 카드 손질.</div>
+      <div class="grid2"><button class="btn sm primary" id="flatBtn">✓ 자유 편집</button><button class="btn sm danger" id="delShape">🗑 삭제</button></div>`;
+    box.querySelectorAll(".stepper").forEach(st=>st.addEventListener("click",e=>{const b=e.target.closest("[data-d]");if(!b)return;
+      const k=st.dataset.k, cur=k==="cols"?sh.cols:k==="rows"?sh.rows:k==="curve"?sh.curve:sh.spread; setShapeParam(k,cur+ +b.dataset.d);}));
+    $("#flatBtn").onclick=()=>{ const ids=S.slots.filter(s=>s.shapeId===sh.id).map(s=>s.id); flattenAll(); selectIds(ids); render(); toast("자유 편집 — 개별 카드로 확정"); };
+    $("#delShape").onclick=deleteShape;
+    return;
+  }
+  if(ss.length===0){ box.innerHTML=`<div class="empty">카드를 클릭해 선택.<br>끌기=마퀴 다중선택 · Shift+클릭=추가<br><b>Ctrl(⌘)+클릭=개별 카드</b>(그룹/셰이프 안의 한 장) · <b>Ctrl+드래그=그 카드만 이동</b><br>X=펼쳐보기 · Del=삭제</div>`; return; }
+  if(ss.length>1){ // 다중선택 — 정렬/분포/일괄
+    const open=ss.filter(s=>s.face==="open").length;
+    box.innerHTML=`
+      <div class="kv" style="margin-bottom:8px"><span>선택 <b>${ss.length}</b>장</span><span class="dimx">오픈 ${open}·폴드 ${ss.length-open}</span></div>
+      <div class="sublbl">가로 정렬</div>
+      <div class="alignrow" id="alnX"><button data-a="left" title="왼쪽">⬗</button><button data-a="cx" title="가로 가운데">⬍</button><button data-a="right" title="오른쪽">⬖</button><button data-a="distx" title="가로 균등분포" ${ss.length<3?"disabled":""}>⇿</button></div>
+      <div class="sublbl">세로 정렬</div>
+      <div class="alignrow" id="alnY"><button data-a="top" title="위">⬒</button><button data-a="cy" title="세로 가운데">⬌</button><button data-a="bot" title="아래">⬓</button><button data-a="disty" title="세로 균등분포" ${ss.length<3?"disabled":""}>⇕</button></div>
+      <div class="seg" id="segFaceM" style="margin:9px 0"><button data-face="open">모두 오픈</button><button data-face="fold">모두 폴드</button></div>
+      <div class="row wrap" style="margin-bottom:9px">
+        <button class="btn sm" id="layUpM">▲ 층+</button><button class="btn sm" id="layDnM">▼ 층−</button></div>
+      <div class="stepper" id="rotStepM"><span>회전(°)</span><button data-d="-5">−</button><button data-d="5">＋</button><button data-d="90" title="90° 회전(가로↔세로)">90°</button><button data-d="0" title="모두 0°">⊙</button><button id="jitM" title="손맛 지터 — 미세 회전·위치">🖐</button><button id="realignM" title="정돈 — 회전 0°·격자 정렬">▦</button></div>
+      <div class="stepper" id="pierStepM"><span>깊이(뒷면)</span><button data-n="1">+1</button><button data-n="2">+2</button></div>
+      <div class="grid2"><button class="btn sm" id="dupM">⧉ 복제</button><button class="btn sm danger" id="delM">🗑 삭제</button></div>`;
+    $("#alnX").onclick=e=>{const b=e.target.closest("[data-a]");if(!b||b.disabled)return;b.dataset.a==="distx"?distSel("x"):alignSel(b.dataset.a);};
+    $("#alnY").onclick=e=>{const b=e.target.closest("[data-a]");if(!b||b.disabled)return;b.dataset.a==="disty"?distSel("y"):alignSel(b.dataset.a);};
+    $("#segFaceM").onclick=e=>{const b=e.target.closest("[data-face]");if(!b)return;setFaceSel(b.dataset.face);};
+    $("#layUpM").onclick=()=>layerSel(1); $("#layDnM").onclick=()=>layerSel(-1);
+    $("#rotStepM").onclick=e=>{const b=e.target.closest("[data-d]");if(!b)return; const d=+b.dataset.d; d===0?resetRotSel():d===90?rot90Sel():rotSel(d);};
+    $("#jitM").onclick=applyJitter; $("#realignM").onclick=realignSel;
+    $("#pierStepM").onclick=e=>{const b=e.target.closest("[data-n]");if(!b)return;addPierSel(+b.dataset.n);};
+    $("#dupM").onclick=dupSel; $("#delM").onclick=delSel;
+    return;
+  }
+  const s=ss[0]; // 단일
+  // ── 진단: 이 카드가 게임에서 오픈/폴드인 이유 ──
+  const _covers=coverOf(s), _si=S.slots.indexOf(s);
+  const _behind=S.slots.filter((o,oi)=>o!==s && overlap(s,o)>=OVERLAP_MIN && !(o.layer>s.layer||(o.layer===s.layer&&oi>_si)));
+  const _open=_covers.length===0;
+  const _diag=`<div class="cdiag ${_open?'op':'fo'}">게임 표시: <b>${_open?'오픈(노출)':'폴드(가려짐)'}</b>`
+    +(_open ? `<br>위에 겹친(앞) 카드 <b>0</b>장 → 노출`+(_behind.length?`<br><span class="dimx">겹치지만 <b>아래</b>에 있어 안 덮는 카드 ${_behind.length}장 (이 카드가 맨 위라 오픈)</span>`:``)
+            : `<br>위에 겹친 카드 <b>${_covers.length}</b>장에 덮임 → 폴드`)+`</div>`;
+  box.innerHTML=_diag+`
+    <div class="seg" id="segFace" style="margin-bottom:9px">
+      <button data-face="open" class="${s.face==="open"?"on":""}">오픈</button>
+      <button data-face="fold" class="${s.face==="fold"?"on":""}">폴드</button></div>
+    <div class="row wrap" style="margin-bottom:9px">
+      <div class="kv" style="flex:1">레이어 <b>${s.layer}</b></div>
+      <button class="btn sm" id="layUp">▲ 위로</button><button class="btn sm" id="layDn">▼ 아래</button></div>
+    ${lattice?`<div class="kv" style="margin-bottom:9px">커버 격자 <b>행 ${Math.round(s.y/LAT_Y)} · 열 ${Math.round(s.x/LAT_X)/2}</b></div>`:""}
+    <div class="row" style="margin-bottom:9px">
+      <label class="f">X<input class="t num" id="cx" type="number" value="${Math.round(s.x)}"></label>
+      <label class="f">Y<input class="t num" id="cy" type="number" value="${Math.round(s.y)}"></label></div>
+    <div class="stepper" id="rotStep"><span>회전(°)</span><button data-d="-15">−</button><button data-d="-5">‹</button><b>${Math.round(s.rot||0)}</b><button data-d="5">›</button><button data-d="15">＋</button><button data-d="0" title="0°">⊙</button></div>
+    <div class="stepper" id="pierStep"><span>깊이(뒷면)</span><button data-n="1">+1</button><button data-n="2">+2</button><button data-n="3">+3</button></div>
+    <div class="grid2"><button class="btn sm" id="dup">⧉ 복제</button><button class="btn sm danger" id="del">🗑 삭제</button></div>`;
+  $("#segFace").onclick=e=>{const b=e.target.closest("[data-face]");if(!b)return;snapshot();s.face=b.dataset.face;render();};
+  $("#layUp").onclick=()=>{snapshot();s.layer++;render();};
+  $("#layDn").onclick=()=>{snapshot();s.layer=Math.max(0,s.layer-1);render();};
+  $("#cx").onchange=e=>{snapshot();s.x=fit(+e.target.value,s.y).x;render();};
+  $("#cy").onchange=e=>{snapshot();s.y=fit(s.x,+e.target.value).y;render();};
+  $("#rotStep").onclick=e=>{const b=e.target.closest("[data-d]");if(!b)return;snapshot(); b.dataset.d==="0"?s.rot=0:s.rot=clamp((s.rot||0)+ +b.dataset.d,-180,180); render();};
+  $("#pierStep").onclick=e=>{const b=e.target.closest("[data-n]");if(!b)return;addPierSel(+b.dataset.n);};
+  $("#dup").onclick=()=>{snapshot();const nx=s.x+stepX(),ny=s.y+stepY();const n={id:uid(),...fit(nx,ny),layer:layerAt(nx,ny),face:s.face};S.slots.push(n);selectOnly(n.id);render();};
+  $("#del").onclick=()=>delSlot(s.id);
+}
+function updateMeta(){ $("#mId").textContent=slug($("#mName").value)||S.id; }
+
+function drawGrid(){
+  const on=showGrid||lattice; gridlay.classList.toggle("on",on); if(!on) return;
+  const r=stage.getBoundingClientRect(); gridlay.width=r.width; gridlay.height=r.height;
+  const ctx=gridlay.getContext("2d"); ctx.clearRect(0,0,r.width,r.height);
+  const sx=stepX(), sy=stepY();
+  ctx.strokeStyle= lattice?"rgba(200,150,40,.26)":"rgba(40,60,110,.12)"; ctx.lineWidth=1;
+  for(let x=0;x<=S.frame.w;x+=sx){ const px=x/S.frame.w*r.width; ctx.beginPath();ctx.moveTo(px,0);ctx.lineTo(px,r.height);ctx.stroke(); }
+  for(let y=0;y<=S.frame.h;y+=sy){ const py=y/S.frame.h*r.height; ctx.beginPath();ctx.moveTo(0,py);ctx.lineTo(r.width,py);ctx.stroke(); }
+  if(lattice){ ctx.strokeStyle="rgba(200,150,40,.5)"; ctx.lineWidth=1.4; // 열 라인(카드폭=col 1칸) 강조
+    for(let x=0;x<=S.frame.w;x+=CARD_W){ const px=x/S.frame.w*r.width; ctx.beginPath();ctx.moveTo(px,0);ctx.lineTo(px,r.height);ctx.stroke(); } }
+}
+// 커버(가림) 그래프 시각화 — 카드→그 카드를 덮는 카드로 선, 노출(오픈) 카드=금색 원
+function drawCover(){
+  const sv=$("#coverlinks"); if(!sv) return;
+  if(!showCover){ sv.style.display="none"; sv.innerHTML=""; return; }
+  const r=stage.getBoundingClientRect(); sv.setAttribute("width",r.width); sv.setAttribute("height",r.height); sv.style.display="block";
+  const px=v=>v/S.frame.w*r.width, py=v=>v/S.frame.h*r.height;
+  let h="";
+  S.slots.forEach(s=>{ const cov=coverOf(s), x1=px(s.x), y1=py(s.y);
+    cov.forEach(c=>{ h+=`<line x1="${x1}" y1="${y1}" x2="${px(c.x)}" y2="${py(c.y)}"/>`; });
+    if(cov.length===0) h+=`<circle cx="${x1}" cy="${y1}" r="6"/>`;
+  });
+  sv.innerHTML=h;
+}
+
+// pointer
+function toDesign(e){ const r=board.getBoundingClientRect(); return {x:(e.clientX-r.left)/r.width*S.frame.w, y:(e.clientY-r.top)/r.height*S.frame.h}; }
+let drag=null;
+function capture(el,id){ try{ el.setPointerCapture(id); }catch{} }
+function showGhost(x,y){
+  const q=doSnap(x,y); x=q.x; y=q.y;
+  const p=fit(x,y);
+  ghost.className="ghost "+brush;
+  ghost.style.display="block";
+  ghost.style.left=(p.x-CARD_W/2)/S.frame.w*100+"%";
+  ghost.style.top=(p.y-CARD_H/2)/S.frame.h*100+"%";
+  ghost.style.width=CARD_W/S.frame.w*100+"%";
+  ghost.style.height=CARD_H/S.frame.h*100+"%";
+}
+function updateMarquee(){
+  const a=marquee.start, b=marquee.cur;
+  const x0=Math.min(a.x,b.x),x1=Math.max(a.x,b.x),y0=Math.min(a.y,b.y),y1=Math.max(a.y,b.y);
+  const box=$("#marquee"); box.style.display="block";
+  box.style.left=x0/S.frame.w*100+"%"; box.style.top=y0/S.frame.h*100+"%";
+  box.style.width=(x1-x0)/S.frame.w*100+"%"; box.style.height=(y1-y0)/S.frame.h*100+"%";
+  const ids=S.slots.filter(s=> !isLocked(s)&&!isHidden(s) && s.x>=x0&&s.x<=x1&&s.y>=y0&&s.y<=y1).map(s=>s.id);
+  sel=new Set([...marquee.base, ...ids]); selected=ids.length?ids[ids.length-1]:([...sel].pop()||null);
+  render();
+}
+function hideMarquee(){ const b=$("#marquee"); if(b) b.style.display="none"; }
+
+board.addEventListener("pointerdown",e=>{
+  if(playing){ if(!pbRunning) pbClose(); return; } // 자동재생 중=잠금 · 일시정지/미리보기 중 보드 클릭=재생 닫고 편집 복귀
+  const p=toDesign(e); lastPt=p;
+  const cardEl=e.target.closest(".card");
+  const s0=cardEl?S.slots.find(o=>o.id===cardEl.dataset.id):null;
+
+  const inserting = (tool==="open"||tool==="fold"); // 카드 브러시 도구 여부
+
+  // 라이브 셰이프 본체 드래그(스탬프 조절 중) — 선택 도구에서만. Ctrl/Cmd+클릭은 개별 선택이므로 제외.
+  if(!inserting && s0 && s0.shapeId===activeShape && activeShape && e.button===0 && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey){
+    const sh=getShape(activeShape); snapshot(); shapeDrag={sh,start:p,cx0:sh.cx,cy0:sh.cy}; capture(board,e.pointerId); return;
+  }
+
+  // ═══ 삽입 도구(오픈/폴드) — 카드 놓기(탭=1장·드래그=줄기) ═══
+  if(inserting){
+    brush=tool;
+    if(e.button!==0) return;
+    strokeDraw={pts:[p],moved:false}; capture(board,e.pointerId); ghost.style.display="none";
+    return;
+  }
+
+  // ═══ 선택 도구 — 선택·이동·마퀴. 카드를 놓지 않는다. ═══
+  flattenAll(); // 라이브 셰이프가 있으면 확정(→ 개별 카드 선택 가능)
+  if(cardEl){
+    const s=s0; if(!s) return;
+    if(isLocked(s)){ toast("🔒 잠긴 레이어 — 레이어 목록에서 잠금 해제"); return; } // 잠긴 카드는 캔버스에서 선택·이동 보호
+    const indiv = e.ctrlKey||e.metaKey;                                              // Ctrl/Cmd+클릭 = 그룹 무시하고 **개별 카드**
+    if(e.button===2){ (sel.has(s.id)&&sel.size>1)?delSel():delSlot(s.id); return; } // 우클릭 삭제
+    if(e.shiftKey){ selectToggle(s.id); render(); return; }                          // Shift+클릭 토글
+    if(indiv){ selectOnly(s.id); }                                                    // Ctrl/Cmd = 개별 카드만(끌면 그 한 장 이동)
+    else if(sel.has(s.id)){ selected=s.id; }                                          // 이미 선택된 카드 = 선택 유지하고 이동(개별이든 그룹이든)
+    else if(s.gid){ selectIds(groupSlots(s.gid).map(o=>o.id)); }                       // 새 그룹 카드 = 그룹 전체 선택
+    else { selectOnly(s.id); }                                                         // 개별 카드
+    snapshot(); drag={mode:"move",start:p,moved:false,orig:withPiers(selSlots().filter(o=>!isLocked(o))).map(o=>({o,x:o.x,y:o.y}))};
+    capture(board,e.pointerId); render();
+  } else {
+    if(e.button!==0) return;
+    marquee={start:p,cur:p,base:e.shiftKey?new Set(sel):new Set()}; capture(board,e.pointerId); ghost.style.display="none"; // 빈 곳 드래그=마퀴 선택
+  }
+});
+board.addEventListener("pointermove",e=>{
+  const p=toDesign(e); lastPt=p;
+  if(shapeDrag){
+    let dx=p.x-shapeDrag.start.x, dy=p.y-shapeDrag.start.y;
+    const m=magSnapDelta(dx,dy); dx=m.dx; dy=m.dy;
+    shapeDrag.sh.cx=shapeDrag.cx0+dx; shapeDrag.sh.cy=shapeDrag.cy0+dy; regenShape(shapeDrag.sh); render();
+    ghost.style.display="none"; return;
+  }
+  if(drag){
+    const dx=p.x-drag.start.x, dy=p.y-drag.start.y;
+    if(Math.hypot(dx,dy)>6) drag.moved=true;
+    if(drag.moved){ const m=magSnapDelta(dx,dy); // 자석 스냅: 자유 이동 + 간격 격자에 근접 시 흡착
+      const a=alignSnap(m.dx,m.dy); drawGuides(a.vs,a.hs); // 스마트 정렬 가이드가 그리드 흡착 위에 최종 흡착
+      drag.orig.forEach(({o,x,y})=>{ const f=fit(x+a.dx,y+a.dy); o.x=f.x; o.y=f.y; }); render(); }
+    ghost.style.display="none";
+  } else if(strokeDraw){
+    const d0=strokeDraw.pts[0];
+    if(Math.hypot(p.x-d0.x,p.y-d0.y)>STROKE_MIN) strokeDraw.moved=true;
+    strokeDraw.pts.push(p);
+    if(strokeDraw.moved) previewStroke(strokeDraw.pts);
+    ghost.style.display="none";
+  } else if(marquee){ marquee.cur=p; updateMarquee();
+  } else if((tool==="open"||tool==="fold") && !explodeHold && !e.target.closest(".card")){ showGhost(p.x,p.y);
+  } else ghost.style.display="none";
+});
+board.addEventListener("pointerup",()=>{
+  if(strokeDraw){ clearPreview(); strokeDraw.moved?commitStroke(strokeDraw.pts):place(strokeDraw.pts[0].x,strokeDraw.pts[0].y); strokeDraw=null; }
+  if(marquee){ marquee=null; hideMarquee(); render(); }
+  drag=null; shapeDrag=null; clearGuides();
+});
+board.addEventListener("pointercancel",()=>{ clearPreview(); hideMarquee(); strokeDraw=null; marquee=null; drag=null; clearGuides(); });
+board.addEventListener("pointerleave",()=>{ ghost.style.display="none"; });
+board.addEventListener("contextmenu",e=>e.preventDefault());
+
+// ── 통합 도구(모드 구분 없음) — 선택/오픈/폴드 + 셰이프(일회성 스탬프) ──
+const TOOL_HINT={
+  select:"✋ 선택 — 카드/그룹 클릭 선택·드래그 이동, 빈 곳 드래그 마퀴. Ctrl(⌘)+클릭=개별 카드. Alt+휠/드래그=확대·이동.",
+  open:"🃏 오픈 삽입 — 클릭 카드 1장, 드래그 카드 줄기(끝점 오픈). 편집하려면 ✋ 선택.",
+  fold:"🂠 폴드 삽입 — 클릭 카드 1장(뒷면), 드래그 카드 줄기. 편집하려면 ✋ 선택.",
+};
+function setTool(t){ tool=t;
+  if(t==="open"||t==="fold") brush=t; else { clearPreview(); strokeDraw=null; } // 선택 도구로 가면 그리기 취소
+  $("#bSelect").classList.toggle("on",t==="select");
+  $("#bOpen").classList.toggle("on",t==="open");
+  $("#bFold").classList.toggle("on",t==="fold");
+  const hint=$("#modeHint"); if(hint) hint.innerHTML=TOOL_HINT[t]||"";
+  const bd=$("#board"); if(bd) bd.style.cursor=(t==="select")?"default":"crosshair";
+  render(); }
+$("#bSelect").onclick=()=>setTool("select"); $("#bOpen").onclick=()=>setTool("open"); $("#bFold").onclick=()=>setTool("fold");
+function setBrush(b){ setTool(b); } // 하위호환(키보드 o/d 등)
+$("#tSnap").onclick=e=>{snap=!snap;e.currentTarget.classList.toggle("act",snap);toast("스냅 "+(snap?"켜짐":"꺼짐"));};
+$("#tLattice").onclick=e=>{lattice=!lattice;e.currentTarget.classList.toggle("act",lattice);render();toast("커버 격자 "+(lattice?"켜짐 — 게임과 동일 배치로 스냅":"꺼짐"));};
+$("#tCover").onclick=e=>{showCover=!showCover;e.currentTarget.classList.toggle("act",showCover);render();toast("커버선 "+(showCover?"표시 — 가림 관계":"숨김"));};
+$("#tTangent").onclick=e=>{tangentRot=!tangentRot;e.currentTarget.classList.toggle("act",tangentRot);toast("접선 회전 "+(tangentRot?"켜짐 — 스트로크가 경로 방향으로 기욺":"꺼짐"));};
+$("#tJitter").onclick=applyJitter;
+$("#tRealign").onclick=realignSel;
+$("#tSpread").onclick=spreadPeek;
+$("#tFlipZ").onclick=()=>{ const ss=selSlots().filter(s=>!isLocked(s)); invertOverlap(ss.length>=2?ss:S.slots.filter(s=>!isLocked(s))); };
+$("#tDedup").onclick=dedupeCards;
+$("#tGrid").onclick=e=>{showGrid=!showGrid;e.currentTarget.classList.toggle("act",showGrid);drawGrid();};
+$("#tLay").onclick=e=>{showLay=!showLay;e.currentTarget.classList.toggle("act",showLay);render();};
+$("#tClear").onclick=()=>{if(S.slots.length&&confirm("보드를 비울까요?")){snapshot();S.slots=[];S.shapes=[];activeShape=null;hideHandles();clearSel();render();}};
+$("#tZoomIn").onclick=()=>setZoom(zoom*1.2); $("#tZoomOut").onclick=()=>setZoom(zoom/1.2); $("#tZoomReset").onclick=resetView;
+$("#tMirror").onclick=()=>{ if(!S.slots.length)return; snapshot(); const cx=S.frame.w/2, add=[];
+  S.slots.forEach(s=>{const mx=2*cx-s.x; if(Math.abs(mx-s.x)<4)return; add.push({id:uid(),x:mx,y:s.y,layer:s.layer,face:s.face});}); S.slots.push(...add); render(); toast(add.length+"장 대칭 복제"); };
+$("#tSnap").classList.add("act");
+
+// shape stamps (B) — 파라메트릭 셰이프 찍기
+// ── 셰이프 스탬프 카테고리 탭 ──
+// **레퍼런스(SolitareHeights LevelData) 분석 기반 부품 셰이프** — 실제 상용 레벨에 쓰이는 구조 부품만 큐레이션.
+//   (한글 자모·창의 도형 등 실제 레벨에 안 쓰이는 노벨티 셰이프는 팔레트에서 제외 = 쓸모없는 셰이프 정리.)
+//   레벨 = 이 부품들을 **중앙 요소 + 좌우 대칭 날개**로 조합(반전복제)하고 손맛(지터)로 마감 → 레퍼런스급 완성.
+const SHAPE_CATS=[
+  {name:"아치·부채", keys:["arc","garland","fan","wing","pinwheel"]},   // 곡선 부품 — 레퍼런스 핵심(아치/부채/나비/핀휠)
+  {name:"봉우리",   keys:["peak","pyramid","diamond","crown","chevron"]}, // 삼각·능선
+  {name:"격자·열",  keys:["grid","row","column","tableau","pillar","wave"]}, // 직선 부품
+  {name:"원형",     keys:["ring","flower","star","spiral"]},             // 방사 로제트
+];
+const SHAPE_GLYPH={peak:"▲",pyramid:"◤",diamond:"◆",fan:"⌒",garland:"⌣",ring:"◯",pillar:"▮",tableau:"☰",wing:"⋀",star:"★",spiral:"◉",wave:"∿",crown:"♛",flower:"❀",grid:"▦",arc:"◜",row:"▬",column:"▐",pinwheel:"✻"};
+// ── 내 세이프(사용자 커스텀 세이프) — 카드를 자유 배치→저장하면 재사용 부품으로. 하드코딩 없이 사용자가 세이프를 만든다. ──
+const CUSTOM_KEY="cardEditor.customShapes.v1";
+function customShapes(){ try{ return JSON.parse(lsGet(CUSTOM_KEY))||{}; }catch{ return {}; } }
+function setCustomShapes(m){ lsSet(CUSTOM_KEY, JSON.stringify(m)); }
+// 현재 선택(없으면 전체)을 하나의 세이프로 저장 — 상대 좌표·레이어·앞뒤·회전 보존.
+function saveAsShape(){
+  const ss=(sel.size?selSlots():S.slots).filter(s=>!isLocked(s));
+  if(!ss.length){ toast("저장할 카드를 배치하거나 선택하세요"); return; }
+  const name=(prompt("세이프 이름", "내 세이프 "+(Object.keys(customShapes()).length+1))||"").trim();
+  if(!name) return;
+  const cx=ss.reduce((a,s)=>a+s.x,0)/ss.length, cy=ss.reduce((a,s)=>a+s.y,0)/ss.length;
+  const minL=Math.min(...ss.map(s=>s.layer||0));
+  const cards=ss.slice().sort((a,b)=>(a.layer||0)-(b.layer||0)).map(s=>({dx:Math.round(s.x-cx),dy:Math.round(s.y-cy),layer:(s.layer||0)-minL,face:s.face||"fold",rot:s.rot||0}));
+  const id="cs_"+Date.now().toString(36); const m=customShapes(); m[id]={id,name,cards}; setCustomShapes(m);
+  shapeTab=SHAPE_CATS.length; renderShapeTabs(); toast(`'${name}' 세이프 저장 (${cards.length}장) — '내 세이프' 탭에서 스탬프`);
+}
+// 커스텀 세이프 스탬프 — 저장된 카드들을 중앙에 그대로 배치(내부 커버관계 유지). 하나의 그룹으로 묶임.
+function stampCustomShape(id){
+  const cs=customShapes()[id]; if(!cs)return; snapshot();
+  const z=zone(), px=(z.x0+z.x1)/2, py=(z.y0+z.y1)/2, gid="cg"+(idc++);
+  cs.cards.forEach(c=>{ const f=fit(px+c.dx,py+c.dy); S.slots.push({id:uid(),gid,x:f.x,y:f.y,layer:c.layer||0,face:c.face||"fold",rot:c.rot||0}); });
+  if(tool!=="select") setTool("select"); clearSel(); render(); toast(`'${cs.name}' 스탬프 (${cs.cards.length}장)`);
+}
+function deleteCustomShape(id){ const m=customShapes(); const nm=m[id]?m[id].name:""; if(!confirm("'"+nm+"' 세이프를 삭제할까요?"))return; delete m[id]; setCustomShapes(m); renderShapeTabs(); toast("세이프 삭제"); }
+let shapeTab=0;
+function renderShapeTabs(){ const tabs=$("#shapeTabs"), grid=$("#shapeGrid"); if(!tabs||!grid) return;
+  const CT=SHAPE_CATS.length;
+  tabs.innerHTML=SHAPE_CATS.map((c,i)=>`<button class="shtab${i===shapeTab?' on':''}" data-tab="${i}">${c.name}</button>`).join("")
+    +`<button class="shtab${shapeTab===CT?' on':''}" data-tab="${CT}">★ 내 세이프</button>`;
+  if(shapeTab===CT){ const m=customShapes(), keys=Object.keys(m);
+    grid.innerHTML=`<button class="btn sm primary" data-saveshape="1" style="grid-column:1/-1">＋ 선택(또는 전체)을 세이프로 저장</button>`
+      +(keys.length? keys.map(id=>`<button class="btn sm" data-custom="${id}" title="${m[id].cards.length}장">${m[id].name} <span class="delx" data-delcustom="${id}" style="opacity:.55;margin-left:2px">✕</span></button>`).join("")
+        : `<div class="note" style="grid-column:1/-1;margin-top:6px">카드를 배치·선택한 뒤 위 버튼으로 나만의 세이프를 만드세요. 90°회전·레이어(<b>[ ]</b>)로 다듬고 저장하면 재사용됩니다.</div>`);
+  } else {
+    grid.innerHTML=SHAPE_CATS[shapeTab].keys.map(k=>{ const g=SHAPE_GLYPH[k]; return `<button class="btn sm" data-shape="${k}">${SHAPES[k].name}${g?" "+g:""}</button>`; }).join(""); } }
+$("#shapeTabs").onclick=e=>{ const b=e.target.closest("[data-tab]"); if(b){ shapeTab=+b.dataset.tab; renderShapeTabs(); } };
+$("#shapeGrid").onclick=e=>{
+  const del=e.target.closest("[data-delcustom]"); if(del){ e.stopPropagation(); deleteCustomShape(del.dataset.delcustom); return; }
+  const sv=e.target.closest("[data-saveshape]"); if(sv){ saveAsShape(); return; }
+  const cu=e.target.closest("[data-custom]"); if(cu){ stampCustomShape(cu.dataset.custom); return; }
+  const b=e.target.closest("[data-shape]"); if(b) stampShape(b.dataset.shape); };
+renderShapeTabs();
+// 그룹 · 간격 배선
+$("#gMake").onclick=makeGroup; $("#gUngroup").onclick=ungroupSel;
+$("#gDup").onclick=()=>dupGroupSel(false); $("#gMirror").onclick=()=>dupGroupSel(true);
+$("#gRotL").onclick=()=>rotateGroupSel(-15); $("#gRotR").onclick=()=>rotateGroupSel(15);
+// 레이어 목록: 이름 클릭=선택 · ◐/●=그룹 오픈/폴드 · ▲/▼=레이어 앞/뒤 · ×=삭제 · ▣=개별카드 묶기
+function toggleHide(g){ if(gHidden[g]) delete gHidden[g]; else { gHidden[g]=true; groupSlots(g).forEach(s=>sel.delete(s.id)); } render(); toast(groupName(g)+(gHidden[g]?" 숨김":" 표시")); }
+function toggleLock(g){ if(gLocked[g]) delete gLocked[g]; else gLocked[g]=true; render(); toast(groupName(g)+(gLocked[g]?" 🔒잠금":" 🔓해제")); }
+function beginRename(g){ const box=$("#layerList"); const span=box&&box.querySelector('.lyname[data-rename="'+g+'"]'); if(!span) return;
+  const inp=document.createElement("input"); inp.className="lyrename"; inp.value=groupName(g); span.replaceWith(inp); inp.focus(); inp.select();
+  let done=false; const commit=()=>{ if(done)return; done=true; const v=inp.value.trim(); if(v) gmeta[g]=v; renderLayers(); };
+  inp.addEventListener("keydown",ev=>{ ev.stopPropagation(); if(ev.key==="Enter"){ commit(); } else if(ev.key==="Escape"){ done=true; renderLayers(); } });
+  inp.addEventListener("blur",commit); }
+$("#layerList").ondblclick=e=>{ const rn=e.target.closest("[data-rename]"); if(rn){ e.preventDefault(); beginRename(rn.dataset.rename); } };
+$("#layerList").onclick=e=>{
+  const hi=e.target.closest("[data-hide]"), lo=e.target.closest("[data-lock]");
+  if(hi){ toggleHide(hi.dataset.hide); return; }
+  if(lo){ toggleLock(lo.dataset.lock); return; }
+  const up=e.target.closest("[data-up]"), dn=e.target.closest("[data-dn]"), del=e.target.closest("[data-del]");
+  const op=e.target.closest("[data-open]"), fo=e.target.closest("[data-fold]"), gu=e.target.closest("[data-groupung]");
+  if(op){ setGroupFace(op.dataset.open,"open"); return; }
+  if(fo){ setGroupFace(fo.dataset.fold,"fold"); return; }
+  if(up){ groupToFront(up.dataset.up); return; }
+  if(dn){ groupToBack(dn.dataset.dn); return; }
+  if(del){ if(confirm(groupName(del.dataset.del)+" 그룹을 삭제할까요?")) deleteGroup(del.dataset.del); return; }
+  if(gu){ flattenAll(); selectIds(S.slots.filter(s=>!s.gid).map(s=>s.id)); makeGroup(); return; } // 개별 카드 전체 묶기
+  const ung=e.target.closest("[data-selung]"); if(ung){ flattenAll(); selectIds(S.slots.filter(s=>!s.gid).map(s=>s.id)); render(); return; } // 개별 카드 전체 선택
+  const row=e.target.closest(".lyr"); if(row&&row.dataset.g) selectGroup(row.dataset.g); };
+function setSpacing(n){ spacing=n; document.querySelectorAll("#spaceRow button").forEach(b=>b.classList.toggle("on",+b.dataset.sp===n)); toast("간격 "+n+"/8 ("+spX()+"px)"); }
+$("#spaceRow").onclick=e=>{const b=e.target.closest("[data-sp]");if(b)setSpacing(+b.dataset.sp);};
+setSpacing(spacing);
+function peak(cx,topY,rows,col=132,dy=105){ const out=[]; for(let r=0;r<rows;r++){const n=r+1,layer=rows-1-r; for(let i=0;i<n;i++){const f=fit(cx+(i-(n-1)/2)*col,topY+r*dy); out.push({id:uid(),x:f.x,y:f.y,layer,face:r===0?"open":"fold"});}} return out; }
+function cascade(cx,topY,rows,col=140,dy=112){ const out=[]; for(let r=0;r<rows;r++){const n=r+1,layer=r; for(let i=0;i<n;i++){const f=fit(cx+(i-(n-1)/2)*col,topY+r*dy); out.push({id:uid(),x:f.x,y:f.y,layer,face:r===rows-1?"open":"fold"});}} return out; }
+function insert(kind){
+  snapshot(); const cx=S.frame.w/2, z=zone(), topY=z.y0+180; let add=[];
+  if(kind==="peak") add=peak(cx,topY,4);
+  if(kind==="triple") add=[...peak(cx-200,topY,4),...peak(cx+200,topY,4),...peak(cx,topY+460,4)];
+  if(kind==="pyramid") add=cascade(cx,topY,5);
+  if(kind==="fan"){ const tops=[.5,.28,.12,.4,.12,.28,.5]; for(let i=0;i<7;i++){const x=cx+(i-3)*130, ty=topY+tops[i]*180; for(let k=0;k<3;k++){const f=fit(x,ty+k*95); add.push({id:uid(),x:f.x,y:f.y,layer:2-k,face:k===0?"open":"fold"});}} }
+  S.slots.push(...add); selectIds(add.map(a=>a.id)); render(); toast(add.length+"장 삽입 — 선택됨(끌어 이동·정렬)");
+}
+
+// meta inputs
+$("#mName").oninput=updateMeta;
+$("#mFamily").onchange=e=>S.family=e.target.value;
+// 난이도(등급·연쇄·뽑기매칭) 변경 시 **즉시 WIP 저장**(saveWipSoon) → 보드 편집 없이 리로드해도 난이도 유지.
+$("#mDiff").onchange=e=>{S.difficulty=+e.target.value||2; lastDiff=null; saveWipSoon();};
+$("#mChain").onchange=e=>{S.diffChain=e.target.value; lastDiff=null; saveWipSoon();};
+$("#mFeed").onchange=e=>{S.diffFeed=e.target.value; lastDiff=null; saveWipSoon();};
+$("#mTarget").onchange=e=>{S.target=+e.target.value||1;updateHud();};
+$("#mStock").onchange=e=>{S.stock=+e.target.value||0;updateHud();saveWipSoon();};
+// 하단 가이드의 뽑기(스톡) ± 버튼 — 실제 배치 스톡 수를 최소 승리치~최대 사이에서 조절(설정 칸과 동기).
+$("#levelGuide").onclick=e=>{ const btn=e.target.closest("[data-stk]"); if(!btn)return;
+  const solved=lastSolve&&lastSolve.ok?lastSolve:null, minStock=solved?(solved.stockRanks||[]).length:1, maxStock=Math.max(minStock,103-S.slots.length);
+  const cur=S.stock>0?S.stock:minStock; S.stock=Math.max(minStock,Math.min(maxStock,cur+(+btn.dataset.stk)));
+  const f=$("#mStock"); if(f) f.value=S.stock; updateHud(); saveWipSoon(); };
+$("#mFW").onchange=e=>{S.frame.w=+e.target.value||1080;render();};
+$("#mFH").onchange=e=>{S.frame.h=+e.target.value||2400;render();};
+
+// serialize
+// 저장할 초기 딜 — 등급 적합 딜(lastDiff.deal) 우선, 없으면 검증 딜(lastSolve) 폴백. 보드 수 일치 시에만.
+function initDealFor(){
+  const n=S.slots.length;
+  if(lastDiff&&lastDiff.deal&&Array.isArray(lastDiff.deal.board)&&lastDiff.deal.board.length===n)
+    return {board:lastDiff.deal.board.slice(), waste:lastDiff.deal.waste, stock:(lastDiff.deal.stock||[]).slice()};
+  if(lastSolve&&lastSolve.ok&&Array.isArray(lastSolve.boardRanks)&&lastSolve.boardRanks.length===n)
+    return {board:lastSolve.boardRanks.slice(), waste:lastSolve.waste, stock:(lastSolve.restStock||lastSolve.stockRanks||[]).slice(0, Math.max((lastSolve.stockRanks||[]).length, S.stock))};
+  return null;
+}
+function toDoc(){
+  const fam=S.family, z=zone();
+  // 뽑기·난이도 입력칸 값을 저장 시점에 **셀렉트에서 직접** 반영(onchange 미발화 대비) → 항상 최신 난이도 저장.
+  const fld=$("#mStock"); if(fld){ const v=parseInt(fld.value); if(Number.isFinite(v)&&v>=0) S.stock=v; }
+  const dSel=$("#mDiff"); if(dSel) S.difficulty=+dSel.value||2;
+  const cSel=$("#mChain"); if(cSel) S.diffChain=cSel.value; const feSel=$("#mFeed"); if(feSel) S.diffFeed=feSel.value;
+  return { schemaVersion:1, kind:"cardBoard", id:slug($("#mName").value)||S.id, name:$("#mName").value||S.id, family:fam,
+    frame:{designW:S.frame.w,designH:S.frame.h}, grid:{unitX:SNAP_X*2,unitY:SNAP_Y,half:true},
+    deck:{type:"standard52",packs:1}, budget:{board:S.slots.length,stock:S.stock},
+    difficulty:{target:S.difficulty||2, ...(S.diffChain?{chain:S.diffChain}:{}), ...(S.diffFeed?{feed:S.diffFeed}:{})}, // 등급 + 고급 조정(연쇄/뽑기매칭 목표) → 게임 딜이 이 값으로 세 요소 제어
+    // **테스트한 카드 배치(초기 딜)** — 게임 첫 플레이가 이 배치로 시작(재플레이는 재딜).
+    //   **등급에 맞춰 고른 딜(lastDiff.deal)을 우선** 저장(설정 난이도 = 실제 첫 플레이 난이도). 없으면 검증 딜(lastSolve) 폴백.
+    ...(initDealFor() ? {deal:initDealFor()} : {}),
+    card:{w:CARD_W,h:CARD_H}, // 게임이 절대배치를 스케일할 때 카드 크기 기준
+    tags:{difficultyBand:S.band,symmetrySafe:true,maxLayer:S.slots.reduce((m,s)=>Math.max(m,s.layer),0)},
+    playZone:{x0:Math.round(z.x0),y0:Math.round(z.y0),x1:Math.round(z.x1),y1:Math.round(z.y1)},
+    piles:[{id:"board",kind:fam==="fans"?"fan":(fam==="walls"||fam==="pyramids"||fam==="peaks")?"cascade":"board",arrange:fam==="fans"?"fan-down":"occlusion"},
+           {id:"stock",kind:"stock",arrange:"stack"},{id:"waste",kind:"waste",arrange:"single"}],
+    groups:gmeta, // 에디터 레이어 이름(게임 런타임은 무시, 라운드트립용)
+    editorGroups:{hidden:Object.keys(gHidden),locked:Object.keys(gLocked)}, // 편집 보조 상태(숨김/잠금, 게임 무시)
+    // slots: 게임은 id·coveredBy(커버 그래프)로 판정, x·y·layer·rot 로 원본 배열 렌더. coveredBy=위 레이어가 덮는 카드.
+    slots:S.slots.map(s=>({id:s.id,pile:"board",x:Math.round(s.x),y:Math.round(s.y),layer:s.layer,face:s.face,coveredBy:coverOf(s).map(o=>o.id),...(s.gid?{gid:s.gid}:{}),...(s.rot?{rot:Math.round(s.rot)}:{})})) };
+}
+// 카드 크기 정식 통일(120×164) — 예전(104×143 등) 저작분을 로드할 때 카드·위치를 같은 비율로 확대해
+//   현재 기준 크기로 올린다(콘텐츠 중심 기준). 겹침(커버)비율 불변 = 해결가능성/레이아웃 관계 그대로.
+function normalizeCardSize(d){
+  const sw=d.card?.w||104, sh=d.card?.h||143, slots=d.slots||[];
+  if(!slots.length || (sw===CARD_W && sh===CARD_H)) return d;
+  const kx=CARD_W/sw, ky=CARD_H/sh;
+  const xs=slots.map(s=>s.x), ys=slots.map(s=>s.y);
+  const cx=(Math.min(...xs)+Math.max(...xs))/2, cy=(Math.min(...ys)+Math.max(...ys))/2;
+  return {...d, card:{w:CARD_W,h:CARD_H},
+    slots:slots.map(s=>({...s, x:Math.round(cx+(s.x-cx)*kx), y:Math.round(cy+(s.y-cy)*ky)}))};
+}
+function loadDoc(d){
+  d=normalizeCardSize(d);
+  S=blank();
+  S.id=d.id||"template"; S.name=d.name||""; S.family=d.family||"peaks"; S.band=d.tags?.difficultyBand||3;
+  S.frame={w:d.frame?.designW||1080,h:d.frame?.designH||2400}; S.stock=d.budget?.stock??21; S.target=d.budget?.board||d.slots?.length||30;
+  { const dt=d.difficulty?.target; S.difficulty=(dt===1||dt===2||dt===3)?dt:2;
+    const lv=v=>(v==="low"||v==="mid"||v==="high"||v==="vhigh")?v:""; S.diffChain=lv(d.difficulty?.chain); S.diffFeed=lv(d.difficulty?.feed); }
+  S.slots=(d.slots||[]).map(s=>({id:s.id||uid(),x:s.x,y:s.y,layer:s.layer||0,face:s.face||"fold",rot:s.rot||0,...(s.gid?{gid:s.gid}:{})}));
+  // 게임이 실제 플레이하는 **저장된 딜(초기 딜)** — 있으면 풀이검증이 이 딜의 난이도를 그대로 보여준다(게임=에디터 정합). 편집 시 무효화.
+  loadedDeal=(d.deal&&Array.isArray(d.deal.board)&&d.deal.board.length===S.slots.length)?{board:d.deal.board.slice(),waste:d.deal.waste,stock:Array.isArray(d.deal.stock)?d.deal.stock.slice():[]}:null;
+  gmeta=d.groups&&typeof d.groups==="object"?{...d.groups}:{}; // 레이어 이름 복원(없으면 fallback 이름 사용)
+  gHidden={}; gLocked={}; const eg=d.editorGroups||{}; (eg.hidden||[]).forEach(g=>gHidden[g]=true); (eg.locked||[]).forEach(g=>gLocked[g]=true); // 숨김/잠금 복원
+  shapeDefs={}; // 새 보드 → 셰이프 파라미터 초기화(불러온 문서는 평탄 카드라 재편집 파라미터 없음)
+  let mx=0; S.slots.forEach(s=>{const m=/^s(\d+)$/.exec(s.id); if(m) mx=Math.max(mx,+m[1]);}); idc=mx+1; clearSel(); activeShape=null; hideHandles(); history=[];
+  $("#mName").value=S.name; $("#mFamily").value=S.family; $("#mDiff").value=S.difficulty;
+  $("#mChain").value=S.diffChain||""; $("#mFeed").value=S.diffFeed||"";
+  if(S.diffChain||S.diffFeed){ const a=$("#mAdv"); if(a) a.open=true; }
+  $("#mTarget").value=S.target; $("#mStock").value=S.stock; $("#mFW").value=S.frame.w; $("#mFH").value=S.frame.h;
+  curLevel=null; // 기본은 미저장(숫자 레벨과 무관) — lvlLoad/lvlDup 가 호출 후 다시 지정
+  render(); renderLevels();
+}
+
+// library (localStorage may be blocked in sandbox → in-memory fallback, never throws)
+const LKEY="cardTemplates.v3";
+function lsGet(k){ try{ return localStorage.getItem(k); }catch{ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch{} }
+function lsDel(k){ try{ localStorage.removeItem(k); }catch{} }
+
+// ── 작업중(WIP) 자동 보존 — 재로드 시 편집하던 보드를 복원. 편집중 버전이 없으면(빈 보드) 저장 제거 → 빈 화면. ──
+const WIPKEY="cardEditor.wip.v1"; let wipTimer=null;
+function saveWip(){ try{ if(S.slots.length) lsSet(WIPKEY, JSON.stringify(toDoc())); else lsDel(WIPKEY); }catch{} }
+function saveWipSoon(){ clearTimeout(wipTimer); wipTimer=setTimeout(saveWip, 400); } // 편집 후 디바운스 저장
+function loadWip(){ try{ const raw=lsGet(WIPKEY); if(!raw) return null; const d=JSON.parse(raw); return (d&&Array.isArray(d.slots)&&d.slots.length)?d:null; }catch{ return null; } }
+let MEM=null;
+function libAll(){ if(MEM) return MEM; try{ MEM=JSON.parse(lsGet(LKEY))||null; }catch{ MEM=null; } return MEM||(MEM=[]); }
+function libSave(l){ MEM=l; lsSet(LKEY,JSON.stringify(l)); }
+function saveCurrent(){ const doc=toDoc(); if(!doc.slots.length){toast("빈 보드는 저장 불가");return;}
+  const l=libAll(); const i=l.findIndex(t=>t.id===doc.id); if(i>=0)l[i]=doc; else l.push(doc); libSave(l); renderLib(doc.id); toast("저장됨 · "+doc.id); }
+function renderLib(cur){
+  const l=libAll(), box=$("#lib");
+  if(!l.length){ box.innerHTML=`<div class="empty">저장된 템플릿 없음</div>`; return; }
+  box.innerHTML="";
+  l.forEach(t=>{
+    const it=document.createElement("div"); it.className="libitem"+(t.id===cur?" cur":"");
+    it.innerHTML=`<div class="mini"></div><div class="tx"><div class="n">${t.name||t.id}</div><div class="m">${t.family} · ${t.slots.length}장</div></div><button class="del" title="삭제">×</button>`;
+    const mini=it.querySelector(".mini"), fw=t.frame?.designW||1080, fh=t.frame?.designH||2400;
+    t.slots.slice().sort((a,b)=>a.layer-b.layer).forEach(s=>{const d=document.createElement("i");
+      d.style.width=(CARD_W/fw*90)+"%"; d.style.height=(CARD_H/fh*90)+"%";
+      d.style.left=((s.x-CARD_W/2)/fw*90+5)+"%"; d.style.top=((s.y-CARD_H/2)/fh*90+5)+"%";
+      d.style.background=s.face==="open"?"#fff":"#3f8ef0"; mini.appendChild(d);});
+    it.querySelector(".tx").onclick=()=>{loadDoc(t);renderLib(t.id);toast("불러옴 · "+t.id);};
+    it.querySelector(".mini").onclick=()=>{loadDoc(t);renderLib(t.id);};
+    it.querySelector(".del").onclick=e=>{e.stopPropagation(); if(confirm(`'${t.name||t.id}' 삭제?`)){libSave(libAll().filter(x=>x.id!==t.id));renderLib(cur);}};
+    box.appendChild(it);
+  });
+}
+
+// file io
+function download(name,obj){ const b=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"}); const u=URL.createObjectURL(b); const a=document.createElement("a"); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
+
+// ── 숫자 단위 레벨 저장 (level 1,2,3…) ──
+const LVLKEY="cardLevels.v1";
+function lvlAll(){ try{ return JSON.parse(lsGet(LVLKEY))||{}; }catch{ return {}; } }
+function lvlSet(m){ lsSet(LVLKEY,JSON.stringify(m)); }
+function nextLevelNum(){ const ns=Object.keys(lvlAll()).map(Number); return ns.length?Math.max(...ns)+1:1; }
+// dev 서버 자동 동기화 — 저장/삭제 즉시 public/levels/cardLevels.json 에 기록(수동 export/이동 불필요).
+//   게임 dev 서버(/design/card-editor.html)에서 열었을 때만 동작. file:// 나 미지원 환경이면 조용히 무시.
+let syncTimer=null;
+function syncLevelsToServer(){
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(()=>{ try{
+    fetch("/__save_card_levels",{method:"POST",headers:{"content-type":"application/json"},
+      body:JSON.stringify({kind:"cardLevels",levels:lvlAll()})})
+      .then(r=>r.ok?r.json():null)
+      .then(j=>{ if(j&&j.ok) toast("🎮 게임 파일 자동반영됨 ("+j.count+"레벨)"); })
+      .catch(()=>{}); // dev 서버 아님 → 무시(내보내기로 수동 반영)
+  }catch{} }, 250); // 연속 저장 디바운스
+}
+// 최초 로드 시 커밋된 레벨팩(public/levels/cardLevels.json)을 localStorage 와 **동기화**한다.
+//   파일이 곧 자동반영(sync)된 진실이므로, **내용이 다른 레벨은 파일 버전으로 덮어쓴다**(팩 재생성분이 실제 반영됨).
+//   파일에 없고 localStorage 에만 있는 레벨(추가 저작분)은 보존한다(비파괴). 예전엔 '없는 것만 보충'이라 재생성이 안 보였음.
+function seedLevelsFromFile(){
+  try{ fetch("/levels/cardLevels.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{
+    if(!d) return; const src=d.levels||d; const m=lvlAll(); let add=0, upd=0;
+    Object.keys(src).forEach(n=>{ if(src[n]&&src[n].slots){
+      if(!m[n]){ m[n]=src[n]; add++; }
+      else if(JSON.stringify(m[n])!==JSON.stringify(src[n])){ m[n]=src[n]; upd++; } // 파일이 최신 → 덮어씀
+    }});
+    if(add||upd){ lvlSet(m); renderLevels(); toast("커밋 레벨팩 동기화 — 신규 "+add+" · 갱신 "+upd); }
+  }).catch(()=>{}); }catch{}
+}
+function lvlSave(){ const doc=toDoc(); if(!doc.slots.length){toast("빈 보드는 저장 불가");return;}
+  let n=parseInt($("#lvlNum").value)||nextLevelNum(); doc.level=n; const m=lvlAll(); m[n]=doc; lvlSet(m);
+  curLevel=n; $("#lvlNum").value=n; renderLevels(); syncLevelsToServer();
+  const dealNote = doc.deal ? "·테스트 카드배치 저장(첫 플레이)" : "·⚠먼저 '풀이 검증'하면 카드배치도 저장됨";
+  toast("레벨 "+n+" 저장 ("+doc.slots.length+"장) · 게임 자동반영"+dealNote); } // 저장 후 번호 유지(자동 증가 안 함)
+function lvlLoad(n){ const m=lvlAll(); if(m[n]){ loadDoc(m[n]); curLevel=n; $("#lvlNum").value=n; renderLevels(); toast("레벨 "+n+" 불러옴"); } }
+function lvlDel(n){ const m=lvlAll(); delete m[n]; if(curLevel===n) curLevel=null; lvlSet(m); renderLevels(); syncLevelsToServer(); toast("레벨 "+n+" 삭제 · 게임 자동반영"); }
+// 레벨 복제 — 저장된 레벨 n 을 다음 빈 번호로 복사 후 그 사본을 불러와 편집(재사용).
+function lvlDup(n){ const m=lvlAll(); const src=m[n]; if(!src){ toast("레벨 "+n+" 없음"); return; }
+  const nn=nextLevelNum(); const copy=JSON.parse(JSON.stringify(src));
+  copy.level=nn; copy.name=(src.name||("레벨 "+n))+" 복사"; copy.id=(src.id||("level-"+n))+"-copy"+nn;
+  m[nn]=copy; lvlSet(m); syncLevelsToServer();
+  loadDoc(copy); curLevel=nn; $("#lvlNum").value=nn; $("#mName").value=copy.name; renderLevels();
+  toast("레벨 "+n+" → 레벨 "+nn+" 로 복제(편집 중)"); }
+function renderLevels(){ const box=$("#lvlGrid"); if(!box)return; const m=lvlAll(), ns=Object.keys(m).map(Number).sort((a,b)=>a-b);
+  box.innerHTML = ns.length ? ns.map(n=>`<button class="lvlchip${n===curLevel?' cur':''}" data-n="${n}">${n}<small>${m[n].slots.length}장</small><i class="ldup" data-dup="${n}" title="이 레벨 복제">⧉</i><i data-del="${n}" title="삭제">×</i></button>`).join("") : '<div class="empty" style="grid-column:1/-1">저장된 레벨 없음</div>';
+  const cur=$("#lvlCur"); if(cur) cur.innerHTML = curLevel!=null ? `편집 중: <b>레벨 ${curLevel}</b>` : `편집 중: <b>새 보드(미저장)</b>`; }
+$("#expOne").onclick=()=>{const d=toDoc(); if(!d.slots.length){toast("빈 보드");return;} download(d.id+".json",d); toast("내보냄 · "+d.id+".json");};
+$("#impBtn").onclick=()=>$("#impFile").click();
+$("#impFile").onchange=e=>{ [...e.target.files].forEach(f=>{const r=new FileReader(); r.onload=()=>{ try{
+  const d=JSON.parse(r.result), items=d.templates?d.templates:[d], l=libAll();
+  items.forEach(t=>{if(!t.slots)return; const i=l.findIndex(x=>x.id===t.id); if(i>=0)l[i]=t; else l.push(t);});
+  libSave(l); renderLib(); if(items[0]?.slots) loadDoc(items[0]); toast(items.length+"개 가져옴");
+}catch{ toast("가져오기 실패: 잘못된 JSON"); } }; r.readAsText(f); }); e.target.value=""; };
+
+// keyboard
+addEventListener("keydown",e=>{
+  if(/input|select|textarea/i.test(e.target.tagName)) return;
+  if(e.key==="Escape"){ // 열린 도움말/정보 팝업부터 닫기
+    if($("#infoModal").classList.contains("show")){ closeInfo(); return; }
+    if($("#help").classList.contains("show")){ $("#help").classList.remove("show"); return; }
+  }
+  if(playing){ // 재생 중 편집 잠금 — 재생 컨트롤 단축키
+    if(e.key==="Escape"){ pbClose(); }
+    else if(e.key===" "){ e.preventDefault(); pbTogglePlay(); }
+    else if(e.key==="ArrowRight"){ e.preventDefault(); pbNext(); }
+    else if(e.key==="ArrowLeft"){ e.preventDefault(); pbPrev(); }
+    return; }
+  const ss=selSlots(), k=e.key;
+  if((e.ctrlKey||e.metaKey)&&(k==="a"||k==="A")){ e.preventDefault(); selectAll(); return; }
+  if((e.ctrlKey||e.metaKey)&&(k==="z"||k==="Z")){ e.preventDefault(); undo(); return; }
+  if((e.ctrlKey||e.metaKey)&&(k==="c"||k==="C")){ e.preventDefault(); copySel(); return; }
+  if((e.ctrlKey||e.metaKey)&&(k==="v"||k==="V")){ e.preventDefault(); pasteClip(); return; }
+  if((e.ctrlKey||e.metaKey)&&(k==="d"||k==="D")){ e.preventDefault(); duplicateSel(); return; }
+  if(k==="Escape"){ flattenAll(); clearSel(); hideMarquee(); render(); return; }
+  if(k==="x"||k==="X"){ if(!explodeHold){ const c=zone(); explodeHold=true; explodeSet=new Set(cardsAtPoint(lastPt||{x:S.frame.w/2,y:(c.y0+c.y1)/2}).map(s=>s.id)); render(); } return; }
+  if(k==="v"||k==="V"||k==="Tab"){ e.preventDefault&&e.preventDefault(); const seq=["select","open","fold"]; setTool(seq[(seq.indexOf(tool)+1)%3]); return; } // V/Tab=도구 순환
+  if(k==="s"||k==="S"){ setTool("select"); return; }
+  if(k==="o"){ setTool("open"); return; } if(k==="d"){ setTool("fold"); return; }
+  if((k==="Delete"||k==="Backspace")&&ss.length){ e.preventDefault(); delSel(); return; }
+  if(!ss.length) return;
+  if(k==="f"){ snapshot(); ss.forEach(s=>s.face=s.face==="open"?"fold":"open"); render(); }
+  else if(k==="q"||k==="Q"){ rotSel(e.shiftKey?-1:-5); }
+  else if(k==="e"||k==="E"){ rotSel(e.shiftKey?1:5); }
+  else if(k==="["){ layerSel(-1); }
+  else if(k==="]"){ layerSel(1); }
+  else if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(k)){
+    e.preventDefault(); snapshot();
+    const fine=e.altKey?1:e.shiftKey?stepX():2; const fineY=e.altKey?1:e.shiftKey?stepY():2; // Alt=1px 초정밀 · 기본=2px 세밀 · Shift=간격 격자
+    const dx=(k==="ArrowLeft"?-1:k==="ArrowRight"?1:0)*fine;
+    const dy=(k==="ArrowUp"?-1:k==="ArrowDown"?1:0)*fineY;
+    ss.forEach(s=>{ const f=fit(s.x+dx,s.y+dy); s.x=f.x; s.y=f.y; }); render();
+  }
+});
+addEventListener("keyup",e=>{ if(e.key==="x"||e.key==="X"){ explodeHold=false; explodeSet=null; render(); } });
+$("#undoBtn").onclick=undo;
+function runSolve(){ pbClose(); const el=$("#vSolve"); el.textContent="검증 중… (DFS + 난이도 측정)"; el.className="note";
+  setTimeout(()=>{ const r=checkWinnable(); lastSolve=r.ok?r:null; el.className="note "+(r.ok?"good":"bad");
+    if(r.ok){ pbSeq=lastSolve.path||[]; pbBoardRanks=lastSolve.boardRanks; pbStepIdx=0;
+      const tgt=S.difficulty||2;
+      // **게임 실제 딜 우선**: 저장된 초기 딜(loadedDeal)이 있으면 그 딜의 난이도를 그대로 측정(게임=에디터 일치).
+      //   없으면(신규/편집) 기존처럼 아슬아슬 최소스톡 기준으로 측정.
+      let dm=null;
+      if(loadedDeal){
+        const coveredBy=buildCoveredBy(), n=S.slots.length, M=loadedDeal.stock.length;
+        const wr=greedyWinRateRanks(loadedDeal.board,loadedDeal.stock,loadedDeal.waste,coveredBy,60);
+        const f=traceFactors(loadedDeal.board,loadedDeal.stock,loadedDeal.waste,coveredBy,M,n);
+        dm={grade:gradeFromWR(wr),measuredWR:wr,stock:M,factors:f,target:tgt,adv:{chain:S.diffChain||"",feed:S.diffFeed||""},
+            deal:{board:loadedDeal.board.slice(),waste:loadedDeal.waste,stock:loadedDeal.stock.slice()},baked:true};
+      } else {
+        dm=measureDifficulty(r.budget, tgt); // 목표 등급으로 스톡 여유+선택샘플링→greedy 승률·3요소 측정
+      }
+      lastDiff=dm?{...dm,target:tgt}:null; // 레벨 가이드가 같은 측정값을 쓰도록 저장(중복/충돌 방지)
+      if(dm){
+        S.stock=dm.stock; $("#mStock").value=dm.stock; // 등급 기반 스톡(공급 레버)을 레벨 설정에 반영
+        const f=dm.factors, pct=Math.round(dm.measuredWR*100);
+        const matchTxt=dm.grade===tgt?`목표 <b>${GRADE_LABEL[tgt]}</b> 달성`
+          :`목표는 ${GRADE_LABEL[tgt]}이나 이 배치는 <b>${GRADE_LABEL[dm.grade]}</b>에 가까움`;
+        el.innerHTML=`✓ 풀림 · 난이도 <b>${GRADE_LABEL[dm.grade]}</b> (측정 승률 ${pct}%)${dm.baked?` · <b>게임 실제 딜</b>`:``}<br>${matchTxt}`
+          +`<div class="cdiag">연쇄 ${f.chain.toFixed(1)}${dm.adv&&dm.adv.chain?` <b>→목표 ${FLABEL[dm.adv.chain]}</b>`:""} · 뽑기매칭 ${Math.round(f.feed*100)}%${dm.adv&&dm.adv.feed?` <b>→목표 ${FLABEL[dm.adv.feed]}</b>`:""} · 스톡 ${dm.stock}장 (최소 ${r.budget} + <b>여유 ${Math.max(0,dm.stock-r.budget)}</b>=실수 허용)</div>`
+          +(dm.grade!==tgt?`<div class="cdiag fo">조정 팁: 더 쉽게=간격↑·노출 카드↑ · 더 어렵게=겹침↑·노출 카드↓(스톡은 자동 조절됨)</div>`:``);
+        toast(`풀림·${GRADE_LABEL[dm.grade]} (승률 ${pct}%·스톡 ${dm.stock})`);
+      } else {
+        S.stock=r.budget; $("#mStock").value=r.budget;
+        el.innerHTML=r.msg+" · (난이도 측정 표본 부족)";
+        toast("풀림 가능 (스톡 "+r.budget+")");
+      }
+      $("#pbCtl").style.display="block"; pbUpdateControls(); updateHud(); }
+    else { el.textContent=r.msg; $("#pbCtl").style.display="none"; }
+    renderGuide(); },30); }
+$("#solveBtn").onclick=runSolve;
+$("#playBtn").onclick=pbTogglePlay;
+$("#pbPrev").onclick=pbPrev; $("#pbNextBtn").onclick=pbNext; $("#pbFirstBtn").onclick=pbFirstStep; $("#pbCloseBtn").onclick=pbClose;
+$("#pbSpd").onclick=e=>{ const b=e.target.closest("[data-spd]"); if(b)pbSetSpeed(+b.dataset.spd); };
+$("#lvlSaveBtn").onclick=lvlSave;
+$("#lvlGrid").onclick=e=>{ const dup=e.target.closest("[data-dup]"); if(dup){e.stopPropagation();lvlDup(+dup.dataset.dup);return;}
+  const d=e.target.closest("[data-del]"); if(d){e.stopPropagation();if(confirm("레벨 "+d.dataset.del+" 삭제?"))lvlDel(+d.dataset.del);return;}
+  const b=e.target.closest("[data-n]"); if(b)lvlLoad(+b.dataset.n); };
+$("#lvlExport").onclick=()=>{ const m=lvlAll(); if(!Object.keys(m).length){toast("저장된 레벨 없음");return;} download("card-levels.json",{kind:"cardLevels",levels:m}); toast("레벨팩 내보냄"); };
+$("#lvlImport").onclick=()=>$("#lvlFile").click();
+// 커밋 레벨팩(public/levels/cardLevels.json) 전체를 한 번에 적용 — 파일이 진실. localStorage 를 파일로 **전량 교체**(하나씩 아님) → 게임 즉시 반영.
+$("#lvlApplyAll").onclick=()=>{ fetch("/levels/cardLevels.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{
+    if(!d){toast("커밋 레벨팩을 찾을 수 없음(dev 서버에서 열었는지 확인)");return;}
+    const src=d.levels||d; const cnt=Object.keys(src).filter(n=>src[n]&&src[n].slots).length;
+    if(!cnt){toast("레벨팩이 비어 있음");return;}
+    if(!confirm("커밋 레벨팩 "+cnt+"개를 전체 적용합니다.\n현재 브라우저의 레벨을 파일 내용으로 모두 교체할까요?"))return;
+    const m={}; Object.keys(src).forEach(n=>{ if(src[n]&&src[n].slots) m[n]=src[n]; }); // 전량 교체(파일=진실)
+    lvlSet(m); curLevel=null; renderLevels(); syncLevelsToServer(); toast("✅ 전체 "+cnt+"레벨 적용 완료 — 게임 새로고침 시 반영");
+  }).catch(()=>toast("적용 실패(네트워크)")); };
+$("#lvlFile").onchange=e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ try{ const d=JSON.parse(r.result); const src=d.levels||d; const m=lvlAll(); Object.keys(src).forEach(n=>{ if(src[n]&&src[n].slots) m[n]=src[n]; }); lvlSet(m); renderLevels(); toast(Object.keys(src).length+"개 레벨 가져옴"); }catch{ toast("가져오기 실패"); } }; r.readAsText(f); e.target.value=""; };
+$("#saveLib").onclick=saveCurrent;
+$("#newTpl").onclick=()=>{ if(S.slots.length&&!confirm("현재 보드를 버리고 새로?"))return; loadDoc(blank()); $("#mName").value=""; toast("빈 보드"); };
+$("#themeBtn").onclick=()=>{const r=document.documentElement,cur=r.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");r.setAttribute("data-theme",cur==="dark"?"light":"dark");drawGrid();};
+
+// help
+$("#helpBtn").onclick=()=>$("#help").classList.add("show");
+$("#helpClose").onclick=()=>{$("#help").classList.remove("show");lsSet("cardHelpSeen","1");};
+$("#help").onclick=e=>{ if(e.target.id==="help") $("#help").classList.remove("show"); };
+
+// ── ⓘ 도움말 팝업 — 각 섹션 헤더의 원문자 i 를 누르면 상세 설명 표시 ──
+const INFO={
+  tools:{title:"도구 — 선택 / 오픈 / 폴드",html:`
+    <p>카드의 <b>값·그림이 아니라 배치·배열</b>만 설계합니다. 값(랭크)은 게임이 딜 때 배정합니다.</p>
+    <h4>✋ 선택</h4>
+    <ul><li><b>클릭</b> — 카드/그룹을 선택해 편집·이동</li>
+    <li><b>빈 곳 드래그</b> — 마퀴(사각 범위)로 여러 장 다중선택</li>
+    <li><b>Shift+클릭</b> — 선택에 추가/제거</li>
+    <li><b>Ctrl(⌘)+클릭 · Ctrl+드래그</b> — 그룹/셰이프 <b>안의 카드 한 장</b>만 선택·이동</li></ul>
+    <h4>오픈 / 폴드</h4>
+    <ul><li><b>오픈</b>=앞면(바로 낼 수 있는 노출 카드), <b>폴드</b>=뒷면(가려진 카드)</li>
+    <li><b>클릭</b>=카드 1장 삽입</li>
+    <li><b>드래그</b>=끄는 경로를 따라 카드 줄기. 끄는 <b>방향으로 레이어가 쌓이고</b>(끝점=오픈) 부채꼴·팬 컬럼이 한 번에 깔립니다.</li></ul>
+    <p class="kbd">V</p> 로 선택 도구 전환. 실제 노출 여부는 <b>겹침</b>으로 결정됩니다 — 위에 조금이라도 겹친 카드가 있으면 그 아래는 폴드(오픈 불가).`},
+  shapes:{title:"셰이프 스탬프",html:`
+    <p>실제 상용 솔리테어 레벨을 분석해 뽑은 <b>구조 부품</b>입니다. 스탬프는 <b>자동으로 하나의 그룹(레이어)</b>이 됩니다. 상단 <b>탭</b>으로 분류돼 있습니다:</p>
+    <ul><li><b>아치·부채</b> — 원호(◜)·갈런드(⌣)·부채(⌒)·윙/나비(⋀)·<b>핀휠(✻)</b>: 레퍼런스 레벨의 핵심 곡선 부품</li>
+    <li><b>봉우리</b> — 봉우리(▲)·피라미드·마름모·왕관·갈매기</li>
+    <li><b>격자·열</b> — 그리드(▦)·행·열·태블로·기둥·물결</li>
+    <li><b>원형</b> — 링(◯)·꽃·별·나선(방사 로제트)</li></ul>
+    <h4>부품으로 완성하기 (레퍼런스 방식)</h4>
+    <p>실제 레벨은 <b>중앙 요소 + 좌우 대칭 날개</b> 구조입니다. ①중앙에 부품 하나(그리드·핀휠 등) ②한쪽에 날개 부품(윙·부채·아치) ③<b>⇋ 반전복제</b>로 반대쪽 대칭 생성 ④<b>손맛(🖐)</b>으로 미세 회전·지터를 줘 손 배치 느낌으로 마감. (한글 자모·창의 도형 등 실제 안 쓰이는 노벨티 셰이프는 정리했습니다.)</p>
+    <h4>카드 수 확장 — 모든 셰이프가 행렬(행×열)</h4>
+    <p>선택한 셰이프의 오른쪽 편집 패널에 <b>두 개의 스텝퍼(행·열)</b>가 나옵니다. 축의 의미는 셰이프마다 다릅니다:</p>
+    <ul><li>격자·부채꼴·기둥 = <b>행×열</b> · 봉우리/피라미드 = <b>단수×반복 개수</b></li>
+    <li>링·별·꽃·원호 = <b>동심(겹)×개수</b> · 갈런드/물결 = <b>겹×개수</b></li>
+    <li>한글·도형 = <b>세로 밀도×가로 밀도</b>(획 사이에 카드를 촘촘히, 예: ㅁ 8→16→24장)</li></ul>
+    <p>또한 어떤 선택이든 편집 패널의 <b>카드 추가: ＋열◀▶ / ＋행▲▼</b>로 가장자리에 행·열을 덧붙일 수 있습니다(셰이프 확정 후에도).</p>
+    <h4>온캔버스 핸들 (◆) · 손질</h4>
+    <p>작고 반투명한 <b>◆ 핸들</b>(마우스 올리면 선명)로 크기를 조절합니다 — <b>오른쪽=좌우 크기</b>, <b>아래=상하 크기</b>(방사형은 반지름 하나), 곡률형은 위쪽=곡률. 잡은 지점 기준 <b>비율로 부드럽게</b> 변합니다(값이 튀지 않음). <b>카드 개수(행·열)는 오른쪽 스텝퍼</b>로 정밀 조절하세요. 본체 끌기=이동, 회전 노브=각도. 이미 찍은 셰이프도 선택하면 핸들이 다시 나오고, <b>Ctrl+클릭</b>으로 개별 카드 손질. <b>손맛(🖐)</b>으로 흐트리고 <b>정돈(▦)</b>으로 정렬.</p>`},
+  layers:{title:"섹션 · 그룹 · 레이어",html:`
+    <h4>레이어 목록 행</h4>
+    <ul><li><b>이름</b> 클릭 = 그 그룹 선택 · <b>더블클릭 = 이름 바꾸기</b>(Enter 확정·Esc 취소)</li>
+    <li><b>👁</b> = 숨기기/보이기(편집 화면에서만 감춤 — 커버·풀이 판정엔 그대로 포함)</li>
+    <li><b>🔓/🔒</b> = 잠금/해제(잠긴 그룹은 캔버스에서 선택·이동·삭제 보호)</li>
+    <li><b>◐ / ●</b> = 그룹 전체를 오픈/폴드로</li>
+    <li><b>▲ ▼</b> = 레이어 앞/뒤(위아래 겹침 순서) 이동</li>
+    <li><b>×</b> = 그룹 삭제</li></ul>
+    <h4>스마트 정렬 가이드</h4>
+    <p>카드/그룹을 끌면 다른 카드의 <b>모서리·중심</b>이나 <b>화면 중앙</b>과 맞을 때 <b>분홍 안내선</b>이 뜨고 딱 흡착됩니다(정렬이 쉬워집니다).</p>
+    <h4>복사 · 붙여넣기 · 복제</h4>
+    <ul><li><span class="kbd">Ctrl/⌘ + C</span> 복사 · <span class="kbd">Ctrl/⌘ + V</span> 붙여넣기 · <span class="kbd">Ctrl/⌘ + D</span> 복제</li></ul>
+    <h4>그룹 조작</h4>
+    <ul><li><b>그룹 만들기 / 해제</b> — 선택한 카드들을 한 덩어리로 묶거나 풀기</li>
+    <li><b>복제 / 반전복제</b> — 그대로 복사 · <b>반전복제</b>=좌측 배열을 우측에 <b>좌우 대칭</b>으로 생성</li>
+    <li><b>그룹 회전 ↺↻</b> — 선택 전체를 15°씩 회전</li></ul>
+    <p>그룹을 선택하고 캔버스에서 끌면 <b>통째로 이동</b>(간격 자석 스냅). 개별 카드는 <b>Ctrl(⌘)+클릭</b>으로 골라 오른쪽 <b>선택한 카드</b> 패널에서 편집합니다.</p>`},
+  spacing:{title:"간격 (겹침 프리셋 1~8)",html:`
+    <p>카드끼리의 겹침을 <b>8단계 프리셋</b>으로만 배열합니다(임의 간격 없음 → 게임 커버 격자와 정확히 일치).</p>
+    <ul><li><b>1</b> = 강한 겹침(많이 가림)</li>
+    <li><b>4</b> = 반겹침</li>
+    <li><b>8</b> = 딱 붙음(거의 안 가림)</li></ul>
+    <p><b>겹치면 무조건 아래 카드는 폴드</b>(오픈 안 됨)입니다. 두 카드를 모두 노출시키고 싶으면 <b>간격을 카드 폭 이상 벌려</b> 안 겹치게 하세요.</p>`},
+  levelsave:{title:"숫자 레벨 저장 · 게임 적용",html:`
+    <p>완성한 보드를 <b>숫자 레벨</b>(1, 2, 3…)로 저장하면 <b>게임 레벨 N</b>에 그대로 적용됩니다.</p>
+    <ul><li>레벨 칩 <b>클릭</b> = 불러오기 · <b>⧉</b> = 복제(다음 빈 번호로 복사 후 편집) · <b>×</b> = 삭제</li>
+    <li>현재 편집 중인 레벨은 칩이 <b>초록 테두리 + "편집중"</b>으로 표시되고, 위에 "편집 중: 레벨 N"이 나옵니다(미저장 새 보드면 "새 보드").</li></ul>
+    <h4>테스트한 카드 배치 저장</h4>
+    <p><b>풀이 검증</b>을 먼저 실행한 뒤 저장하면, 배치(위치)뿐 아니라 <b>여기서 테스트한 실제 카드 값</b>(초기 딜)까지 함께 저장됩니다. 플레이어가 그 레벨을 <b>처음 플레이할 때 이 배치 그대로</b> 시작하고, <b>재플레이 때는 새로 딜</b>됩니다. 검증 없이 저장하면 배치만 저장되고 카드 값은 게임이 딜합니다.</p>
+    <h4>자동 반영 (dev 서버)</h4>
+    <p>✅ <b>dev 서버 주소</b>(<code>/design/card-editor.html</code>)에서 열면 저장·삭제가 즉시 <code>public/levels/cardLevels.json</code> 파일에 <b>자동 반영</b>됩니다(수동 내보내기 불필요). 게임을 새로고침하면 바로 반영.</p>
+    <h4>파일로 열었을 때</h4>
+    <p>파일(<code>file://</code>)로 직접 열면 자동반영이 안 됩니다 → <b>레벨팩 내보내기(배포용)</b>로 <code>cardLevels.json</code>을 수동 저장해 게임 <code>public/levels/</code>에 넣으세요.</p>`},
+  library:{title:"라이브러리 · 파일",html:`
+    <h4>라이브러리</h4>
+    <p>작업 중인 보드를 <b>이름 붙여 임시 저장</b>(브라우저 내). 목록에서 눌러 다시 불러옵니다. <b>빈 보드</b>로 새로 시작.</p>
+    <h4>파일</h4>
+    <ul><li><b>JSON 내보내기</b> — 현재 보드 하나를 <code>.json</code> 파일로(백업·공유용)</li>
+    <li><b>JSON 가져오기</b> — 내보낸 <code>.json</code>을 불러오기</li></ul>
+    <p>※ 게임에 적용하려면 위의 <b>숫자 레벨 저장</b>을 쓰세요. 여기 파일 기능은 백업·이동용입니다.</p>`},
+  settings:{title:"레벨 설정",html:`
+    <ul><li><b>이름</b> — 레벨 표시 이름(설계용)</li>
+    <li><b>패밀리</b> — 배열 계열 태그(메타데이터, 게임 판정엔 영향 없음)</li>
+    <li><b>보드 목표</b> — 이 배치의 카드 수(참고용)</li>
+    <li><b>뽑기(stock)</b> — <b>실제 게임에 배치되는 뽑기 카드 수</b>. 검증하면 등급 기준 값이 채워지지만, <b>이 칸에서 직접 조절</b>할 수 있고 그 수가 게임에 그대로 딜됩니다(승리 최소치 미만이면 게임이 최소치로 보정). 하단 가이드에 '실제 배치·최소 N'으로 표시됩니다.</li></ul>
+    <h4>난이도 등급</h4>
+    <p><b>★ 쉬움 / ★★ 보통 / ★★★ 어려움</b> 중 하나만 고르면 됩니다. 게임이 이 등급에 맞춰 <b>연쇄 매칭·뽑기 매칭·스톡 수</b> 세 요소를 자동 조절해 딜합니다.</p>
+    <ul><li><b>쉬움</b> = 잘 이어지고 스톡 넉넉</li>
+    <li><b>어려움</b> = 아슬아슬(최소 스톡·헛뽑기 잦음)</li></ul>
+    <h4>고급 조정</h4>
+    <p>등급 아래 <b>'고급 조정'</b>을 펼치면 세 변수를 개별로 최종 조정할 수 있습니다:</p>
+    <ul><li><b>연속매칭</b> — 보드에서 카드가 연달아 매칭되는 정도(높음=쉬움)</li>
+    <li><b>뽑기매칭</b> — 뽑은 카드가 곧바로 낼 수를 만드는 비율(높음=쉬움)</li>
+    <li><b>스톡 수</b> — 위 '뽑기(stock)' 칸(실수 여유)</li></ul>
+    <p>'자동'이면 등급 기본값을 씁니다. 게임 딜이 이 목표에 가장 가까운 배치를 고릅니다(단, <b>배치 구조가 허용하는 범위 안</b>에서만 조절됩니다 — 구조가 빡빡하면 폭이 작음).</p>
+    <p>프레임 W/H는 디자인 캔버스 크기(기본 1080×2400).</p>`},
+  inspector:{title:"선택한 카드 / 그룹 편집",html:`
+    <p>카드나 그룹을 선택하면 여기에 편집 도구가 나옵니다.</p>
+    <ul><li><b>단일 카드</b> — 레이어(앞/뒤), 회전, 오픈/폴드 전환, 깊이 스택, 삭제. 맨 위에 <b>게임 표시</b>(오픈/폴드)와 그 이유를 보여줍니다.</li>
+    <li><b>여러 장</b> — 정렬(좌/중앙/우·상/중/하), 균등 분포, 일괄 오픈/폴드, 크기·회전, <b>겹침 반전</b>(덮는/덮이는 앞뒤 순서를 통째로 뒤집음 — 같은 층 격자도 반영).</li></ul>
+    <p>툴바 <b>⇅ 겹침반전</b> = 선택(없으면 전체) 카드의 겹침 순서를 반전합니다.</p>
+    <p><b>Ctrl(⌘)+클릭</b>으로 그룹 안 카드 한 장만 선택할 수 있습니다.</p>`},
+  verify:{title:"풀이 검증 · 난이도 · 해답 재생",html:`
+    <h4>풀이 검증</h4>
+    <p><b>이 배치가 실제로 풀리는지</b> DFS로 완전 탐색합니다. 통과하면 그 배치를 클리어하는 <b>최소(아슬아슬) 스톡</b>을 찾습니다.</p>
+    <h4>난이도 측정</h4>
+    <p>완벽한 솔버는 항상 이기므로, 난이도는 <b>실수하는 보통 플레이어(greedy)의 승률</b>로 잽니다. 결과에 <b>측정 승률 %</b>와 세 요소 분해가 나옵니다:</p>
+    <ul><li><b>연쇄</b> — 뽑기 1회당 연달아 낸 카드 수(높을수록 쉬움)</li>
+    <li><b>뽑기매칭 %</b> — 뽑은 카드가 곧바로 낼 수를 만든 비율</li>
+    <li><b>스톡</b> — 보드 대비 스톡 비율(여유)</li></ul>
+    <p>목표 등급과 다르면 실제로 측정된 등급 + <b>조정 팁</b>을 보여줍니다(더 쉽게=간격↑·노출↑ / 더 어렵게=겹침↑·노출↓).</p>
+    <h4>해답 재생</h4>
+    <p>검증에서 찾은 승리 해답을 <b>실제 플레이처럼</b> 애니메이션합니다 — 카드가 웨이스트로 날아가고, 커버가 풀린 카드는 뒤집혀 노출. ▶재생/◀▶한 수씩/⏮처음/배속 조절.</p>`},
+};
+function openInfo(id){ const it=INFO[id]; if(!it)return; $("#infoTitle").textContent=it.title; $("#infoBody").innerHTML=it.html; $("#infoModal").classList.add("show"); }
+function closeInfo(){ $("#infoModal").classList.remove("show"); }
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-info]"); if(b){ e.stopPropagation(); openInfo(b.dataset.info); } });
+$("#infoClose").onclick=closeInfo;
+$("#infoModal").onclick=e=>{ if(e.target.id==="infoModal") closeInfo(); };
+
+// ── 좌·우 패널 폭 조절(리사이저 끌기) ── 더블클릭=기본값 · localStorage 유지 · 비율식(안 튐)
+function wireResizer(rezId, cssVar, def, minw, maxw, key, sign){
+  const rez=$("#"+rezId), mainEl=document.querySelector("main"); if(!rez||!mainEl) return;
+  const curW=()=>{ const v=parseFloat(getComputedStyle(mainEl).getPropertyValue(cssVar)); return Number.isFinite(v)?v:def; };
+  const setW=w=>mainEl.style.setProperty(cssVar,Math.round(clamp(w,minw,maxw))+"px");
+  const saved=parseInt(lsGet(key)); if(Number.isFinite(saved)) setW(saved);
+  let rz=null;
+  rez.addEventListener("pointerdown",e=>{ e.preventDefault(); rz={x:e.clientX,w0:curW()}; rez.classList.add("drag"); try{rez.setPointerCapture(e.pointerId);}catch{} });
+  rez.addEventListener("pointermove",e=>{ if(rz) setW(rz.w0+sign*(e.clientX-rz.x)); }); // 오른쪽 패널은 왼쪽으로 끌면 넓어짐(sign=-1)
+  rez.addEventListener("pointerup",()=>{ if(!rz)return; rz=null; rez.classList.remove("drag"); lsSet(key,String(Math.round(curW()))); });
+  rez.addEventListener("dblclick",()=>{ setW(def); lsSet(key,String(def)); });
+}
+wireResizer("resizer","--leftw",240,170,560,"cardEditor.leftw",+1);   // 좌: 오른쪽으로 끌면 넓어짐
+wireResizer("resizerR","--rightw",320,220,620,"cardEditor.rightw",-1); // 우: 왼쪽으로 끌면 넓어짐
+
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(tT);tT=setTimeout(()=>t.classList.remove("show"),1600);}
+
+// seeds — rich portrait templates
+function seed(){
+  if(libAll().length) return;
+  const doc=(id,name,fam,band,build)=>{ idc=1; const slots=build(); return {schemaVersion:1,kind:"cardBoard",id,name,family:fam,frame:{designW:1080,designH:2400},budget:{board:slots.length,stock:21},tags:{difficultyBand:band,maxLayer:Math.max(...slots.map(s=>s.layer))},slots}; };
+  const P=(cx,ty,rows,col=132,dy=105,ids="p")=>{const o=[];let k=0;for(let r=0;r<rows;r++){const n=r+1,L=rows-1-r;for(let i=0;i<n;i++)o.push({id:ids+(k++),x:cx+(i-(n-1)/2)*col,y:ty+r*dy,layer:L,face:r===0?"open":"fold"});}return o;};
+  const C=(cx,ty,rows,col=140,dy=112,ids="c")=>{const o=[];let k=0;for(let r=0;r<rows;r++){const n=r+1,L=r;for(let i=0;i<n;i++)o.push({id:ids+(k++),x:cx+(i-(n-1)/2)*col,y:ty+r*dy,layer:L,face:r===rows-1?"open":"fold"});}return o;};
+  const list=[
+    doc("triple-peak","삼봉","peaks",3,()=>[...P(340,660,4,132,105,"l"),...P(740,660,4,132,105,"r"),...P(540,1120,4,132,105,"c")]),
+    doc("twin-peaks","쌍봉","peaks",2,()=>[...P(360,760,4,132,105,"l"),...P(720,760,4,132,105,"r")]),
+    doc("grand-pyramid","대피라미드","pyramids",4,()=>C(540,720,6,140,112,"p")),
+    doc("crown-trio","삼중 왕관","peaks",3,()=>[...P(300,900,3,120,100,"l"),...P(540,760,4,120,105,"m"),...P(780,900,3,120,100,"r")]),
+    doc("fan-arc","부채꼴 아크","fans",2,()=>{const o=[];const tops=[560,510,470,600,470,510,560];let k=0;for(let i=0;i<7;i++){const x=540+(i-3)*130;for(let j=0;j<3;j++)o.push({id:"f"+(k++),x,y:900+tops[i]-560+j*95,layer:2-j,face:j===0?"open":"fold"});}return o;})
+  ];
+  libSave(list);
+}
+
+// boot (guarded — never leave a dead page)
+window.addEventListener("error",ev=>{ toast("오류: "+ev.message); });
+try{
+  seed(); renderLib(); // 라이브러리(시드 템플릿)는 채우되 보드에 자동 로드하지 않는다.
+  // 재로드 시: **편집중이던 보드(WIP)가 있으면 복원, 없으면 빈 화면**(시드 템플릿 자동 로드 안 함).
+  const wip=loadWip();
+  loadDoc(wip||blank());
+}catch(err){ console.error(err); toast("초기화 오류: "+err.message); loadDoc(blank()); }
+setTool("select"); // 시작은 선택 도구(삽입은 오픈/폴드/셰이프를 골라)
+renderLevels(); // 저장된 숫자 레벨 표시
+seedLevelsFromFile(); // 커밋된 레벨팩에서 없는 레벨 보충(새 클론에서도 저작 레벨 표시)
+addEventListener("resize",()=>{drawGrid();drawCover();layoutZones();});
+addEventListener("beforeunload",saveWip); // 닫기/새로고침 직전 편집중 보드를 즉시 보존(디바운스 대기분 반영)
+if(!lsGet("cardHelpSeen")) $("#help").classList.add("show");
+</script>

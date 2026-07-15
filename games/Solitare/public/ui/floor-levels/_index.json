@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "kind": "floorLevelIndex",
+  "frame": { "w": 1080, "h": 2400 },
+  "homeLayers": ["facade", "character", "glass"],
+  "playLayers": ["facade", "character", "glass", "interior"],
+  "floors": []
+}

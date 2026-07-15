@@ -1,0 +1,20 @@
+{
+  "name": "@casual/game-solitaire",
+  "version": "0.1.0",
+  "private": true,
+  "description": "솔리테어 하이츠 — 카드를 위·아래로 이어(±1, A↔K 순환) 층층이 타워를 쌓는 트라이픽스형 캐주얼 솔리테어.",
+  "type": "module",
+  "scripts": {
+    "dev": "npx vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4209"
+  },
+  "dependencies": {
+    "@casual/core": "*",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.10",
+    "vite-plugin-pwa": "0.21.1"
+  }
+}

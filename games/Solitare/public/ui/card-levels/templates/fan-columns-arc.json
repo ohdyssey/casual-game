@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "kind": "cardBoard",
+  "id": "fan-columns-arc",
+  "name": "부채꼴 컬럼 (Fan Columns Arc)",
+  "family": "fans",
+  "note": "스크린샷 1 재현. 7개 세로 팬 컬럼을 크라운 아크로 배치. 각 컬럼=오픈 top 1 + 폴드 2(아래로 겹침). coveredBy는 겹침×레이어에서 유도되므로 저장하지 않음(§2.5).",
+  "frame": { "designW": 2640, "designH": 1080 },
+  "grid": { "unitX": 250, "unitY": 70, "half": false },
+  "deck": { "type": "standard52", "packs": 1 },
+  "budget": { "board": 21, "stock": 24 },
+  "tags": { "difficultyBand": 2, "symmetrySafe": true, "maxLayer": 2 },
+  "piles": [
+    { "id": "board", "kind": "fan", "arrange": "fan-down", "fan": { "x": 0, "y": 70 } },
+    { "id": "stock", "kind": "stock", "arrange": "stack" },
+    { "id": "waste", "kind": "waste", "arrange": "single" }
+  ],
+  "slots": [
+    { "id": "c0_t", "pile": "board", "x": 570,  "y": 430, "layer": 2, "face": "open" },
+    { "id": "c0_m", "pile": "board", "x": 570,  "y": 500, "layer": 1, "face": "fold" },
+    { "id": "c0_b", "pile": "board", "x": 570,  "y": 570, "layer": 0, "face": "fold" },
+    { "id": "c1_t", "pile": "board", "x": 820,  "y": 380, "layer": 2, "face": "open" },
+    { "id": "c1_m", "pile": "board", "x": 820,  "y": 450, "layer": 1, "face": "fold" },
+    { "id": "c1_b", "pile": "board", "x": 820,  "y": 520, "layer": 0, "face": "fold" },
+    { "id": "c2_t", "pile": "board", "x": 1070, "y": 330, "layer": 2, "face": "open" },
+    { "id": "c2_m", "pile": "board", "x": 1070, "y": 400, "layer": 1, "face": "fold" },
+    { "id": "c2_b", "pile": "board", "x": 1070, "y": 470, "layer": 0, "face": "fold" },
+    { "id": "c3_t", "pile": "board", "x": 1320, "y": 470, "layer": 2, "face": "open" },
+    { "id": "c3_m", "pile": "board", "x": 1320, "y": 540, "layer": 1, "face": "fold" },
+    { "id": "c3_b", "pile": "board", "x": 1320, "y": 610, "layer": 0, "face": "fold" },
+    { "id": "c4_t", "pile": "board", "x": 1570, "y": 330, "layer": 2, "face": "open" },
+    { "id": "c4_m", "pile": "board", "x": 1570, "y": 400, "layer": 1, "face": "fold" },
+    { "id": "c4_b", "pile": "board", "x": 1570, "y": 470, "layer": 0, "face": "fold" },
+    { "id": "c5_t", "pile": "board", "x": 1820, "y": 380, "layer": 2, "face": "open" },
+    { "id": "c5_m", "pile": "board", "x": 1820, "y": 450, "layer": 1, "face": "fold" },
+    { "id": "c5_b", "pile": "board", "x": 1820, "y": 520, "layer": 0, "face": "fold" },
+    { "id": "c6_t", "pile": "board", "x": 2070, "y": 430, "layer": 2, "face": "open" },
+    { "id": "c6_m", "pile": "board", "x": 2070, "y": 500, "layer": 1, "face": "fold" },
+    { "id": "c6_b", "pile": "board", "x": 2070, "y": 570, "layer": 0, "face": "fold" }
+  ]
+}
