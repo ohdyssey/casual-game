@@ -31,8 +31,8 @@ export interface SaveData {
   lot2Demolished?: boolean;
   /** **점포(층)별 누적 코인** — 손님이 떨어뜨린 코인을 층별로 보관. 목표(100) 도달 시 점원 위 말풍선으로 수령 대기. floor(문자열)→코인. */
   floorCoinBanks?: Record<string, number>;
-  /** **고수익 경쟁 부지(좌측 L2) 경매 낙찰 → 4층 뱅크 건설 완료** 상태. */
-  compBankBuilt?: boolean;
+  /** **고수익 경쟁 부지(좌측 L2) 뱅크 건설 층수**(0=미낙찰, 1~4=단계별 건설). 낙찰 시 1층부터 단계 건설. */
+  compBankFloors?: number;
 }
 
 // **저장 키 버전** — 배포 시 이 버전을 올리면 기존 유저의 옛 저장(구버전 키)은 무시되고 **모두 처음(1레벨)부터 시작**한다.
@@ -136,7 +136,7 @@ export function loadSave(): SaveData {
         sideDemolished: s.sideDemolished && typeof s.sideDemolished === 'object' ? { ...s.sideDemolished } : {},
         lot2Demolished: !!s.lot2Demolished,
         floorCoinBanks: s.floorCoinBanks && typeof s.floorCoinBanks === 'object' ? { ...s.floorCoinBanks } : {},
-        compBankBuilt: !!s.compBankBuilt,
+        compBankFloors: Math.max(0, Math.floor(s.compBankFloors ?? 0)),
       };
     }
   } catch {
