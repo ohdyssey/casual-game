@@ -83,7 +83,8 @@ interface SideLot {
   ruin?: Phaser.GameObjects.Image; // 코드로 생성한 폐건물.
   forSale?: Phaser.GameObjects.Image; // 폐건물 앞 'FOR SALE' 표지판(건설/철거 시 제거).
   sign?: Phaser.GameObjects.Image; // 폐건물 상단 간판(UI_25, 건물 뒤 레이어) — 잠금/구입 메시지 판.
-  signMsg?: Phaser.GameObjects.Text; // 간판 위 메시지(잠금='타워 10층 완공 시 개방' / 해제='구입 가능').
+  signMsg?: Phaser.GameObjects.Text | Phaser.GameObjects.Container; // 간판 위 메시지(단문=Text / 제목+설명 2단=Container).
+  signOverride?: string; // 이 부지 고유 간판 문구(잠금/구입 문구 대신 항상 표시) — 예: 고수익 경쟁 부지 안내.
   floor?: { img: Phaser.GameObjects.Image; char?: Phaser.GameObjects.Image };
   btn?: Phaser.GameObjects.Container;
   hint?: Phaser.GameObjects.Text;
@@ -243,7 +244,7 @@ export class HomeScene extends Phaser.Scene {
   private lot2Ruin?: Phaser.GameObjects.Image; // 우 내측 부지 폐건물(코드 선배치).
   private lot2ForSale?: Phaser.GameObjects.Image; // 우 내측 폐건물 앞 'FOR SALE' 표지판.
   private lot2Sign?: Phaser.GameObjects.Image; // 우 내측 폐건물 상단 간판(UI_25).
-  private lot2SignMsg?: Phaser.GameObjects.Text; // 우 내측 간판 메시지.
+  private lot2SignMsg?: Phaser.GameObjects.Text | Phaser.GameObjects.Container; // 우 내측 간판 메시지.
   private ruinTopRatioCache = new Map<string, number>(); // 폐건물 텍스처별 **실제 지붕(불투명 최상단) 비율**(0..1) 캐시 — 간판을 상단 투명여백 아닌 실지붕에 얹기 위함.
   // **사이드 부지들**(좌 내/외 · 우 외 — 폐건물 철거→1층 파일럿). 우 내(lot2)는 다층 시스템 별도.
   private sideLots: SideLot[] = [];
@@ -1527,7 +1528,8 @@ export class HomeScene extends Phaser.Scene {
     // **폐건물 5개(lot2 포함) 각기 다른 텍스처**(중복 금지). 여기 4개(좌2·우2) + lot2(우 내측, Ruin_05).
     this.sideLots = [
       // ⚠️ 좌측 첫 부지(LOT1L_CX)는 **공공건물 타워 프리빌트**(buildOfficeTower)가 차지 → 폐건물 부지에서 제외.
-      { cx: LOT1L_CX - LOT_DX, ruinKey: 'up_Slitare_BG_Ruin_02', saveKey: 'L2', hintText: '← 새 부지', hintX: 45, built: false, demolished: false, stage: 4 },
+      // **가장 왼쪽 부지 = 고수익 경쟁 부지**(간판 문구 고정) — 건설 수익↑ 이지만 공격 시 강제경매되는 경쟁형 부지.
+      { cx: LOT1L_CX - LOT_DX, ruinKey: 'up_Slitare_BG_Ruin_02', saveKey: 'L2', hintText: '← 새 부지', hintX: 45, built: false, demolished: false, stage: 4, signOverride: '고수익 경쟁 부지\n건설 수익은 높지만 공격 시 강제경매됩니다.' },
       { cx: LOT2_CX + LOT_DX, ruinKey: 'up_Slitare_BG_Ruin_03', saveKey: 'R2', hintText: '새 부지 →', hintX: 1035, built: false, demolished: false, stage: 5 },
       { cx: LOT2_CX + 2 * LOT_DX, ruinKey: 'up_Slitare_BG_Ruin_04', saveKey: 'R3', hintText: '새 부지 →', hintX: 1035, built: false, demolished: false, stage: 6 },
     ];
@@ -1612,7 +1614,7 @@ export class HomeScene extends Phaser.Scene {
     return ratio;
   }
 
-  private spawnLotSignboard(cx: number, variant: number, ruin: Phaser.GameObjects.Image | undefined, message?: string): { board?: Phaser.GameObjects.Image; text?: Phaser.GameObjects.Text } {
+  private spawnLotSignboard(cx: number, variant: number, ruin: Phaser.GameObjects.Image | undefined, message?: string): { board?: Phaser.GameObjects.Image; text?: Phaser.GameObjects.Text | Phaser.GameObjects.Container } {
     const n = (((variant % FOR_SALE_VARIANTS) + FOR_SALE_VARIANTS) % FOR_SALE_VARIANTS) + 1; // 1..3 순환.
     const key = `up_Solitare_UI_25-${n}`;
     // 건물 **실제 지붕선**(상단 투명여백 제외) — 간판 하단을 여기 얹어 지붕과 간판 사이 빈틈이 없게 한다.
@@ -1625,17 +1627,34 @@ export class HomeScene extends Phaser.Scene {
       const y = ruinTop + LOT_SIGN_OVERLAP - h / 2; // 하단이 지붕 꼭대기 뒤로 OVERLAP 겹치고 **나머지는 지붕 위 하늘로** 솟는다.
       board = this.add.image(cx, y, key).setDisplaySize(LOT_SIGN_W, h).setDepth(LOT_SIGN_DEPTH);
       this.pinToWorld(board);
-      panelY = y - h * 0.04; // 크림 패널(헤더 아래·다리 위) 세로 중앙에 텍스트.
+      panelY = y + h * 0.06; // 크림 패널(헤더 아래·다리 위) 세로 중앙에 텍스트(너무 위로 붙지 않게 살짝 아래).
     }
-    let text: Phaser.GameObjects.Text | undefined;
+    let text: Phaser.GameObjects.Text | Phaser.GameObjects.Container | undefined;
     if (message) {
-      text = this.add
-        .text(cx, panelY, message, { fontFamily: '"Jua", sans-serif', fontSize: '32px', color: '#ffffff', align: 'center', fontStyle: 'bold', lineSpacing: -10 })
-        .setOrigin(0.5)
-        .setDepth(LOT_SIGN_TEXT_DEPTH);
-      text.setStroke('#5a3410', 7); // 크림/파랑 패널 모두 가독(흰 글자+진갈색 외곽선).
-      text.setShadow(2, 2, '#00000066', 4);
-      this.pinToWorld(text);
+      const long = [...message.replace(/\n/g, '')].length > 18; // 긴 설명형 문구(예: 고수익 경쟁 부지)만 제목+설명 2단(코드포인트 기준 — 이모지 서로게이트 오판 방지).
+      const dress = (t: Phaser.GameObjects.Text): Phaser.GameObjects.Text => {
+        t.setStroke('#5a3410', 6); // 크림/파랑 패널 모두 가독(흰 글자+진갈색 외곽선).
+        t.setShadow(2, 2, '#00000066', 4);
+        return t;
+      };
+      if (long) {
+        // **제목(첫 줄) 크게 + 설명(나머지) 조금 작게** — 2단 스택을 컨테이너로 패널 중앙에 배치.
+        const [title, ...rest] = message.split('\n');
+        const desc = rest.join('\n');
+        const wrap = Math.round(LOT_SIGN_W * 0.8);
+        const base = { fontFamily: '"Jua", sans-serif', color: '#ffffff', align: 'center' as const, fontStyle: 'bold', wordWrap: { width: wrap } };
+        const tTitle = dress(this.add.text(0, 0, title, { ...base, fontSize: '36px' }).setOrigin(0.5, 0));
+        const tDesc = dress(this.add.text(0, 0, desc, { ...base, fontSize: '28px', lineSpacing: -4 }).setOrigin(0.5, 0));
+        const gap = 4;
+        const totalH = tTitle.height + gap + tDesc.height;
+        tTitle.y = -totalH / 2;
+        tDesc.y = tTitle.y + tTitle.height + gap;
+        text = this.add.container(cx, panelY, [tTitle, tDesc]).setDepth(LOT_SIGN_TEXT_DEPTH);
+        this.pinToWorld(text);
+      } else {
+        text = dress(this.add.text(cx, panelY, message, { fontFamily: '"Jua", sans-serif', fontSize: '32px', color: '#ffffff', align: 'center', fontStyle: 'bold', lineSpacing: -10 }).setOrigin(0.5).setDepth(LOT_SIGN_TEXT_DEPTH));
+        this.pinToWorld(text);
+      }
     }
     return { board, text };
   }
@@ -1662,7 +1681,7 @@ export class HomeScene extends Phaser.Scene {
     lot.ruin = this.spawnRuin(lot.cx, lot.ruinKey); // 폐건물 선배치(잠금 여부와 무관하게 항상 표시).
     const variant = this.sideLots.indexOf(lot);
     lot.forSale = this.spawnForSaleSign(lot.cx, variant); // 구입 가능한 폐건물 앞 'FOR SALE'(부지별 변형).
-    const sign = this.spawnLotSignboard(lot.cx, variant, lot.ruin, this.lotSignMessage()); // 상단 간판 + 메시지(건물 뒤 레이어).
+    const sign = this.spawnLotSignboard(lot.cx, variant, lot.ruin, lot.signOverride ?? this.lotSignMessage()); // 상단 간판 + 메시지(부지 고유 문구 우선).
     lot.sign = sign.board;
     lot.signMsg = sign.text;
     if (!this.lotsUnlocked()) return; // **메인타워 10층 완공 전 = 구입 잠금**(간판 메시지로 안내, 구입 버튼 없음).
@@ -1692,13 +1711,13 @@ export class HomeScene extends Phaser.Scene {
     if (!this.lotsUnlocked()) return;
     // 우 내측(lot2) — 간판 메시지를 '구입 가능'으로 바꾸고 구입 버튼 켜기.
     if (!this.lot2Built && this.lot2Ruin && !this.lot2Btn && !loadSave().lot2Demolished) {
-      this.lot2SignMsg?.setText(this.lotSignMessage());
+      (this.lot2SignMsg as Phaser.GameObjects.Text | undefined)?.setText(this.lotSignMessage()); // lot2는 고유문구 없음 → 항상 Text.
       this.showLot2BuyButton();
     }
     // 사이드 부지.
     for (const lot of this.sideLots) {
       if (lot.built || lot.demolished || lot.btn || !lot.ruin) continue;
-      lot.signMsg?.setText(this.lotSignMessage()); // 잠금 안내 → '구입 가능!'.
+      if (!lot.signOverride) (lot.signMsg as Phaser.GameObjects.Text | undefined)?.setText(this.lotSignMessage()); // 고유 문구 부지는 유지, 그 외(단문 Text)만 '구입 가능!'.
       this.showSideBuyButton(lot);
     }
   }
