@@ -15,6 +15,7 @@ import { loadGameAssets, UI_HOME_KEY, UI_ENTRY_KEY, BACK_BG_KEY, floorArtKey, up
 import { buildLayout, LayoutIndex, type LayoutDoc, type LayoutEntry } from '../ui/layoutLoader.js';
 import { preloadCustomers, registerCustomerFrames, startCustomerVisits, type CustomerSpot } from './customers.js';
 import { startOfficeTalk, type OfficeSpeaker, type OfficeTalkHandle, type OfficeRole } from './officeTalk.js';
+import { wireClerkTalk, themeForFloor } from './clerkTalk.js';
 import { buildTopHeader, type TopHeader } from './topHeader.js';
 import { preloadClouds, startCloudDrift } from './clouds.js';
 import { startRoadsTraffic, type CarTrafficOpts } from './cars.js';
@@ -1211,10 +1212,12 @@ export class HomeScene extends Phaser.Scene {
       const level = i + 1;
       const obj = e.obj as Phaser.GameObjects.Image;
       // 이 층의 장식(유리/캐릭터) — 건설 연출이 해당 층 것만 등장시키게 기록.
+      const decorChar = this.nearestEntry(e.node, /_Chr_/i)?.obj as Phaser.GameObjects.Image | undefined;
       this.floorDecor.set(level, {
         glass: this.nearestEntry(e.node, /_BG_Glass/i)?.obj as Phaser.GameObjects.Image | undefined,
-        char: this.nearestEntry(e.node, /_Chr_/i)?.obj as Phaser.GameObjects.Image | undefined,
+        char: decorChar,
       });
+      wireClerkTalk(this, decorChar, themeForFloor(level)); // 점원 탭 = 점포 테마 대사.
       if (level <= this.builtFloors) {
         obj.setAlpha(1); // 건설됨 — **표시만**. 층 탭으로 게임 진입 안 함(게임은 '계속하기'로만 진입).
       } else {
@@ -1296,7 +1299,11 @@ export class HomeScene extends Phaser.Scene {
         this.animateClerk(chr, level * 430); // 점포 점원과 동일한 idle 애니(발밑 고정 갸웃+숨쉬기, 층별 위상차).
         // 대화 화자 등록 — 층별 역할(1 소방수·2 경찰관·3 세무원·4 우체국·5 시장).
         const role = OFFICE_ROLES[level - 1];
-        if (role) speakers.push({ img: chr, role });
+        if (role) {
+          speakers.push({ img: chr, role });
+          // **캐릭터 클릭 = 그 공공기관의 메시지 즉시 시작**(officeTalk 은 루프 뒤 생성되므로 클릭 시점에 참조).
+          chr.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.officeTalk?.fire(role));
+        }
       }
       // **2층+ 앞 유리팬스** — 메인타워와 동일 스타일(y+fh*0.33·폭690·depth+2, 관리자=유리 바로 뒤).
       //   1층(지면 로비)은 유리팬스 없음(타워1/타워2 1층 예외와 동일). 5층까지 업그레이드 시 자동 적용.
@@ -2035,6 +2042,7 @@ export class HomeScene extends Phaser.Scene {
       char = this.add.image(lot.cx + LOT2_FLOOR_W * 0.22, y + LOT2_FLOOR_H * 0.16, chKey).setDepth(depth + 1.5).setVisible(visible);
       char.setDisplaySize(char.width * (245 / char.height), 245);
       this.pinToWorld(char);
+      wireClerkTalk(this, char, 0); // 사이드 부지 점원 탭 = 공용 대사.
     }
     lot.floor = { img, char };
     return { img, char };
@@ -2419,6 +2427,7 @@ export class HomeScene extends Phaser.Scene {
       char = this.add.image(LOT2_CX + side * fw * 0.22, y + fh * 0.16, chKey).setDepth(depth + 1.5).setVisible(visible);
       char.setDisplaySize(char.width * (245 / char.height), 245);
       this.pinToWorld(char);
+      wireClerkTalk(this, char, 0); // 스테이지2 점원 탭 = 공용 대사.
     }
     // **1층은 앞 유리팬스 없음**(타워1 1층과 동일 예외). 2층+ 만 유리팬스.
     let glass: Phaser.GameObjects.Image | undefined;
@@ -3348,6 +3357,7 @@ export class HomeScene extends Phaser.Scene {
       char = this.add.image(charX, fy + fh * 0.16, charKey).setDepth(glassDepth - 0.5);
       char.setDisplaySize(char.width * (245 / char.height), 245); // 아래층 점원 키(~240)에 맞춤.
       char.setVisible(built);
+      wireClerkTalk(this, char, themeForFloor(level)); // 동적 층 점원 탭 = 점포 테마 대사.
     }
     return { glass, char };
   }
