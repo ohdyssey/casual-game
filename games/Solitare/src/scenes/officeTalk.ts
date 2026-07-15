@@ -63,7 +63,7 @@ const DIALOGUE: Record<OfficeRole, readonly string[]> = {
 };
 
 const STORE_KEY = 'solitaire.officeTalk.v1'; // { rot: {role: idx}, last: role }
-const BUBBLE_W = 270; // 말풍선 표시 폭(작은 풍선 — 대사도 짧게 유지).
+
 const HOLD_MS = 8000; // 자동 닫힘(탭 시 리셋).
 const FIRST_DELAY: [number, number] = [10_000, 18_000];
 const NEXT_DELAY: [number, number] = [45_000, 90_000];
@@ -94,6 +94,70 @@ export interface OfficeTalkHandle {
   fire(role?: OfficeRole): void;
 }
 
+/** 대화 말풍선 핸들 — 텍스트 교체·파기. 공공건물·점원 대화가 공유하는 스타일. */
+export interface TalkBubble {
+  setText(t: string): void;
+  destroy(fade?: boolean): void;
+  active(): boolean;
+  readonly bub: Phaser.GameObjects.Image;
+}
+
+/**
+ * **공용 대화 말풍선 생성**(Solitare_UI_11, 중앙 꼬리) — anchor(캐릭터) 머리 위에 짧은 대사 텍스트를 띄운다.
+ *   팝인 연출 포함. 반환 핸들로 텍스트 교체(setText)·파기(destroy). 공공건물/점원 대화 공용.
+ */
+export function createTalkBubble(scene: Phaser.Scene, anchor: Phaser.GameObjects.Image, text: string): TalkBubble | null {
+  const key = scene.textures.exists('up_Solitare_UI_11')
+    ? 'up_Solitare_UI_11'
+    : scene.textures.exists('ord_bubble_m')
+      ? 'ord_bubble_m'
+      : null;
+  if (!key || !anchor.active) return null;
+  const pin = (o: Phaser.GameObjects.GameObject): void => {
+    (scene as { pinToWorld?: (x: Phaser.GameObjects.GameObject) => void }).pinToWorld?.(o);
+  };
+  const b = anchor.getBounds();
+  const tailY = b.top - 2;
+  const bub = scene.add.image(b.centerX, tailY, key).setOrigin(0.5, 1).setDepth(anchor.depth + 40).setAlpha(0);
+  pin(bub);
+  const scale = TALK_BUBBLE_W / bub.width;
+  bub.setScale(scale * 0.7);
+  const bubH = bub.height * scale;
+  const txt = scene.add
+    .text(b.centerX, tailY - bubH * 0.57, text, {
+      fontFamily: '"Jua", sans-serif',
+      fontSize: '25px',
+      color: '#3a2a1e',
+      align: 'center',
+      wordWrap: { width: TALK_BUBBLE_W * 0.8 },
+    })
+    .setOrigin(0.5)
+    .setDepth(anchor.depth + 41)
+    .setAlpha(0);
+  pin(txt);
+  scene.tweens.add({ targets: bub, alpha: 1, scale, duration: 240, ease: 'Back.easeOut' });
+  scene.tweens.add({ targets: txt, alpha: 1, duration: 240, delay: 60, ease: 'Sine.easeOut' });
+  return {
+    bub,
+    active: () => bub.active,
+    setText(t: string): void {
+      if (!txt.active) return;
+      txt.setText(t);
+      txt.setScale(0.9);
+      scene.tweens.add({ targets: txt, scale: 1, duration: 160, ease: 'Back.easeOut' });
+    },
+    destroy(fade = true): void {
+      for (const o of [bub, txt]) {
+        if (!o.active) continue;
+        if (!fade) o.destroy();
+        else scene.tweens.add({ targets: o, alpha: 0, duration: 240, ease: 'Quad.easeIn', onComplete: () => o.destroy() });
+      }
+    },
+  };
+}
+
+const TALK_BUBBLE_W = 270; // 공용 말풍선 표시 폭.
+
 /**
  * 대화 디렉터 시작 — speakers(공공건물 관리자 이미지+역할)와 부지 가시성 게이트를 받아
  * 띄엄띄엄 1인 발화를 반복한다. 씬 재시작 시 타이머/오브젝트는 Phaser 가 함께 정리한다.
@@ -105,28 +169,16 @@ export function startOfficeTalk(
 ): OfficeTalkHandle {
   const state = loadState();
   if (!state.rot) state.rot = {};
-  let bubble: Phaser.GameObjects.GameObject[] = [];
+  let bubble: TalkBubble | null = null;
   let dismissTimer: Phaser.Time.TimerEvent | undefined;
-  const pin = (o: Phaser.GameObjects.GameObject): void => {
-    (scene as { pinToWorld?: (x: Phaser.GameObjects.GameObject) => void }).pinToWorld?.(o);
-  };
-  const bubbleKey = (): string | null =>
-    scene.textures.exists('up_Solitare_UI_11') ? 'up_Solitare_UI_11' : scene.textures.exists('ord_bubble_m') ? 'ord_bubble_m' : null;
 
   const rand = (a: number, b: number): number => Math.floor(a + Math.random() * (b - a));
 
   const clear = (fade = true): void => {
     dismissTimer?.remove();
     dismissTimer = undefined;
-    const objs = bubble;
-    bubble = [];
-    for (const o of objs) {
-      if (!fade) {
-        o.destroy();
-        continue;
-      }
-      scene.tweens.add({ targets: o, alpha: 0, duration: 240, ease: 'Quad.easeIn', onComplete: () => o.destroy() });
-    }
+    bubble?.destroy(fade);
+    bubble = null;
   };
 
   /** 다음 대사(회전) — 표시 후 인덱스를 전진·저장. */
@@ -139,42 +191,18 @@ export function startOfficeTalk(
   };
 
   const show = (sp: OfficeSpeaker): void => {
-    const key = bubbleKey();
-    if (!key || !sp.img.active) return;
+    if (!sp.img.active) return;
     clear(false);
     state.last = sp.role;
     saveState(state);
     sfx('toast', { volume: 0.35 });
-    // 말풍선 — 화자 머리 위(꼬리 중앙 하단 = UI_11 tailX 0.5).
-    const b = sp.img.getBounds();
-    const tailY = b.top - 2;
-    const bub = scene.add.image(b.centerX, tailY, key).setOrigin(0.5, 1).setDepth(sp.img.depth + 40).setAlpha(0);
-    pin(bub);
-    const scale = BUBBLE_W / bub.width;
-    bub.setScale(scale * 0.7);
-    const bubH = bub.height * scale;
-    const txt = scene.add
-      .text(b.centerX, tailY - bubH * 0.57, '', {
-        fontFamily: '"Jua", sans-serif',
-        fontSize: '25px',
-        color: '#3a2a1e',
-        align: 'center',
-        wordWrap: { width: BUBBLE_W * 0.8 },
-      })
-      .setOrigin(0.5)
-      .setDepth(sp.img.depth + 41)
-      .setAlpha(0);
-    pin(txt);
-    txt.setText(nextMsg(sp.role));
-    bubble = [bub, txt];
-    scene.tweens.add({ targets: bub, alpha: 1, scale, duration: 240, ease: 'Back.easeOut' });
-    scene.tweens.add({ targets: txt, alpha: 1, duration: 240, delay: 60, ease: 'Sine.easeOut' });
+    const hb = createTalkBubble(scene, sp.img, nextMsg(sp.role));
+    if (!hb) return;
+    bubble = hb;
     // **탭 = 다음 메시지로 회전**(유지시간 리셋). 풍선 전체가 히트 영역.
-    bub.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
+    hb.bub.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
       sfx('toast', { volume: 0.25 });
-      txt.setText(nextMsg(sp.role));
-      txt.setScale(0.9);
-      scene.tweens.add({ targets: txt, scale: 1, duration: 160, ease: 'Back.easeOut' });
+      hb.setText(nextMsg(sp.role));
       armDismiss();
     });
     armDismiss();
@@ -195,7 +223,7 @@ export function startOfficeTalk(
 
   const tick = (): void => {
     // 발화 중이거나 부지가 화면 밖이면 잠시 후 재시도(띄엄띄엄 유지).
-    if (bubble.length > 0 || !isStageVisible()) {
+    if (bubble !== null || !isStageVisible()) {
       scene.time.delayedCall(RETRY_DELAY, tick);
       return;
     }

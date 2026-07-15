@@ -15,7 +15,7 @@ import { loadGameAssets, UI_HOME_KEY, UI_ENTRY_KEY, BACK_BG_KEY, floorArtKey, up
 import { buildLayout, LayoutIndex, type LayoutDoc, type LayoutEntry } from '../ui/layoutLoader.js';
 import { preloadCustomers, registerCustomerFrames, startCustomerVisits, type CustomerSpot } from './customers.js';
 import { startOfficeTalk, type OfficeSpeaker, type OfficeTalkHandle, type OfficeRole } from './officeTalk.js';
-import { wireClerkTalk, themeForFloor } from './clerkTalk.js';
+import { wireClerkTalk, themeForFloor, THEME_RIVAL_LOT } from './clerkTalk.js';
 import { buildTopHeader, type TopHeader } from './topHeader.js';
 import { preloadClouds, startCloudDrift } from './clouds.js';
 import { startRoadsTraffic, type CarTrafficOpts } from './cars.js';
@@ -2042,7 +2042,7 @@ export class HomeScene extends Phaser.Scene {
       char = this.add.image(lot.cx + LOT2_FLOOR_W * 0.22, y + LOT2_FLOOR_H * 0.16, chKey).setDepth(depth + 1.5).setVisible(visible);
       char.setDisplaySize(char.width * (245 / char.height), 245);
       this.pinToWorld(char);
-      wireClerkTalk(this, char, 0); // 사이드 부지 점원 탭 = 공용 대사.
+      wireClerkTalk(this, char, THEME_RIVAL_LOT); // 사이드(경쟁부지) 점원 탭 = 경쟁 시스템 예고 대사.
     }
     lot.floor = { img, char };
     return { img, char };
