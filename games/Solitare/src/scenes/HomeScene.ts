@@ -238,6 +238,7 @@ export class HomeScene extends Phaser.Scene {
   private lot2ForSale?: Phaser.GameObjects.Image; // 우 내측 폐건물 앞 'FOR SALE' 표지판.
   private lot2Sign?: Phaser.GameObjects.Image; // 우 내측 폐건물 상단 간판(UI_25).
   private lot2SignMsg?: Phaser.GameObjects.Text; // 우 내측 간판 메시지.
+  private ruinTopRatioCache = new Map<string, number>(); // 폐건물 텍스처별 **실제 지붕(불투명 최상단) 비율**(0..1) 캐시 — 간판을 상단 투명여백 아닌 실지붕에 얹기 위함.
   // **사이드 부지들**(좌 내/외 · 우 외 — 폐건물 철거→1층 파일럿). 우 내(lot2)는 다층 시스템 별도.
   private sideLots: SideLot[] = [];
   private scrollBaseZoom = 1; // 스크롤 미세 줌 기준(원래 줌=1). 이동 시 축소→멈추면 원복.
@@ -1572,10 +1573,44 @@ export class HomeScene extends Phaser.Scene {
    *   가려 지붕 위로만 보임). `message`가 있으면 간판 패널 위에 메시지(잠금 안내 등)를 얹는다.
    *   반환: `{ board, text }` — 철거/건설 시 호출부가 함께 제거.
    */
+  /** 폐건물 텍스처의 **실제 지붕(불투명 최상단) 비율**(0..1) — 상단 투명여백을 건너뛰어 간판을 실지붕에 얹기 위함. 캐시. */
+  private visibleTopRatio(key: string): number {
+    const cached = this.ruinTopRatioCache.get(key);
+    if (cached !== undefined) return cached;
+    let ratio = 0;
+    try {
+      const src = this.textures.get(key).getSourceImage() as CanvasImageSource & { width: number; height: number };
+      const w = src.width;
+      const hh = src.height;
+      const cnv = document.createElement('canvas');
+      cnv.width = w;
+      cnv.height = hh;
+      const ctx = cnv.getContext('2d', { willReadFrequently: true });
+      if (ctx && w > 0 && hh > 0) {
+        ctx.drawImage(src, 0, 0);
+        const data = ctx.getImageData(0, 0, w, hh).data;
+        scan: for (let y = 0; y < hh; y++) {
+          const row = y * w * 4;
+          for (let x = 0; x < w; x++) {
+            if (data[row + x * 4 + 3] > 30) {
+              ratio = y / hh;
+              break scan;
+            }
+          }
+        }
+      }
+    } catch {
+      ratio = 0; // CORS/미지원 시 바운딩박스 상단 사용(폴백).
+    }
+    this.ruinTopRatioCache.set(key, ratio);
+    return ratio;
+  }
+
   private spawnLotSignboard(cx: number, variant: number, ruin: Phaser.GameObjects.Image | undefined, message?: string): { board?: Phaser.GameObjects.Image; text?: Phaser.GameObjects.Text } {
     const n = (((variant % FOR_SALE_VARIANTS) + FOR_SALE_VARIANTS) % FOR_SALE_VARIANTS) + 1; // 1..3 순환.
     const key = `up_Solitare_UI_25-${n}`;
-    const ruinTop = ruin ? ruin.y - ruin.displayHeight / 2 : 1500; // 건물 상단(간판 하단 기준).
+    // 건물 **실제 지붕선**(상단 투명여백 제외) — 간판 하단을 여기 얹어 지붕과 간판 사이 빈틈이 없게 한다.
+    const ruinTop = ruin ? ruin.y - ruin.displayHeight / 2 + this.visibleTopRatio(ruin.texture.key) * ruin.displayHeight : 1500;
     let board: Phaser.GameObjects.Image | undefined;
     let panelY = ruinTop - 120; // 폴백(간판 없을 때 메시지 y).
     if (this.textures.exists(key)) {
@@ -1584,7 +1619,7 @@ export class HomeScene extends Phaser.Scene {
       const y = ruinTop + LOT_SIGN_OVERLAP - h / 2; // 하단이 지붕 꼭대기 뒤로 OVERLAP 겹치고 **나머지는 지붕 위 하늘로** 솟는다.
       board = this.add.image(cx, y, key).setDisplaySize(LOT_SIGN_W, h).setDepth(LOT_SIGN_DEPTH);
       this.pinToWorld(board);
-      panelY = y + h * 0.1; // 패널(중앙-하단, 지붕 아이콘 아래) 위에 텍스트 — 지붕 위 보이는 영역에 오도록 중앙 근처.
+      panelY = y + h * 0.02; // 크림 패널(헤더 아래·다리 위 중앙) 위에 텍스트.
     }
     let text: Phaser.GameObjects.Text | undefined;
     if (message) {
