@@ -21,7 +21,7 @@ import { addContactShadow } from './shadows.js';
 import { FLOORS, TOTAL_LEVELS, editorLevelCount } from '../logic/levels.js';
 import type { CardBoardDoc } from '../logic/editorLevels.js';
 import { loadSave, writeSave, resetProgress, FLOOR_COST, MAX_FLOORS, GAME_FEE, diamondCostFor, floorLevelReq, type SaveData } from '../save.js';
-import { preloadAudio, playBgm, sfx, setMuted, isMuted } from '../audio.js';
+import { preloadAudio, playBgm, sfx, setMuted, isMuted, type Bgm } from '../audio.js';
 
 /** 층 아트 텍스처 키(…_BG_01..05, 뒤에 _v2 같은 버전 접미사 허용). 배경(…_BG_Back01)·지붕(…_BG_roof)·유리는 제외. */
 const FLOOR_KEY_RE = /_BG_0[1-5](?:_v\d+)?$/;
@@ -70,6 +70,11 @@ const LOT1L_CX = W / 2 - LOT_DX; // **좌측 부지** 중심 x(-540) — 좌로 
 const OFFICE_FLOORS = 3; // 공공건물 층 수 — **초기 릴리스는 3층까지만**(이후 5층으로 업그레이드 예정). 아트는 5개 준비됨.
 const OFFICE_CX = LOT1L_CX; // 좌측 부지 중심(-540).
 const UI_OFFICE_KEY = 'ui_office'; // 공공건물 에디터 저작 레이아웃(home_copy2.json) — 관리자 캐릭터 배치 좌표 소스.
+// **공공건물 지붕**(Office_roof) — 최상층 위에 civic 지붕(돔·시계·중앙 네임플레이트). 상단 지명은 나중에 얹는다(임시로 지붕만).
+const OFFICE_ROOF_KEY = 'up_Slitare_Office_roof';
+const OFFICE_ROOF_W = 840; // 건물 폭(858)에 맞춤(양옆 여백 약간). ⚠️LOT2_FLOOR_W는 아래에서 선언되므로 리터럴 사용.
+const OFFICE_ROOF_H = Math.round(OFFICE_ROOF_W * (440 / 774)); // 원본 비율(774×440) 보존.
+const OFFICE_ROOF_OVERLAP = 40; // 지붕 하단(파사드)이 최상층 상단 뒤로 겹치는 양(얹힌 느낌).
 
 /** 사이드 부지 1개. cx=부지 중심 x, ruinKey=폐건물 텍스처(**고유·중복금지**), saveKey=저장키. */
 interface SideLot {
@@ -134,6 +139,9 @@ const FLOOR_VISIT_YIELD = [0, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15] as const;
 const visitYieldFor = (floor: number): number => FLOOR_VISIT_YIELD[((floor - 1) % 10) + 1];
 // 사이드 부지(단층 파일럿 상점) 수익 — 부지(stage)마다 다르게.
 const SIDE_LOT_YIELD: Record<number, number> = { 4: 5, 5: 7, 6: 9 };
+// **부지(스테이지)별 BGM** — 카메라 스테이지 인덱스(-2..3, LOT_DX 배수) → 트랙 이름.
+//   public/audio/bgm_lot_*.m4a 파일을 넣으면 그 부지에서 재생, 없으면 audio.ts 폴백이 home 을 유지.
+const STAGE_BGM: readonly Bgm[] = ['lot_l2', 'lot_l1', 'home', 'lot_r1', 'lot_r2', 'lot_r3'];
 const CLAIM_BUBBLE_KEY = 'up_Solitare_UI_11'; // 말머리 풍선(주문 말풍선 재사용).
 const CLAIM_COIN_KEY = 'up_Solitare_UI_2-3'; // 말풍선에 띄울 코인 아이콘.
 const CUST_COIN_SPIN = 'custCoinSpin'; // 손님 드랍과 동일한 스핀 코인 애니 키(customers.ts).
@@ -196,6 +204,7 @@ export class HomeScene extends Phaser.Scene {
   private layoutIdx?: LayoutIndex;
   private towerFloors: LayoutEntry[] = [];
   private officeFloors: Phaser.GameObjects.Image[] = []; // 좌측 공공건물 타워 5층(프리빌트) — 세로 스크롤 상한 산출용.
+  private officeRoof?: Phaser.GameObjects.Image; // 공공건물 최상층 지붕(civic 돔·시계·네임플레이트).
   private craneImg?: Phaser.GameObjects.Image;
   private craneIsLayout = false; // 크레인이 에디터 레이아웃 노드면 true → 그 위치(아래층에 붙인 위치) 그대로 사용.
   private cablesGfx?: Phaser.GameObjects.Graphics;
@@ -233,6 +242,8 @@ export class HomeScene extends Phaser.Scene {
   // 좌우 스테이지 이동 화살표(디자이너 배치 UI 노드 layer_17/17_copy) — 해당 방향 스테이지가 없으면 숨김.
   private leftArrow?: Phaser.GameObjects.Image;
   private rightArrow?: Phaser.GameObjects.Image;
+  // 현재 부지(스테이지) BGM — 카메라가 다른 부지로 넘어가면 그 부지 트랙으로 전환.
+  private lastStageBgm?: Bgm;
   private lot2Built = false; // 두 번째 부지 1층 건설 여부(=스테이지2 시작).
   private lot2Btn?: Phaser.GameObjects.Container; // 부지 구입·1층 건설 버튼.
   private lot2Hint?: Phaser.GameObjects.Text; // '새 부지 →' 힌트.
@@ -310,6 +321,7 @@ export class HomeScene extends Phaser.Scene {
       const c = `up_Solirare_Officer_${pad2(i)}`;
       if (!this.textures.exists(c)) this.load.image(c, `ui/uploads/${c}.png`);
     }
+    if (!this.textures.exists(OFFICE_ROOF_KEY)) this.load.image(OFFICE_ROOF_KEY, `ui/uploads/${OFFICE_ROOF_KEY}.png`); // 공공건물 지붕.
     this.load.json(UI_OFFICE_KEY, 'ui/layouts/home_copy2.json'); // 관리자 배치 좌표(빌딩 대비 상대).
     // **구입 가능한 폐건물** — 앞 'FOR SALE' 표지판(UI_24-1~3) + 상단 간판(UI_25-1~3, 잠금/구입 메시지). 부지별 변형·건설 시 삭제.
     for (let n = 1; n <= FOR_SALE_VARIANTS; n++) {
@@ -1165,6 +1177,7 @@ export class HomeScene extends Phaser.Scene {
    */
   private buildOfficeTower(): void {
     this.officeFloors = []; // 씬 재사용 대비: 스테일 참조 비움(오브젝트는 씬 재시작이 파괴).
+    this.officeRoof = undefined;
     const fw = LOT2_FLOOR_W;
     const fh = LOT2_FLOOR_H;
     // 공공건물 에디터(home_copy2) 노드 — 관리자 캐릭터의 **빌딩 대비 상대 위치**를 읽어 게임 층에 적용.
@@ -1192,6 +1205,7 @@ export class HomeScene extends Phaser.Scene {
           .setDisplaySize((oNode.w ?? 110) * s, (oNode.h ?? 240) * s)
           .setDepth(this.floorDepth(level) + 1); // 자기 층 앞(캐릭터가 건물 안에 보이게), 다음 층 뒤.
         this.pinToWorld(chr);
+        this.animateClerk(chr, level * 430); // 점포 점원과 동일한 idle 애니(발밑 고정 갸웃+숨쉬기, 층별 위상차).
       }
       // **2층+ 앞 유리팬스** — 메인타워와 동일 스타일(y+fh*0.33·폭690·depth+2, 관리자=유리 바로 뒤).
       //   1층(지면 로비)은 유리팬스 없음(타워1/타워2 1층 예외와 동일). 5층까지 업그레이드 시 자동 적용.
@@ -1202,12 +1216,20 @@ export class HomeScene extends Phaser.Scene {
         if (chr) chr.setDepth(glass.depth - 0.5); // 관리자=유리 바로 뒤.
       }
     }
+    // **지붕을 최상층 위에 얹는다**(임시 — 상단 중앙 네임플레이트의 지명 라벨은 나중에 적용).
+    if (this.officeFloors.length && this.textures.exists(OFFICE_ROOF_KEY)) {
+      const top = this.officeFloors.reduce((a, b) => (b.y < a.y ? b : a)); // 가장 위(작은 y) 층.
+      const roofY = top.y - top.displayHeight / 2 - OFFICE_ROOF_H / 2 + OFFICE_ROOF_OVERLAP; // 파사드가 최상층 상단에 겹쳐 얹힘.
+      this.officeRoof = this.add.image(OFFICE_CX, roofY, OFFICE_ROOF_KEY).setDisplaySize(OFFICE_ROOF_W, OFFICE_ROOF_H).setDepth(top.depth + 3);
+      this.pinToWorld(this.officeRoof);
+    }
   }
 
-  /** 좌측 공공건물 타워 **상단**(가장 위 층의 top edge) — 없으면 지면. 세로 스크롤 상한 산출용. */
+  /** 좌측 공공건물 타워 **상단**(지붕 포함 최상단 edge) — 없으면 지면. 세로 스크롤 상한 산출용. */
   private officeTop(): number {
     let topY = Infinity;
     for (const o of this.officeFloors) if (o.visible) topY = Math.min(topY, o.y - o.displayHeight / 2);
+    if (this.officeRoof?.visible) topY = Math.min(topY, this.officeRoof.y - this.officeRoof.displayHeight / 2); // 지붕(돔·시계)까지 스크롤.
     return Number.isFinite(topY) ? topY : this.groundBottom();
   }
 
@@ -2630,6 +2652,18 @@ export class HomeScene extends Phaser.Scene {
     this.rightArrow.setVisible(sx < this.scrollMaxX - 2);
   }
 
+  /**
+   * **부지별 사운드** — 카메라가 머무는 스테이지(-2..3, LOT_DX 배수)의 BGM 으로 전환한다.
+   *   부지 전용 트랙(bgm_lot_*.m4a)이 없으면 audio.ts 폴백이 home 을 끊김 없이 유지한다.
+   */
+  private updateStageBgm(): void {
+    const idx = Phaser.Math.Clamp(Math.round(this.cameras.main.scrollX / LOT_DX), -2, 3);
+    const name = STAGE_BGM[idx + 2];
+    if (name === this.lastStageBgm) return;
+    this.lastStageBgm = name;
+    playBgm(name);
+  }
+
   /** scrollX 위치가 속한 스테이지의 세로 스크롤 상한(사이드 부지/우 내측 lot2/중앙 타워). */
   private scrollMinYForScrollX(sx: number): number {
     // **좌측 공공건물 타워 영역**(OFFICE_CX=-540) — 그 타워 높이 기준 세로 상한(5층이라 메인타워보다 높을 수 있어
@@ -2650,6 +2684,7 @@ export class HomeScene extends Phaser.Scene {
     if (!this.scrollOn) return;
     const cam = this.cameras.main;
     this.updateLotArrows(); // 좌우 스테이지 존재 여부에 따라 화살표 표시/숨김(매 프레임).
+    this.updateStageBgm(); // 카메라가 머무는 부지의 BGM 으로 전환(부지별 사운드).
     // 카메라 팬/줌 연출(snapToStage·panToFloor·건설) 중엔 수동 스크롤 개입 금지 — 연출이 scrollX/Y 를 소유.
     //   ⚠️ **constructing 체크보다 먼저** 목표를 카메라에 동기화한다 → 건설 완료(⑤ 층 포커스 팬) 직후
     //   낡은 목표로 되돌아가며 아래로 튀는 현상 방지(팬이 안착한 '맨 위층' 위치를 그대로 유지).
