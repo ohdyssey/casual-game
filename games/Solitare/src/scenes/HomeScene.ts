@@ -451,9 +451,9 @@ export class HomeScene extends Phaser.Scene {
         this.openItemShop();
       });
     }
-    // **데일리 미션** — 우측 레일 '랭킹'(layer_11_copy4) 아이콘 → 데일리 경쟁 미션 팝업.
+    // **데일리 미션** — 우측 상단 '트로피'(layer_11_copy3, 15·타이머) 아이콘 → 데일리 경쟁 미션 팝업.
     idx
-      .tryById<Phaser.GameObjects.Image>('layer_11_copy4')
+      .tryById<Phaser.GameObjects.Image>('layer_11_copy3')
       ?.setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
         sfx('button');
