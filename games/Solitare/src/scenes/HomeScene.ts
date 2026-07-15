@@ -1117,7 +1117,7 @@ export class HomeScene extends Phaser.Scene {
     this.setupSideLots(); // 좌 내/외·우 외 부지(폐건물 철거→1층) + 좌우 팬 개방.
     this.buildOfficeTower(); // **좌측 공공건물 타워(5층) 프리빌트** — 메인타워 왼쪽 부지에 미리 완공 배치.
     // **각 부지 건물 좌우에 프롭**(가로등/소화전/화분) — 타워(중앙)는 home.json 이 이미 배치. 5개 부지에 코드 생성.
-    for (const cx of [LOT1L_CX - LOT_DX, LOT1L_CX, LOT2_CX, LOT2_CX + LOT_DX, LOT2_CX + 2 * LOT_DX]) this.addLotProps(cx);
+    for (const cx of [LOT1L_CX - LOT_DX, LOT1L_CX, LOT2_CX, LOT2_CX + LOT_DX, LOT2_CX + 2 * LOT_DX]) this.addLotProps(cx, cx === OFFICE_CX); // 오피스 부지 프롭은 타워 뒤로.
     this.extendRoad(); // 도로가 최외곽 부지까지 자동으로 이어지도록 타일 확장(끊김 방지).
   }
 
@@ -1693,10 +1693,13 @@ export class HomeScene extends Phaser.Scene {
    * **각 부지 건물 좌우에 프롭**(가로등·소화전·화분) — 타워 프롭(home.json) 오프셋/크기/depth 를 그대로 복제해
    *   부지 cx 좌우에 코드로 세운다. 접지 그림자도 함께. (부지는 항상 있는 거리 풍경이므로 건설 여부와 무관.)
    */
-  private addLotProps(cx: number): void {
+  private addLotProps(cx: number, behindTower = false): void {
+    // **behindTower**(공공건물 오피스 부지) — 프롭(특히 소화전)이 타워 앞으로 튀어나오지 않게 **타워 뒤 레이어**로.
+    //   오피스 1층 depth(floorDepth(1)=13) 미만으로 상한을 걸어 전부 건물 뒤에 둔다.
+    const cap = behindTower ? this.floorDepth(1) - 1 : Infinity;
     const mk = (dx: number, y: number, w: number, h: number, key: string, depth: number): void => {
       if (!this.textures.exists(key)) return;
-      const img = this.add.image(cx + dx, y, key).setDisplaySize(w, h).setDepth(depth);
+      const img = this.add.image(cx + dx, y, key).setDisplaySize(w, h).setDepth(Math.min(depth, cap));
       this.pinToWorld(img);
     };
     // 타워(중앙 550) 프롭의 상대 오프셋/크기/depth 를 그대로 사용.
