@@ -1649,7 +1649,8 @@ export class HomeScene extends Phaser.Scene {
         const totalH = tTitle.height + gap + tDesc.height;
         tTitle.y = -totalH / 2;
         tDesc.y = tTitle.y + tTitle.height + gap;
-        text = this.add.container(cx, panelY, [tTitle, tDesc]).setDepth(LOT_SIGN_TEXT_DEPTH);
+        const nudge = (board?.displayHeight ?? 0) * 0.05; // 제목 약간 하단 + 블록을 간판(보드) 중앙으로 살짝 내림.
+        text = this.add.container(cx, panelY + nudge, [tTitle, tDesc]).setDepth(LOT_SIGN_TEXT_DEPTH);
         this.pinToWorld(text);
       } else {
         text = dress(this.add.text(cx, panelY, message, { fontFamily: '"Jua", sans-serif', fontSize: '32px', color: '#ffffff', align: 'center', fontStyle: 'bold', lineSpacing: -10 }).setOrigin(0.5).setDepth(LOT_SIGN_TEXT_DEPTH));
