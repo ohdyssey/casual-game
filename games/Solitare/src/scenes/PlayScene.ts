@@ -1915,10 +1915,13 @@ export class PlayScene extends Phaser.Scene {
     this.stockContainer?.setAlpha(stock > 0 ? 1 : 0.4);
     this.comboText?.setText(`콤보 x${this.state.combo}`);
     this.remainText?.setText(`남은 카드 ${remaining(this.state)}`);
-    const coins = (this.baseCoins + this.state.score).toLocaleString();
+    // **코인 = 실제 보유 잔액(baseCoins)만** 표시. (예전엔 baseCoins+state.score 를 더해, 플레이 중 점수만큼
+    //   부풀려 보이다가 승리/복귀 시 실지급(STAR_COINS)만 반영돼 확 줄어 '데이터 안 맞음'으로 보였다.
+    //   게임비 차감·부스터 비용·승리 보상이 전부 baseCoins 로 일관되므로, 표시도 baseCoins 로 통일.)
+    const coins = this.baseCoins.toLocaleString();
     this.coinText?.setText(`🪙 ${coins}`);
     // 공통 상단 헤더(+구 에디터 코인 텍스트 폴백)에 실시간 반영.
-    this.header?.setCoins(this.baseCoins + this.state.score);
+    this.header?.setCoins(this.baseCoins);
     this.coinBinding?.setText(coins);
     this.updateBoosters();
   }
