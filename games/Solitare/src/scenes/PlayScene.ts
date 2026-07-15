@@ -74,7 +74,7 @@ interface HistorySnap {
   readonly state: GameState;
   readonly wildBanked: boolean;
   readonly bonusTriggered: boolean;
-  readonly setsCompleted: number;
+  readonly starGauge: number;
 }
 
 // ── 미션 콤보(에디터 크롬 전용) ────────────────────────────────────────
@@ -82,6 +82,12 @@ interface HistorySnap {
 // 5칸이 다 차면 한 세트 완료 → 왼쪽 게이지가 한 칸 차고 별 하나가 켜진다. 별 3개(3세트)면 미션 완료.
 const SET_SIZE = 5; // 박스 한 세트 = 5매칭
 const SETS_TARGET = 3; // 별 3개 = 게이지 만충
+// **스타 게이지 적립(사용자 설계)**: 5연속 완성 = 매치당 2 → 5×2=10(=스타 1개 분량). 5 미만에서 끊기면
+//   채운 수만큼 ×1 소량만 적립(예: 4개=4). → 완성은 크게, 미완성도 채운 만큼 조금씩 쌓여 스타가 인색하지 않다.
+const MATCH_FULL = 2; // 5세트 완성 시 매치당 값.
+const MATCH_PARTIAL = 1; // 미완성(끊김/보드클리어) 시 매치당 값.
+const STAR_GAUGE = SET_SIZE * MATCH_FULL; // 스타 1개 = 10.
+const FULL_GAUGE = SETS_TARGET * STAR_GAUGE; // 만충(별3) = 30.
 // 별 개수별 코인 보상(누적 아님, 달성 별 수 기준). 2026-07-15 소폭 상향(500/1000/2000→800/1500/3000):
 //   입장비 500 대비 1별도 확실한 순이익(+300)·3별 만족감↑. (⚠️경제 전체 재설계 시 재조정 대상)
 const STAR_COINS: readonly number[] = [0, 800, 1500, 3000];
@@ -187,9 +193,9 @@ export class PlayScene extends Phaser.Scene {
   private chromeFromEditor = false;
   // 에디터 노드 인덱스(id 조회) — 미션 게이지/박스/부스터 배선에 사용.
   private chrome?: LayoutIndex;
-  // 미션 상태: 현재 콤보 런에서 맞춘 카드 색(무늬), 완료 세트 수, 종료 플래그.
+  // 미션 상태: 현재 콤보 런에서 맞춘 카드 색(무늬), **누적 스타 게이지(0..FULL_GAUGE)**, 종료 플래그.
   private comboColors: Suit[] = [];
-  private setsCompleted = 0;
+  private starGauge = 0; // 누적 스타 게이지(완성 세트 ×2 + 미완성 부분 ×1의 합산).
   private finished = false;
   // 연속 매칭 멜로디(도레미파솔라시…) — 매칭마다 한 음씩 올라가고, 콤보가 끊기면 다시 도(0)부터.
   private melodyStep = 0;
@@ -299,7 +305,7 @@ export class PlayScene extends Phaser.Scene {
     // 미션 상태 초기화(씬 재사용 대비).
     this.chrome = undefined;
     this.comboColors = [];
-    this.setsCompleted = 0;
+    this.starGauge = 0;
     this.finished = false;
     this.melodyStep = 0;
     this.coinBinding = undefined;
@@ -1392,7 +1398,7 @@ export class PlayScene extends Phaser.Scene {
       state: this.state,
       wildBanked: this.wildBanked,
       bonusTriggered: this.bonusTriggered,
-      setsCompleted: this.setsCompleted,
+      starGauge: this.starGauge,
     });
     if (this.history.length > 40) this.history.shift();
   }
@@ -1577,10 +1583,10 @@ export class PlayScene extends Phaser.Scene {
     // **GameState 밖 래치 복원** — 특수카드 트리거·완료 세트를 수 직전 상태로(보너스/와일드 영구 무력화·게이지 파밍 방지).
     this.wildBanked = prev.wildBanked;
     this.bonusTriggered = prev.bonusTriggered;
-    this.setsCompleted = prev.setsCompleted;
+    this.starGauge = prev.starGauge;
     this.cancelWild();
     this.resetComboRun(); // 되돌리면 콤보 런은 끊긴다(원 설계 유지): comboColors=[] + 박스 갱신.
-    this.updateGauge(); // 복원된 setsCompleted 로 게이지 채움 재그리기.
+    this.updateGauge(); // 복원된 starGauge 로 게이지 채움 재그리기.
     this.rebuildBoard();
   }
 
@@ -1746,10 +1752,11 @@ export class PlayScene extends Phaser.Scene {
     const card = wasteTop(this.state);
     const drewWild = card.wild === true; // 뽑힌 카드가 와일드면 기준이 와일드가 되어 1회 아무 카드나 낼 수 있다.
     sfx(drewWild ? 'wild_activate' : 'card_deal');
-    // 뽑기 = 콤보 끊김. 기준 카드가 새로 바뀌므로 (와일드가 아니면) 와일드도 해제하고 미션 박스를 비운다.
+    // 뽑기 = 콤보 끊김. 기준 카드가 새로 바뀌므로 (와일드가 아니면) 와일드도 해제. **진행 중이던 부분 런(≤4)은
+    //   채운 수만큼 소량 적립**(endComboRun) 후 박스 비움.
     if (drewWild) this.wildActive = true;
     else this.cancelWild();
-    this.resetComboRun();
+    this.endComboRun();
     this.refresh(); // 스톡 수량·하이라이트 즉시 반영(더미 다시 쌓기 포함).
     const fly = new CardView(this, STOCK.x, STOCK.y, this.geom.cardW, this.geom.cardH, false);
     fly.setDepth(1000);
@@ -1930,8 +1937,10 @@ export class PlayScene extends Phaser.Scene {
   private checkEnd(): void {
     if (this.ended) return;
     if (isWin(this.state)) {
-      // **게임 종료 = 보드 전멸(모든 카드 매칭)뿐**. 게이지로 얻은 별(최소 1)로 레벨 클리어 정산.
-      const stars = Math.min(SETS_TARGET, Math.max(1, this.setsCompleted));
+      // **게임 종료 = 보드 전멸(모든 카드 매칭)뿐**. 마지막 미완성 콤보 런의 소량도 합산한 뒤 별 등급 산정.
+      this.endComboRun(); // 클리어 직전 진행 중이던 부분 런(≤4)을 채운 수만큼 적립.
+      // 별 = 누적 게이지 ÷ 스타당 게이지(10). 승리 시 최소 1★, 최대 3★. (합산이 최종 스타 획득을 결정)
+      const stars = Phaser.Math.Clamp(Math.max(1, Math.floor(this.starGauge / STAR_GAUGE)), 1, SETS_TARGET);
       this.finishMission(stars);
     } else if (isStuck(this.state) && !this.wildActive) {
       // 와일드 활성 중엔 아무 노출 카드나 낼 수 있으므로 교착이 아니다.
@@ -1993,8 +2002,23 @@ export class PlayScene extends Phaser.Scene {
   }
 
   // ── 미션 콤보/게이지/보상 ──────────────────────────────────────────
-  /** 콤보 런 초기화 — 박스 5칸 비우기(완료 세트/게이지는 유지) + 멜로디 음을 다시 도(0)부터. */
+  /** 콤보 런 **비우기만**(게이지 적립 없음) — undo/재구성 등 되돌림 상황용. 박스 5칸 비움 + 멜로디 리셋. */
   private resetComboRun(): void {
+    this.comboColors = [];
+    this.melodyStep = 0;
+    this.updateMissionBox();
+  }
+
+  /**
+   * 콤보 런 **종료 + 소량 적립** — 5를 못 채우고 끊길 때(뽑기/보드클리어) 채운 수만큼 ×MATCH_PARTIAL 적립.
+   *   (5를 채운 완성 런은 이미 completeSet 이 크게 적립했으므로 여기선 1~4칸만 소량 적립.) 그 뒤 박스 비움.
+   */
+  private endComboRun(): void {
+    const filled = this.comboColors.length;
+    if (filled > 0 && filled < SET_SIZE) {
+      this.starGauge = Math.min(FULL_GAUGE, this.starGauge + filled * MATCH_PARTIAL);
+      this.updateGauge();
+    }
     this.comboColors = [];
     this.melodyStep = 0;
     this.updateMissionBox();
@@ -2071,14 +2095,14 @@ export class PlayScene extends Phaser.Scene {
   }
 
   /**
-   * 왼쪽 게이지 **채움만** 갱신 — setsCompleted / SETS_TARGET 비율. 별 3개는 항상 표시(에디터 골드 그대로)이고,
+   * 왼쪽 게이지 **채움만** 갱신 — starGauge / FULL_GAUGE 비율. 별 3개는 항상 표시(에디터 골드 그대로)이고,
    * 채움 막대가 별 위치를 지나며 진행을 나타낸다(별을 회색→금으로 켜지 않는다).
    */
   private updateGauge(): void {
     const g = this.gaugeFill;
     if (!g || !this.gaugeGeom.width) return;
     g.clear();
-    const p = Math.min(1, this.setsCompleted / SETS_TARGET);
+    const p = Math.min(1, this.starGauge / FULL_GAUGE);
     if (p > 0) {
       g.fillStyle(Phaser.Display.Color.HexStringToColor('#009dff').color, 1);
       const geo = this.gaugeGeom;
@@ -2087,19 +2111,17 @@ export class PlayScene extends Phaser.Scene {
   }
 
   /**
-   * 한 세트(5매칭) 완료 — 게이지 채움을 한 칸 올린다(진행 표시는 게이지만). 게임은 여기서 끝나지 않고,
-   * **보드 전멸(모든 카드 매칭)** 시에만 종료된다(checkEnd). setsCompleted 는 레벨 클리어 시 별 등급이 된다.
+   * 한 세트(5연속 매칭) 완료 — **STAR_GAUGE(10=스타 1개 분량)를 크게 적립**. 게임은 여기서 끝나지 않고
+   *   보드 전멸(checkEnd) 시에만 종료. 누적 starGauge 가 레벨 클리어 시 별 등급이 된다.
    */
   private completeSet(): void {
-    this.setsCompleted = Math.min(SETS_TARGET, this.setsCompleted + 1);
+    this.starGauge = Math.min(FULL_GAUGE, this.starGauge + STAR_GAUGE);
+    // **박스 즉시 비움**(다음 런) — 지연 비움이면 그 사이 6번째 매치가 completeSet 을 재호출해 이중 적립된다.
+    this.comboColors = [];
+    this.updateMissionBox();
     this.updateGauge();
     sfx('set_complete'); // 5매칭 세트 완성 벨.
-    if (this.setsCompleted >= SETS_TARGET) sfx('gauge_full'); // 게이지 만충.
-    // 박스는 잠깐 가득 찬 상태를 보여준 뒤 비운다(다음 세트 준비).
-    this.time.delayedCall(450, () => {
-      this.comboColors = [];
-      this.updateMissionBox();
-    });
+    if (this.starGauge >= FULL_GAUGE) sfx('gauge_full'); // 게이지 만충.
   }
 
   /**
