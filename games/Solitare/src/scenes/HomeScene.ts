@@ -175,6 +175,7 @@ export class HomeScene extends Phaser.Scene {
   // 타워/크레인 연출 상태(에디터 레이아웃 경로에서만 채워짐).
   private layoutIdx?: LayoutIndex;
   private towerFloors: LayoutEntry[] = [];
+  private officeFloors: Phaser.GameObjects.Image[] = []; // 좌측 공공건물 타워 5층(프리빌트) — 세로 스크롤 상한 산출용.
   private craneImg?: Phaser.GameObjects.Image;
   private craneIsLayout = false; // 크레인이 에디터 레이아웃 노드면 true → 그 위치(아래층에 붙인 위치) 그대로 사용.
   private cablesGfx?: Phaser.GameObjects.Graphics;
@@ -1126,6 +1127,7 @@ export class HomeScene extends Phaser.Scene {
    *   **항상 완공 상태로 미리 배치**한다. 정적(비상호작용) 월드 오브젝트라 타워와 함께 스크롤(좌로 한 화면 팬 시 중앙).
    */
   private buildOfficeTower(): void {
+    this.officeFloors = []; // 씬 재사용 대비: 스테일 참조 비움(오브젝트는 씬 재시작이 파괴).
     const fw = LOT2_FLOOR_W;
     const fh = LOT2_FLOOR_H;
     for (let level = 1; level <= OFFICE_FLOORS; level++) {
@@ -1134,7 +1136,15 @@ export class HomeScene extends Phaser.Scene {
       const y = LOT2_FLOOR1_Y - (level - 1) * (fh - LOT2_SMALL_OVERLAP); // 동일 높이 층을 위로 스택.
       const img = this.add.image(OFFICE_CX, y, key).setDisplaySize(fw, fh).setDepth(this.floorDepth(level));
       this.pinToWorld(img); // 월드(타워와 함께 스크롤) — uiCam 제외.
+      this.officeFloors.push(img);
     }
+  }
+
+  /** 좌측 공공건물 타워 **상단**(가장 위 층의 top edge) — 없으면 지면. 세로 스크롤 상한 산출용. */
+  private officeTop(): number {
+    let topY = Infinity;
+    for (const o of this.officeFloors) if (o.visible) topY = Math.min(topY, o.y - o.displayHeight / 2);
+    return Number.isFinite(topY) ? topY : this.groundBottom();
   }
 
   /**
@@ -2452,6 +2462,11 @@ export class HomeScene extends Phaser.Scene {
 
   /** scrollX 위치가 속한 스테이지의 세로 스크롤 상한(사이드 부지/우 내측 lot2/중앙 타워). */
   private scrollMinYForScrollX(sx: number): number {
+    // **좌측 공공건물 타워 영역**(OFFICE_CX=-540) — 그 타워 높이 기준 세로 상한(5층이라 메인타워보다 높을 수 있어
+    //   메인타워 기준으로 두면 위로 스크롤이 막힌다). 오피스 존을 먼저 판정.
+    if (this.officeFloors.length > 0 && Math.abs(OFFICE_CX - W / 2 - sx) < LOT_DX / 2) {
+      return Math.min(this.scrollMax, this.officeTop() - this.topMargin());
+    }
     const side = this.sideLotForScrollX(sx);
     if (side) return this.sideStageMinY(side); // 사이드 부지(좌 내/외·우 외).
     return this.scrollMinYFor(sx >= LOT_DX / 2); // 우 내측(lot2) or 중앙(타워).
