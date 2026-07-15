@@ -109,7 +109,7 @@ const LOT_SIGN_W = Math.round(RUIN_W * 0.9); // 간판 표시 폭 = **건물 지
 const LOT_SIGN_DEPTH = RUIN_DEPTH - 2; // **건물 뒤** — 지붕/박공이 간판 하단을 덮어 지붕 위로 솟은 부분만 보인다.
 const LOT_SIGN_OVERLAP = 118; // 간판 하단(다리)이 지붕 꼭대기 뒤로 겹치는 양 — 다리가 지붕 기와에 닿도록 더 아래로 내림.
 const LOT_SIGN_RAISE_FRAC = 0.13; // 저작 배치 대비 간판을 이 비율(간판높이)만큼 위로 — 지붕에 덜 파묻히게(사용자 요청·부지 간 일관).
-const LOT_SIGN_TEXT_DROP_FRAC = 0.05; // 검출 패널중심에서 텍스트를 이 비율(간판높이)만큼 아래로 — 시각적 중앙 보정(사용자 요청).
+const LOT_SIGN_TEXT_DROP_FRAC = 0.02; // 정밀 패널중심(평탄밴드 검출) 대비 폰트 상하 여백 보정용 소량 하향(변형 간 일관).
 const LOT_SIGN_TEXT_DEPTH = 62; // 간판 메시지(간판 위·항상 최상단).
 // **중경 패럴랙스 계수**(applyParallax·중경 도로 통행 공용) — 가로는 근경보다 느리게(붙어 이동 방지),
 //   세로는 미세하게만(근경 침범 방지). 중경 도로에 얹는 자동차도 이 계수로 동기화한다.
@@ -1729,20 +1729,58 @@ export class HomeScene extends Phaser.Scene {
       if (ctx && w > 0 && hh > 0) {
         ctx.drawImage(src, 0, 0);
         const data = ctx.getImageData(0, 0, w, hh).data;
-        const x0 = Math.floor(w * 0.25);
-        const x1 = Math.floor(w * 0.75);
-        let wsum = 0;
-        let tot = 0;
+        const x0 = Math.floor(w * 0.28);
+        const x1 = Math.floor(w * 0.72);
+        const span = x1 - x0;
+        // **평탄(uniform) 밴드 검출** — 크림 패널은 밝고 분산 낮은 넓은 밴드(프레임/헤더/다리는 디테일 많음). 최장 밴드가 패널.
+        const flat: boolean[] = new Array(hh);
         for (let y = 0; y < hh; y++) {
-          let c = 0;
+          let cnt = 0;
+          let sr = 0;
+          let sg = 0;
+          let sb = 0;
+          let qr = 0;
+          let qg = 0;
+          let qb = 0;
           for (let x = x0; x < x1; x++) {
             const i = (y * w + x) * 4;
-            if (data[i + 3] > 200 && Math.min(data[i], data[i + 1], data[i + 2]) > 150) c++; // 불투명·밝은 크림 패널.
+            if (data[i + 3] > 200) {
+              const r = data[i];
+              const gg = data[i + 1];
+              const b = data[i + 2];
+              cnt++;
+              sr += r;
+              sg += gg;
+              sb += b;
+              qr += r * r;
+              qg += gg * gg;
+              qb += b * b;
+            }
           }
-          wsum += y * c;
-          tot += c;
+          if (cnt < span * 0.85) {
+            flat[y] = false; // 중앙이 꽉 안 참(다리 사이 틈 등) = 패널 아님.
+            continue;
+          }
+          const bright = (sr + sg + sb) / (3 * cnt);
+          const sd = (q: number, s: number): number => Math.sqrt(Math.max(0, q / cnt - (s / cnt) ** 2));
+          const variation = sd(qr, sr) + sd(qg, sg) + sd(qb, sb);
+          flat[y] = bright > 175 && variation < 70; // 밝은 크림 + 낮은 분산(평탄).
         }
-        if (tot > 0) ratio = wsum / tot / hh;
+        let bestS = 0;
+        let bestLen = 0;
+        let s = -1;
+        for (let y = 0; y <= hh; y++) {
+          const ok = y < hh && flat[y];
+          if (ok && s < 0) s = y;
+          if (!ok && s >= 0) {
+            if (y - s > bestLen) {
+              bestLen = y - s;
+              bestS = s;
+            }
+            s = -1;
+          }
+        }
+        if (bestLen > 0) ratio = (bestS + bestLen / 2) / hh; // 최장 평탄 밴드 중심 = 패널 중심.
       }
     } catch {
       ratio = 0.46; // CORS/미지원 폴백.
