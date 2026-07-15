@@ -257,6 +257,7 @@ export class HomeScene extends Phaser.Scene {
   private lot2Sign?: Phaser.GameObjects.Image; // 우 내측 폐건물 상단 간판(UI_25).
   private lot2SignMsg?: Phaser.GameObjects.Text | Phaser.GameObjects.Container; // 우 내측 간판 메시지.
   private ruinTopRatioCache = new Map<string, number>(); // 폐건물 텍스처별 **실제 지붕(불투명 최상단) 비율**(0..1) 캐시 — 간판을 상단 투명여백 아닌 실지붕에 얹기 위함.
+  private panelCenterCache = new Map<string, number>(); // 간판 텍스처별 **밝은 패널(글씨 영역) 세로 중심 비율**(0..1) 캐시 — 아트 재디자인돼도 텍스트가 패널 중앙에 오게.
   // **사이드 부지들**(좌 내/외 · 우 외 — 폐건물 철거→1층 파일럿). 우 내(lot2)는 다층 시스템 별도.
   private sideLots: SideLot[] = [];
   private scrollBaseZoom = 1; // 스크롤 미세 줌 기준(원래 줌=1). 이동 시 축소→멈추면 원복.
@@ -1636,6 +1637,47 @@ export class HomeScene extends Phaser.Scene {
     return ratio;
   }
 
+  /**
+   * 간판 텍스처의 **밝은 패널(글씨 쓰는 크림 영역) 세로 중심 비율**(0..1) — 아트가 재디자인돼(비율 변경 등) 되어도
+   *   텍스트가 항상 패널 중앙에 오도록 런타임 검출. 중앙 50% 폭에서 밝은(불투명·밝기 높은) 픽셀의 밝기가중 세로 중심. 캐시.
+   */
+  private panelCenterRatio(key: string): number {
+    const cached = this.panelCenterCache.get(key);
+    if (cached !== undefined) return cached;
+    let ratio = 0.46; // 폴백(검출 실패 시 대략 중앙-상).
+    try {
+      const src = this.textures.get(key).getSourceImage() as CanvasImageSource & { width: number; height: number };
+      const w = src.width;
+      const hh = src.height;
+      const cnv = document.createElement('canvas');
+      cnv.width = w;
+      cnv.height = hh;
+      const ctx = cnv.getContext('2d', { willReadFrequently: true });
+      if (ctx && w > 0 && hh > 0) {
+        ctx.drawImage(src, 0, 0);
+        const data = ctx.getImageData(0, 0, w, hh).data;
+        const x0 = Math.floor(w * 0.25);
+        const x1 = Math.floor(w * 0.75);
+        let wsum = 0;
+        let tot = 0;
+        for (let y = 0; y < hh; y++) {
+          let c = 0;
+          for (let x = x0; x < x1; x++) {
+            const i = (y * w + x) * 4;
+            if (data[i + 3] > 200 && Math.min(data[i], data[i + 1], data[i + 2]) > 150) c++; // 불투명·밝은 크림 패널.
+          }
+          wsum += y * c;
+          tot += c;
+        }
+        if (tot > 0) ratio = wsum / tot / hh;
+      }
+    } catch {
+      ratio = 0.46; // CORS/미지원 폴백.
+    }
+    this.panelCenterCache.set(key, ratio);
+    return ratio;
+  }
+
   private spawnLotSignboard(cx: number, variant: number, ruin: Phaser.GameObjects.Image | undefined, message?: string): { board?: Phaser.GameObjects.Image; text?: Phaser.GameObjects.Text | Phaser.GameObjects.Container } {
     const n = (((variant % FOR_SALE_VARIANTS) + FOR_SALE_VARIANTS) % FOR_SALE_VARIANTS) + 1; // 1..3 순환.
     const key = `up_Solitare_UI_25-${n}`;
@@ -1649,7 +1691,7 @@ export class HomeScene extends Phaser.Scene {
       const y = ruinTop + LOT_SIGN_OVERLAP - h / 2; // 하단이 지붕 꼭대기 뒤로 OVERLAP 겹치고 **나머지는 지붕 위 하늘로** 솟는다.
       board = this.add.image(cx, y, key).setDisplaySize(LOT_SIGN_W, h).setDepth(LOT_SIGN_DEPTH);
       this.pinToWorld(board);
-      panelY = y - h * 0.02; // 패널 세로 중앙(3종 변형 모두 패널 중심 비율 ≈0.48 — 측정값)에 텍스트를 중간 배치.
+      panelY = y + (this.panelCenterRatio(key) - 0.5) * h; // 검출된 밝은 패널 중심에 텍스트(아트 재디자인 자동 대응).
     }
     let text: Phaser.GameObjects.Text | Phaser.GameObjects.Container | undefined;
     if (message) {
@@ -1671,8 +1713,7 @@ export class HomeScene extends Phaser.Scene {
         const totalH = tTitle.height + gap + tDesc.height;
         tTitle.y = -totalH / 2;
         tDesc.y = tTitle.y + tTitle.height + gap;
-        const nudge = (board?.displayHeight ?? 0) * 0.05; // 제목 약간 하단 + 블록을 간판(보드) 중앙으로 살짝 내림.
-        text = this.add.container(cx, panelY + nudge, [tTitle, tDesc]).setDepth(LOT_SIGN_TEXT_DEPTH);
+        text = this.add.container(cx, panelY, [tTitle, tDesc]).setDepth(LOT_SIGN_TEXT_DEPTH); // 검출된 패널 중심에 2단 블록 중앙 배치.
         this.pinToWorld(text);
       } else {
         text = dress(this.add.text(cx, panelY, message, { fontFamily: '"Jua", sans-serif', fontSize: '32px', color: '#ffffff', align: 'center', fontStyle: 'bold', lineSpacing: -10 }).setOrigin(0.5).setDepth(LOT_SIGN_TEXT_DEPTH));
