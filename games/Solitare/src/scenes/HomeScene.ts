@@ -1627,7 +1627,7 @@ export class HomeScene extends Phaser.Scene {
       const y = ruinTop + LOT_SIGN_OVERLAP - h / 2; // 하단이 지붕 꼭대기 뒤로 OVERLAP 겹치고 **나머지는 지붕 위 하늘로** 솟는다.
       board = this.add.image(cx, y, key).setDisplaySize(LOT_SIGN_W, h).setDepth(LOT_SIGN_DEPTH);
       this.pinToWorld(board);
-      panelY = y + h * 0.06; // 크림 패널(헤더 아래·다리 위) 세로 중앙에 텍스트(너무 위로 붙지 않게 살짝 아래).
+      panelY = y - h * 0.02; // 패널 세로 중앙(3종 변형 모두 패널 중심 비율 ≈0.48 — 측정값)에 텍스트를 중간 배치.
     }
     let text: Phaser.GameObjects.Text | Phaser.GameObjects.Container | undefined;
     if (message) {
