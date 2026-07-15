@@ -1255,7 +1255,7 @@ export class HomeScene extends Phaser.Scene {
     const fw = LOT2_FLOOR_W;
     const fh = LOT2_FLOOR_H;
     // 공공건물 에디터(home_copy2) 노드 — 관리자 캐릭터의 **빌딩 대비 상대 위치**를 읽어 게임 층에 적용.
-    const officeDoc = (this.cache.json.get(UI_OFFICE_KEY) ?? null) as { nodes?: Array<{ key?: string; x: number; y: number; w?: number; h?: number }> } | null;
+    const officeDoc = (this.cache.json.get(UI_OFFICE_KEY) ?? null) as { nodes?: Array<{ key?: string; type?: string; text?: string; fontSize?: number; color?: string; x: number; y: number; w?: number; h?: number }> } | null;
     const nodes = officeDoc?.nodes ?? [];
     const findByKey = (part: string): (typeof nodes)[number] | undefined => nodes.find((n) => (n.key ?? '').includes(part));
     for (let level = 1; level <= OFFICE_FLOORS; level++) {
@@ -1290,12 +1290,32 @@ export class HomeScene extends Phaser.Scene {
         if (chr) chr.setDepth(glass.depth - 0.5); // 관리자=유리 바로 뒤.
       }
     }
-    // **지붕을 최상층 위에 얹는다**(임시 — 상단 중앙 네임플레이트의 지명 라벨은 나중에 적용).
+    // **지붕을 최상층 위에 얹는다** + **네임플레이트 지명**(에디터 저작 텍스트를 지붕 대비 상대로 렌더).
     if (this.officeFloors.length && this.textures.exists(OFFICE_ROOF_KEY)) {
       const top = this.officeFloors.reduce((a, b) => (b.y < a.y ? b : a)); // 가장 위(작은 y) 층.
       const roofY = top.y - top.displayHeight / 2 - OFFICE_ROOF_H / 2 + OFFICE_ROOF_OVERLAP; // 파사드가 최상층 상단에 겹쳐 얹힘.
       this.officeRoof = this.add.image(OFFICE_CX, roofY, OFFICE_ROOF_KEY).setDisplaySize(OFFICE_ROOF_W, OFFICE_ROOF_H).setDepth(top.depth + 3);
       this.pinToWorld(this.officeRoof);
+      // **지명 라벨** — 에디터(home_copy2)의 지붕 노드 대비 텍스트 노드(지붕 경계 안) 위치로 배치.
+      const roofNode = findByKey('Office_roof');
+      const nameNode = nodes.find(
+        (n) => n.type === 'text' && !!(n.text ?? '').trim() && roofNode && Math.abs(n.x - roofNode.x) < (roofNode.w ?? OFFICE_ROOF_W) / 2 && Math.abs(n.y - roofNode.y) < (roofNode.h ?? OFFICE_ROOF_H) / 2,
+      );
+      if (nameNode && roofNode) {
+        const sx = OFFICE_ROOF_W / (roofNode.w ?? OFFICE_ROOF_W);
+        const sy = OFFICE_ROOF_H / (roofNode.h ?? OFFICE_ROOF_H);
+        const nameTxt = this.add
+          .text(this.officeRoof.x + (nameNode.x - roofNode.x) * sx, this.officeRoof.y + (nameNode.y - roofNode.y) * sy, nameNode.text ?? '', {
+            fontFamily: '"Jua", sans-serif',
+            fontSize: `${Math.round((nameNode.fontSize ?? 40) * sy)}px`,
+            color: nameNode.color ?? '#4b2020',
+            fontStyle: 'bold',
+            align: 'center',
+          })
+          .setOrigin(0.5)
+          .setDepth(this.officeRoof.depth + 1); // 지붕 위(네임플레이트).
+        this.pinToWorld(nameTxt);
+      }
     }
   }
 
