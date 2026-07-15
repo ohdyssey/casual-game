@@ -69,7 +69,8 @@ const LOT2_CX = W / 2 + LOT_DX; // 두 번째 타워(우측 부지) 중심 x(162
 const LOT1L_CX = W / 2 - LOT_DX; // **좌측 부지** 중심 x(-540) — 좌로 한 화면 팬하면 중앙에 온다.
 // **좌측 공공건물 타워** — 메인타워 왼쪽 부지(LOT1L_CX)에 공공건물 5개를 기존 타워 방식으로 **프리빌트**(항상 완공 상태).
 const OFFICE_FLOORS = 3; // 공공건물 층 수 — **초기 릴리스는 3층까지만**(이후 5층으로 업그레이드 예정). 아트는 5개 준비됨.
-const COMP_BANK_FLOORS = 4; // 고수익 경쟁 부지 낙찰 시 **한꺼번에 세우는 뱅크 층 수**(Bank_01~04).
+const COMP_BANK_FLOORS = 4; // 고수익 경쟁 부지 낙찰 시 단계별로 세우는 뱅크 층 수(Bank_01~04).
+const BANK_CLERK_DROP_FRAC = 0.12; // 뱅크 은행원을 공공건물(officer) 위치보다 이 비율(층높이)만큼 아래로(앞으로) — 사용자 요청(더 아래).
 const OFFICE_CX = LOT1L_CX; // 좌측 부지 중심(-540).
 // 공공건물 층별 대화 화자 역할(1층부터) — 3층 릴리스에선 소방수·경찰관·세무원, 5층 확장 시 우체국·시장 합류.
 const OFFICE_ROLES: readonly OfficeRole[] = ['fire', 'police', 'tax', 'post', 'mayor'];
@@ -338,6 +339,8 @@ export class HomeScene extends Phaser.Scene {
     for (let i = 1; i <= COMP_BANK_FLOORS; i++) {
       const b = `up_Bank_${pad2(i)}`;
       if (!this.textures.exists(b)) this.load.image(b, `ui/uploads/${b}.png`); // 경쟁 부지 뱅크 4층.
+      const c = `up_Solirare_Bank_${pad2(i)}`;
+      if (!this.textures.exists(c)) this.load.image(c, `ui/uploads/${c}.png`); // 뱅크 층별 캐릭터(은행원).
     }
     this.load.json(UI_OFFICE_KEY, 'ui/layouts/home_copy2.json'); // 관리자 배치 좌표(빌딩 대비 상대).
     this.load.json(UI_SALE_KEY, 'ui/layouts/home_copy2_copy.json'); // 판매건물 간판·텍스트 배치 좌표(빌딩 대비 상대).
@@ -2048,13 +2051,44 @@ export class HomeScene extends Phaser.Scene {
     this.pinToWorld(img);
     lot.built = true;
     lot.bankTopY = Math.min(lot.bankTopY ?? Infinity, y - fh / 2);
+    // **은행원 캐릭터를 건물 가운데(공공건물 배치 위치)에** + 동일 idle 애니.
+    const chr = this.placeBankClerk(lot.cx, level, y);
     if (level !== 1 && this.textures.exists('up_Slitare_BG_Glass')) {
       const glass = this.add.image(lot.cx, y + fh * 0.33, 'up_Slitare_BG_Glass').setDepth(this.floorDepth(level) + 2);
       glass.setDisplaySize(690, glass.height * (690 / glass.width));
       this.pinToWorld(glass);
+      if (chr) chr.setDepth(glass.depth - 0.5); // 캐릭터=유리 바로 뒤(오피스와 동일).
       if (animate) this.raiseLot2Floor({ img: glass }, level);
     }
+    if (chr && animate) this.raiseLot2Floor({ img: chr }, level);
     if (animate) this.raiseLot2Floor({ img }, level); // 위에서 내려오며 등장(공용).
+  }
+
+  /**
+   * 뱅크 층 **은행원 캐릭터**(up_Solirare_Bank_0N)를 **공공건물 배치 위치**(home_copy2 Officer 노드 오프셋)와 동일하게
+   *   건물 가운데 배치 + `animateClerk` 동일 애니. 4층은 오피서 3층 위치 재사용. 반환=캐릭터(없으면 undefined).
+   */
+  private placeBankClerk(cx: number, level: number, floorY: number): Phaser.GameObjects.Image | undefined {
+    const chrKey = `up_Solirare_Bank_${pad2(level)}`;
+    if (!this.textures.exists(chrKey)) return undefined;
+    const fh = LOT2_FLOOR_H;
+    const doc = (this.cache.json.get(UI_OFFICE_KEY) ?? null) as { nodes?: Array<{ key?: string; x: number; y: number; w?: number; h?: number }> } | null;
+    const nodes = doc?.nodes ?? [];
+    const ref = Math.min(Math.max(1, level), OFFICE_FLOORS); // 4층은 오피서 최상층(3) 위치 재사용.
+    const find = (part: string): (typeof nodes)[number] | undefined => nodes.find((n) => (n.key ?? '').includes(part));
+    const bNode = find(`Office_${pad2(ref)}_v2`) ?? find(`Office_${pad2(ref)}`);
+    const oNode = find(`Officer_${pad2(ref)}`);
+    const s = fh / (bNode?.h ?? fh);
+    const offX = bNode && oNode ? (oNode.x - bNode.x) * s : 0;
+    // 공공건물(officer) 위치 + **조금 아래로**(수직 하향, 사용자 요청: 공공건물보다 앞/아래에 서게).
+    const offY = (bNode && oNode ? (oNode.y - bNode.y) * s : fh * 0.12) + fh * BANK_CLERK_DROP_FRAC;
+    const chr = this.add
+      .image(cx + offX, floorY + offY, chrKey)
+      .setDisplaySize((oNode?.w ?? 110) * s, (oNode?.h ?? 240) * s)
+      .setDepth(this.floorDepth(level) + 1);
+    this.pinToWorld(chr);
+    this.animateClerk(chr, level * 430); // 오피스 관리자와 동일 idle(위상차).
+    return chr;
   }
 
   /** 저장된 층수만큼 뱅크 복원(재진입) + 미완공이면 '다음 층 건설' 버튼. */
