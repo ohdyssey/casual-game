@@ -33,8 +33,11 @@ export interface SaveData {
   floorCoinBanks?: Record<string, number>;
 }
 
-const KEY = 'solitaire_save_v1';
-const START_COINS = 1000; // 초기 골드 코인(게임비 재화).
+// **저장 키 버전** — 배포 시 이 버전을 올리면 기존 유저의 옛 저장(구버전 키)은 무시되고 **모두 처음(1레벨)부터 시작**한다.
+//   (2026-07-15 배포 리셋: v1→v2. 이후 다시 전체 리셋이 필요하면 v3 로 올린다.)
+const KEY = 'solitaire_save_v2';
+const OLD_KEYS = ['solitaire_save_v1']; // 리셋 시 옛 저장 정리(orphan 방지) — loadSave 최초 호출에서 제거.
+const START_COINS = 5000; // 초기 골드 코인(게임비 재화) — 2026-07-15 배포 리셋 시 1000→5000 상향.
 const START_BUILT = 2; // 초기/리셋 시 **1~2층 지어져 있음**(2층=점포매입 대상, 3층부터 건설).
 const START_OWNED = 1; // 초기/리셋 시 **1층만 소유**(2층=점포매입 대상).
 const MIN_BUILT = 1; // 최소 1층은 항상 건설.
@@ -90,7 +93,20 @@ export function floorLevelReq(floor: number): number {
   return (floor - 2) * 10;
 }
 
+// 옛 저장 키 정리(세션당 1회) — 배포 리셋 시 orphan 데이터 제거.
+let oldKeysCleaned = false;
+function cleanupOldSaves(): void {
+  if (oldKeysCleaned) return;
+  oldKeysCleaned = true;
+  try {
+    for (const k of OLD_KEYS) localStorage.removeItem(k);
+  } catch {
+    /* localStorage 미존재(노드/테스트) 무시 */
+  }
+}
+
 export function loadSave(): SaveData {
+  cleanupOldSaves();
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
