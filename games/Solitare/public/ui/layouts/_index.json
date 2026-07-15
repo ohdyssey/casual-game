@@ -17,6 +17,24 @@
       "name": "공공건물",
       "file": "ui/layouts/home_copy2.json",
       "category": "custom"
+    },
+    {
+      "id": "home_copy2_copy",
+      "name": "판매건물",
+      "file": "ui/layouts/home_copy2_copy.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_copy",
+      "name": "데일리미션",
+      "file": "ui/layouts/blank_copy.json",
+      "category": "custom"
+    },
+    {
+      "id": "home_copy2_copy2",
+      "name": "경쟁부지",
+      "file": "ui/layouts/home_copy2_copy2.json",
+      "category": "custom"
     }
   ]
 }

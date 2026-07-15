@@ -68,6 +68,7 @@ const LOT2_CX = W / 2 + LOT_DX; // 두 번째 타워(우측 부지) 중심 x(162
 const LOT1L_CX = W / 2 - LOT_DX; // **좌측 부지** 중심 x(-540) — 좌로 한 화면 팬하면 중앙에 온다.
 // **좌측 공공건물 타워** — 메인타워 왼쪽 부지(LOT1L_CX)에 공공건물 5개를 기존 타워 방식으로 **프리빌트**(항상 완공 상태).
 const OFFICE_FLOORS = 3; // 공공건물 층 수 — **초기 릴리스는 3층까지만**(이후 5층으로 업그레이드 예정). 아트는 5개 준비됨.
+const COMP_BANK_FLOORS = 4; // 고수익 경쟁 부지 낙찰 시 **한꺼번에 세우는 뱅크 층 수**(Bank_01~04).
 const OFFICE_CX = LOT1L_CX; // 좌측 부지 중심(-540).
 const UI_OFFICE_KEY = 'ui_office'; // 공공건물 에디터 저작 레이아웃(home_copy2.json) — 관리자 캐릭터 배치 좌표 소스.
 const UI_SALE_KEY = 'ui_sale'; // 판매건물(폐건물) 에디터 저작 레이아웃(home_copy2_copy.json) — 간판·텍스트 배치 좌표 소스.
@@ -91,6 +92,7 @@ interface SideLot {
   forSale?: Phaser.GameObjects.Image; // 폐건물 앞 'FOR SALE' 표지판(건설/철거 시 제거).
   sign?: Phaser.GameObjects.Image; // 폐건물 상단 간판(UI_25, 건물 뒤 레이어) — 잠금/구입 메시지 판.
   signMsg?: Phaser.GameObjects.Text | Phaser.GameObjects.Container; // 간판 위 메시지(단문=Text / 제목+설명 2단=Container).
+  bankTopY?: number; // 경쟁 부지 뱅크(다층) 최상층 top edge — 세로 스크롤 상한용.
   signOverride?: string; // 이 부지 고유 간판 문구(잠금/구입 문구 대신 항상 표시) — 예: 고수익 경쟁 부지 안내.
   floor?: { img: Phaser.GameObjects.Image; char?: Phaser.GameObjects.Image };
   btn?: Phaser.GameObjects.Container;
@@ -329,6 +331,10 @@ export class HomeScene extends Phaser.Scene {
       if (!this.textures.exists(c)) this.load.image(c, `ui/uploads/${c}.png`);
     }
     if (!this.textures.exists(OFFICE_ROOF_KEY)) this.load.image(OFFICE_ROOF_KEY, `ui/uploads/${OFFICE_ROOF_KEY}.png`); // 공공건물 지붕.
+    for (let i = 1; i <= COMP_BANK_FLOORS; i++) {
+      const b = `up_Bank_${pad2(i)}`;
+      if (!this.textures.exists(b)) this.load.image(b, `ui/uploads/${b}.png`); // 경쟁 부지 뱅크 4층.
+    }
     this.load.json(UI_OFFICE_KEY, 'ui/layouts/home_copy2.json'); // 관리자 배치 좌표(빌딩 대비 상대).
     this.load.json(UI_SALE_KEY, 'ui/layouts/home_copy2_copy.json'); // 판매건물 간판·텍스트 배치 좌표(빌딩 대비 상대).
     this.load.json(UI_DAILY_KEY, 'ui/layouts/blank_copy.json'); // 데일리 미션 팝업 레이아웃.
@@ -1913,8 +1919,13 @@ export class HomeScene extends Phaser.Scene {
     return this.lotsUnlocked() ? '🏗️ 구입 가능!' : '🔒 타워 10층\n완공 시 개방';
   }
 
-  /** 한 사이드 부지 세팅 — 3상태: 건설됨=1층 / 철거됨=빈 부지+건설버튼 / 아니면 폐건물+구입버튼. */
+  /** 한 사이드 부지 세팅 — 경쟁부지(뱅크 낙찰)·건설됨(1층)·철거됨(빈부지)·폐건물(구입/경매) 상태 분기. */
   private setupSideLot(lot: SideLot, savedBuilt: boolean, savedDemolished: boolean): void {
+    const isComp = !!lot.signOverride; // 고수익 경쟁 부지(좌측 L2).
+    if (isComp && loadSave().compBankBuilt) {
+      this.renderCompetitiveBank(lot, false); // 낙찰 완료 → 4층 뱅크 복원.
+      return;
+    }
     if (savedBuilt) {
       lot.built = true;
       const objs = this.renderSideFloor1(lot, true);
@@ -1933,8 +1944,15 @@ export class HomeScene extends Phaser.Scene {
     const sign = this.spawnLotSignboard(lot.cx, variant, lot.ruin, lot.signOverride ?? this.lotSignMessage()); // 상단 간판 + 메시지(부지 고유 문구 우선).
     lot.sign = sign.board;
     lot.signMsg = sign.text;
-    if (!this.lotsUnlocked()) return; // **메인타워 10층 완공 전 = 구입 잠금**(간판 메시지로 안내, 구입 버튼 없음).
-    this.showSideBuyButton(lot);
+    if (!this.lotsUnlocked()) return; // **메인타워 10층 완공 전 = 잠금**(간판 메시지로 안내, 버튼 없음).
+    if (isComp) this.showSideAuctionButton(lot); // 경쟁 부지 = 경매 신청.
+    else this.showSideBuyButton(lot);
+  }
+
+  /** 고수익 경쟁 부지 '🔨 경매 신청' 버튼(잠금 해제 시) — 낙찰 시 4층 뱅크 한꺼번에 건설. */
+  private showSideAuctionButton(lot: SideLot): void {
+    const by = lot.ruin ? lot.ruin.y - lot.ruin.displayHeight / 2 + 60 : 1780;
+    lot.btn = this.makeLotButton(lot.cx, by, '🔨 경매 신청', () => this.buildCompetitiveBank(lot), 260);
   }
 
   /** 사이드 부지 '부지 구입(철거)' 버튼 + 방향 힌트(잠금 해제 시). */
@@ -1966,8 +1984,12 @@ export class HomeScene extends Phaser.Scene {
     // 사이드 부지.
     for (const lot of this.sideLots) {
       if (lot.built || lot.demolished || lot.btn || !lot.ruin) continue;
-      if (!lot.signOverride) (lot.signMsg as Phaser.GameObjects.Text | undefined)?.setText(this.lotSignMessage()); // 고유 문구 부지는 유지, 그 외(단문 Text)만 '구입 가능!'.
-      this.showSideBuyButton(lot);
+      if (lot.signOverride) {
+        this.showSideAuctionButton(lot); // 경쟁 부지 = 경매 신청(간판 문구 유지).
+      } else {
+        (lot.signMsg as Phaser.GameObjects.Text | undefined)?.setText(this.lotSignMessage()); // 단문 Text만 '구입 가능!'.
+        this.showSideBuyButton(lot);
+      }
     }
   }
 
@@ -1998,6 +2020,60 @@ export class HomeScene extends Phaser.Scene {
     }
     lot.floor = { img, char };
     return { img, char };
+  }
+
+  /**
+   * **고수익 경쟁 부지 뱅크(4층) 렌더** — Bank_01~04 를 타워 스택 방식(동일 폭·높이·겹침)으로 한꺼번에 배치.
+   *   2층+ 유리팬스(오피스 타워와 동일). 최상층 top 을 lot.bankTopY 로 저장(세로 스크롤 상한). animate=등장 낙하.
+   */
+  private renderCompetitiveBank(lot: SideLot, animate: boolean): void {
+    const fw = LOT2_FLOOR_W;
+    const fh = LOT2_FLOOR_H;
+    lot.built = true;
+    let topY = Infinity;
+    for (let level = 1; level <= COMP_BANK_FLOORS; level++) {
+      const key = `up_Bank_${pad2(level)}`;
+      if (!this.textures.exists(key)) continue; // 아트 없으면 건너뜀(방어).
+      const y = LOT2_FLOOR1_Y - (level - 1) * (fh - LOT2_SMALL_OVERLAP); // 동일 높이 층 위로 스택.
+      const img = this.add.image(lot.cx, y, key).setDisplaySize(fw, fh).setDepth(this.floorDepth(level));
+      this.pinToWorld(img);
+      topY = Math.min(topY, y - fh / 2);
+      if (level !== 1 && this.textures.exists('up_Slitare_BG_Glass')) {
+        const glass = this.add.image(lot.cx, y + fh * 0.33, 'up_Slitare_BG_Glass').setDepth(this.floorDepth(level) + 2);
+        glass.setDisplaySize(690, glass.height * (690 / glass.width));
+        this.pinToWorld(glass);
+        if (animate) this.raiseLot2Floor({ img: glass }, level);
+      }
+      if (animate) this.raiseLot2Floor({ img }, level); // 위에서 내려오며 등장(공용).
+    }
+    if (Number.isFinite(topY)) lot.bankTopY = topY;
+  }
+
+  /** **경매 신청 → 낙찰 → 4층 뱅크 한꺼번에 건설**(경쟁 부지 전용). 폐건물/간판 제거 후 뱅크 등장 + 저장. */
+  private buildCompetitiveBank(lot: SideLot): void {
+    if (lot.built || this.constructing) return;
+    this.constructing = true;
+    sfx('button');
+    for (const o of [lot.btn, lot.hint, lot.forSale, lot.sign, lot.signMsg, lot.ruin]) {
+      if (o) this.tweens.add({ targets: o, alpha: 0, duration: 300, onComplete: () => o.destroy() }); // 폐건물·간판·표지판·버튼 제거.
+    }
+    lot.btn = undefined;
+    lot.hint = undefined;
+    lot.forSale = undefined;
+    lot.sign = undefined;
+    lot.signMsg = undefined;
+    lot.ruin = undefined;
+    this.panToSide(lot, 700);
+    this.time.delayedCall(320, () => {
+      this.renderCompetitiveBank(lot, true); // 4층 한꺼번에 등장.
+      this.constructFx(lot.cx, LOT2_FLOOR1_Y, LOT2_FLOOR_W); // 건설 연출(먼지).
+      const s = loadSave();
+      s.compBankBuilt = true;
+      writeSave(s);
+      this.constructing = false;
+      this.panToSide(lot, 900);
+      this.toast('🏦 경매 낙찰! 고수익 뱅크 4층 완공', true);
+    });
   }
 
   /** 사이드 부지 **철거** = 폐건물 철거 연출 → **빈 부지**(1층 건설 버튼). */
@@ -2073,6 +2149,7 @@ export class HomeScene extends Phaser.Scene {
   private sideStageMinY(lot: SideLot): number {
     let top = lot.ruin ? lot.ruin.y - lot.ruin.displayHeight / 2 : LOT2_FLOOR1_Y - LOT2_FLOOR_H / 2;
     if (lot.sign) top = Math.min(top, lot.sign.y - lot.sign.displayHeight / 2); // 간판 상단까지 스크롤 허용.
+    if (lot.bankTopY !== undefined) top = Math.min(top, lot.bankTopY); // 경쟁 부지 뱅크(4층) 최상층까지.
     return Math.min(this.scrollMax, top - this.topMargin());
   }
 
