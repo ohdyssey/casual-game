@@ -25,7 +25,9 @@ export const SolitaireGame: GameModule = {
   title: '솔리테어 하이츠',
   // 첫 씬 = 로딩 화면(스플래시) → 본편 에셋 적재 후 home.
   scenes: [LoadScene, HomeScene, PlayScene, LayoutPreviewScene],
-  backgroundColor: '#2a1830',
+  // 캔버스 기본 배경 — 로딩 스플래시/홈 하늘색과 **동일(#8ecbf0)**. (예전 보라 #2a1830 은 부팅·레터박스·씬 전환
+  //   찰나에 보라 플래시로 노출됐다 → 하늘색으로 통일해 로딩~홈까지 보라 화면이 절대 안 보이게.)
+  backgroundColor: '#8ecbf0',
   designWidth: 1080,
   designHeight: 2400,
   theme: { brand: '#E86FA6' },
