@@ -42,9 +42,9 @@
       "id": "layer_3",
       "type": "image",
       "name": "매장",
-      "key": "up_Slitare_BG_01-1",
+      "key": "up_Slitare_BG_01-2",
       "x": 538,
-      "y": 1746,
+      "y": 1753,
       "w": 1107,
       "h": 2193,
       "depth": 3,
@@ -55,12 +55,12 @@
     {
       "id": "layer_4",
       "x": 540,
-      "y": 1577,
+      "y": 1539,
       "fill": "#000000",
       "fillAlpha": 0.75,
       "stroke": "#ffffff",
       "strokeW": 0,
-      "depth": 5,
+      "depth": 6,
       "visible": true,
       "type": "rect",
       "name": "투명막",
@@ -77,7 +77,7 @@
       "y": 178,
       "w": 743,
       "h": 151,
-      "depth": 6,
+      "depth": 4,
       "visible": true,
       "tintable": true,
       "lockAspect": true
@@ -381,40 +381,40 @@
       "id": "layer_18",
       "type": "path",
       "name": "동선",
-      "x": 513,
-      "y": 1854,
+      "x": 510,
+      "y": 1880,
       "points": [
         {
-          "x": -283.71,
-          "y": 663.97
+          "x": -284,
+          "y": 656.59
         },
         {
-          "x": -303,
-          "y": 200
+          "x": -271,
+          "y": 193
         },
         {
-          "x": -350.84,
-          "y": -673.76
+          "x": -313.71,
+          "y": -657.38
         },
         {
-          "x": 350.84,
-          "y": -673.28
+          "x": 313.71,
+          "y": -666.38
         },
         {
-          "x": 252,
-          "y": -156
+          "x": 224.29,
+          "y": -168.38
         },
         {
-          "x": 175.39,
-          "y": 97.37
+          "x": 175.1,
+          "y": 89.99
         },
         {
-          "x": 175.39,
-          "y": 413.87
+          "x": 175.1,
+          "y": 406.49
         },
         {
-          "x": 173.49,
-          "y": 673.77
+          "x": 173.2,
+          "y": 666.39
         }
       ],
       "closed": false,
@@ -422,6 +422,20 @@
       "stroke": "#ffaa33",
       "depth": 26,
       "visible": true
+    },
+    {
+      "id": "layer_17",
+      "type": "image",
+      "name": "가로 프레임",
+      "key": "up_Slitare_BG_Frame",
+      "x": 540,
+      "y": 696,
+      "w": 1273,
+      "h": 120,
+      "depth": 5,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
     }
   ]
 }

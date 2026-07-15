@@ -709,6 +709,7 @@ export class PlayScene extends Phaser.Scene {
       this.boardTop = Math.round(panelTop + 48); // 패널 상단(=storefront 하단) 안쪽 패딩
       this.boardBottom = Math.min(BOARD_BOTTOM, STOCK.y - 60); // 스톡과 분리 간격
     }
+    this.applyFloorInterior(); // **층별 인테리어 배선** — 현재 층 배치로 교체(없으면 1층 편의점 폴백).
     this.setupMissionChrome();
     this.setupEditorBoosters();
     this.spawnPedestrians(doc);
@@ -719,6 +720,22 @@ export class PlayScene extends Phaser.Scene {
     this.coinBinding = undefined; // 헤더가 코인 표시를 대신한다.
     // ⚠️ 이 시점엔 아직 딜(this.state) 전이라 baseCoins 만 사용(점수 반영은 refresh 가 갱신).
     this.header = buildTopHeader(this, this.baseCoins, loadSave().diamonds ?? 0, this.level, () => this.openPlayMenu());
+  }
+
+  /**
+   * **층별 플레이 인테리어 배선** — 현재 층(레벨→테마 순환 idx)의 인테리어 `up_Slitare_BG_01-{idx}` 로
+   *   에디터 main.json 의 매장 인테리어 레이어(layer_3) **텍스처만 교체**. (배치·크기는 에디터 저작 그대로.)
+   *   해당 층 이미지가 없으면 **1층 편의점(01-1)** 으로 폴백(사용자 요구). storefront 테마 순환과 동일 idx 라 상·하 층 일치.
+   */
+  private applyFloorInterior(): void {
+    const interior = this.chrome?.tryById<Phaser.GameObjects.Image>('layer_3');
+    const node = this.chrome?.nodeById('layer_3');
+    if (!interior || !node) return;
+    const idx = ((this.level - 1) % 5) + 1; // 층 테마(storefront 와 동일 순환) 1..5.
+    const floorKey = `up_Slitare_BG_01-${idx}`;
+    const key = this.textures.exists(floorKey) ? floorKey : 'up_Slitare_BG_01-1'; // 층 배치 없으면 1층 편의점.
+    interior.setTexture(key);
+    if (node.w && node.h) interior.setDisplaySize(node.w, node.h); // 저작 표시 크기 유지(텍스처 교체가 크기 리셋하므로 재적용).
   }
 
   /** 플레이 상단 헤더의 메뉴(☰) — 사운드 토글 + 홈으로. */
@@ -2156,7 +2173,15 @@ export class PlayScene extends Phaser.Scene {
    */
   private showMissionReward(stars: number, coins: number, diamonds: number): void {
     const layer = this.add.container(0, 0).setDepth(2000);
-    layer.add(this.add.rectangle(0, 0, W, H, 0x0a0a1a, 0.82).setOrigin(0, 0).setInteractive());
+    // 반투명 막은 화면보다 **사방 90px 크게** — 버튼 탭 시 카메라 셰이크(go 의 shake)로 시점이 흔들려도
+    //   막 바깥의 밝은 게임 화면이 가장자리로 새어 보이지 않게(경계 노출 방지).
+    const DIM_PAD = 90;
+    layer.add(
+      this.add
+        .rectangle(-DIM_PAD, -DIM_PAD, W + DIM_PAD * 2, H + DIM_PAD * 2, 0x0a0a1a, 0.82)
+        .setOrigin(0, 0)
+        .setInteractive(),
+    );
     const cx = W / 2;
     // ── 별 3개(상단) — 획득만 골드, 나머지 흐림. 가운데가 약간 위로. ──
     for (let i = 0; i < SETS_TARGET; i++) {
