@@ -1993,9 +1993,9 @@ export class HomeScene extends Phaser.Scene {
     }
   }
 
-  /** **부지 구입 활성 조건** — 메인타워가 최대(10)층까지 완공돼야 새 부지 구입이 열린다. */
+  /** **부지 구입 활성 조건** — 10층 완공 제한 제거(2026-07-16 사용자 요청): 항상 열림(부지 구입·경매 즉시 가능). */
   private lotsUnlocked(): boolean {
-    return this.builtFloors >= MAX_FLOORS;
+    return true;
   }
 
   /** 빈 부지에 `🏗️ 1층 건설\n💎 ${diamondCostFor(1)}` 버튼(철거 후). */
