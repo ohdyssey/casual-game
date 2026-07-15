@@ -185,9 +185,26 @@ function chooseDynamicRank(exposed: readonly Rank[], luck: LuckState, rng: Rng, 
 }
 
 /**
+ * **진행도 기반 큐레이션 램프** — 레벨 초반은 적응형 피드(잘 풀림), **중반 이후는 순수 랜덤 드로우**로 전환해
+ *   종반 자동매칭(막힘 구제가 끝까지 떠먹여 주는 느낌)을 없앤다.
+ *   보드 클리어 비율 p ≤ FULL 까지 완전 큐레이션(피드/헛뽑기/막힘구제), p ≥ NONE 부터 완전 랜덤, 사이는 선형 감쇠.
+ */
+export const CURATED_FULL_UNTIL = 0.4;
+export const CURATED_NONE_FROM = 0.65;
+/** 중립 랜덤 단계의 등급별 매칭 확률(고정, 플레이 흐름 무관) — 쉬움일수록 우연히 잘 풀릴 뿐 떠먹이진 않는다. */
+const NEUTRAL_FEED: Record<1 | 2 | 3, number> = { 1: 0.52, 2: 0.44, 3: 0.36 };
+function curatedProb(state: GameState): number {
+  const n = state.layout.slots.length;
+  if (n <= 0) return 0;
+  const p = state.cleared.size / n;
+  return Math.max(0, Math.min(1, (CURATED_NONE_FROM - p) / (CURATED_NONE_FROM - CURATED_FULL_UNTIL)));
+}
+
+/**
  * 스톡에서 1장 뽑아 웨이스트로 — 콤보 리셋. 스톡이 비면 원본 반환.
  *   **동적 딜(state.luck 존재 + rng 전달)**: 뽑는 카드의 랭크를 feed/chain 확률로 결정하고
  *   플레이 흐름(막힘/원활)에 따라 럭을 조정한다. 아니면 스톡 랭크를 그대로 뽑는다(레거시).
+ *   단, **중반 이후(curatedProb 램프)** 에는 큐레이션 없이 균등 랜덤 랭크를 뽑는다(랜덤플레이).
  */
 export function drawStock(state: GameState, rng?: Rng): GameState {
   if (state.stock.length === 0) return state;
@@ -196,13 +213,32 @@ export function drawStock(state: GameState, rng?: Rng): GameState {
   // 와일드 카드는 랭크를 재추첨하지 않는다(정체성 유지) — 뽑히면 기준이 되어 아무 카드나 낸다.
   if (luck && rng && !card.wild) {
     const exposed = exposedRanks(state);
-    // **막힘 구제**: 지금 낼 수 있는 수가 하나도 없으면(뽑기가 유일 선택) 이번 뽑기는 반드시 낼 수 있는 랭크로.
-    //   (적응형 난이도는 유지 — 낼 수 있는 수가 있을 땐 기존 feedProb 대로 헛뽑기도 나온다.)
-    const stuck = availableMoves(state).length === 0;
-    const rank = chooseDynamicRank(exposed, luck, rng, stuck);
-    card = { ...card, rank };
-    const productive = exposed.some((e) => rankAdjacent(e, rank));
-    luck = afterDraw(luck, productive);
+    if (rng() < curatedProb(state)) {
+      // **초반 큐레이션** — 적응형 피드/헛뽑기 + 막힘 구제(낼 수 없으면 반드시 낼 수 있는 랭크).
+      const stuck = availableMoves(state).length === 0;
+      const rank = chooseDynamicRank(exposed, luck, rng, stuck);
+      card = { ...card, rank };
+      luck = afterDraw(luck, exposed.some((e) => rankAdjacent(e, rank)));
+    } else {
+      // **중반 이후 랜덤플레이(중립 랜덤)** — 러버밴딩·막힘구제·연쇄최적화 **없음**. 등급별 고정 확률의
+      //   순수 동전던지기: NEUTRAL_FEED 확률로 매칭 랭크(균등), 아니면 전체 13랭크 균등(우연 매칭만).
+      //   플레이 흐름과 무관해 "떠먹여 주는" 느낌이 사라지고 운이 지배한다(진짜 랜덤 체감).
+      const wantMatch = exposed.length > 0 && rng() < NEUTRAL_FEED[luck.grade];
+      let rank: Rank;
+      if (wantMatch) {
+        const cand = new Set<Rank>();
+        for (const e of exposed) {
+          cand.add(wrapRank(e - 1));
+          cand.add(wrapRank(e + 1));
+        }
+        const arr = [...cand];
+        rank = arr[Math.floor(rng() * arr.length)];
+      } else {
+        rank = ALL_RANKS[Math.floor(rng() * ALL_RANKS.length)];
+      }
+      card = { ...card, rank };
+      luck = afterDraw(luck, exposed.some((e) => rankAdjacent(e, rank)));
+    }
   }
   return {
     ...state,

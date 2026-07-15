@@ -7,7 +7,7 @@
  * ⚠️ HD(1080×2400) 절대 좌표. PlayScene 의 보드 사각형/유닛 배율과 1:1 로 맞춘다(디자인 충실도).
  */
 import Phaser from 'phaser';
-import { loadGameAssets, BACK_BG_KEY, CARD_BACK_KEY } from '../assets.js';
+import { loadGameAssets, BACK_BG_KEY, CARD_BACK_KEY, uploadPath } from '../assets.js';
 import { CardView } from './cardView.js';
 import { levelDef } from '../logic/levels.js';
 import type { LayoutSlot } from '../logic/layouts.js';
@@ -42,7 +42,7 @@ export class LayoutPreviewScene extends Phaser.Scene {
   preload(): void {
     loadGameAssets(this);
     if (!this.textures.exists(CARD_BACK_KEY)) {
-      this.load.image(CARD_BACK_KEY, 'ui/uploads/up_Solitaire_CARD_back.png');
+      this.load.image(CARD_BACK_KEY, uploadPath('up_Solitaire_CARD_back'));
     }
   }
 

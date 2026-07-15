@@ -60,9 +60,18 @@ export const GAME_FEE = 500;
 //   한 판에서 같은 부스터를 쓸수록 비용이 오른다(uses = 이번 판 사용 횟수, 0=첫 사용).
 //   +5카드: 게임비×(1.5·2.0·2.5…) = 750·1000·1250(게임비 500 기준, 사용당 +0.5×게임비).
 //   와일드: +5카드보다 **약간 더**(항상 +0.3×게임비) = 900·1150·1400.
-const PLUS5_BASE_MULT = 1.5; // +5카드 첫 사용 = 게임비 × 이 값.
-const WILD_BASE_MULT = 1.8; // 와일드 첫 사용 = 게임비 × 이 값(+5보다 0.3 높음=약간 더 비쌈).
-const BOOSTER_STEP_MULT = 0.5; // 사용마다 게임비 × 이 값만큼 가산.
+const PLUS5_BASE_MULT = 3.0; // +5카드 첫 사용 = 게임비 × 이 값. (2026-07-16 2배 인상 — 너무 쌌음)
+const WILD_BASE_MULT = 3.6; // 와일드 첫 사용 = 게임비 × 이 값(+5보다 0.6 높음=약간 더 비쌈).
+const BOOSTER_STEP_MULT = 1.0; // 사용마다 게임비 × 이 값만큼 가산(점진 인상도 2배 가파르게).
+
+/**
+ * **남은 카드 보너스(장당)** — 승리 시 남은 뽑기 카드 1장당 추가 지급 코인.
+ *   게임비(GAME_FEE)에 비례(×0.2 = 현재 100/장) → 이후 게임비·보상 인상 시 자동으로 비례 상승.
+ */
+const STOCK_BONUS_RATE = 0.2;
+export function stockBonusPerCard(): number {
+  return Math.round(GAME_FEE * STOCK_BONUS_RATE);
+}
 
 /** +5카드 부스터 코인 비용 — uses=이번 판 이미 사용한 횟수(다음 사용 비용을 반환). */
 export function plus5Cost(uses: number): number {

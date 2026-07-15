@@ -42,8 +42,8 @@ export type Sfx =
   | 'transition'
   | 'start';
 
-/** BGM 루프 이름. */
-export type Bgm = 'home' | 'play';
+/** BGM 루프 이름 — home/play + **부지(스테이지)별 트랙**(카메라가 그 부지에 있을 때 재생, 파일 없으면 home 폴백). */
+export type Bgm = 'home' | 'play' | 'lot_l2' | 'lot_l1' | 'lot_r1' | 'lot_r2' | 'lot_r3';
 
 // 파일 base(확장자 제외). 메인 SFX + BGM + 변형.
 const SFX_NAMES: Sfx[] = [
@@ -52,7 +52,16 @@ const SFX_NAMES: Sfx[] = [
   'floor_select', 'build', 'build_fail', 'unlock', 'level_open', 'level_close', 'level_pick', 'button',
   'popup_open', 'popup_close', 'toast', 'transition', 'start',
 ];
-const BGM_FILE: Record<Bgm, string> = { home: 'bgm_home', play: 'bgm_play' };
+const BGM_FILE: Record<Bgm, string> = {
+  home: 'bgm_home',
+  play: 'bgm_play',
+  // 부지(스테이지)별 트랙 — public/audio/ 에 같은 이름의 .m4a 를 넣으면 그 부지에서 재생된다(없으면 home 폴백).
+  lot_l2: 'bgm_lot_l2', // 좌측 외곽 부지
+  lot_l1: 'bgm_lot_l1', // 좌측 내측 부지(공공건물 타워)
+  lot_r1: 'bgm_lot_r1', // 우측 내측 부지(스테이지2 타워)
+  lot_r2: 'bgm_lot_r2', // 우측 외곽 부지1
+  lot_r3: 'bgm_lot_r3', // 우측 외곽 부지2
+};
 const WIN_STING = 'bgm_win_sting';
 /** BGM 배경 레벨(0~1). 이전 0.4 → 0.25 로 낮춤(배경음 볼륨 감소). 여기 한 곳만 조절. */
 const BGM_LEVEL = 0.25;
@@ -67,6 +76,11 @@ const ALL_FILES: string[] = [
   ...([1, 2, 3, 4, 5] as const).map((n) => `sfx_mission_slot_0${n}`),
   BGM_FILE.home,
   BGM_FILE.play,
+  BGM_FILE.lot_l2,
+  BGM_FILE.lot_l1,
+  BGM_FILE.lot_r1,
+  BGM_FILE.lot_r2,
+  BGM_FILE.lot_r3,
   WIN_STING,
 ];
 
@@ -78,7 +92,7 @@ let bgmSrc: AudioBufferSourceNode | null = null;
 let currentBgm: Bgm | null = null;
 let desiredBgm: Bgm | null = null;
 let muted = false;
-let bgmMuted = true; // ⚠️ 우선 BGM 기본 뮤트(효과음은 유지). 이후 setBgmMuted(false) 로 재설정 예정.
+let bgmMuted = false; // 부지(스테이지)별 사운드 도입(2026-07-15)으로 BGM 기본 재생. setBgmMuted(true) 로 끌 수 있음.
 let gestureHooked = false;
 
 function ac(): AudioContext | null {
@@ -190,11 +204,14 @@ function stopBgm(fade = 0.4): void {
 }
 
 function startDesiredBgm(): void {
-  if (bgmMuted) return; // BGM 기본 뮤트 — 재생 시작 안 함.
+  if (bgmMuted) return; // BGM 뮤트 — 재생 시작 안 함.
   const c = ac();
   if (!c || !bgmGain || !desiredBgm) return;
-  if (currentBgm === desiredBgm && bgmSrc) return; // 이미 재생 중.
-  const buf = buffers.get(BGM_FILE[desiredBgm]);
+  // **부지 트랙 폴백** — 부지 전용 파일이 (아직) 없으면 home 으로. 실효 트랙이 같으면 재시작하지 않는다
+  //   (부지 간 팬 이동 중 파일 없는 부지들끼리는 home 이 끊김 없이 이어진다).
+  const eff: Bgm = buffers.has(BGM_FILE[desiredBgm]) ? desiredBgm : desiredBgm === 'play' ? 'play' : 'home';
+  if (currentBgm === eff && bgmSrc) return; // 이미 재생 중.
+  const buf = buffers.get(BGM_FILE[eff]);
   if (!buf) return; // 아직 디코드 전 — 이후 제스처/재시도에서.
   if (bgmSrc) stopBgm(0.3);
   try {
@@ -209,7 +226,7 @@ function startDesiredBgm(): void {
     bgmGain.gain.linearRampToValueAtTime(BGM_LEVEL, t + 0.6);
     src.start();
     bgmSrc = src;
-    currentBgm = desiredBgm;
+    currentBgm = eff;
   } catch {
     /* 무시 */
   }

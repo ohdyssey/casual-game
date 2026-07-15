@@ -13,6 +13,7 @@
  */
 import Phaser from 'phaser';
 import { sfx } from '../audio.js';
+import { uploadPath } from '../assets.js';
 
 /** 2-카메라 씬(HomeScene)에서 이 월드 오브젝트를 UI 카메라 렌더서 제외(UI에 섞여 고정되지 않게). 없는 씬이면 무해. */
 function pinWorld(scene: Phaser.Scene, o: Phaser.GameObjects.GameObject): void {
@@ -93,9 +94,9 @@ export function preloadCustomers(scene: Phaser.Scene): void {
     if (!scene.textures.exists(k)) scene.load.image(k, FILE(i));
   });
   // 말풍선 3종(에디터 업로드 키 그대로 재사용).
-  if (!scene.textures.exists(BUBBLE_M)) scene.load.image(BUBBLE_M, 'ui/uploads/up_Solitare_UI_11.png');
-  if (!scene.textures.exists(BUBBLE_F)) scene.load.image(BUBBLE_F, 'ui/uploads/up_Solitare_UI_12.png');
-  if (!scene.textures.exists(BUBBLE_DONE)) scene.load.image(BUBBLE_DONE, 'ui/uploads/up_Solitare_UI_13.png');
+  if (!scene.textures.exists(BUBBLE_M)) scene.load.image(BUBBLE_M, uploadPath('up_Solitare_UI_11'));
+  if (!scene.textures.exists(BUBBLE_F)) scene.load.image(BUBBLE_F, uploadPath('up_Solitare_UI_12'));
+  if (!scene.textures.exists(BUBBLE_DONE)) scene.load.image(BUBBLE_DONE, uploadPath('up_Solitare_UI_13'));
   // **스테이지별** 층 주문 아이템(Item_{스테이지}_{층}-N).
   for (const stage of [1, 2]) {
     for (let floor = 1; floor <= 10; floor++) {

@@ -16,13 +16,13 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 import { GAMES } from '../games/hub/games.config.js';
 import { dietGameUploads } from './diet-assets.mjs';
-import { gatePageHtml, injectGuard } from './deploy-gate.mjs';
+import { gatePageHtml, injectGuard, solitaireGatePageHtml, injectSolitaireGuard } from './deploy-gate.mjs';
 
 /**
  * 에셋 다이어트(WebP 변환) 적용 게임 — 로더가 prod 에서 .webp 를 요청하도록 배선된 게임만.
  * 미배선 게임에 적용하면 하드코딩 .png 로드가 404 나므로 게임별로 검증 후 추가한다.
  */
-const DIET_GAMES = new Set(['socialcasino']);
+const DIET_GAMES = new Set(['socialcasino', 'solitaire']); // solitaire: uploadPath(PROD=webp) 배선 완료(2026-07-16).
 
 /**
  * 게임별 배포 용량 예산(MB) — 초과 시 요약에 경고(삭제 X, 가시화만). 재비대 조기 포착용 가드레일.
@@ -58,6 +58,8 @@ const SRC_DIR = {
   pawlink: 'games/PawLink',
   pickmeup: 'games/Pickmeup',
   socialcasino: 'games/SocialCasino',
+  flockgo: 'games/FlockGo',
+  solitaire: 'games/Solitare',
 };
 
 /** prodUrl('../store/') → 폴더명('store'). */
@@ -66,20 +68,47 @@ const folderOf = (prodUrl) => (prodUrl || '').replace(/^\.\.\//, '').replace(/\/
 const exists = async (p) => access(p).then(() => true).catch(() => false);
 
 /**
- * 비공개 게이트 가드 주입 — OUT 의 모든 index.html(루트 게이트 페이지 제외)에 가드 스니펫 삽입.
- *   미잠금 접속(딥링크 포함)을 루트 게이트로 바운스시켜 비밀번호 없이는 콘텐츠가 안 보이게 한다.
- *   루트(OUT/index.html)는 게이트 페이지 자체라 건너뛴다. 배포본만 수정(원본 dist 무영향).
+ * 사이트 전체 게이트 설정 — 2026-07-08 (베가스호텔 전용 축소를 되돌림).
+ *   GATE_FILE = 전용 비밀번호 페이지(루트에 배치). 허브 + 전 게임 index.html 을 전부 가드로 바운스한다.
  */
-async function injectGuards(dir, isRoot = true) {
+const GATE_FILE = 'gate.html';
+
+/** 루트 진입 = 허브로 즉시 리다이렉트. 허브 자체도 가드가 걸려 있으므로 미인증이면 게이트로 바운스된다. */
+function rootRedirectHtml() {
+  return `<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B1020">
+<meta name="robots" content="noindex, nofollow">
+<title>RyanLogic</title>
+<meta http-equiv="refresh" content="0; url=./hub/">
+<script>location.replace('./hub/');</script>
+</head>
+<body></body>
+</html>`;
+}
+
+/**
+ * 배포 폴더(OUT) 하위 전체의 index.html 에 진입 가드 주입 — 미잠금 접속을 전용 게이트로 바운스.
+ *   허브 + 전 게임 dist 를 통째로 훑는다(SPA 는 보통 폴더당 1개). 배포본만 수정(원본 dist 무영향).
+ *   게이트 페이지 자신(GATE_FILE)은 index.html 이 아니므로 자연히 제외된다.
+ */
+async function injectSiteGuard(rootDir) {
+  const gatePath = `/${GATE_FILE}`;
   let n = 0;
-  for (const ent of await readdir(dir, { withFileTypes: true })) {
-    const p = join(dir, ent.name);
-    if (ent.isDirectory()) { n += await injectGuards(p, false); continue; }
-    if (ent.name !== 'index.html' || isRoot) continue;
-    const html = await readFile(p, 'utf8');
-    const out = injectGuard(html);
-    if (out !== html) { await writeFile(p, out, 'utf8'); n++; }
+  async function walk(dir) {
+    for (const ent of await readdir(dir, { withFileTypes: true })) {
+      const p = join(dir, ent.name);
+      if (ent.isDirectory()) { await walk(p); continue; }
+      if (ent.name !== 'index.html') continue;
+      const html = await readFile(p, 'utf8');
+      const out = injectGuard(html, gatePath);
+      if (out !== html) { await writeFile(p, out, 'utf8'); n++; }
+    }
   }
+  await walk(rootDir);
   return n;
 }
 
@@ -215,10 +244,20 @@ async function main() {
     }
   }
 
-  // 루트 진입 = 비공개 비밀번호 게이트(통과 시 /hub/ 로 이동). 호스트 비종속 정적 파일.
-  await writeFile(resolve(OUT, 'index.html'), gatePageHtml(), 'utf8');
-  // 그 외 index.html(허브·게임) 에 진입 가드 주입 — 미잠금 딥링크를 게이트로 바운스.
-  const guarded = await injectGuards(OUT);
+  // 루트 진입 = 허브로 리다이렉트. 호스트 비종속 정적 파일.
+  await writeFile(resolve(OUT, 'index.html'), rootRedirectHtml(), 'utf8');
+  // 사이트 전체 비밀번호 게이트: 전용 게이트 페이지 + 루트/허브/전 게임 index.html 에 가드 주입.
+  await writeFile(resolve(OUT, GATE_FILE), gatePageHtml(), 'utf8');
+  const guarded = await injectSiteGuard(OUT);
+
+  // 솔리테어 하이츠 **전용 추가 게이트**(사이트 게이트 통과 후 추가 비밀번호) — 솔리테어 index.html 에만 얹는다.
+  let solGate = false;
+  const solIndex = resolve(OUT, 'solitaire', 'index.html');
+  if (await exists(solIndex)) {
+    await writeFile(resolve(OUT, 'solitaire-gate.html'), solitaireGatePageHtml(), 'utf8');
+    await writeFile(solIndex, injectSolitaireGuard(await readFile(solIndex, 'utf8'), '/solitaire-gate.html'), 'utf8');
+    solGate = true;
+  }
 
   const maps = await stripMaps(OUT);
 
@@ -232,7 +271,8 @@ async function main() {
   const over = sizes.filter((s) => s.mb > SIZE_BUDGET_WARN_MB);
 
   console.log('\n──────── 요약 ────────');
-  console.log(`비공개 게이트: ON — 루트 비밀번호 페이지 + 가드 ${guarded}개 index.html 주입`);
+  console.log(`비공개 게이트: 사이트 전체 — /${GATE_FILE} + index.html 가드 ${guarded}개 (루트/허브/전 게임 잠금)`);
+  console.log(`솔리테어 게이트: ${solGate ? '적용 — /solitaire-gate.html + solitaire/index.html 추가 가드(추가 비밀번호)' : '미적용(솔리테어 dist 없음)'}`);
   console.log(`소스맵 제거 : ${maps}개`);
   if (sheetBytesSaved) console.log(`시트 정리   : 미참조 스프라이트 ${(sheetBytesSaved / 1048576).toFixed(1)}MB 제거`);
   console.log(`허브       : ${hubOk ? 'OK' : '실패(dist 없음)'}`);

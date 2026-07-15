@@ -11,7 +11,7 @@
  * ⚠️ HD(1080×2400) — 코어 720 responsive 헬퍼 미사용. 절대 좌표(순수 FIT 1:1).
  */
 import Phaser from 'phaser';
-import { loadGameAssets, UI_MAIN_KEY, UI_HOME_KEY, BACK_BG_KEY, CARD_BACK_KEY, floorArtKey, CHAR_SHEETS } from '../assets.js';
+import { loadGameAssets, UI_MAIN_KEY, UI_HOME_KEY, BACK_BG_KEY, CARD_BACK_KEY, floorArtKey, CHAR_SHEETS, uploadPath } from '../assets.js';
 import { buildLayout, type LayoutDoc, type LayoutIndex } from '../ui/layoutLoader.js';
 import { Pedestrian, pathToWaypoints } from './pedestrians.js';
 import { CardView } from './cardView.js';
@@ -23,7 +23,7 @@ import type { CardBoardDoc } from '../logic/editorLevels.js';
 import { seededRng } from '../logic/deck.js';
 import { dealDynamic } from '../logic/solvable.js';
 import type { Grade } from '../logic/difficulty.js';
-import { loadSave, writeSave, plus5Cost, wildCost } from '../save.js';
+import { loadSave, writeSave, plus5Cost, wildCost, stockBonusPerCard } from '../save.js';
 import { SUITS, RANKS, type Card, type Suit, isRed } from '../logic/types.js';
 import {
   type GameState,
@@ -255,18 +255,18 @@ export class PlayScene extends Phaser.Scene {
     preloadAudio(); // 사운드팩(m4a) — 홈에서 이미 로드됐으면 캐시.
     // 카드 뒷면 정식 아트(매니페스트 타이밍과 무관하게 확실히 선로딩) → cardView 가 이 텍스처로 뒷면을 굽는다.
     if (!this.textures.exists(CARD_BACK_KEY)) {
-      this.load.image(CARD_BACK_KEY, 'ui/uploads/up_Solitaire_CARD_back.png');
+      this.load.image(CARD_BACK_KEY, uploadPath('up_Solitaire_CARD_back'));
     }
     // 에디터 저작 레벨 팩(번들·배포용). 없거나 비어도 무해({}) — localStorage(dev 즉시적용)가 우선.
     this.load.json(EDITOR_PACK_KEY, 'levels/cardLevels.json');
     // **결과/메뉴 버튼**(UI_23: 1 다음레벨·2 홈·4 재시도·5 계속·6 확인·7 닫기) — 친절한 이미지 버튼.
     for (const n of ['1', '2', '4', '5', '6', '7']) {
       const k = `up_Solitare_UI_23_${n}`;
-      if (!this.textures.exists(k)) this.load.image(k, `ui/uploads/${k}.png`);
+      if (!this.textures.exists(k)) this.load.image(k, uploadPath(`${k}`));
     }
     // **다이아 아이콘**(UI_2_2) + **코인 아이콘**(UI_2_3) — 재화 표시/보상.
-    if (!this.textures.exists('up_Solitare_UI_2_2')) this.load.image('up_Solitare_UI_2_2', 'ui/uploads/up_Solitare_UI_2_2.png');
-    if (!this.textures.exists('up_Solitare_UI_2_3')) this.load.image('up_Solitare_UI_2_3', 'ui/uploads/up_Solitare_UI_2_3.png');
+    if (!this.textures.exists('up_Solitare_UI_2_2')) this.load.image('up_Solitare_UI_2_2', uploadPath('up_Solitare_UI_2_2'));
+    if (!this.textures.exists('up_Solitare_UI_2_3')) this.load.image('up_Solitare_UI_2_3', uploadPath('up_Solitare_UI_2_3'));
   }
 
   /**
@@ -2155,7 +2155,11 @@ export class PlayScene extends Phaser.Scene {
     this.ended = true;
     this.cancelWild();
     const s = Math.min(SETS_TARGET, Math.max(1, stars));
-    const coins = STAR_COINS[s] ?? 0;
+    // **남은 카드 보너스** — 승리 시 남은 뽑기 카드 ×(게임비 비례 단가, 현재 100)만큼 추가 지급.
+    //   적게 뽑고 이길수록 보상↑(효율 플레이 인센티브). 단가는 GAME_FEE 연동이라 경제 인상 시 자동 비례.
+    const leftover = this.state.stock.length;
+    const stockBonus = leftover * stockBonusPerCard();
+    const coins = (STAR_COINS[s] ?? 0) + stockBonus;
     const gotDiamonds = this.pendingDiamonds; // **승리 시에만** 보관 다이아 확정.
     const save = loadSave();
     save.coins += coins;
@@ -2168,7 +2172,7 @@ export class PlayScene extends Phaser.Scene {
     sfx('win_fanfare'); // 승리 카드 연출 팡파레.
     sfxWinSting(); // 정산 스팅 레이어.
     if (coins > 0) sfx('coin_burst', { volume: 0.25 }); // 코인 보상 쏟아짐(볼륨 하향).
-    this.winScatter(() => this.showMissionReward(s, coins, gotDiamonds));
+    this.winScatter(() => this.showMissionReward(s, coins, gotDiamonds, { leftover, stockBonus }));
   }
 
   /**
@@ -2239,7 +2243,12 @@ export class PlayScene extends Phaser.Scene {
    * 레벨 클리어 보상 팝업 — **크게 묘사**(잘했어요! · 별 3 · 큰 코인/다이아 값). 넥스트/홈을 누르면
    *   그 시점에 **코인·다이아 입자가 흩어져 떨어졌다가 상단 헤더로 빨려 올라가고**(버스트 회수) 이동한다.
    */
-  private showMissionReward(stars: number, coins: number, diamonds: number): void {
+  private showMissionReward(
+    stars: number,
+    coins: number,
+    diamonds: number,
+    extra?: { leftover: number; stockBonus: number },
+  ): void {
     const layer = this.add.container(0, 0).setDepth(2000);
     // 반투명 막은 화면보다 **사방 90px 크게** — 버튼 탭 시 카메라 셰이크(go 의 shake)로 시점이 흔들려도
     //   막 바깥의 밝은 게임 화면이 가장자리로 새어 보이지 않게(경계 노출 방지).
@@ -2281,6 +2290,20 @@ export class PlayScene extends Phaser.Scene {
     const coinNum = this.add.text(coinX, rewardY + 150, coins.toLocaleString(), { fontFamily: '"Jua", sans-serif', fontSize: '66px', color: '#ffffff', stroke: '#5a3210', strokeThickness: 9 }).setOrigin(0.5);
     layer.add(coinIcon);
     layer.add(coinNum);
+    // **남은 카드 보너스 내역** — 총액에 이미 포함, 여기선 '왜 더 받았는지'를 보여준다(효율 플레이 학습).
+    if (extra && extra.stockBonus > 0) {
+      layer.add(
+        this.add
+          .text(cx, rewardY + 236, `🃏 남은 카드 ${extra.leftover}장 보너스 +${extra.stockBonus.toLocaleString()}`, {
+            fontFamily: '"Jua", sans-serif',
+            fontSize: '38px',
+            color: '#9fe870',
+            stroke: '#1e3a12',
+            strokeThickness: 6,
+          })
+          .setOrigin(0.5),
+      );
+    }
     let gemIcon: Phaser.GameObjects.Image | undefined;
     if (hasGem && this.textures.exists('up_Solitare_UI_2_2')) {
       const gx = cx + 210;

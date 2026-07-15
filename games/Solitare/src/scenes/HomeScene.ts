@@ -11,7 +11,7 @@
  * ⚠️ HD(1080×2400) — 절대 좌표(순수 FIT 1:1).
  */
 import Phaser from 'phaser';
-import { loadGameAssets, UI_HOME_KEY, UI_ENTRY_KEY, BACK_BG_KEY, floorArtKey } from '../assets.js';
+import { loadGameAssets, UI_HOME_KEY, UI_ENTRY_KEY, BACK_BG_KEY, floorArtKey, uploadPath } from '../assets.js';
 import { buildLayout, LayoutIndex, type LayoutDoc, type LayoutEntry } from '../ui/layoutLoader.js';
 import { preloadCustomers, registerCustomerFrames, startCustomerVisits, type CustomerSpot } from './customers.js';
 import { startOfficeTalk, type OfficeSpeaker, type OfficeTalkHandle, type OfficeRole } from './officeTalk.js';
@@ -295,52 +295,52 @@ export class HomeScene extends Phaser.Scene {
     // 층 건물 아트를 확실히 선로딩(매니페스트 타이밍과 무관하게) → 색상 사각형 폴백 방지.
     for (let i = 1; i <= TOTAL_LEVELS; i++) {
       const k = floorArtKey(i);
-      if (!this.textures.exists(k)) this.load.image(k, `ui/uploads/up_Solitaire_BG_0${i}.png`);
+      if (!this.textures.exists(k)) this.load.image(k, uploadPath(`up_Solitaire_BG_0${i}`));
     }
     // **스테이지 2 타워 아트/점원**(우측 부지) — 층 1~10 서로 다른 건물 + 점원.
     for (let i = 1; i <= MAX_FLOORS; i++) {
       const f = pad2(i);
       for (const k of [`up_Slitare_BG_02_${f}`, `up_Solirare_Chr_02_${f}`]) {
-        if (!this.textures.exists(k)) this.load.image(k, `ui/uploads/${k}.png`);
+        if (!this.textures.exists(k)) this.load.image(k, uploadPath(`${k}`));
       }
     }
     // **철거 연출 에셋**(Destroy_01~05) — 01 철구·02 착암기·03 해머·04 먼지+잔해·05 먼지+구멍.
     for (let i = 1; i <= 5; i++) {
       const k = `up_Destroy_0${i}`;
-      if (!this.textures.exists(k)) this.load.image(k, `ui/uploads/${k}.png`);
+      if (!this.textures.exists(k)) this.load.image(k, uploadPath(`${k}`));
     }
     // **폐건물 6종**(Ruin_01~06) — 매니페스트엔 01·05만 있어 나머지도 코드로 선로딩(부지별 고유 텍스처).
     for (let i = 1; i <= 6; i++) {
       const k = `up_Slitare_BG_Ruin_0${i}`;
-      if (!this.textures.exists(k)) this.load.image(k, `ui/uploads/${k}.png`);
+      if (!this.textures.exists(k)) this.load.image(k, uploadPath(`${k}`));
     }
     // **건설 연출 에셋**(Const) — 01 톱·04 흙손·07 판자·09/10 벽돌·14 붓.
     for (const n of ['01', '04', '07', '09', '10', '14']) {
       const k = `up_Const_${n}`;
-      if (!this.textures.exists(k)) this.load.image(k, `ui/uploads/${k}.png`);
+      if (!this.textures.exists(k)) this.load.image(k, uploadPath(`${k}`));
     }
     // **다이아·코인 아이콘** + **아이템샵** 패널 + **와일드**(진입 팝업 아이템 슬롯).
-    if (!this.textures.exists('up_Solitare_UI_2_2')) this.load.image('up_Solitare_UI_2_2', 'ui/uploads/up_Solitare_UI_2_2.png');
-    if (!this.textures.exists('up_Solitare_UI_2_3')) this.load.image('up_Solitare_UI_2_3', 'ui/uploads/up_Solitare_UI_2_3.png');
-    if (!this.textures.exists('up_Solitare_UI_ItemShop')) this.load.image('up_Solitare_UI_ItemShop', 'ui/uploads/up_Solitare_UI_ItemShop.png');
-    if (!this.textures.exists('up_Solitare_UI_08')) this.load.image('up_Solitare_UI_08', 'ui/uploads/up_Solitare_UI_08.png');
-    if (!this.textures.exists('up_Solitare_UI_02_v2')) this.load.image('up_Solitare_UI_02_v2', 'ui/uploads/up_Solitare_UI_02_v2.png'); // 별(진입 팝업).
+    if (!this.textures.exists('up_Solitare_UI_2_2')) this.load.image('up_Solitare_UI_2_2', uploadPath('up_Solitare_UI_2_2'));
+    if (!this.textures.exists('up_Solitare_UI_2_3')) this.load.image('up_Solitare_UI_2_3', uploadPath('up_Solitare_UI_2_3'));
+    if (!this.textures.exists('up_Solitare_UI_ItemShop')) this.load.image('up_Solitare_UI_ItemShop', uploadPath('up_Solitare_UI_ItemShop'));
+    if (!this.textures.exists('up_Solitare_UI_08')) this.load.image('up_Solitare_UI_08', uploadPath('up_Solitare_UI_08'));
+    if (!this.textures.exists('up_Solitare_UI_02_v2')) this.load.image('up_Solitare_UI_02_v2', uploadPath('up_Solitare_UI_02_v2')); // 별(진입 팝업).
     // **점포 코인 수령 말풍선** — 말머리 풍선(UI_11) + 코인 아이콘(UI_2-3).
-    if (!this.textures.exists(CLAIM_BUBBLE_KEY)) this.load.image(CLAIM_BUBBLE_KEY, 'ui/uploads/up_Solitare_UI_11.png');
-    if (!this.textures.exists(CLAIM_COIN_KEY)) this.load.image(CLAIM_COIN_KEY, 'ui/uploads/up_Solitare_UI_2-3.png');
+    if (!this.textures.exists(CLAIM_BUBBLE_KEY)) this.load.image(CLAIM_BUBBLE_KEY, uploadPath('up_Solitare_UI_11'));
+    if (!this.textures.exists(CLAIM_COIN_KEY)) this.load.image(CLAIM_COIN_KEY, uploadPath('up_Solitare_UI_2-3'));
     // **좌측 공공건물 타워** — 공공건물 아트 + 관리자(officer) 캐릭터 + 저작 레이아웃(캐릭터 배치 좌표).
     for (let i = 1; i <= OFFICE_FLOORS; i++) {
       const b = `up_Slitare_Office_${pad2(i)}`;
-      if (!this.textures.exists(b)) this.load.image(b, `ui/uploads/${b}.png`);
+      if (!this.textures.exists(b)) this.load.image(b, uploadPath(`${b}`));
       const c = `up_Solirare_Officer_${pad2(i)}`;
-      if (!this.textures.exists(c)) this.load.image(c, `ui/uploads/${c}.png`);
+      if (!this.textures.exists(c)) this.load.image(c, uploadPath(`${c}`));
     }
-    if (!this.textures.exists(OFFICE_ROOF_KEY)) this.load.image(OFFICE_ROOF_KEY, `ui/uploads/${OFFICE_ROOF_KEY}.png`); // 공공건물 지붕.
+    if (!this.textures.exists(OFFICE_ROOF_KEY)) this.load.image(OFFICE_ROOF_KEY, uploadPath(`${OFFICE_ROOF_KEY}`)); // 공공건물 지붕.
     for (let i = 1; i <= COMP_BANK_FLOORS; i++) {
       const b = `up_Bank_${pad2(i)}`;
-      if (!this.textures.exists(b)) this.load.image(b, `ui/uploads/${b}.png`); // 경쟁 부지 뱅크 4층.
+      if (!this.textures.exists(b)) this.load.image(b, uploadPath(`${b}`)); // 경쟁 부지 뱅크 4층.
       const c = `up_Solirare_Bank_${pad2(i)}`;
-      if (!this.textures.exists(c)) this.load.image(c, `ui/uploads/${c}.png`); // 뱅크 층별 캐릭터(은행원).
+      if (!this.textures.exists(c)) this.load.image(c, uploadPath(`${c}`)); // 뱅크 층별 캐릭터(은행원).
     }
     this.load.json(UI_OFFICE_KEY, 'ui/layouts/home_copy2.json'); // 관리자 배치 좌표(빌딩 대비 상대).
     this.load.json(UI_SALE_KEY, 'ui/layouts/home_copy2_copy.json'); // 판매건물 간판·텍스트 배치 좌표(빌딩 대비 상대).
@@ -348,9 +348,9 @@ export class HomeScene extends Phaser.Scene {
     // **구입 가능한 폐건물** — 앞 'FOR SALE' 표지판(UI_24-1~3) + 상단 간판(UI_25-1~3, 잠금/구입 메시지). 부지별 변형·건설 시 삭제.
     for (let n = 1; n <= FOR_SALE_VARIANTS; n++) {
       const k24 = `up_Solitare_UI_24-${n}`;
-      if (!this.textures.exists(k24)) this.load.image(k24, `ui/uploads/${k24}.png`);
+      if (!this.textures.exists(k24)) this.load.image(k24, uploadPath(`${k24}`));
       const k25 = `up_Solitare_UI_25-${n}`;
-      if (!this.textures.exists(k25)) this.load.image(k25, `ui/uploads/${k25}.png`);
+      if (!this.textures.exists(k25)) this.load.image(k25, uploadPath(`${k25}`));
     }
   }
 

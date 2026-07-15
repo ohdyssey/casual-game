@@ -23,6 +23,13 @@ export const UI_ENTRY_PATH = 'ui/layouts/blank.json';
 export const UI_MANIFEST_KEY = 'ui_assets';
 export const UI_MANIFEST_PATH = 'ui-assets.json';
 
+/**
+ * **업로드 이미지 경로** — PROD(배포·diet-assets 변환 후)는 `.webp`, DEV(원본)는 `.png`.
+ *   하드코딩 `this.load.image(key, uploadPath(key))` 에 사용(매니페스트 구동은 diet 가 .webp 재작성).
+ */
+const UPLOAD_EXT = import.meta.env?.PROD ? 'webp' : 'png';
+export const uploadPath = (key: string): string => `ui/uploads/${key}.${UPLOAD_EXT}`;
+
 /** 카드 앞면 텍스처 키(정식 에셋 계약). 예: up_Solitaire_CARD_H1. */
 export const cardFaceKey = (suit: Suit, rank: Rank): string => `up_Solitaire_CARD_${suit}${rank}`;
 /** 카드 뒷면 텍스처 키. */
@@ -32,7 +39,7 @@ export const CARD_BACK_KEY = 'up_Solitaire_CARD_back';
 export const BACK_BG_KEY = 'up_Solitaire_BG_Back01';
 /** 보드 반투명 막 패널(에디터 저작 Slitare_BG_Back02_v2·어두운 프레임) — 플레이 보드 배경. */
 export const BOARD_PANEL_KEY = 'up_Slitare_BG_Back02_v2';
-export const BOARD_PANEL_PATH = 'ui/uploads/up_Slitare_BG_Back02_v2.png';
+export const BOARD_PANEL_PATH = uploadPath('up_Slitare_BG_Back02_v2');
 /** 층(상점 스토어front) 아트 키 — 레벨 1..5 = up_Solitaire_BG_01..05. */
 export const floorArtKey = (level: number): string => `up_Solitaire_BG_0${((level - 1) % 5) + 1}`;
 
