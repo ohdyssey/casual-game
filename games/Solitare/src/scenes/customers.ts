@@ -78,8 +78,13 @@ export interface CustomerSpot {
   readonly floor: number;
   /** 스테이지(1=좌측 기본, 2=우측). 아이템 세트 선택. 미지정=1. */
   readonly stage?: number;
-  /** **만족 방문 콜백** — 손님이 만족(코인 드랍)하면 이 층·**떨어뜨린 코인 수**로 호출(점포 코인 누적용). */
+  /** **만족 방문 콜백** — 손님이 만족(코인 드랍)하면 이 층·**획득 코인**으로 호출(점포 코인 누적용). */
   readonly onSatisfied?: (floor: number, coins: number) => void;
+  /**
+   * **상점 수익성** — 만족 방문 1회당 획득 코인. 상점(층)마다 다르게 설정한다(고급 상점=고수익).
+   *   미지정이면 기존 기본(3~4 랜덤). 코인 연출 개수·+N 표기도 이 값에 비례.
+   */
+  readonly coinYield?: number;
 }
 
 /** 손님 시트 10종 + 말풍선/아이템/이모지 로드(HomeScene.preload 에서 호출). */
@@ -241,10 +246,12 @@ function visit(
     clearBubble();
     const res = rollImoji();
     bubble = makeBubble(scene, headCenterX(img, FRONT), spot, BUBBLE_DONE, res.key, spot.depth);
-    // 만족(불만 아님)하면 코인을 떨어뜨린다(허리 아래쯤에서 시작 — 얼굴 가리지 않게) + **떨어뜨린 수만큼 점포 누적**.
+    // 만족(불만 아님)하면 코인을 떨어뜨린다(허리 아래쯤에서 시작 — 얼굴 가리지 않게) + **상점 수익만큼 점포 누적**.
     if (!res.bad) {
-      const dropped = dropCoins(scene, spot.centerX, spot.groundY - spot.height * 0.35, spot.depth);
-      spot.onSatisfied?.(spot.floor, dropped);
+      const amount = spot.coinYield ?? Phaser.Math.Between(3, 4); // 상점별 수익(미지정=기존 기본).
+      const visual = Phaser.Math.Clamp(2 + Math.round(amount / 3), 3, 8); // 수익 비례 코인 연출 개수.
+      dropCoins(scene, spot.centerX, spot.groundY - spot.height * 0.35, spot.depth, visual, amount);
+      spot.onSatisfied?.(spot.floor, amount);
     }
   });
   // ⑤ 옆모습(퇴장 방향)으로 점원 반대편(등장 지점)으로 걸어 나가며 페이드아웃.
@@ -306,12 +313,30 @@ function makeBubble(
 /**
  * 만족 보상 — 손님 몸에서 코인이 **살짝 튀어올랐다 아래로 떨어지며** 스핀(회전 스프라이트)하고 사라진다.
  *   (x,y)=코인이 솟는 시작점(손님 상체). 여러 개를 시차(delay)로 뿌린다.
+ *   count=연출 코인 개수(상점 수익 비례), amount=획득 코인(+N 플로팅 표기 — 상점별 수익성 시각화).
  */
-function dropCoins(scene: Phaser.Scene, x: number, y: number, baseDepth: number): number {
-  if (!scene.anims.exists(COIN_SPIN)) return 0;
+function dropCoins(scene: Phaser.Scene, x: number, y: number, baseDepth: number, count?: number, amount?: number): void {
+  if (!scene.anims.exists(COIN_SPIN)) return;
   sfx('coin_burst', { volume: 0.1 }); // 코인 보상 쏟아짐(볼륨 더 하향).
   const s = 44 / 148; // 코인 표시 높이 ~44px(프레임 높이 ~148, 약간 작게).
-  const n = Phaser.Math.Between(3, 4); // 약간 적게.
+  const n = count ?? Phaser.Math.Between(3, 4);
+  // **+N 플로팅 표기** — 이 상점의 방문 수익을 명시(층마다 다른 수익성이 눈에 보이게).
+  if (amount != null && amount > 0) {
+    const txt = scene.add
+      .text(x, y - 26, `+${amount}`, {
+        fontFamily: '"Jua", sans-serif',
+        fontSize: '40px',
+        color: '#ffd23f',
+        stroke: '#5a3210',
+        strokeThickness: 6,
+      })
+      .setOrigin(0.5)
+      .setDepth(baseDepth + 52)
+      .setAlpha(0);
+    pinWorld(scene, txt);
+    scene.tweens.add({ targets: txt, alpha: 1, y: y - 92, duration: 620, ease: 'Quad.easeOut' });
+    scene.tweens.add({ targets: txt, alpha: 0, duration: 340, delay: 700, onComplete: () => txt.destroy() });
+  }
   for (let i = 0; i < n; i++) {
     const c = scene.add.sprite(x, y, COIN_KEYS[0]).setDepth(baseDepth + 50).setScale(s);
     pinWorld(scene, c);
@@ -332,7 +357,6 @@ function dropCoins(scene: Phaser.Scene, x: number, y: number, baseDepth: number)
       },
     });
   }
-  return n; // 떨어뜨린 코인 수(점포 누적에 사용).
 }
 
 /**
