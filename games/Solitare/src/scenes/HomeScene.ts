@@ -71,6 +71,7 @@ const OFFICE_FLOORS = 3; // 공공건물 층 수 — **초기 릴리스는 3층�
 const OFFICE_CX = LOT1L_CX; // 좌측 부지 중심(-540).
 const UI_OFFICE_KEY = 'ui_office'; // 공공건물 에디터 저작 레이아웃(home_copy2.json) — 관리자 캐릭터 배치 좌표 소스.
 const UI_SALE_KEY = 'ui_sale'; // 판매건물(폐건물) 에디터 저작 레이아웃(home_copy2_copy.json) — 간판·텍스트 배치 좌표 소스.
+const UI_DAILY_KEY = 'ui_daily'; // 데일리 미션 팝업 에디터 저작 레이아웃(blank_copy.json, 720×1600) — 랭크 버튼으로 오픈.
 // **공공건물 지붕**(Office_roof) — 최상층 위에 civic 지붕(돔·시계·중앙 네임플레이트). 상단 지명은 나중에 얹는다(임시로 지붕만).
 const OFFICE_ROOF_KEY = 'up_Slitare_Office_roof';
 const OFFICE_ROOF_W = 840; // 건물 폭(858)에 맞춤(양옆 여백 약간). ⚠️LOT2_FLOOR_W는 아래에서 선언되므로 리터럴 사용.
@@ -328,6 +329,7 @@ export class HomeScene extends Phaser.Scene {
     if (!this.textures.exists(OFFICE_ROOF_KEY)) this.load.image(OFFICE_ROOF_KEY, `ui/uploads/${OFFICE_ROOF_KEY}.png`); // 공공건물 지붕.
     this.load.json(UI_OFFICE_KEY, 'ui/layouts/home_copy2.json'); // 관리자 배치 좌표(빌딩 대비 상대).
     this.load.json(UI_SALE_KEY, 'ui/layouts/home_copy2_copy.json'); // 판매건물 간판·텍스트 배치 좌표(빌딩 대비 상대).
+    this.load.json(UI_DAILY_KEY, 'ui/layouts/blank_copy.json'); // 데일리 미션 팝업 레이아웃.
     // **구입 가능한 폐건물** — 앞 'FOR SALE' 표지판(UI_24-1~3) + 상단 간판(UI_25-1~3, 잠금/구입 메시지). 부지별 변형·건설 시 삭제.
     for (let n = 1; n <= FOR_SALE_VARIANTS; n++) {
       const k24 = `up_Solitare_UI_24-${n}`;
@@ -447,6 +449,14 @@ export class HomeScene extends Phaser.Scene {
         this.openItemShop();
       });
     }
+    // **데일리 미션** — 우측 레일 '랭킹'(layer_11_copy4) 아이콘 → 데일리 경쟁 미션 팝업.
+    idx
+      .tryById<Phaser.GameObjects.Image>('layer_11_copy4')
+      ?.setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        sfx('button');
+        this.showDailyMission();
+      });
     // **좌우 스테이지 이동 화살표**(디자이너 배치) — 스와이프를 모르는 플레이어용. 누르면 한 스테이지씩 팬.
     //   layer_17=좌(x=72), layer_17_copy=우(x=1004). 해당 방향 스테이지 없으면 updateLotArrows 가 숨김.
     this.leftArrow = idx.tryById<Phaser.GameObjects.Image>('layer_17');
@@ -623,6 +633,63 @@ export class HomeScene extends Phaser.Scene {
       z.on('pointerdown', closePopup);
       layer.add(z);
     }
+
+    // 등장 페이드인.
+    layer.setAlpha(0);
+    this.tweens.add({ targets: layer, alpha: 1, duration: 160, ease: 'Quad.easeOut' });
+  }
+
+  /**
+   * **데일리 미션 팝업**(우상단 랭크 버튼) — 에디터 저작 blank_copy.json(720×1600 · DAILY COMPETITION MISSION)을
+   *   세로HD(1080×2400)에 균일 스케일(×1.5)로 렌더. 지금은 저작 그대로(정적) + 닫기만 배선(랭킹/점수 동적화는 백엔드 시).
+   */
+  private showDailyMission(): void {
+    const doc = (this.cache.json.get(UI_DAILY_KEY) ?? null) as EntryDoc | null;
+    if (!doc || !Array.isArray(doc.nodes) || doc.nodes.length === 0) {
+      this.toast('데일리 미션 준비 중');
+      return;
+    }
+    const scale = W / doc.frame.designW; // 720 → 1080 = 1.5.
+    const layer = this.add.container(0, 0).setDepth(4000);
+    this.pinToUi(layer); // UI(고정) 카메라 전용.
+
+    const closePopup = (): void => {
+      sfx('level_close');
+      layer.destroy();
+    };
+    const scrim = this.add.rectangle(0, 0, W, H, 0x140a1e, 0.86).setOrigin(0, 0).setInteractive();
+    scrim.on('pointerdown', closePopup); // 딤 배경 탭 = 닫기.
+    layer.add(scrim);
+
+    const byId = new Map<string, Phaser.GameObjects.Image | Phaser.GameObjects.Text>();
+    for (const n of doc.nodes) {
+      if (n.visible === false) continue;
+      let obj: Phaser.GameObjects.Image | Phaser.GameObjects.Text | null = null;
+      if (n.type === 'image' && n.key) {
+        if (!this.textures.exists(n.key)) continue; // 텍스처 누락 방어.
+        const img = this.add.image(n.x * scale, n.y * scale, n.key);
+        if (n.w && n.h) img.setDisplaySize(n.w * scale, n.h * scale);
+        obj = img;
+      } else if (n.type === 'text') {
+        const family = n.fontFamily ? `"${n.fontFamily}", "Jua", sans-serif` : '"Jua", sans-serif';
+        const t = this.add.text(n.x * scale, n.y * scale, n.text ?? '', {
+          fontFamily: family,
+          fontSize: `${Math.round((n.fontSize ?? 20) * scale)}px`,
+          color: n.color ?? '#ffffff',
+          align: 'center',
+        });
+        if (n.stroke && (n.strokeW ?? 0) > 0) t.setStroke(n.stroke, (n.strokeW ?? 0) * 2 * scale);
+        if (n.shadow) t.setShadow((n.shadowX ?? 2) * scale, (n.shadowY ?? 2) * scale, n.shadowColor ?? '#000000', (n.shadowBlur ?? 2) * scale, false, true);
+        obj = t;
+      }
+      if (!obj) continue;
+      obj.setOrigin(0.5, 0.5);
+      layer.add(obj);
+      byId.set(n.id, obj);
+    }
+
+    // 닫기(✕) 버튼 = layer_3_copy19(하단 빨간 X, up_DailyMission_08_v2).
+    (byId.get('layer_3_copy19') as Phaser.GameObjects.Image | undefined)?.setInteractive({ useHandCursor: true }).on('pointerdown', closePopup);
 
     // 등장 페이드인.
     layer.setAlpha(0);
