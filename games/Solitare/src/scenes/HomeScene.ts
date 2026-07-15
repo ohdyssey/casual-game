@@ -108,6 +108,7 @@ const FOR_SALE_DEPTH = RUIN_DEPTH + 1.5; // 폐건물 바로 앞(지면 표지�
 const LOT_SIGN_W = Math.round(RUIN_W * 0.9); // 간판 표시 폭 = **건물 지붕 폭**(지붕이 건물 상단 가로를 거의 다 덮음).
 const LOT_SIGN_DEPTH = RUIN_DEPTH - 2; // **건물 뒤** — 지붕/박공이 간판 하단을 덮어 지붕 위로 솟은 부분만 보인다.
 const LOT_SIGN_OVERLAP = 118; // 간판 하단(다리)이 지붕 꼭대기 뒤로 겹치는 양 — 다리가 지붕 기와에 닿도록 더 아래로 내림.
+const LOT_SIGN_RAISE_FRAC = 0.13; // 저작 배치 대비 간판을 이 비율(간판높이)만큼 위로 — 지붕에 덜 파묻히게(사용자 요청·부지 간 일관).
 const LOT_SIGN_TEXT_DEPTH = 62; // 간판 메시지(간판 위·항상 최상단).
 // **중경 패럴랙스 계수**(applyParallax·중경 도로 통행 공용) — 가로는 근경보다 느리게(붙어 이동 방지),
 //   세로는 미세하게만(근경 침범 방지). 중경 도로에 얹는 자동차도 이 계수로 동기화한다.
@@ -1802,10 +1803,11 @@ export class HomeScene extends Phaser.Scene {
         const dh = ruin.displayHeight;
         const boardW = place.boardWFrac * dw;
         const h = boardW * (src.height / Math.max(1, src.width)); // 텍스처 비율 보존.
-        board = this.add.image(ruin.x + place.boardXFrac * dw, ruinTop + place.boardVFrac * dh, key).setDisplaySize(boardW, h).setDepth(LOT_SIGN_DEPTH);
+        const raise = h * LOT_SIGN_RAISE_FRAC; // 간판을 조금 위로(지붕에 덜 파묻히게) — 간판높이 기준이라 부지 간 일관.
+        board = this.add.image(ruin.x + place.boardXFrac * dw, ruinTop + place.boardVFrac * dh - raise, key).setDisplaySize(boardW, h).setDepth(LOT_SIGN_DEPTH);
         this.pinToWorld(board);
         panelX = ruin.x + place.textXFrac * dw;
-        panelY = ruinTop + place.textVFrac * dh;
+        panelY = ruinTop + place.textVFrac * dh - raise; // 텍스트도 같이 올려 패널 유지.
       } else {
         // 폴백(저작 배치 없음) — 실지붕에 얹고 밝은 패널 중심 검출.
         const h = LOT_SIGN_W * (src.height / Math.max(1, src.width));
