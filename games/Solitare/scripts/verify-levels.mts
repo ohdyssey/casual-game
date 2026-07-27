@@ -11,13 +11,14 @@
  *  [6] 배치 중복 — 서로 다른 레벨이 완전히 같은 배치인가("동일한 것이 많다" 방지).
  */
 import fs from 'node:fs';
+import { isTrapLevel } from './trap-levels.mts';
 
 const CARD_W = 120, CARD_H = 164;
 const FRAME = { top: 787, bottom: 1950, left: 55, right: 1025 };
 const COVER_MIN = 0.15; // editorLevels.ts PERCEPTIBLE_COVER 와 동일.
 
 interface Slot { id: string; x: number; y: number; layer: number; face?: string }
-interface LevelDoc { name: string; slots: Slot[]; deal?: { board?: unknown[]; stock?: unknown[]; solution?: unknown[] } }
+interface LevelDoc { name: string; slots: Slot[]; trap?: boolean; deal?: { board?: unknown[]; stock?: unknown[]; solution?: unknown[] } }
 
 const files = process.argv.slice(2);
 if (files.length === 0) { console.error('사용: verify-levels.mts <파일1> [파일2 ...]'); process.exit(1); }
@@ -31,7 +32,7 @@ for (const f of files) {
 
 const minTotalForLevel = (level: number) => Math.round(24 + ((level - 1) / 499) * (56 - 24));
 
-const problems = { bounds: [] as number[], openUnder: [] as string[], asym: [] as number[], deal: [] as number[], noSolution: [] as number[], floor: [] as string[], dup: [] as string[] };
+const problems = { bounds: [] as number[], openUnder: [] as string[], asym: [] as number[], deal: [] as number[], noSolution: [] as number[], trapMismatch: [] as string[], floor: [] as string[], dup: [] as string[] };
 const signatures = new Map<string, number>();
 const keys = [...levels.keys()].sort((a, b) => a - b);
 
@@ -64,13 +65,18 @@ for (const lv of keys) {
   const set = new Set(slots.map((s) => key(s.x, s.y, s.layer)));
   if (slots.some((s) => !set.has(key(2 * axis - s.x, s.y, s.layer)))) problems.asym.push(lv);
 
-  // [4] 딜 + 해답.
+  // [4] 딜 + 해답. 함정 레벨(trap)은 **일부러 그대로는 못 끝내게** 만든 레벨이라 해답이 없는 게 정상이다.
+  // 함정은 **런타임 승률**(동적 스톡이 부족)로 정의되고, 정적 해답은 "보드가 원리적으로 클리어 가능한가"라는
+  // 다른 층위의 보증이다 — 둘은 모순이 아니므로 함정에 해답이 있어도/없어도 정상이다.
   if (!doc.deal?.board || !doc.deal?.stock) problems.deal.push(lv);
-  else if (!doc.deal.solution) problems.noSolution.push(lv);
+  else if (!doc.deal.solution && !doc.trap) problems.noSolution.push(lv);
 
   // [5] 카드수 하한.
   const floor = minTotalForLevel(lv);
   if (slots.length < floor) problems.floor.push(`lv${lv}: ${slots.length}<${floor}`);
+
+  // [5-2] 함정 표시가 단일 기준(trap-levels.mts)과 일치하는가 — 표시 누락/오표시 둘 다 잡는다.
+  if (!!doc.trap !== isTrapLevel(lv)) problems.trapMismatch.push(`lv${lv}: 문서 ${doc.trap ? '함정' : '일반'} vs 기준 ${isTrapLevel(lv) ? '함정' : '일반'}`);
 
   // [6] 배치 중복.
   const sig = slots.map((s) => `${Math.round(s.x)},${Math.round(s.y)}`).sort().join(';');
@@ -87,11 +93,14 @@ show('보드 경계 초과', problems.bounds);
 show('오픈 카드 위에 덮는 카드 존재', problems.openUnder);
 show('좌우 비대칭', problems.asym);
 show('딜 누락/손상', problems.deal);
-show('해답 미확보', problems.noSolution);
+show('해답 미확보(함정 제외)', problems.noSolution);
+
+show('함정 표시가 기준과 불일치', problems.trapMismatch);
 show('카드수 하한 미달', problems.floor);
 show('배치 완전 중복', problems.dup);
 const counts = keys.map((k) => levels.get(k)!.slots.length);
 console.log(`  카드수: ${Math.min(...counts)} ~ ${Math.max(...counts)} · 고유 배치 ${signatures.size}/${keys.length}`);
 
-const fatal = problems.bounds.length + problems.openUnder.length + problems.asym.length + problems.deal.length;
+const fatal = problems.bounds.length + problems.openUnder.length + problems.asym.length + problems.deal.length
+  + problems.trapMismatch.length;
 process.exit(fatal > 0 ? 1 : 0);
