@@ -28,11 +28,17 @@ export function targetCardsForLevel(level: number): number {
   return Math.round(40 + ((lv - 100) / 400) * (48 - 40));
 }
 
-/** 레벨 → 런타임 뽑기 비율(보드 대비). 1→0.95, 100→0.75, 500→0.65 로 완만히 하강. */
+/**
+ * 레벨 → 런타임 뽑기 비율(보드 대비). 1→0.80, 100→0.65, 500→0.58 로 완만히 하강.
+ *
+ * **2026-07-28 하향**(0.95/0.75/0.65 → 아래) — 매칭 확률(tripeaks.NEUTRAL_FEED)을 올려 같은 클리어율을
+ * 적은 뽑기로 얻게 됐다. 예전 비율은 더미가 보드보다 두꺼워 보여 "뽑기 카드가 너무 많다"는 지적을 받았다.
+ * 작은 보드(저레벨)는 절대 장수가 적어 불리하므로 비율을 조금 더 준다.
+ */
 export function stockRatioForLevel(level: number): number {
   const lv = Math.max(1, Math.min(500, level));
-  if (lv <= 100) return 0.95 - ((lv - 1) / 99) * (0.95 - 0.75);
-  return 0.75 - ((lv - 100) / 400) * (0.75 - 0.65);
+  if (lv <= 100) return 0.8 - ((lv - 1) / 99) * (0.8 - 0.65);
+  return 0.65 - ((lv - 100) / 400) * (0.65 - 0.58);
 }
 
 /**

@@ -46,7 +46,7 @@ const MAX_BUYS = 12;
 const MAX_P90_BUYS = 1;                 // 모든 레벨: 10판 중 9판은 구매 **1회 이하**로 끝나야 한다.
 const NORMAL_MAX_AVG = 0.2;             // 일반: 대부분 무구매.
 const TRAP_MAX_AVG = 0.7;               // 함정: 절반 남짓은 한 번 사게 — 체감은 주되 여러 번은 아니다.
-const MAX_STOCK_RATIO = 2.5;            // 필요하면 뽑기를 넉넉히 준다(모자란 것보다 낫다).
+const MAX_STOCK_RATIO = 1.0;            // 더미가 보드보다 두꺼워 보이지 않게 상한을 보드 크기까지로 제한("뽑기가 너무 많다" 지적).
 
 type Doc = CardBoardDoc & {
   name: string; trap?: boolean;
