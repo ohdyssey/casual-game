@@ -10,7 +10,7 @@ import { bakeLevel } from './level-kit.mts';
 import { gridToSlots, validateGrid, openCellsOf } from './cell-grid.mts';
 import { CELLS, type CellShape } from './cell-library.mts';
 import { assembleGroups, SKELETONS, STACKABLE, CENTER_STACKABLE, MAX_ROW_SPAN, type GroupSpec } from './level-assembler.mts';
-import { targetCardsForLevel, stockRatioForLevel, authoredFromRuntime } from './level-curve.mts';
+import { targetCardsForLevel, stockRatioForLevel, authoredFromRuntime, MAX_BOARD_CARDS } from './level-curve.mts';
 
 const inPath = process.argv[2];
 const outPath = process.argv[3];
@@ -59,6 +59,7 @@ function recompose(level: number, target: number, used: Set<string>, salt: numbe
     if (failed) continue;
     const res = assembleGroups(groups);
     if (!res.ok) continue;
+    if (res.cells.length > MAX_BOARD_CARDS) continue; // build-cells-range.mts 와 동일한 하드 상한.
     const sig = [...res.cells].map((c) => `${c.col},${c.row}`).sort().join(';');
     if (used.has(sig)) continue; // 이미 쓰인 배치 — 다른 걸 찾는다.
     const delta = res.cells.length - target;

@@ -12,7 +12,7 @@ import { bakeLevel } from './level-kit.mts';
 import { gridToSlots, validateGrid, openCellsOf } from './cell-grid.mts';
 import { CELLS, type CellShape } from './cell-library.mts';
 import { assembleGroups, SKELETONS, STACKABLE, CENTER_STACKABLE, MAX_ROW_SPAN, type GroupSpec } from './level-assembler.mts';
-import { targetCardsForLevel, stockRatioForLevel, authoredFromRuntime } from './level-curve.mts';
+import { targetCardsForLevel, stockRatioForLevel, authoredFromRuntime, MAX_BOARD_CARDS } from './level-curve.mts';
 
 const from = parseInt(process.argv[2], 10);
 const to = parseInt(process.argv[3], 10);
@@ -82,6 +82,11 @@ function composeLevel(level: number, target: number) {
     if (failed) continue;
     const res = assembleGroups(groups);
     if (!res.ok) continue;
+    // ⚠️ **하드 상한(MAX_BOARD_CARDS=40)은 점수가 아니라 필터다.** 점수만으로 페널티를 줬더니(초과에
+    // 1배, 미달에 10배) 골라둔 목표가 이미 40인 고레벨에서 조립 지터(±1)·셀 최소단위 때문에 41~44장
+    // 짜리가 "그나마 나은 후보"로 뽑히는 사고가 났다(500레벨 중 61개가 40 초과, 최대 44). 상한을 넘는
+    // 후보는 아예 채점 대상에서 뺀다 — 못 채운 미달(39장 등)이 40 초과보다 항상 낫다.
+    if (res.cells.length > MAX_BOARD_CARDS) continue;
     // 하한 미달은 초과보다 훨씬 나쁘다(카드수 곡선이 레벨 난이도 기준) — 미달에 10배 페널티.
     const delta = res.cells.length - target;
     let score = delta < 0 ? -delta * 10 : delta;
