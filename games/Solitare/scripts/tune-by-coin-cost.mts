@@ -12,9 +12,9 @@
  * → 승률 대신 **평균 구매 횟수**를 직접 목표로 삼는다. 이게 플레이어가 실제로 체감하는 비용이다.
  *
  * ## 목표
- *  - 일반: 평균 구매 ≤ NORMAL_MAX_BUYS(0.3회). 대부분 추가 구매 없이 끝난다.
- *  - 함정: 평균 구매를 TRAP_BUYS_LO~HI(0.8~2.0회)에 둔다 — "여기서 한 번 지갑이 열린다"는 체감은
- *    주되, 4~6회씩 빨아먹지 않는다.
+ *  - 모든 레벨: 90퍼센타일 구매 ≤ 1회 — "＋카드를 여러 번 사야 깨진다"는 상황을 없앤다.
+ *  - 일반: 평균 ≤ 0.2회(대부분 무구매).
+ *  - 함정: 평균 ≤ 0.7회 — "여기서 한 번 지갑이 열린다"는 체감은 주되, 여러 번은 아니다.
  */
 import fs from 'node:fs';
 import { solveWitness } from './level-kit.mts';
@@ -35,12 +35,18 @@ if (!Number.isFinite(from) || !Number.isFinite(to) || !inPath || !outPath) {
   process.exit(1);
 }
 
-const TRIES = 30;
+const TRIES = 40;
 const ADD5_COUNT = 5;
 const MAX_BUYS = 12;
-const NORMAL_MAX_BUYS = 0.3;            // 일반: 판당 평균 이 이하로.
-const TRAP_BUYS_LO = 0.8, TRAP_BUYS_HI = 2.0; // 함정: 대략 한 번 사면 넘어가는 수준.
-const MAX_STOCK_RATIO = 1.6;            // 뽑기를 무한정 늘릴 수는 없다(더미가 비정상적으로 두꺼워짐).
+/**
+ * ⚠️ **평균이 아니라 최악 경우(90퍼센타일)를 잡아야 한다.**
+ * 평균만 맞췄더니 lv188 은 평균 2.0회인데 90퍼센타일이 **4회**라, 실제로 플레이하면 ＋카드를 여러 번
+ * 사야 깨지는 판이 나왔다(PO 지적). "여러 번 사야 한다"는 상황 자체를 없애려면 꼬리를 눌러야 한다.
+ */
+const MAX_P90_BUYS = 1;                 // 모든 레벨: 10판 중 9판은 구매 **1회 이하**로 끝나야 한다.
+const NORMAL_MAX_AVG = 0.2;             // 일반: 대부분 무구매.
+const TRAP_MAX_AVG = 0.7;               // 함정: 절반 남짓은 한 번 사게 — 체감은 주되 여러 번은 아니다.
+const MAX_STOCK_RATIO = 2.5;            // 필요하면 뽑기를 넉넉히 준다(모자란 것보다 낫다).
 
 type Doc = CardBoardDoc & {
   name: string; trap?: boolean;
@@ -94,34 +100,43 @@ for (let level = from; level <= to; level++) {
   const grade: 1 | 2 | 3 = trap ? 3 : gradeForLevel(level);
   const layout = cardBoardToLayout({ ...src, difficulty: { target: grade } } as Doc, 'lv' + level);
 
-  /** 뽑기 c 장일 때 판당 평균 ＋5 구매 횟수. */
-  const buysAt = (c: number): number => {
+  /** 뽑기 c 장일 때 판당 ＋5 구매 횟수의 평균과 90퍼센타일(최악 경우). */
+  const buysAt = (c: number): { avg: number; p90: number } => {
     const start = dealDynamic(layout, seededRng(level * 7919 + 104729), grade, {
       board: src.deal.board, waste: src.deal.waste, stockCount: c,
     });
-    let sum = 0;
-    for (let i = 0; i < TRIES; i++) sum += playoutWithBuys(start, seededRng(level * 100000 + i * 7 + 1));
-    return sum / TRIES;
+    const list: number[] = [];
+    for (let i = 0; i < TRIES; i++) list.push(playoutWithBuys(start, seededRng(level * 100000 + i * 7 + 1)));
+    list.sort((a, b) => a - b);
+    return { avg: list.reduce((s, v) => s + v, 0) / list.length, p90: list[Math.floor(list.length * 0.9)] };
   };
 
   const minCount = authoredFromRuntime(Math.max(6, Math.round(n * MIN_STOCK_RATIO)));
   const maxCount = authoredFromRuntime(Math.round(n * MAX_STOCK_RATIO));
+  const avgCap = trap ? TRAP_MAX_AVG : NORMAL_MAX_AVG;
   let count = authoredFromRuntime(Math.round(n * stockRatioForLevel(level)));
-  let buys = buysAt(count);
+  let m = buysAt(count);
 
+  // **꼬리(p90)와 평균을 둘 다 만족할 때까지 뽑기를 늘린다.** 줄이는 방향은 쓰지 않는다 — 줄이면
+  // "여러 번 사야 하는 판"이 다시 생기고, 그게 이번에 지적받은 바로 그 문제다.
+  let guard = 0;
+  while ((m.p90 > MAX_P90_BUYS || m.avg > avgCap) && count < maxCount && guard++ < 30) {
+    count = Math.min(maxCount, Math.round(count * 1.12) + 3);
+    m = buysAt(count);
+  }
+  // 함정은 위 조건을 만족한 뒤에도 너무 물러지면(무구매로 술술 깨지면) 체감이 없다 — p90 을 지키는
+  // 선에서만 살짝 조인다.
   if (trap) {
-    // 함정: 목표 구간보다 많이 사게 되면 **뽑기를 늘려** 완화하고, 너무 안 사면 줄여 체감을 만든다.
-    let guard = 0;
-    while (buys > TRAP_BUYS_HI && count < maxCount && guard++ < 25) { count = Math.min(maxCount, Math.round(count * 1.12) + 2); buys = buysAt(count); }
-    guard = 0;
-    while (buys < TRAP_BUYS_LO && count > minCount && guard++ < 25) { count = Math.max(minCount, count - 4); buys = buysAt(count); }
-  } else {
-    // 일반: 구매가 목표를 넘으면 뽑기를 늘린다(코인 소모를 줄이는 유일한 안전한 레버).
-    let guard = 0;
-    while (buys > NORMAL_MAX_BUYS && count < maxCount && guard++ < 25) { count = Math.min(maxCount, Math.round(count * 1.12) + 2); buys = buysAt(count); }
+    let g2 = 0;
+    while (m.avg < 0.25 && count > minCount && g2++ < 15) {
+      const c2 = Math.max(minCount, count - 3);
+      const m2 = buysAt(c2);
+      if (m2.p90 > MAX_P90_BUYS) break; // 꼬리가 튀면 되돌린다 — 꼬리 조건이 우선.
+      count = c2; m = m2;
+    }
   }
 
-  const onTarget = trap ? buys >= TRAP_BUYS_LO && buys <= TRAP_BUYS_HI : buys <= NORMAL_MAX_BUYS;
+  const onTarget = m.p90 <= MAX_P90_BUYS && m.avg <= avgCap;
   if (!onTarget) offTarget++;
 
   // 확정 장수에 맞춰 스톡 랭크를 새로 뽑고 해답을 다시 찾는다(보드·기준카드는 그대로).
@@ -144,14 +159,15 @@ for (let level = from; level <= to; level++) {
     difficulty: { target: grade },
     ...(src.budget ? { budget: { ...src.budget, stock: count } } : {}),
     deal: { board: src.deal.board, waste: src.deal.waste, stock: stock!, ...(solution ? { solution } : {}) },
-    tunedAvgBuys: Math.round(buys * 100) / 100,
+    tunedAvgBuys: Math.round(m.avg * 100) / 100,
+    tunedP90Buys: m.p90,
   };
   if (trap) doc.trap = true; else delete doc.trap;
   results[String(level)] = doc;
   ok++;
 
   if (level % 20 === 0 || level === from || trap) {
-    console.log(`[${from}-${to}] lv${level}${trap ? ' ⚠함정' : '      '}: 보드${n} 뽑기${runtimeFromAuthored(count)}(비율 ${(runtimeFromAuthored(count) / n).toFixed(2)}) 평균구매 ${buys.toFixed(2)}회${onTarget ? '' : ' ※목표밖'}${solution ? '' : ' ※정적해답없음'}`);
+    console.log(`[${from}-${to}] lv${level}${trap ? ' ⚠함정' : '      '}: 보드${n} 뽑기${runtimeFromAuthored(count)}(비율 ${(runtimeFromAuthored(count) / n).toFixed(2)}) 평균구매 ${m.avg.toFixed(2)}회(최악 ${m.p90})${onTarget ? '' : ' ※목표밖'}${solution ? '' : ' ※정적해답없음'}`);
   }
 }
 
