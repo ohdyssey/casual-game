@@ -22,9 +22,11 @@ import { findSameRowOverlaps, type GridCell } from './cell-grid.mts';
 
 // 실제 보드(55~1025 / 787~1950, PlayScene.ts 실측) + fitToFrame 기본 패딩 24 를 뺀 유효 영역
 // (가로 922 · 세로 1115) 안에 카드(120×164)가 들어가는 격자 한도 — 이보다 크면 fitToFrame 이 경고를 낸다.
-// 가로: (922-120)/60 = 13.4 → 열 스팬 최대 13. 세로: (1115-164)/82 = 11.6 → 행 스팬 최대 11.
-export const MAX_COL_SPAN = 13;
-export const MAX_ROW_SPAN = 11;
+// 가로: (922-120)/70 = 11.4 → 열 스팬 최대 11. 세로: (1115-164)/92 = 10.3 → 행 스팬 최대 10.
+// (간격을 절반보다 키워 겹침/비겹침을 눈에 띄게 만든 만큼 용량은 줄었다 — 이론 최대 66장으로,
+//  새 카드수 곡선의 상한 48장에는 여유가 있다. level-curve.mts 참고.)
+export const MAX_COL_SPAN = 11;
+export const MAX_ROW_SPAN = 10;
 const CENTER_COL = 40; // 조립 중 임시 중심(마지막에 정규화하므로 값 자체는 무의미, 음수열 방지용 여유).
 
 export interface GroupSpec {

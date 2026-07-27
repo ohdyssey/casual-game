@@ -12,6 +12,7 @@ import { bakeLevel } from './level-kit.mts';
 import { gridToSlots, validateGrid, openCellsOf } from './cell-grid.mts';
 import { CELLS, type CellShape } from './cell-library.mts';
 import { assembleGroups, SKELETONS, STACKABLE, CENTER_STACKABLE, MAX_ROW_SPAN, type GroupSpec } from './level-assembler.mts';
+import { targetCardsForLevel, stockRatioForLevel, authoredFromRuntime } from './level-curve.mts';
 
 const from = parseInt(process.argv[2], 10);
 const to = parseInt(process.argv[3], 10);
@@ -30,11 +31,6 @@ function rngOf(seed: number): () => number {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-/** 레벨(1~500) → 카드수 하한선(24~56, 매우 점진적 상승) — 이전 시스템과 동일 곡선 유지. */
-function minTotalForLevel(level: number): number {
-  return Math.round(24 + ((level - 1) / 499) * (56 - 24));
 }
 
 const pick = <T>(arr: readonly T[], r: number): T => arr[Math.floor(r * arr.length) % arr.length];
@@ -107,7 +103,7 @@ const results: Record<string, unknown> = {};
 let ok = 0, warn = 0, composeFail = 0;
 const signatures = new Map<string, number>();
 for (let level = from; level <= to; level++) {
-  const target = minTotalForLevel(level);
+  const target = targetCardsForLevel(level);
   const best = composeLevel(level, target);
   if (!best) { composeFail++; console.warn(`lv${level}: 조립 실패 — 건너뜀`); continue; }
 
@@ -120,9 +116,10 @@ for (let level = from; level <= to; level++) {
 
   const raw = gridToSlots(best.cells);
   const n = raw.length;
-  // 작은 스톡부터 시도해 "아슬아슬하게 풀리는" 쪽을 채택하되, 깊은 단일 기둥형처럼 의존 사슬이 긴 배치는
-  // 넉넉한 스톡이라야 풀린다(실측: lv7 은 120%, lv24 는 100% 에서 처음 해답 확보) — 상단 후보를 넓혀둔다.
-  const stockCandidates = [0.55, 0.65, 0.75, 0.9, 1.05, 1.2].map((f) => Math.round(n * f));
+  // 뽑기는 **보드 크기에 비례한 설계값**(level-curve)에서 출발한다 — 예전처럼 "풀리는 최소치"를 쓰면
+  // 보드와 무관하게 정해져 뽑기가 모자라 보인다(PO 지적). 못 풀면 조금씩 늘려가며 재시도.
+  const designed = authoredFromRuntime(Math.round(n * stockRatioForLevel(level)));
+  const stockCandidates = [1, 1.15, 1.35, 1.6].map((f) => Math.round(designed * f));
   const baked = bakeLevel({ id: `cel${level}`, name: `${level}. ${best.key}`, level, raw, stockCandidates, seedTries: 80, solveCap: 1_200_000 });
   results[String(level)] = baked.doc;
   if (baked.solMoves != null) ok++; else warn++;

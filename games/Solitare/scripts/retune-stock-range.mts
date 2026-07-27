@@ -12,8 +12,11 @@
  *   **보드·기준카드를 고정**한다. 그러면 승률은 장수만의 함수라 곡선이 안정되고 이분 탐색이 통한다.
  *   확정된 장수에 맞춰 스톡 랭크를 새로 뽑고 solveWitness 로 해답을 다시 찾아 문서 정합성을 맞춘다.
  *
- * ## 목표(PO 2026-07-27)
- *  - 일반 = **아슬아슬한 완성**: 그리디 봇 승률 TARGET_LO~HI 에 드는 **최소** 장수.
+ * ## 목표
+ *  - 일반: **보드 크기에 비례한 설계값**(level-curve.stockRatioForLevel)을 기본으로 삼고, 플레이 가능
+ *    범위(MIN_WR~MAX_WR)를 벗어날 때만 조정한다. 예전엔 승률 밴드만 보고 "풀리는 최소 장수"를 썼더니
+ *    뽑기가 보드와 무관해져 비율이 0.10~0.78 로 널뛰었고("뽑기가 너무 모자란다" 지적), lv1 은 보드
+ *    24장에 뽑기 7장뿐이었다. 이제 **비율 바닥(MIN_STOCK_RATIO) 아래로는 절대 안 내려간다.**
  *  - 함정(trap-levels.mts, 10레벨마다 1개) = 승률 ≈ 0: 스톡이 비면 유료 '＋5 카드'가 뜨고
  *    refillStock 이 웨이스트를 스톡으로 되돌린다 → 코인을 써야 넘어간다.
  */
@@ -25,6 +28,7 @@ import { seededRng } from '../src/logic/deck.js';
 import { isWin, availableMoves, playCard, drawStock, type GameState } from '../src/logic/tripeaks.js';
 import type { Rng } from '../src/logic/types.js';
 import { isTrapLevel } from './trap-levels.mts';
+import { stockRatioForLevel, authoredFromRuntime, runtimeFromAuthored, gradeForLevel, MIN_STOCK_RATIO, TRAP_MIN_STOCK_RATIO } from './level-curve.mts';
 
 const from = parseInt(process.argv[2], 10);
 const to = parseInt(process.argv[3], 10);
@@ -35,9 +39,11 @@ if (!Number.isFinite(from) || !Number.isFinite(to) || !inPath || !outPath) {
   process.exit(1);
 }
 
-const TRIES = 60;                         // 승률 측정 플레이아웃 수(해상도 ≈ 1.7%p).
-const TARGET_LO = 0.15, TARGET_HI = 0.45; // 아슬아슬 밴드(그리디 봇 기준). 봇은 사람보다 약하다.
-const TRAP_MAX_WR = 0.03;                 // 함정: 사실상 ＋5 없이는 못 끝냄.
+const TRIES = 60;          // 승률 측정 플레이아웃 수(해상도 ≈ 1.7%p).
+const MIN_WR = 0.15;       // 플레이 가능 하한 — 이보다 낮으면 뽑기를 늘려 준다.
+// 함정: 이웃 레벨보다 확실히 낮아 "여기서 막힌다"가 체감되는 수준. 0% 를 노리는 건 엔진 설계와 싸우는
+// 짓이다 — dealDynamic 이 등급별 목표 승률로 딜을 맞추므로 뽑기만 깎아선 0 이 되지 않는다(실측 7~98%).
+const TRAP_MAX_WR = 0.25;
 
 type Doc = CardBoardDoc & {
   name: string; trap?: boolean;
@@ -79,9 +85,12 @@ for (let level = from; level <= to; level++) {
   if (!src) { console.warn(`lv${level}: 원본 없음 — 건너뜀`); continue; }
   const trap = isTrapLevel(level);
   const baseName = src.name.replace(/\s*⚠함정\s*$/, '');
-  const layout = cardBoardToLayout(src, 'lv' + level);
-  const grade = (layout.difficulty ?? 2) as 1 | 2 | 3;
   const n = src.slots.length;
+  // **난이도 등급을 곡선에 맞춰 부여**한다 — bakeLevel 은 전부 1(가장 쉬움)로 굽기 때문에 그대로 두면
+  // 500레벨이 전부 최하 난이도가 된다. 함정은 항상 최고 등급.
+  const grade: 1 | 2 | 3 = trap ? 3 : gradeForLevel(level);
+  const withGrade = { ...src, difficulty: { target: grade } } as Doc;
+  const layout = cardBoardToLayout(withGrade, 'lv' + level);
 
   /** 보드·기준카드 고정 상태에서 장수 c 의 그리디 승률(런타임과 동일 경로). */
   const wrAt = (c: number): number => {
@@ -93,28 +102,30 @@ for (let level = from; level <= to; level++) {
     return wins / TRIES;
   };
 
-  // 승률은 장수에 대해 대체로 단조 증가한다(보드 고정) → 이분 탐색으로 목표 지점을 찾는다.
-  const target = trap ? TRAP_MAX_WR : TARGET_LO; // 이 값 **이상**이 되는 최소 장수를 찾는다.
-  let lo = 6, hi = Math.max(20, n * 6);
-  if (wrAt(hi) < target) { lo = hi; } // 최대치로도 목표 미달 — 가능한 한 넉넉히 준다.
-  else {
-    while (lo < hi) {
-      const mid = Math.floor((lo + hi) / 2);
-      if (wrAt(mid) >= target) hi = mid; else lo = mid + 1;
-    }
-  }
-  let count = lo;
+  // **설계값에서 출발**한다 — 뽑기는 보드 크기에 비례해야 하고(PO "너무 모자란다"), 승률만 보고
+  // 정하면 보드와 무관해져 비율이 0.10~0.78 로 널뛴다(실측). 설계값을 기준으로 두고 플레이 가능
+  // 범위를 벗어날 때만 조정하되, **비율 바닥 아래로는 절대 내려가지 않는다**(더미가 헐벗어 보이지 않게).
+  const ratio = stockRatioForLevel(level);
+  const floorRatio = trap ? TRAP_MIN_STOCK_RATIO : MIN_STOCK_RATIO;
+  const minCount = authoredFromRuntime(Math.max(6, Math.round(n * floorRatio)));
+  let count = authoredFromRuntime(Math.round(n * ratio));
   let wr = wrAt(count);
 
   if (trap) {
-    // 함정: 위에서 찾은 "겨우 풀리기 시작하는" 지점 **바로 아래**로 내려 승률을 0 부근에 둔다.
-    while (count > 6 && wr > TRAP_MAX_WR) { count -= 2; wr = wrAt(count); }
-  } else if (wr > TARGET_HI) {
-    // 이분 탐색이 밴드를 건너뛴 경우(곡선이 가팔라 한 칸에 크게 오름) 한 칸씩 낮춰 밴드 안으로.
-    while (count > 6 && wr > TARGET_HI) { const c2 = count - 1; const w2 = wrAt(c2); if (w2 < TARGET_LO) break; count = c2; wr = w2; }
+    // 함정은 **등급 3 + 바닥 비율**이 기본. 승률이 여전히 높으면 바닥까지 더 깎아 본다(바닥 아래로는
+    // 안 내려간다 — 더미가 시작부터 얇으면 함정인 게 티난다).
+    count = minCount;
+    wr = wrAt(count);
+    let guard = 0;
+    while (wr > TRAP_MAX_WR && count > authoredFromRuntime(6) && guard++ < 20) { count = Math.max(authoredFromRuntime(6), count - 3); wr = wrAt(count); }
+  } else {
+    // 너무 어려우면 뽑기를 **늘려** 플레이 가능하게 한다("모자란다"는 지적에 부합). 반대쪽(너무 쉬움)은
+    // 등급이 담당하므로 뽑기를 깎지 않는다 — 깎아봐야 적응형 공급이 보정해 통제가 안 된다(실측).
+    let guard = 0;
+    while (wr < MIN_WR && guard++ < 30) { count = Math.round(count * 1.15) + 2; wr = wrAt(count); }
   }
 
-  const inBand = trap ? wr <= TRAP_MAX_WR : wr >= TARGET_LO && wr <= TARGET_HI;
+  const inBand = trap ? wr <= TRAP_MAX_WR : wr >= MIN_WR;
   if (!inBand) offBand++;
 
   // 확정 장수에 맞춰 **스톡 랭크를 새로 뽑고 해답을 다시 찾는다**(보드·기준카드는 그대로).
@@ -134,6 +145,7 @@ for (let level = from; level <= to; level++) {
   const doc: Record<string, unknown> = {
     ...src,
     name: trap ? `${baseName} ⚠함정` : baseName,
+    difficulty: { target: grade },
     ...(src.budget ? { budget: { ...src.budget, stock: count } } : {}),
     deal: { board: src.deal.board, waste: src.deal.waste, stock: stock!, ...(solution ? { solution } : {}) },
     tunedWinRate: Math.round(wr * 1000) / 1000,
@@ -143,7 +155,7 @@ for (let level = from; level <= to; level++) {
   ok++;
 
   if (level % 20 === 0 || level === from || trap) {
-    console.log(`[${from}-${to}] lv${level}${trap ? ' ⚠함정' : '      '}: 보드${n} 스톡 ${count}(런타임 ${Math.max(5, Math.round(count * 0.35))}) 승률 ${(wr * 100).toFixed(0)}%${inBand ? '' : ' ※밴드밖'}${solution ? '' : ' ※정적해답없음'}`);
+    console.log(`[${from}-${to}] lv${level}${trap ? " ⚠함정" : "      "}: 보드${n} 스톡 ${count}(런타임 ${runtimeFromAuthored(count)}, 비율 ${(runtimeFromAuthored(count)/n).toFixed(2)}) 승률 ${(wr * 100).toFixed(0)}%${inBand ? '' : ' ※밴드밖'}${solution ? '' : ' ※정적해답없음'}`);
   }
 }
 
