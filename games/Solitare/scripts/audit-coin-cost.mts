@@ -12,14 +12,19 @@
  * 한 판의 순손익 = (별 보상) - (입장료) - (＋5 구매비 합).
  * ＋5 가격은 **사용할수록 오른다**(economy.plus5CostFor: fee × (base + step×uses)) — 여러 번 사면
  * 손실이 급격히 커진다. 그래서 "평균 구매 횟수"와 "순손익"을 함께 본다.
+ *
+ * ## 와일드·보너스 반영(PO 2026-07-28 "시뮬레이션에서 와일드카드가 적용되지 않는다")
+ * play-sim.mts 의 playout() 을 쓴다 — 보드 와일드(노출되면 자동으로 사라지고 스톡에 1장 삽입, 뽑히면
+ * 다음 1수는 매칭 없이 아무 카드나)와 보드 보너스(+N, 노출되면 자동으로 사라지고 스톡에 N장 추가)를
+ * PlayScene 과 동일 규칙으로 재현한다. 이걸 빼먹었을 때는 뽑기 필요량을 과다 산정해, 실제 플레이에서
+ * 뽑기 더미가 8~10장씩 남는 결과로 이어졌다(PO 실측) — avgLeftover 로 이 수치를 직접 추적한다.
  */
 import fs from 'node:fs';
 import { cardBoardToLayout, type CardBoardDoc } from '../src/logic/editorLevels.js';
 import { dealDynamic } from '../src/logic/solvable.js';
 import { seededRng } from '../src/logic/deck.js';
-import { isWin, availableMoves, playCard, drawStock, refillStock, type GameState } from '../src/logic/tripeaks.js';
-import type { Rng } from '../src/logic/types.js';
 import { entryFeeFor, plus5PriceAt, starCoinsAt } from '../src/econRuntime.js';
+import { playout } from './play-sim.mts';
 
 const arg = (k: string, d: number): number => {
   const i = process.argv.indexOf(k);
@@ -31,50 +36,15 @@ const TRIES = arg('--tries', 40);
 const jsonIdx = process.argv.indexOf('--json');
 const JSON_OUT = jsonIdx >= 0 ? process.argv[jsonIdx + 1] : null;
 
-const ADD5_COUNT = 5;   // PlayScene.ADD5_COUNT 와 일치.
 const MAX_BUYS = 12;    // 이 이상은 현실적으로 포기 — "포기율"로 따로 집계한다.
 
 type Doc = CardBoardDoc & { name: string; trap?: boolean; deal: { board: number[]; waste: number; stock: number[] } };
 const pack = JSON.parse(fs.readFileSync('./public/levels/cardLevels.json', 'utf8')) as { levels: Record<string, Doc> };
 
-/** 막히면 ＋5 를 사서 계속하는 **실제 플레이 루프**. 반환: 이겼는지 + 구매 횟수. */
-function playoutWithBuys(start: GameState, rng: Rng): { won: boolean; buys: number } {
-  let s = start;
-  let buys = 0;
-  const cap = (s.layout.slots.length + s.stock.length) * 6 + 200;
-  for (let g = 0; g < cap; g++) {
-    if (isWin(s)) return { won: true, buys };
-    const moves = availableMoves(s);
-    if (moves.length > 0) {
-      let bestGain = -1;
-      let best: string[] = [];
-      for (const id of moves) {
-        let gain = 0;
-        for (const o of s.layout.slots) {
-          if (s.cleared.has(o.id) || !o.coveredBy.includes(id)) continue;
-          if (o.coveredBy.every((c) => c === id || s.cleared.has(c))) gain++;
-        }
-        if (gain > bestGain) { bestGain = gain; best = [id]; }
-        else if (gain === bestGain) best.push(id);
-      }
-      s = playCard(s, best[Math.floor(rng() * best.length)]);
-      continue;
-    }
-    if (s.stock.length > 0) { s = drawStock(s, rng); continue; }
-    // 스톡이 비고 둘 수도 없다 → 게임이 유료 ＋5 를 띄우는 지점.
-    if (buys >= MAX_BUYS || s.waste.length <= 1) return { won: false, buys };
-    const next = refillStock(s, ADD5_COUNT, rng);
-    if (next === s) return { won: false, buys }; // 되돌릴 카드가 없어 더는 못 산다.
-    s = next;
-    buys++;
-  }
-  return { won: isWin(s), buys };
-}
-
 interface Row {
   level: number; trap: boolean; board: number; runtimeStock: number;
   winRateNoBuy: number; winRateWithBuys: number; avgBuys: number; p90Buys: number;
-  fee: number; avgSpend: number; avgReward: number; net: number; giveUpRate: number;
+  avgLeftover: number; fee: number; avgSpend: number; avgReward: number; net: number; giveUpRate: number;
 }
 
 const rows: Row[] = [];
@@ -90,16 +60,17 @@ for (let level = FROM; level <= TO; level++) {
   let wonNoBuy = 0, wonWithBuys = 0, gaveUp = 0;
   const buysList: number[] = [];
   const spends: number[] = [];
+  const leftovers: number[] = [];
   for (let i = 0; i < TRIES; i++) {
-    const r = playoutWithBuys(start, seededRng(level * 100000 + i * 7 + 1));
-    if (r.buys === 0 && r.won) wonNoBuy++;
-    if (r.won) wonWithBuys++; else if (r.buys >= MAX_BUYS) gaveUp++;
+    const r = playout(layout, start, level, seededRng(level * 100000 + i * 7 + 1), true);
+    if (r.buys === 0 && r.win) wonNoBuy++;
+    if (r.win) { wonWithBuys++; leftovers.push(r.leftover); } else if (r.buys >= MAX_BUYS) gaveUp++;
     buysList.push(r.buys);
     let spend = 0;
     for (let u = 0; u < r.buys; u++) spend += plus5PriceAt(level, u, 1);
     spends.push(spend);
   }
-  const avg = (a: number[]) => a.reduce((s, v) => s + v, 0) / a.length;
+  const avg = (a: number[]) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0);
   const sorted = [...buysList].sort((a, b) => a - b);
   const fee = entryFeeFor(level, 1);
   // 보상은 별 2개(무난한 완주) 기준 — 이긴 판에만 들어온다.
@@ -110,6 +81,7 @@ for (let level = FROM; level <= TO; level++) {
     runtimeStock: Math.max(5, Math.round(doc.deal.stock.length * 0.35)),
     winRateNoBuy: wonNoBuy / TRIES, winRateWithBuys: wonWithBuys / TRIES,
     avgBuys: avg(buysList), p90Buys: sorted[Math.floor(sorted.length * 0.9)],
+    avgLeftover: avg(leftovers),
     fee, avgSpend, avgReward: reward, net: reward - fee - avgSpend,
     giveUpRate: gaveUp / TRIES,
   });
@@ -124,6 +96,7 @@ console.log(`일반 ${normal.length}레벨`);
 console.log(`  구매 없이 클리어: 평균 ${(avgOf((r) => r.winRateNoBuy) * 100).toFixed(0)}%`);
 console.log(`  평균 ＋5 구매: ${avgOf((r) => r.avgBuys).toFixed(2)}회 · 평균 코인 소모 ${Math.round(avgOf((r) => r.avgSpend)).toLocaleString()}`);
 console.log(`  평균 순손익: ${Math.round(avgOf((r) => r.net)).toLocaleString()} (입장료 평균 ${Math.round(avgOf((r) => r.fee)).toLocaleString()})`);
+console.log(`  승리 시 남는 뽑기: 평균 ${avgOf((r) => r.avgLeftover).toFixed(1)}장`);
 if (traps.length) {
   console.log(`함정 ${traps.length}레벨`);
   console.log(`  평균 ＋5 구매: ${(traps.reduce((s, r) => s + r.avgBuys, 0) / traps.length).toFixed(2)}회 · 평균 코인 소모 ${Math.round(traps.reduce((s, r) => s + r.avgSpend, 0) / traps.length).toLocaleString()}`);
