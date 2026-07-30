@@ -152,32 +152,56 @@ export function openDaily(ctrl: AccountController): void {
 /** 메달(1~3위) 또는 순위 숫자. */
 const MEDAL: Record<number, string> = { 1: 'gold', 2: 'silver', 3: 'bronze' };
 
-/** 글로벌 랭킹 — 1~10위. 국가명이 아니라 플레이어 아이디를 노출(국기는 소속 국가). */
-export function openLeaderboard(ctrl: AccountController): void {
-  const { body } = overlay('글로벌 랭킹');
+/** 랭킹 모드(우측 레일: 일일/주간/미션 랭킹). */
+const LB_MODES = [
+  { key: 'daily', label: '일일' },
+  { key: 'weekly', label: '주간' },
+  { key: 'mission', label: '미션' },
+] as const;
+export type LbMode = (typeof LB_MODES)[number]['key'];
+
+/**
+ * 랭크 & 리그 — 글로벌 랭킹(1~10위). 국가명이 아니라 플레이어 아이디를 노출(국기는 소속 국가).
+ *   일일/주간/미션 탭 전환 지원(우측 레일 아이콘이 각 모드로 진입).
+ */
+export function openLeaderboard(ctrl: AccountController, mode: LbMode = 'daily'): void {
+  const { body } = overlay('랭크 & 리그');
+  let cur: LbMode = mode;
+
+  const rowHtml = (r: RankRow): string => {
+    const left = MEDAL[r.rank]
+      ? `<span class="lb-medal ${MEDAL[r.rank]}">${r.rank}</span>`
+      : `<span class="lb-num">${r.rank}</span>`;
+    return (
+      `<div class="lb-row${r.you ? ' me' : ''}"${r.you ? ' role="button" tabindex="0" title="아이디 변경"' : ''}>` +
+      `<div class="lb-rank">${left}</div>` +
+      `<div class="lb-body">` +
+      `<span class="lb-flag"><img src="flags/flag_${esc(r.iso3)}.svg" alt="${esc(r.iso3)}" loading="lazy"></span>` +
+      `<span class="lb-id">${esc(r.id)}${r.you ? ' <small>YOU</small>' : ''}</span>` +
+      `<span class="lb-score">${r.score}</span>` +
+      `</div></div>`
+    );
+  };
 
   const render = (): void => {
     const identity = loadIdentity();
-    const board = buildBoard(identity, ctrl.profile);
-
-    const rowHtml = (r: RankRow): string => {
-      const left = MEDAL[r.rank]
-        ? `<span class="lb-medal ${MEDAL[r.rank]}">${r.rank}</span>`
-        : `<span class="lb-num">${r.rank}</span>`;
-      return (
-        `<div class="lb-row${r.you ? ' me' : ''}"${r.you ? ' role="button" tabindex="0" title="아이디 변경"' : ''}>` +
-        `<div class="lb-rank">${left}</div>` +
-        `<div class="lb-body">` +
-        `<span class="lb-flag"><img src="flags/flag_${esc(r.iso3)}.svg" alt="${esc(r.iso3)}" loading="lazy"></span>` +
-        `<span class="lb-id">${esc(r.id)}${r.you ? ' <small>YOU</small>' : ''}</span>` +
-        `<span class="lb-score">${r.score}</span>` +
-        `</div></div>`
-      );
-    };
+    const board = buildBoard(identity, ctrl.profile, cur);
+    const tabs = LB_MODES.map(
+      (m) => `<button class="lb-tab${m.key === cur ? ' active' : ''}" data-mode="${m.key}" type="button">${m.label} 랭킹</button>`,
+    ).join('');
 
     body.innerHTML =
+      `<div class="lb-tabs">${tabs}</div>` +
       `<div class="lb-board">${board.map(rowHtml).join('')}</div>` +
       `<p class="modal-note">내 행을 눌러 아이디를 바꿀 수 있어요</p>`;
+
+    // 탭 전환.
+    body.querySelectorAll<HTMLButtonElement>('.lb-tab').forEach((t) => {
+      t.addEventListener('click', () => {
+        cur = t.dataset.mode as LbMode;
+        render();
+      });
+    });
 
     // 내 행 클릭 → 아이디 변경(영속).
     const meRow = body.querySelector<HTMLElement>('.lb-row.me');
@@ -199,4 +223,106 @@ export function openLeaderboard(ctrl: AccountController): void {
   };
 
   render();
+}
+
+/**
+ * 리워드 — 플랫폼 1번 앱(2번 이미지). 게임 리워드가 아니라 '광고보고 현금성 보상' 앱테크.
+ *   좌측 레일 티켓 아이콘으로 진입. 광고 시청·오퍼 참여로 코인/젬을 지급한다(데모: 세션 내 1회).
+ */
+export function openReward(ctrl: AccountController): void {
+  const { body } = overlay('리워드');
+  const claimed = new Set<string>();
+  const OFFERS: { id: string; label: string; sub: string; reward: Reward }[] = [
+    { id: 'ad', label: '영상 광고 시청', sub: '30초 광고를 보고 보상', reward: { coins: 200 } },
+    { id: 'offer', label: '오퍼월 참여', sub: '앱 설치·미션 완료', reward: { gems: 5 } },
+    { id: 'attend', label: '출석 리워드 광고', sub: '하루 1회 보너스', reward: { coins: 100, lives: 1 } },
+  ];
+
+  const render = (): void => {
+    body.innerHTML =
+      `<p class="modal-note">광고를 보고 리워드를 받으세요.<br>게임과 무관한 앱테크 리워드입니다.</p>`;
+    for (const o of OFFERS) {
+      const done = claimed.has(o.id);
+      const row = document.createElement('button');
+      row.className = `list-row${done ? ' claimed' : ''}`;
+      row.disabled = done;
+      row.type = 'button';
+      row.innerHTML =
+        `<span>${o.label}<small class="row-sub">${o.sub}</small></span>` +
+        `<span class="row-cost ok">${done ? '완료' : '+ ' + rewardText(o.reward)}</span>`;
+      row.addEventListener('click', () => {
+        ctrl.commit(applyReward(ctrl.synced(), o.reward));
+        claimed.add(o.id);
+        ctrl.toast(`🎁 ${rewardText(o.reward)} 획득!`);
+        render();
+      });
+      body.appendChild(row);
+    }
+  };
+  render();
+}
+
+/**
+ * 이벤트 — 쇼핑·게임 이벤트 목록(좌측 레일 파티 아이콘). 진행 중 이벤트 안내 + 오픈 기념 보상 참여.
+ */
+export function openEvent(ctrl: AccountController): void {
+  const { body } = overlay('이벤트');
+  let joined = false;
+
+  const render = (): void => {
+    body.innerHTML = `<p class="modal-note">진행 중인 이벤트</p>`;
+    // 참여형(그랜드 오픈) 1개 + 안내형 2개.
+    const grand = document.createElement('button');
+    grand.className = `list-row${joined ? ' claimed' : ''}`;
+    grand.disabled = joined;
+    grand.type = 'button';
+    grand.innerHTML =
+      `<span>🏨 베가스 호텔 그랜드 오픈<small class="row-sub">신규 대표 게임 오픈 기념</small></span>` +
+      `<span class="row-cost ok">${joined ? '참여완료' : '💎 5 받기'}</span>`;
+    grand.addEventListener('click', () => {
+      ctrl.commit(applyReward(ctrl.synced(), { gems: 5 }));
+      joined = true;
+      ctrl.toast('🎉 젬 5 획득!');
+      render();
+    });
+    body.appendChild(grand);
+
+    for (const info of [
+      { label: '🪙 주말 코인 2배', sub: '토·일 플레이 보상 2배' },
+      { label: '🏆 미션 랭킹 시즌', sub: '상위권 보상 지급' },
+    ]) {
+      const row = document.createElement('div');
+      row.className = 'list-row';
+      row.innerHTML =
+        `<span>${info.label}<small class="row-sub">${info.sub}</small></span><span class="row-cost">진행중</span>`;
+      body.appendChild(row);
+    }
+  };
+  render();
+}
+
+/**
+ * 메뉴 — 우상단 메뉴 아이콘 진입. 포털의 모든 기능(리워드/이벤트/랭크/상점/스핀/데일리)을 한 곳에 모은다.
+ */
+export function openMenu(ctrl: AccountController): void {
+  const { body, close } = overlay('메뉴');
+  const items: { label: string; run: () => void }[] = [
+    { label: '🎟️ 리워드 · 광고보고 보상', run: () => openReward(ctrl) },
+    { label: '🎉 이벤트', run: () => openEvent(ctrl) },
+    { label: '🏆 랭크 & 리그', run: () => openLeaderboard(ctrl, 'daily') },
+    { label: '🛒 상점', run: () => openShop(ctrl) },
+    { label: '🎡 스핀 휠', run: () => openSpin(ctrl) },
+    { label: '🎁 데일리 보상', run: () => openDaily(ctrl) },
+  ];
+  for (const it of items) {
+    const row = document.createElement('button');
+    row.className = 'list-row';
+    row.type = 'button';
+    row.innerHTML = `<span>${it.label}</span><span aria-hidden="true">›</span>`;
+    row.addEventListener('click', () => {
+      close();
+      it.run();
+    });
+    body.appendChild(row);
+  }
 }

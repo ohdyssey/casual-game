@@ -33,6 +33,7 @@ import {
 import { addDice, addPts, settleIfNeeded, slotBonus, withSlotBonus, type SeasonResult } from './league.js';
 import { leagueHomeCard, renderLeague } from './leagueView.js';
 import { playAd } from './adPlayer.js';
+import { ensureCashpopGate } from './gate.js';
 
 type View = 'home' | 'league' | 'ad' | 'cash' | 'friends' | 'more';
 
@@ -233,6 +234,9 @@ function injectStyles(): void {
  *   onClose — 셸이 닫힐 때 호출(허브 지갑바 새로고침).
  */
 export function openRewardShell(onClose?: () => void): void {
+  // 접속 비밀번호 게이트 — 미통과 시 폼을 띄우고 통과 후 이 함수를 재호출(셸 마운트는 그때).
+  if (!ensureCashpopGate(() => openRewardShell(onClose))) return;
+
   injectStyles();
   document.querySelectorAll('.rw-layer').forEach((el) => el.remove());
 

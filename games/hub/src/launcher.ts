@@ -38,11 +38,14 @@ const PLAY_OPEN = __PLAY_OPEN__;
 
 /**
  * 부분 오픈 allowlist — prod(브라우저 탭·설치형 PWA 공통)에서 이 게임 id 만 플레이를 허용한다.
- *   현재 오픈: 열정편의점(store)·아처리스타즈(archerystars)·피씨매치/Ocean Puzzle(eco01)·
- *   배송대작전(parcelpoprush)·베가스호텔타이쿤(socialcasino)·피씨앤고/Fish & Go(fishing)·꼬치왕(skewer).
+ *   현재 오픈(11종 배포 지정, CashPOP=고정 리워드앱은 별도): 열정편의점(store)·꼬치왕(skewer)·
+ *   홈런팝(homerunpop)·아처리스타즈(archerystars)·Ocean Puzzle(eco01)·
+ *   배송대작전(parcelpoprush)·Fish & Go(fishing)·좀비애로우(zombiearrow)·사커플릭(soccerflick)·
+ *   베가스호텔타이쿤(socialcasino)·솔리테어(solitaire)·스모클래시(sumoclash, 2026-07-26 추가).
+ *   양떼고(flockgo)·버블퐁(bubblepong) 은 2026-07-30 준비중으로 전환되어 제외.
  *   추가 오픈은 id 를 더하고, 완전 오픈 시엔 isPlayable 을 true 고정(또는 PLAY_OPEN=true 빌드).
  */
-export const PLAY_OPEN_GAMES = new Set<string>(['store', 'archerystars', 'eco01', 'parcelpoprush', 'socialcasino', 'fishing', 'skewer']);
+export const PLAY_OPEN_GAMES = new Set<string>(['store', 'skewer', 'homerunpop', 'archerystars', 'eco01', 'parcelpoprush', 'fishing', 'zombiearrow', 'soccerflick', 'socialcasino', 'solitaire', 'sumoclash']);
 
 /** 이 게임을 현재 환경에서 실행할 수 있는가.
  *   · '플레이 사이트' 빌드(PLAY_OPEN) 또는 dev → 전체 허용
@@ -105,8 +108,12 @@ function portalUrl(base: string): string {
   return url;
 }
 
-/** 게임 실행 — 성공 시 true. onClose 는 게임 창이 닫힐 때 호출(지갑 새로고침용). */
-export function launchGame(game: GameEntry, onClose?: () => void): boolean {
+/**
+ * 게임 실행 — 성공 시 true. 전 플랫폼(PC·모바일·dev) **'같은 창 이동(모바일 방식)'** 으로 통일 → 별도 팝업 없음.
+ * (_onClose 는 옛 팝업 방식의 창 닫힘 콜백 — 같은 창 이동에선 페이지가 이동하므로 호출되지 않는다.
+ *  복귀 시 허브가 새로 로드되어 지갑은 자동 갱신. 호출부 호환을 위해 시그니처만 유지.)
+ */
+export function launchGame(game: GameEntry, _onClose?: () => void): boolean {
   if (!isPlayable(game.id)) return false; // allowlist 밖은 실행 차단(안내 토스트는 호출부 grid/featured 에서)
   const base = gameUrl(game);
   if (!base) return false;
@@ -120,18 +127,31 @@ export function launchGame(game: GameEntry, onClose?: () => void): boolean {
     ? `/__dev/boot?game=${encodeURIComponent(game.id)}&to=${encodeURIComponent(url)}`
     : url;
 
-  // 설치형 PWA: 같은 창 이동(팝업 차단 회피 + standalone 셸 유지). 복귀는 기기 뒤로가기.
+  // ── 실행 방식 통일(2026-07-03) ──
+  // PC·모바일·dev 공통으로 **같은 창 이동(모바일 방식)** — 별도 팝업창 없이 허브 화면에서 게임으로
+  //   전환한다. 게임이 탭 전체를 채워 자연스럽게 전체화면(팝업+풀스크린 미전환 불일치 제거).
+  //   · prod: target = 게임 URL(형제 배포). 복귀 = 게임 내 '허브로 가기' → ../hub/.
+  //   · dev : target = /__dev/boot(온디맨드 부팅 화면, location.replace 로 게임 이동). 게임은 각자
+  //           포트라 복귀는 '허브로 가기' 버튼이 ?portal= 의 허브 origin 으로 되돌린다(hubButton).
+  window.location.assign(target);
+  return true;
+}
+
+/**
+ * 외부 앱 실행 — 게임이 아닌 외부 호스팅 웹앱(예: 미션 리워드 앱테크)을 연다.
+ *   게임 팝업과 같은 9:16 근사 창으로 열어 포털 크롬과 결을 맞춘다.
+ *   외부 출처(별도 도메인)라 게임 핸드오프(portal 파라미터 / allowlist)는 적용하지 않는다.
+ *   설치형 PWA 는 같은 창 이동(팝업 차단 회피), 데스크탑은 팝업. 성공 시 true.
+ */
+export function openExternalApp(url: string, name: string, onClose?: () => void): boolean {
   if (isStandalone()) {
-    window.location.assign(target);
+    window.location.assign(url);
     return true;
   }
-
-  // 데스크탑: 클릭 제스처 안에서 동기 open(차단 회피). 로딩/START 는 이 게임 창이 담당.
-  const win = window.open(target, `casualgame_${game.id}`, popupFeatures());
+  const win = window.open(url, name, popupFeatures());
   if (!win) return false;
   win.focus();
 
-  // 게임 창 닫힘 감지 → 지갑 새로고침.
   if (pollTimer) window.clearInterval(pollTimer);
   pollTimer = window.setInterval(() => {
     if (win.closed) {

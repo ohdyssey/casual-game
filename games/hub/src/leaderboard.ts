@@ -114,10 +114,11 @@ export function trophyScore(p: Profile): number {
 /**
  * 글로벌 Top 10 보드 생성.
  * NPC 점수는 내 점수 주변(±band)에 결정적으로 분포 → 등수가 자연스럽게 갈린다.
+ *   mode(일일/주간/미션)별로 시드를 달리해 서로 다른 랭킹 보드를 결정적으로 만든다.
  */
-export function buildBoard(identity: Identity, profile: Profile): RankRow[] {
+export function buildBoard(identity: Identity, profile: Profile, mode = 'daily'): RankRow[] {
   const me = trophyScore(profile);
-  const rand = rng(hashSeed(identity.id || 'guest'));
+  const rand = rng(hashSeed(`${identity.id || 'guest'}:${mode}`));
 
   // NPC 9명을 시드로 셔플·선택.
   const pool = [...NPCS].sort(() => rand() - 0.5).slice(0, 9);

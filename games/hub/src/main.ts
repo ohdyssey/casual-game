@@ -1,31 +1,56 @@
 /**
- * 허브 엔트리 — 상단 HUD(지갑·로고·최근 플레이·액션) + 게임 그리드 마운트.
+ * 허브 엔트리 — 게임 포털 크롬 조립.
+ *   상단 지갑 + 브랜드 · 좌우 레일(쇼핑/랭크) · 중앙 폰 프레임(대표 게임) ·
+ *   히어로 푸터 · 하단 탭바 · 게임 카탈로그 그리드.
  */
 import { mountGrid } from './grid.js';
-import { mountAccountHub, type AccountHubHandle } from './account.js';
+import { mountAccountHub, toast, type AccountHubHandle } from './account.js';
 import { mountFeatured, type FeaturedHandle } from './featured.js';
+import { mountRails } from './rails.js';
+import { mountInstall } from './install.js';
+import { openMenu } from './modals.js';
 
 const walletEl = document.getElementById('wallet');
 const actionsEl = document.getElementById('acc-actions');
 const account: AccountHubHandle | null =
   walletEl && actionsEl ? mountAccountHub(walletEl, actionsEl) : null;
 
-// 게임 창이 닫히면 지갑 + 최근 플레이 배너를 갱신.
+// 게임 창이 닫히면 지갑 + 대표 게임 프레임을 갱신.
 let featured: FeaturedHandle | null = null;
 const onGameClose = (): void => {
   account?.reload();
   featured?.refresh();
 };
 
-const featuredEl = document.getElementById('featured');
-featured = featuredEl ? mountFeatured(featuredEl, onGameClose) : null;
+// 중앙 상위앱 카드(대표 게임 = 아트 + 통합 푸터/플레이).
+const phoneEl = document.getElementById('phone');
+featured = phoneEl ? mountFeatured(phoneEl, onGameClose) : null;
+
+// 좌우 캔디 아이콘 레일(포털 모달 진입) — 계정 컨트롤러로 지갑/경제를 읽고 갱신.
+// ⚠️ 임시 제거(요청) — 복구하려면 SHOW_RAILS 를 true 로.
+//   ⚠️ display:none 으로 없애면 .stage(space-between)에서 폰 프레임이 왼쪽으로 쏠린다 →
+//      **마운트만 생략**(빈 레일=0폭 유지)해 space-between 이 대표게임 폰을 중앙에 유지하게 한다.
+const SHOW_RAILS = false;
+const leftEl = document.getElementById('rail-left');
+const rightEl = document.getElementById('rail-right');
+if (SHOW_RAILS && account && leftEl && rightEl) mountRails(leftEl, rightEl, account.ctrl);
+
+// 우상단 메뉴 아이콘 → 포털 메뉴(모든 기능 진입).
+const menuBtn = document.getElementById('menu-btn');
+if (account && menuBtn) menuBtn.addEventListener('click', () => openMenu(account.ctrl));
+
+// PWA 설치 버튼 — 설치 가능(Android/데스크톱) 시 노출, iOS 는 수동 안내, 설치됨이면 숨김.
+// ⚠️ 임시 숨김(요청) — 복구하려면 SHOW_INSTALL 을 true 로.
+const SHOW_INSTALL = false;
+const installBtn = document.getElementById('install-btn');
+if (SHOW_INSTALL && installBtn) mountInstall(installBtn, toast);
 
 const grid = document.getElementById('grid');
 const foot = document.getElementById('foot');
 if (grid && foot) mountGrid(grid, foot, onGameClose);
 
 // 게임에서 허브로 돌아올 때(팝업 닫힘으로 opener 포커스 복귀 · 탭 전환 · 뒤로가기 bfcache 복귀)
-// 새로고침 없이 '최근 플레이' 배너 + 지갑을 즉시 갱신한다.
+// 새로고침 없이 대표 게임 프레임 + 지갑을 즉시 갱신한다.
 window.addEventListener('focus', onGameClose);
 window.addEventListener('pageshow', onGameClose);
 document.addEventListener('visibilitychange', () => {

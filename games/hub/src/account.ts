@@ -43,6 +43,8 @@ export function toast(msg: string): void {
 export interface AccountHubHandle {
   /** localStorage 의 최신 프로필을 다시 읽어 표시 갱신(게임에서 코인 소비 후 복귀 시). */
   reload(): void;
+  /** 좌우 레일(rails.ts)이 포털 모달을 열 때 쓰는 계정 컨트롤러. */
+  readonly ctrl: AccountController;
 }
 
 /**
@@ -59,11 +61,12 @@ export function mountAccountHub(walletEl: HTMLElement, actionsEl: HTMLElement): 
     `<span class="chip coin"><i>🪙</i><b id="acc-coins">0</b></span>` +
     `<span class="chip gem"><i>💎</i><b id="acc-gems">0</b></span>` +
     `<span class="chip heart"><i>❤</i><b id="acc-hearts">0</b><small id="acc-heart-timer"></small></span>`;
+  // 하단 탭바 — 리워드앱 기능 진입(랭킹/상점/스핀/데일리). 좌우 레일이 이 기능들을 상부로 확장한다.
   actionsEl.innerHTML =
-    `<button class="acc-btn" id="acc-rank">🏆 랭킹</button>` +
-    `<button class="acc-btn" id="acc-shop">🛒 상점</button>` +
-    `<button class="acc-btn" id="acc-spin">🎡 스핀</button>` +
-    `<button class="acc-btn" id="acc-daily">🎁 데일리<span class="dot-new" id="acc-daily-dot" hidden></span></button>`;
+    `<button class="tab-btn" id="acc-rank" type="button">🏆 랭킹</button>` +
+    `<button class="tab-btn" id="acc-shop" type="button">🛒 상점</button>` +
+    `<button class="tab-btn" id="acc-spin" type="button">🎡 스핀</button>` +
+    `<button class="tab-btn" id="acc-daily" type="button">🎁 데일리<span class="dot-new" id="acc-daily-dot" hidden></span></button>`;
 
   const pick = (id: string): HTMLElement => document.getElementById(id)!;
   const coinsEl = pick('acc-coins');
@@ -121,5 +124,6 @@ export function mountAccountHub(walletEl: HTMLElement, actionsEl: HTMLElement): 
       saveProfile(profile);
       refresh();
     },
+    ctrl,
   };
 }

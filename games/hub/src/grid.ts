@@ -7,6 +7,7 @@
 import { GAMES, gameUrl } from '../games.config.js';
 import { launchGame, isPlayable } from './launcher.js';
 import { toast } from './account.js';
+import { openRewardShell } from './reward/shell.js';
 
 interface GameEntry {
   id: string;
@@ -19,10 +20,39 @@ interface GameEntry {
   live: boolean;
   devPort?: number;
   prodUrl?: string;
+  extUrl?: string;
+  pinned?: boolean;
+  /** 임시 숨김 — 그리드/카운트에서 제외(config 에서 켠다). */
+  hidden?: boolean;
+}
+
+/**
+ * 고정 1번 앱(리워드앱) 카드 — CashPOP. 위치 변동 없이 항상 맨 앞.
+ *   클릭 시 자체 구현 **인앱 리워드 셸**(CashPOP)을 연다. (허브=리워드 플랫폼, 게임=종속 미니게임 방향)
+ *   onClose — 셸이 닫힐 때 호출(허브 지갑 새로고침).
+ */
+function pinnedCardEl(game: GameEntry, onClose?: () => void): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'card live pinned';
+  el.style.setProperty('--accent', game.accent);
+  // 앱 위에 CashPOP 로고 오버레이 배치. 아트는 캐시카드 영역이 배경으로 오도록 크롭(.card.pinned .art)
+  //   → 화면 자체 상단 로고와 겹치지 않고, 오버레이 로고가 브랜드 마크로 선명하게 보인다.
+  el.innerHTML =
+    `<img class="art" src="${game.art}" alt="${game.title}" loading="lazy" />` +
+    `<div class="scrim"></div>` +
+    (game.logo ? `<img class="logo" src="${game.logo}" alt="${game.title} 로고" loading="lazy" />` : '') +
+    `<span class="badge badge-reward"><span class="dot"></span>리워드</span>` +
+    `<div class="meta">` +
+    `<span class="pill">▶ 열기</span>` +
+    `</div>`;
+  el.style.cursor = 'pointer';
+  el.addEventListener('click', () => openRewardShell(onClose));
+  return el;
 }
 
 /** 게임 1개 → 카드 엘리먼트. onClose 는 게임 창이 닫힐 때 호출(지갑 새로고침). */
 function cardEl(game: GameEntry, onClose?: () => void): HTMLElement {
+  if (game.pinned) return pinnedCardEl(game, onClose);
   const live = !!game.live;
   // 차단 모드(홈페이지)에선 라이브 카드도 앵커(href)로 만들지 않는다 → 새 탭/직접이동까지 봉쇄.
   //   allowlist(PLAY_OPEN_GAMES) 에 든 게임은 브라우저 탭에서도 실행 가능 → 앵커로 렌더.
@@ -66,12 +96,19 @@ function cardEl(game: GameEntry, onClose?: () => void): HTMLElement {
 }
 
 /**
- * 그리드 마운트 + 푸터 카드 수 표기. config 순서(=live 먼저 + 장르 묶음) 그대로.
+ * 그리드 마운트 + 푸터 카드 수 표기. config 순서(=장르 묶음) 유지 + pinned 맨 앞·준비중 맨 뒤로 재배치.
  * onGameClose: 게임 창이 닫힐 때 호출 — 허브 지갑바 새로고침에 연결한다.
  */
 export function mountGrid(grid: HTMLElement, foot: HTMLElement, onGameClose?: () => void): void {
-  const games = GAMES as GameEntry[];
-  for (const game of games) grid.appendChild(cardEl(game, onGameClose));
-  const liveCount = games.filter((g) => g.live).length;
-  foot.textContent = `PlayPOP Hub · v0.2.0 · 총 ${games.length}종 (플레이 ${liveCount} · 준비중 ${games.length - liveCount})`;
+  // 임시 숨김(hidden) 게임은 그리드/카운트에서 제외(예: CashPOP 임시 숨김).
+  const games = (GAMES as GameEntry[]).filter((g) => !g.hidden);
+  // 고정 1번 앱(pinned)은 항상 맨 앞, 준비중(live=false)은 항상 맨 뒤로 — 그 외엔 config 순서 유지(안정 정렬).
+  const ordered = [...games].sort(
+    (a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.live ? 1 : 0) - (a.live ? 1 : 0)
+  );
+  for (const game of ordered) grid.appendChild(cardEl(game, onGameClose));
+  // 카운트/문구는 '게임'만 집계(pinned 리워드앱은 게임이 아니라 제외).
+  const gameList = games.filter((g) => !g.pinned);
+  const liveCount = gameList.filter((g) => g.live).length;
+  foot.textContent = `PlayPOP Hub · v0.2.0 · 총 ${gameList.length}종 (플레이 ${liveCount} · 준비중 ${gameList.length - liveCount})`;
 }
