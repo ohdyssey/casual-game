@@ -1,0 +1,1094 @@
+<meta charset="utf-8">
+<title>경제 시뮬레이션 도구 — 솔리테어 하이츠</title>
+<style>
+  :root{
+    --bg:#0b0e1e; --surface:#14172b; --surface-2:#1a1e34; --surface-3:#222641;
+    --ink:#eef0fb; --ink-2:#a6abc7; --ink-3:#6d7395; --line:#262b45; --line-2:#343a5b;
+    --accent:#2fa85a; --blue:#3f8ef0; --gold:#f4bd3d; --red:#e0453e; --amber:#f0932b; --purple:#a86bf0;
+  }
+  *{box-sizing:border-box;} html{height:100%;}
+  body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:13.5px/1.55 "Segoe UI",system-ui,sans-serif;}
+  button,input,select{font-family:inherit;}
+  /* ── 헤더 ── */
+  header{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:10px;padding:10px 22px;border-bottom:1px solid var(--line);background:var(--surface);}
+  header .logo{font-weight:800;font-size:15.5px;display:flex;gap:9px;align-items:center;}
+  header .logo .dot{width:11px;height:15px;border-radius:3px;background:linear-gradient(160deg,var(--gold),#c98a1b);}
+  header .sub{font-size:11.5px;color:var(--ink-3);}
+  header .sp{flex:1;}
+  .btn{border:1px solid var(--line-2);background:var(--surface-2);color:var(--ink-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:.13s;}
+  .btn:hover{border-color:var(--accent);color:var(--ink);}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-size:13px;padding:8px 18px;}
+  .btn.blue{background:var(--blue);border-color:var(--blue);color:#fff;}
+  .btn.sm{padding:4px 9px;font-size:11px;}
+  /* ── 단계 내비 ── */
+  .steps{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;max-width:1180px;margin:16px auto 0;padding:0 22px;}
+  .step{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:12px 16px;cursor:pointer;transition:.15s;display:flex;gap:12px;align-items:flex-start;}
+  .step:hover{border-color:var(--line-2);}
+  .step.on{border-color:var(--gold);background:var(--surface-2);}
+  .step .num{width:28px;height:28px;flex:none;border-radius:50%;display:grid;place-items:center;font-weight:800;background:var(--surface-3);color:var(--ink-3);font-size:13px;}
+  .step.on .num{background:var(--gold);color:#1a1400;}
+  .step b{font-size:13.5px;display:block;}
+  .step span{font-size:11.5px;color:var(--ink-3);display:block;margin-top:1px;}
+  /* ── KPI 스트립 ── */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:10px;max-width:1180px;margin:12px auto;padding:0 22px;}
+  .kpi{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:10px 14px;}
+  .kpi .k{font-size:11px;color:var(--ink-3);font-weight:700;}
+  .kpi .v{font-size:15px;font-weight:700;margin-top:2px;}
+  .kpi .v small{font-size:11px;color:var(--ink-2);font-weight:600;}
+  .pos{color:#5fd68a;} .neg{color:#ff8a80;} .gold{color:var(--gold);}
+  /* ── 본문 ── */
+  .page{max-width:1180px;margin:0 auto;padding:4px 22px 80px;}
+  .panel{display:none;} .panel.on{display:block;}
+  .intro{border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:0 10px 10px 0;background:var(--surface);padding:10px 16px;margin:10px 0 16px;font-size:12.5px;color:var(--ink-2);}
+  .intro b{color:var(--ink);}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
+  .card{border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden;}
+  .card>.hd{padding:11px 16px 8px;border-bottom:1px solid var(--line);}
+  .card>.hd b{font-size:13.5px;}
+  .card>.hd p{margin:3px 0 0;font-size:11.5px;color:var(--ink-3);}
+  .card>.bd{padding:6px 16px 12px;}
+  .row{display:grid;grid-template-columns:1fr 96px minmax(120px,1fr);gap:10px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line);}
+  .row:last-child{border-bottom:none;}
+  .row .lab b{font-size:12.5px;font-weight:600;display:block;}
+  .row .lab span{font-size:11px;color:var(--ink-3);display:block;line-height:1.35;}
+  .row input,.row select{width:100%;background:var(--surface-3);border:1px solid var(--line-2);color:var(--ink);border-radius:7px;padding:5px 8px;font-size:12.5px;text-align:right;}
+  .row input:focus{outline:none;border-color:var(--blue);}
+  .row .prev{font-size:11.5px;color:var(--ink-2);text-align:left;}
+  .row .prev b{color:var(--gold);font-weight:700;}
+  .row.csv{grid-template-columns:1fr;}
+  .row.csv input{text-align:left;margin-top:4px;}
+  .sect{margin:26px 0 10px;display:flex;align-items:baseline;gap:10px;}
+  .sect b{font-size:15px;color:var(--gold);}
+  .sect span{font-size:11.5px;color:var(--ink-3);}
+  canvas{background:var(--surface);border:1px solid var(--line);border-radius:12px;display:block;max-width:100%;}
+  table{border-collapse:collapse;font-size:12px;width:100%;background:var(--surface);}
+  th,td{border:1px solid var(--line);padding:5px 9px;text-align:right;white-space:nowrap;}
+  th{background:var(--surface-2);color:var(--ink-2);font-weight:600;}
+  td:first-child,th:first-child{text-align:left;}
+  .bar{display:inline-block;height:10px;border-radius:3px;vertical-align:middle;}
+  .flag{display:inline-block;padding:1px 8px;border-radius:6px;font-size:10.5px;font-weight:700;}
+  .flag.easy{background:#2fa85a2b;color:#5fd68a;}
+  .flag.hard{background:#e0453e2b;color:#ff8a80;}
+  .flag.ok{background:#3f8ef02b;color:#8ec2ff;}
+  .chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line-2);border-radius:9px;padding:5px 12px;font-size:12px;font-weight:700;background:var(--surface-2);}
+  .issue{border-left:4px solid;padding:8px 13px;margin:6px 0;background:var(--surface);border:1px solid var(--line);border-left-width:4px;border-radius:0 10px 10px 0;font-size:12.5px;}
+  .issue.critical{border-left-color:var(--red);}
+  .issue.warn{border-left-color:var(--amber);}
+  .issue.info{border-left-color:var(--blue);}
+  .runbox{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:14px 18px;margin:0 0 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
+  .runbox label{color:var(--ink-2);font-size:12px;font-weight:600;}
+  .runbox input,.runbox select{background:var(--surface-3);border:1px solid var(--line-2);color:var(--ink);border-radius:7px;padding:5px 9px;width:88px;font-size:12.5px;}
+  /* ── 모델 도식(재화 흐름도) ── */
+  .flow{display:grid;grid-template-columns:1fr 150px 1fr;gap:14px;align-items:center;margin:10px 0 4px;}
+  .fcol{display:flex;flex-direction:column;gap:7px;}
+  .fbox{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:7px 12px;font-size:12px;display:flex;justify-content:space-between;gap:10px;align-items:center;}
+  .fbox b{font-size:12.5px;}
+  .fbox .sub{color:var(--ink-3);font-size:10.5px;display:block;}
+  .fbox.in{border-left:3px solid var(--accent);}
+  .fbox.out{border-right:3px solid var(--red);text-align:right;}
+  .fwallet{border:2px solid var(--gold);border-radius:14px;background:var(--surface-2);padding:16px 10px;text-align:center;font-weight:800;font-size:15px;}
+  .fwallet small{display:block;color:var(--ink-3);font-weight:600;font-size:10.5px;margin-top:3px;}
+  .fwallet.dia{border-color:var(--purple);}
+  .evcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:14px 0;}
+  .evcard{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:11px 14px;}
+  .evcard .k{font-size:11px;color:var(--ink-3);font-weight:700;}
+  .evcard .v{font-size:16px;font-weight:800;margin-top:3px;}
+  .evcard .d{font-size:11px;color:var(--ink-2);margin-top:3px;}
+  input[type=range]{accent-color:var(--gold);}
+  .prog{color:var(--ink-3);font-size:12px;}
+  .note{color:var(--ink-3);font-size:11.5px;margin:6px 0 12px;}
+  .scrollx{overflow-x:auto;}
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#000d;border:1px solid var(--line-2);color:#fff;padding:9px 20px;border-radius:10px;font-size:12.5px;opacity:0;transition:.25s;pointer-events:none;z-index:99;}
+  #toast.show{opacity:1;}
+  /* ── 다이아 구조 대시보드(맨 위 고정, 2026-07-18) — 탭과 무관하게 항상 노출 ── */
+  .dash{max-width:1180px;margin:14px auto 0;padding:0 22px;}
+  .dash-panel{border:2px solid var(--gold);border-radius:16px;background:linear-gradient(180deg,#1c1730,var(--surface));padding:16px 20px 18px;}
+  .dash-panel .dash-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:4px;}
+  .dash-panel .dash-hd b{font-size:16.5px;color:var(--gold);}
+  .dash-panel .dash-hd span{font-size:11.5px;color:var(--ink-3);}
+  .dash-badge{display:inline-block;background:#e0453e2b;color:#ff8a80;border-radius:6px;padding:1px 8px;font-size:10px;font-weight:800;margin-left:6px;vertical-align:middle;}
+  .dash-cards{display:grid;grid-template-columns:1.1fr 0.9fr;gap:14px;margin:12px 0;align-items:start;}
+  @media (max-width:900px){.dash-cards{grid-template-columns:1fr;}}
+  .dash-real{border:1px solid var(--line-2);border-radius:10px;background:var(--surface-3);padding:9px 12px;font-size:11.5px;color:var(--ink-2);margin-bottom:8px;}
+  .dash-real b{color:var(--ink);}
+  @media (max-width:900px){.cards{grid-template-columns:1fr;}.kpis{grid-template-columns:repeat(2,1fr);}.steps{grid-template-columns:1fr;}}
+</style>
+
+<header>
+  <div class="logo"><span class="dot"></span>경제 시뮬레이션 도구 <span class="sub">솔리테어 하이츠 · docs/ECONOMY_DESIGN.md v0.3</span></div>
+  <div class="sp"></div>
+  <button class="btn sm" id="btnReset">기본값 복원</button>
+  <button class="btn sm" id="btnExport">JSON 내보내기</button>
+  <button class="btn sm" id="btnImport">가져오기</button>
+  <button class="btn blue sm" id="btnSave">💾 게임 반영 (economy.json)</button>
+</header>
+
+<!-- ══ 다이아 구조 대시보드 — 맨 위 고정(2026-07-18 PO 지시: "한눈에 파악할 수 있는 구조") ══
+     미션 리워드 신설 + 3,000레벨/100층 재설계를 이 자리에서 조정하며 검토한다. 탭 전환과 무관하게 항상 보임. -->
+<div class="dash">
+  <div class="dash-panel">
+    <div class="dash-hd"><b>💎 다이아 구조 재검토</b><span>보드 지급 축소(2→1+가끔2) · 미션 리워드/데일리챌린지 신설 · 3,000레벨·100층 재설계 — PO 2026-07-18 지시</span></div>
+    <div class="dash-real" id="dashMissionReal"></div>
+    <div class="dash-cards">
+      <div class="card"><div class="hd"><b>🪙 다이아 소스 3원</b><p>보드는 코드 확정값(PlayScene), 미션리워드·데일리챌린지는 <span class="dash-badge">추정 — 조정 필요</span></p></div>
+        <div class="bd" id="dashSourceRows"></div>
+      </div>
+      <div class="card"><div class="hd"><b>🏗️ 층 구조</b><p>레벨캡·층수·층당 다이아 배수 — 여기서 바꾸면 전체 탭에 동일 반영</p></div>
+        <div class="bd" id="dashStructRows"></div>
+      </div>
+    </div>
+    <div class="sect" style="margin-top:8px"><b>📊 다이아 수입 vs 100층 건설비(누적)</b><span>노랑=누적 수입(보드+미션+데일리) · 빨강점선=누적 건설비 — 빨강이 노랑을 넘으면 그 층에서 다이아 부족</span></div>
+    <canvas id="cvMissionDash" width="1120" height="260"></canvas>
+    <div id="dashSummary"></div>
+  </div>
+</div>
+
+<!-- 단계 내비게이션 — 왼쪽부터 순서대로 진행 -->
+<nav class="steps">
+  <div class="step on" data-step="design">
+    <div class="num">1</div>
+    <div><b>경제 설계</b><span>게임비·보상·성장 파라미터를 조정 — 곡선과 트레이스가 즉시 반영</span></div>
+  </div>
+  <div class="step" data-step="model">
+    <div class="num">2</div>
+    <div><b>모델 도식</b><span>재화 흐름·가격·판당 수지를 레벨 슬라이더로 한눈에</span></div>
+  </div>
+  <div class="step" data-step="leveldesign">
+    <div class="num">3</div>
+    <div><b>레벨설계</b><span>자동 생성기 리포트(scripts/design-levels.mts) — 등급별 난이도 곡선·레벨별 지표</span></div>
+  </div>
+  <div class="step" data-step="measure">
+    <div class="num">4</div>
+    <div><b>판 시뮬 (실측)</b><span>실엔진 봇이 저작 레벨을 플레이 — 승률·별 분포를 측정</span></div>
+  </div>
+  <div class="step" data-step="verify">
+    <div class="num">5</div>
+    <div><b>여정 시뮬 (검증)</b><span>유저 N명 × D일을 굴려 파산·인플레 등 문제 지점 검출</span></div>
+  </div>
+</nav>
+
+<!-- 핵심 지표 — 항상 표시, 파라미터 변경에 즉시 반응 -->
+<div class="kpis" id="kpis"></div>
+
+<div class="page">
+
+  <!-- ══ ① 경제 설계 ══════════════════════════════════ -->
+  <div class="panel on" id="panel-design">
+    <div class="intro"><b>이 단계에서 하는 일</b> — 아래 카드의 값을 바꾸면 <b>저장 없이 즉시</b> 상단 핵심 지표·곡선·트레이스 표가 다시 계산됩니다
+      (타이핑하는 순간 반영). 단 ③·④·⑤ 시뮬 <b>결과</b>는 실행 버튼을 다시 눌러야 새 값으로 재계산됩니다.
+      코인 항목은 전부 <b>게임비 배수</b>, 다이아 항목은 <b>판수 기준</b>. ⚠️새로고침하면 조정값이 사라지니
+      확정할 값은 우상단 <b>💾 게임 반영</b>(또는 JSON 내보내기)으로 저장하세요. 조정이 끝나면 <b>④ 판 시뮬</b>로 이동.</div>
+    <div class="cards" id="designCards"></div>
+
+    <div class="sect"><b>📈 곡선 미리보기</b><span>막대=게임비 · 선=별 보상 — x축=레벨(게임비는 레벨 단위 계단)</span></div>
+    <canvas id="cvFee" width="1120" height="260"></canvas>
+    <div class="sect"><b>💎 다이아 수지</b><span>막대 = 구간 수입 vs 층 건설비 · <b style="color:#f4bd3d">노랑 선 = 누적 잔고</b>(시작 다이아부터, 경쟁부지 제외) — 선이 0에 닿으면 벽</span></div>
+    <canvas id="cvDia" width="1120" height="220"></canvas>
+    <div class="note" id="diaNote"></div>
+    <div class="sect"><b>📋 정밀 진행 트레이스</b><span>설계 문서 §5 표 — 층별 전체 수치 한눈에</span></div>
+    <div class="scrollx" id="traceTable"></div>
+  </div>
+
+  <!-- ══ ② 모델 도식 ══════════════════════════════════ -->
+  <div class="panel" id="panel-model">
+    <div class="intro"><b>이 단계에서 하는 일</b> — 레벨 슬라이더를 움직이면 그 시점의 재화 흐름(수입→지갑→지출),
+      가격, 판당 수지가 도식으로 갱신됩니다. <b>게임에는 아직 미적용</b> — 경제모델을 여기서 먼저 검토·확정합니다.
+      판당 수지는 좌측 [판 성능] 그룹(승률·별 분포)을 사용합니다.</div>
+    <div class="runbox">
+      <label>레벨 <input id="mLv" type="range" min="1" max="1000" value="1" style="width:300px"></label>
+      <input id="mLvN" type="number" value="1" min="1" style="width:84px">
+      <span class="chip" id="mLvInfo"></span>
+    </div>
+    <div id="modelFlow"></div>
+    <div class="sect"><b>📇 레벨별 가격·보상표</b><span>마일스톤 레벨 — 모든 값은 그 레벨의 게임비·램프 기준</span></div>
+    <div class="scrollx" id="modelTable"></div>
+  </div>
+
+  <!-- ══ ③ 레벨설계 ═══════════════════════════════════ -->
+  <div class="panel" id="panel-leveldesign">
+    <div class="intro"><b>이 단계에서 하는 일</b> — <code>scripts/design-levels.mts</code>(부품 문법 자동 레벨 생성기)가 기록한
+      <code>scripts/reports/level-simulation-report.json</code>을 그대로 읽어온다(레벨설계와 경제탭이 <b>같은 데이터</b>를 본다 — 별도
+      재구현 없음). 레벨을 손봤으면 터미널에서 생성기를 다시 돌린 뒤 <b>🔄 리포트 새로고침</b>을 누르세요. 등급/승률하한/보드예산 곡선은
+      <code>src/logic/levelCurve.ts</code>(생성기·경제탭 공용 SSOT)에서 실시간 계산.</div>
+    <div class="runbox">
+      <button class="btn primary" id="btnReloadReport">🔄 리포트 새로고침</button>
+      <span class="prog" id="reportProg"></span>
+      <button class="btn" id="btnReportToPerf">→ ④ 판 성능(승률·잔여카드)에 반영</button>
+    </div>
+    <div id="reportSummary"></div>
+    <div class="sect"><b>📈 난이도 곡선(설계값)</b><span>막대=보드 예산(24→54) · 선=승률 하한(wrFloorFor) — 등급 경계 점선</span></div>
+    <canvas id="cvLevelCurve" width="1120" height="240"></canvas>
+    <div class="sect"><b>📋 레벨별 생성 리포트</b><span>생성기 자체 튜닝 결과(그리디 시뮬) — live* 열은 게임 내 자동테스트 실측(있는 경우만)</span></div>
+    <div class="scrollx" id="reportTable"></div>
+  </div>
+
+  <!-- ══ ④ 판 시뮬 ═══════════════════════════════════ -->
+  <div class="panel" id="panel-measure">
+    <div class="intro"><b>이 단계에서 하는 일</b> — 카드 레벨 에디터로 저작한 레벨을 <b>실제 게임 엔진</b>(딜+적응형 드로우) 위에서
+      그리디 봇이 플레이합니다. 레벨별 승률·별 분포·세트 수를 <b>실측</b>하고, 결과를 <b>⑤ 여정 시뮬</b>의 판 성능으로 넘깁니다.<br>
+      판정 기준: <span class="flag hard">너무 어려움</span> 승률 60% 미만 · <span class="flag easy">너무 쉬움</span> 3★ 비율 40% 초과.
+      v1 한계: 부스터·특수카드(와일드/+N) 미사용.</div>
+    <div class="runbox">
+      <label>판수/레벨 <input id="dealN" type="number" value="300" min="20" step="20"></label>
+      <label>시드 <input id="dealSeed" type="number" value="42"></label>
+      <label>대상 <select id="dealScope"><option value="all">저작 레벨 전체</option><option value="first10">1~10 레벨</option></select></label>
+      <button class="btn primary" id="btnRunDeal">▶ 판 시뮬 실행</button>
+      <span class="prog" id="dealProg"></span>
+    </div>
+    <div id="dealSummary"></div>
+    <div class="scrollx" id="dealResults"></div>
+  </div>
+
+  <!-- ══ ⑤ 여정 시뮬 ══════════════════════════════════ -->
+  <div class="panel" id="panel-verify">
+    <div class="intro"><b>이 단계에서 하는 일</b> — 판 성능(④의 실측치)과 행동 모델로 가상 유저를 30~60일 굴립니다.
+      재화 잔고·층 성장 곡선을 그리고, <b>문제 검출기</b>가 파산·이중병목·정체·인플레·결제압박을 자동 플래그합니다.</div>
+
+    <div class="cards">
+      <div class="card"><div class="hd"><b>🎮 판 성능</b><p>④ 판 시뮬의 실측치 사용을 권장 — 수동 조정도 가능</p></div>
+        <div class="bd" id="perfRows"></div>
+        <div class="bd" style="padding-top:0"><span class="chip" id="perfSource">소스: 기본값(수동)</span></div>
+      </div>
+      <div class="card"><div class="hd"><b>🧑 행동 모델</b><p>가상 유저가 어떻게 플레이하는가</p></div>
+        <div class="bd" id="behaviorRows"></div>
+      </div>
+    </div>
+
+    <div class="runbox" style="margin-top:14px">
+      <label>일수 <input id="jDays" type="number" value="30" min="7" step="1"></label>
+      <label>유저 <input id="jUsers" type="number" value="300" min="50" step="50"></label>
+      <label>시드 <input id="jSeed" type="number" value="7"></label>
+      <button class="btn primary" id="btnRunJourney">▶ 여정 시뮬 실행</button>
+      <span class="prog" id="jProg"></span>
+    </div>
+
+    <div class="sect"><b>🚨 문제 검출 리포트</b><span>기준: 파산 30% · 결제압박 60% · 이중병목 20% · 3일 정체 · 잔고&gt;게임비×50 발산</span></div>
+    <div id="jIssues"><div class="note">아직 실행 전 — 위 버튼으로 실행하세요.</div></div>
+    <div class="sect"><b>📉 재화 잔고 · 성장 곡선</b><span>노랑=코인 · 보라=다이아 · 초록점선=층 · 빨강점선=파산율</span></div>
+    <canvas id="cvJourney" width="1120" height="300"></canvas>
+    <div class="sect"><b>🏢 층 도달일</b><span>평균 — 100층 · 레벨캡 1,000 장기 여정(마일스톤 층만 표시)</span></div>
+    <div class="scrollx" id="jFloors"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script type="module">
+import {
+  DEFAULT_ECON, coerceEcon, feeForLevel, maxChallengeMult, starCoinsFor, stockBonusFor, floorReqFor,
+  diamondCostForFloor, floorCoinCost, claimGoalFor, plus5CostFor, wildCostFor, undoCostFor, boosterLevelFactor,
+  compAuctionCost, compTotalInvested, compDailyYield, compDiamondCost, offlineIncomeFor,
+  missionCoinPerSet, missionDiamondPerSet, boardDiamondsExpected, totalDiamondsPerLevelExpected,
+  missionRewardDiamondsPerLevel, dailyChallengeDiamondsPerDay,
+} from '/src/logic/economy.ts';
+import { simulateBatch } from '/src/logic/simulate.ts';
+import { simulateJourney, DEFAULT_BEHAVIOR, DEFAULT_PERF } from '/src/logic/journey.ts';
+import { levelDef, editorLevelCount } from '/src/logic/levels.ts';
+import { MAX_LEVEL, GRADE_BANDS, curve, wrFloorFor } from '/src/logic/levelCurve.ts';
+import { MISSION_TIERS, tierConfig, averageMissionReward } from '/src/logic/missionReward.ts';
+import { PERFORMANCE_STAGES, RANK_REWARDS, GROUP_SIZE } from '/src/logic/dailyChallenge.ts';
+
+/* ══ 상태 ═══════════════════════════════════════════════ */
+let econ = { ...DEFAULT_ECON };
+let behavior = { ...DEFAULT_BEHAVIOR };
+let perf = { ...DEFAULT_PERF, starDist: [...DEFAULT_PERF.starDist] };
+let levelPack = {};
+let lastJourneyD10 = null;
+let levelReport = null; // scripts/reports/level-simulation-report.json — 생성기·경제탭 공용 데이터.
+
+const $ = (id) => document.getElementById(id);
+const toast = (msg) => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2400); };
+const fmt = (n) => Math.round(n).toLocaleString();
+const pct = (v) => Math.round(v * 100) + '%';
+
+/* ══ 파라미터 카드 정의 — 설명 + 파생값 미리보기 ═════════ */
+// preview(econ) → 입력 오른쪽에 표시할 "이 값이 실제로 만드는 숫자".
+// 기준 게임비 = Lv500(중반) 시점 — 손익·부스터 등 미리보기의 공통 기준.
+const fee5 = (e) => feeForLevel(e, 500);
+const DESIGN_CARDS = [
+  { icon: '🎫', title: '게임비 (레벨 단위 계단)', desc: '게임 입장 시 차감되는 코인. 레벨 N개마다 한 단계씩 완만히 상승(PO: 층별 상승 폐기, 큰 상승 금지) — 보상이 전부 게임비 배수라 같은 비율로 함께 움직인다.',
+    rows: [
+      { path: 'feeBase', label: 'Lv1 게임비', desc: '코인 경제의 유일한 절대 기저값', step: 50, preview: (e) => `Lv500 <b>${fmt(feeForLevel(e, 500))}</b> · Lv1000(캡) <b>${fmt(feeForLevel(e, e.levelCap))}</b>` },
+      { path: 'feeLevelStep', label: '상승 단위(레벨)', desc: '몇 레벨마다 한 단계 오르는가(10·50 등)', step: 10, preview: (e) => `캡까지 <b>${Math.floor((e.levelCap - 1) / Math.max(1, e.feeLevelStep))}단계</b>` },
+      { path: 'feeStepMult', label: '단계당 배율', desc: '완만하게 — 1.10 = 단계마다 +10%', step: 0.01 },
+      { path: 'feeRound', label: '골드 단위', desc: 'PO: 100 — 게임비·부스터 가격은 이 배수로만, 미달 시 내림(상향 없음)', step: 100 },
+      { path: 'challengeMults', label: '도전 배수 목록(쉼표)', desc: '입장·보상 동시 배수 — ⚠️"베팅" 아님(비도박 프레임, 스킬 도전 선택)', csv: true },
+      { path: 'challengeUnlockLevels', label: '배수 해금 레벨(쉼표)', desc: '위 목록과 짝 — 상위 배수는 성장 보상으로 개방', csv: true, preview: (e) => `Lv500 해금 최대 <b>x${maxChallengeMult(e, 500)}</b> · 캡 <b>x${maxChallengeMult(e, e.levelCap)}</b>` },
+    ] },
+  { icon: '⭐', title: '승리 보상', desc: '별 1~5 = 최종평가 3축(연속콤보·남은카드·＋5 미사용, starRating.ts). 보상은 게임비 배수 — 1보다 크면 흑자. **＋5 없이 클리어 = 3★ 하한**이므로 3★부터 흑자여야 한다(PO 2026-07-29).',
+    rows: [
+      { path: 'starMult.0', label: '1★ 보상 배수', desc: '＋5를 쓴 판의 자리 — 적자 설계', step: 0.05, preview: (e) => prof(e, 0) },
+      { path: 'starMult.1', label: '2★ 보상 배수', desc: '아직 적자 — 본전(1.0) 미만', step: 0.05, preview: (e) => prof(e, 1) },
+      { path: 'starMult.2', label: '3★ 보상 배수', desc: '**흑자 전환점** — ＋5 없이 클리어하면 여기부터. 1.0 아래로 내리지 말 것', step: 0.05, preview: (e) => prof(e, 2) },
+      { path: 'starMult.3', label: '4★ 보상 배수', desc: '클린 중앙값 이상 — 잘 푼 판', step: 0.05, preview: (e) => prof(e, 3) },
+      { path: 'starMult.4', label: '5★ 보상 배수', desc: '클린 상위 18% — 최적 플레이', step: 0.1, preview: (e) => prof(e, 4) },
+      { path: 'stockBonusRate', label: '남은카드 장당 배수', desc: '적게 뽑고 이길수록 추가 보상', step: 0.05, preview: (e) => `5층 <b>${fmt(stockBonusFor(e, fee5(e), 1))}</b>/장` },
+      { path: 'setsFor2Star', label: '2★ 필요 세트', desc: '5연속 세트 몇 개면 2★인가', step: 1 },
+      { path: 'setsFor3Star', label: '3★ 필요 세트', desc: '보드 28장 기준 최대 5세트', step: 1 },
+    ] },
+  { icon: '🎯', title: '인게임 미션 보상', desc: '**5매치(세트)마다** 지급되는 보상(PlayScene). 판당 세트 수(④ 판당세트)만큼 발생 — 자주 지급이라 인플레 민감. 코인 즉시·다이아는 완성 시.',
+    rows: [
+      { path: 'missionCoinMult', label: '미션 코인 배수', desc: '코인 보상 = 게임비 × 이 값(세트당·확률 적용 전)', step: 0.01, preview: (e) => `5층 세트당 기대 <b>${fmt(missionCoinPerSet(e, fee5(e)))}</b> · 판(세트2.7) <b>${fmt(missionCoinPerSet(e, fee5(e)) * 2.7)}</b>` },
+      { path: 'missionCoinChance', label: '미션 코인 확률', desc: '테이블 코인 가중(40/100=0.4)', step: 0.05 },
+      { path: 'missionDiamondChance', label: '미션 다이아 확률', desc: '세트당 다이아(1개) 확률 — 완성 보상풀(승리 시)', step: 0.02, preview: (e) => `판(세트2.7) 기대 다이아 <b>${(missionDiamondPerSet(e) * 2.7).toFixed(2)}</b>` },
+    ] },
+  { icon: '🧨', title: '부스터 · 함정 레벨', desc: '판 안에서 코인을 태우는 소모처. 함정 레벨(PO): 승리는 보장하되 아주 어려운 레벨을 주기 배치 — 부스터 2~3회를 한 번에 태우는 스파이크 싱크.',
+    rows: [
+      { path: 'plus5BaseMult', label: '+5카드 기저 배수', desc: '첫 사용 비용 = 게임비×이 값×레벨램프', step: 0.1, preview: (e) => `Lv1 <b>${fmt(plus5CostFor(e, feeForLevel(e, 1), 0, 1))}</b> · Lv500 <b>${fmt(plus5CostFor(e, feeForLevel(e, 500), 0, 500))}</b> · Lv1000 <b>${fmt(plus5CostFor(e, feeForLevel(e, e.levelCap), 0, e.levelCap))}</b>` },
+      { path: 'wildBaseMult', label: '와일드 기저 배수', desc: '+5카드보다 확실히 비싸게', step: 0.1, preview: (e) => `Lv1 <b>${fmt(wildCostFor(e, feeForLevel(e, 1), 0, 1))}</b> · Lv1000 <b>${fmt(wildCostFor(e, feeForLevel(e, e.levelCap), 0, e.levelCap))}</b>` },
+      { path: 'boosterStepMult', label: '회당 가산 배수', desc: '같은 판 재사용 시 인상폭', step: 0.1 },
+      { path: 'boosterLevelRamp', label: '부스터 레벨 램프', desc: 'PO: "성장했으니 더 내도 된다" — 캡 레벨에서 ×(1+이 값)', step: 0.1, preview: (e) => `캡에서 기저의 <b>×${(1 + e.boosterLevelRamp).toFixed(1)}</b>` },
+      { path: 'undoFeeMult', label: '되돌리기 배수', desc: '현행 게임 100 고정 → 연동 제안', step: 0.05, preview: (e) => `Lv500 <b>${fmt(undoCostFor(e, fee5(e)))}</b>` },
+      { path: 'trapStartLevel', label: '함정 시작 레벨', desc: '온보딩 보호 — 이전 구간엔 함정 없음', step: 5 },
+      { path: 'trapCycleLevels', label: '함정 주기(레벨)', desc: '이 배수 레벨 = 함정(층 경계 동조)', step: 5, preview: (e) => `캡까지 함정 <b>${Math.max(0, Math.floor((e.levelCap - e.trapStartLevel + 1) / e.trapCycleLevels))}회</b>` },
+      { path: 'trapSpendMult', label: '함정 기대 지출 배수', desc: '통과에 태우는 부스터 분량 = 게임비×N', step: 1, preview: (e) => `Lv500 함정 1회 ≈ <b>${fmt(feeForLevel(e, 500) * e.trapSpendMult)}</b>` },
+    ] },
+  { icon: '🏗️', title: '층 · 레벨 · 다이아 (성장 스파인)', desc: '레벨(승리 판수)이 층을 열고, 층이 게임비 티어를 올린다. 건설 재화 = 다이아. ⚠️레벨캡·최대층·층당레벨·수입연동비율은 맨 위 "💎 다이아 구조" 대시보드로 이동(중복 방지) — 거기서 조정.',
+    rows: [
+      { path: 'floorReqBase', label: '해금 레벨 2~5층', desc: '쉼표 구분 — 앞 2개(0,0)는 1층·자리맞춤', csv: true, preview: (e) => `${e.maxFloors}층 = <b>Lv ${floorReqFor(e, e.maxFloors)}</b>` },
+      { path: 'floorCoinCostFromFloor', label: '코인 병행 시작 층', desc: 'PO 2026-07-19: 처음부터(2층=첫 유상층) 다이아+코인 복합', step: 1 },
+      { path: 'floorCoinCostMult', label: '건설 코인 배수', desc: '층 건설 코인 = 그 시점 게임비×이 값', step: 0.5, preview: (e) => `10층 <b>${fmt(floorCoinCost(e, feeForLevel(e, floorReqFor(e, 10)), 10))}</b> · 50층 <b>${fmt(floorCoinCost(e, feeForLevel(e, floorReqFor(e, 50)), 50))}</b>` },
+    ] },
+  { icon: '🏪', title: '점포 수익 (방치)', desc: '손님 방문이 층 은행에 쌓이고 탭으로 수령. 오프라인 적립은 신설 예정 — 여기 값으로 먼저 시뮬.',
+    rows: [
+      { path: 'claimUnitMult', label: '수령 단위 배수', desc: '은행 상한 = 게임비×이 값×층가중', step: 0.01, preview: (e) => `5층 게임비·1층 점포 <b>${fmt(claimGoalFor(e, fee5(e), 1))}</b>` },
+      { path: 'claimFloorWeight', label: '층가중/층', desc: '고층 = 비싼 상점 = 큰 수익(B안)', step: 0.05, preview: (e) => `10층 점포 <b>${fmt(claimGoalFor(e, fee5(e), 10))}</b>` },
+      { path: 'offlineRatePerHour', label: '오프라인 시간당 배수', desc: '경과 시간 기반 적립(신설 예정)', step: 0.01, preview: (e) => `12h = <b>${fmt(offlineIncomeFor(e, fee5(e), 12))}</b>` },
+      { path: 'offlineCapHours', label: '오프라인 캡(시간)', desc: '복귀 유도', step: 1 },
+      { path: 'idleDailyCapMult', label: '일일 총량 캡 배수', desc: '무플레이 무한 회복 방지', step: 0.5, preview: (e) => `5층 일 최대 <b>${fmt(fee5(e) * e.idleDailyCapMult)}</b>` },
+    ] },
+  { icon: '📅', title: '미션 (신설 예정)', desc: '무과금 일일 보전선. 데일리는 코인(게임비 비례), 위클리는 다이아.',
+    rows: [
+      { path: 'missionDailyMult', label: '데일리 합계 배수', desc: '출석+3판+세트 등 3종 합계', step: 0.5, preview: (e) => `5층 <b>${fmt(fee5(e) * e.missionDailyMult)}</b>/일` },
+      { path: 'weeklyDiamonds', label: '위클리 다이아', desc: '후반 건설비 완충', step: 1 },
+    ] },
+  { icon: '🏦', title: '경쟁부지 (미구현 — 고비용 코인 싱크)', desc: 'PO 확정: 높은 비용 청구. 여기서 비용·수익을 정하고 시뮬로 검증한 뒤 게임에 구현한다.',
+    rows: [
+      { path: 'compAuctionMult', label: '경매 낙찰가 배수', desc: '1층 뱅크 포함', step: 1, preview: (e) => `5층 <b>${fmt(compAuctionCost(e, fee5(e)))}</b>` },
+      { path: 'compFloorCostMult', label: '층당 총투자 배율', desc: '증축마다 총투자 ×배(기하)', step: 0.1, preview: (e) => `완공 총 <b>${fmt(compTotalInvested(e, fee5(e), e.compFloors))}</b>` },
+      { path: 'compFloors', label: '뱅크 층 수', desc: '', step: 1 },
+      { path: 'compRoiDays', label: 'ROI 일수', desc: '일 수익 = 총투자 ÷ 이 값', step: 0.5, preview: (e) => `완공 일수익 <b>${fmt(compDailyYield(e, fee5(e), e.compFloors))}</b>` },
+      { path: 'compAuctionDiamonds', label: '낙찰 다이아', desc: 'PO: 다이아 대량 소모처 — 경매 낙찰 시', step: 10 },
+      { path: 'compFloorDiamonds', label: '증축당 다이아', desc: '', step: 10, preview: (e) => `완공까지 다이아 총 <b>${e.compAuctionDiamonds + e.compFloorDiamonds * Math.max(0, e.compFloors - 1)}개</b>` },
+    ] },
+  { icon: '🎁', title: '초기값', desc: '신규 유저 지급량 — 온보딩 여유 결정.',
+    rows: [
+      { path: 'startCoins', label: '시작 코인', desc: '', step: 1000, preview: (e) => `Lv1 게임비 <b>${Math.floor(e.startCoins / feeForLevel(e, 1))}판</b> 분량` },
+      { path: 'startDiamonds', label: '시작 다이아', desc: '', step: 5 },
+    ] },
+];
+// 별 손익 미리보기(5층 기준): 보상 − 게임비.
+function prof(e, starIdx) {
+  const fee = fee5(e);
+  const net = starCoinsFor(e, fee, starIdx + 1) - fee;
+  const cls = net >= 0 ? 'pos' : 'neg';
+  return `5층 보상 <b>${fmt(starCoinsFor(e, fee, starIdx + 1))}</b> · 손익 <span class="${cls}">${net >= 0 ? '+' : ''}${fmt(net)}</span>`;
+}
+
+const PERF_ROWS = [
+  { path: 'winRate', label: '승률', desc: '0~1', step: 0.05 },
+  { path: 'starDist.0', label: '1★ 비율', desc: '승리 중', step: 0.05 },
+  { path: 'starDist.1', label: '2★ 비율', desc: '', step: 0.05 },
+  { path: 'starDist.2', label: '3★ 비율', desc: '', step: 0.05 },
+  { path: 'avgLeftover', label: '평균 남은카드', desc: '승리 시 보너스 재료', step: 0.5 },
+  { path: 'avgSets', label: '판당 세트(미션 틱)', desc: '5매치=세트 1개 → 미션 보상 발생 횟수(④ 실측 반영)', step: 0.1 },
+];
+const BEHAVIOR_ROWS = [
+  { path: 'gamesPerDay', label: '접속일 판수', desc: '하루 플레이 시도 횟수', step: 1 },
+  { path: 'activeDaysPerWeek', label: '주당 접속일', desc: '1~7', step: 1 },
+  { path: 'boosterSpendMult', label: '판당 부스터 지출', desc: '게임비 배수(기대값)', step: 0.05 },
+  { path: 'claimDiligence', label: '수령 성실도', desc: '방치 수익 중 실제 회수 비율 0~1', step: 0.1 },
+  { path: 'offlineHoursPerDay', label: '일 오프라인 시간', desc: '방치 적립 계산용', step: 1 },
+  { path: 'compInvestAppetite', label: '경쟁부지 투자 성향', desc: '잔고 ≥ 비용×이 값이면 투자(0=안 함)', step: 0.5 },
+  { path: 'challengeAppetite', label: '도전 배수 성향 0~1', desc: '0=항상 x1 · 1=항상 해금 최대 배수 (기대 배수로 반영)', step: 0.1 },
+];
+
+/* ══ 값 접근 유틸 ════════════════════════════════════════ */
+const storeOf = (s) => (s === 'econ' ? econ : s === 'behavior' ? behavior : perf);
+function getVal(store, path) { const [k, i] = path.split('.'); const o = storeOf(store); return i == null ? o[k] : o[k][+i]; }
+function setVal(store, path, v) {
+  const [k, i] = path.split('.'); const o = storeOf(store);
+  if (i == null) o[k] = v; else { const a = [...o[k]]; a[+i] = v; o[k] = a; }
+}
+
+/* ══ 카드/행 렌더 ════════════════════════════════════════ */
+function rowEl(store, r) {
+  const row = document.createElement('div');
+  row.className = 'row' + (r.csv ? ' csv' : '');
+  const lab = `<div class="lab"><b>${r.label}</b>${r.desc ? `<span>${r.desc}</span>` : ''}</div>`;
+  const inp = document.createElement('input');
+  inp.dataset.bind = `${store}:${r.path}`;
+  if (r.csv) {
+    inp.type = 'text';
+    inp.value = getVal(store, r.path).join(', ');
+    inp.addEventListener('change', () => {
+      const arr = inp.value.split(',').map((s) => Number(s.trim())).filter(Number.isFinite);
+      if (arr.length) { setVal(store, r.path, arr); onParamChange(); }
+    });
+    row.innerHTML = lab;
+    row.appendChild(inp);
+    if (r.preview) { const p = document.createElement('div'); p.className = 'prev'; p.dataset.preview = ''; row.appendChild(p); row._preview = () => { p.innerHTML = r.preview(econ); }; }
+  } else {
+    inp.type = 'number';
+    inp.step = String(r.step ?? 1);
+    inp.value = String(getVal(store, r.path));
+    // 'input' = 타이핑·스피너 즉시 반영(저장 불필요). KPI·곡선·트레이스가 실시간 재계산된다.
+    inp.addEventListener('input', () => {
+      const v = Number(inp.value);
+      if (Number.isFinite(v)) { setVal(store, r.path, v); if (store === 'perf') markPerfManual(); onParamChange(); }
+    });
+    row.innerHTML = lab;
+    row.appendChild(inp);
+    const p = document.createElement('div');
+    p.className = 'prev';
+    row.appendChild(p);
+    if (r.preview) row._preview = () => { p.innerHTML = r.preview(econ); };
+  }
+  return row;
+}
+const previewRows = [];
+function buildDesignCards() {
+  const root = $('designCards');
+  root.innerHTML = '';
+  for (const c of DESIGN_CARDS) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<div class="hd"><b>${c.icon} ${c.title}</b><p>${c.desc}</p></div>`;
+    const bd = document.createElement('div');
+    bd.className = 'bd';
+    for (const r of c.rows) { const el = rowEl('econ', r); bd.appendChild(el); if (el._preview) previewRows.push(el); }
+    card.appendChild(bd);
+    root.appendChild(card);
+  }
+  const perfBd = $('perfRows');
+  for (const r of PERF_ROWS) perfBd.appendChild(rowEl('perf', r));
+  const behBd = $('behaviorRows');
+  for (const r of BEHAVIOR_ROWS) behBd.appendChild(rowEl('behavior', r));
+}
+/* ══ 💎 다이아 구조 대시보드(맨 위 고정, 2026-07-18·19) ═══════════════
+   미션리워드(missionReward.ts)·데일리챌린지(dailyChallenge.ts) 는 **티어 테이블 자체가 이미 설계**돼
+   있으므로(경쟁작 Catch the Thief / Daily Competition Mission 벤치마크), 여기선 그 테이블을 그대로
+   보여주고, 조정 가능한 건 "그 테이블을 얼마나 자주/잘 달성하는가"라는 행동 가정치뿐이다. */
+const DASH_SOURCE_ROWS = [
+  { path: 'boardDiamondBase', label: '보드 기본 다이아(판당)', desc: 'PlayScene 카드 배치 개수 — 코드 확정값(구 2 → 1)', step: 1 },
+  { path: 'boardDiamondBonusRate', label: '보드 보너스 확률', desc: '"가끔 두개" — 이 확률로 1개 추가 적립(0~1, 코드와 정합)', step: 0.05 },
+  { path: 'assumedLevelsPerMissionTier', label: '미션리워드 티어당 소요 레벨(가정)', desc: '⚠️완료빈도 미확정 — 아래 6티어 표 참고해 조정', step: 1,
+    preview: (e) => `레벨당 <b>${missionRewardDiamondsPerLevel(e).toFixed(2)}개</b>(평균 티어보상 ${averageMissionReward().diamonds.toFixed(1)}개 ÷ ${e.assumedLevelsPerMissionTier})` },
+  { path: 'assumedDailyChallengeScore', label: '데일리챌린지 가정 평균 스코어', desc: '⚠️퍼포먼스 스테이지 판정용 — 아래 스테이지 표 참고', step: 500 },
+  { path: 'assumedDailyChallengeRank', label: '데일리챌린지 가정 평균 순위', desc: `⚠️그룹 ${GROUP_SIZE}명 중 순위 — 아래 랭킹 표 참고(1=1등)`, step: 1,
+    preview: (e) => `일 기대 <b>${dailyChallengeDiamondsPerDay(e).toFixed(1)}개</b> → 판환산 ${(dailyChallengeDiamondsPerDay(e) / Math.max(1, e.assumedGamesPerDay)).toFixed(2)}개/판` },
+  { path: 'assumedGamesPerDay', label: '일 평균 접속 판수(가정)', desc: '데일리챌린지를 판당으로 환산할 때만 사용', step: 1 },
+];
+const DASH_STRUCT_ROWS = [
+  { path: 'levelCap', label: '레벨 상한', desc: 'PO 2026-07-18: 1,000 → 3,000', step: 100 },
+  { path: 'maxFloors', label: '최대 층', desc: '3,000레벨로 약 100층 목표', step: 10 },
+  { path: 'floorReqStep', label: '6층부터 층당 +레벨', desc: '평균 층당 판수(6층 이후) 결정', step: 5 },
+  { path: 'diamondCostIncomeRatio', label: '건설비 = 수입 연동 비율', desc: '1.0=평탄(잉여 없음), 0.9=층당 +10% 잉여', step: 0.05 },
+];
+function buildMissionDash() {
+  const srcBd = $('dashSourceRows');
+  for (const r of DASH_SOURCE_ROWS) { const el = rowEl('econ', r); srcBd.appendChild(el); if (el._preview) previewRows.push(el); }
+  const stBd = $('dashStructRows');
+  for (const r of DASH_STRUCT_ROWS) { const el = rowEl('econ', r); stBd.appendChild(el); if (el._preview) previewRows.push(el); }
+
+  // 미션 리워드 6티어 표(실제 설계값, 읽기전용).
+  let mt = '<table><tr><th>티어</th><th>목표(개)</th><th>제한시간</th><th>코인</th><th>다이아</th><th>기타</th></tr>';
+  for (const t of MISSION_TIERS) {
+    const extra = [t.reward.collectionCards ? `카드×${t.reward.collectionCards}` : '', t.reward.giftBoxes ? `보물상자×${t.reward.giftBoxes}` : ''].filter(Boolean).join(' ');
+    mt += `<tr><td>${t.tier}</td><td>${t.goal}</td><td>${Math.round(t.durationMs / 60000)}분</td><td>${fmt(t.reward.coins || 0)}</td><td>${t.reward.diamonds || 0}</td><td style="text-align:left">${extra || '—'}</td></tr>`;
+  }
+  mt += '</table>';
+
+  // 데일리챌린지 퍼포먼스 스테이지 표.
+  let pt = '<table><tr><th>스테이지</th><th>목표 스코어</th><th>코인</th><th>다이아</th><th>기타</th></tr>';
+  for (const s of PERFORMANCE_STAGES) {
+    const extra = s.reward.giftBoxes ? `보물상자×${s.reward.giftBoxes}` : '—';
+    pt += `<tr><td>${s.stage}</td><td>${fmt(s.targetScore)}</td><td>${fmt(s.reward.coins || 0)}</td><td>${s.reward.diamonds || 0}</td><td style="text-align:left">${extra}</td></tr>`;
+  }
+  pt += '</table>';
+
+  // 데일리챌린지 그룹 랭킹 표.
+  let rt = `<table><tr><th>순위(그룹 ${GROUP_SIZE}명 중)</th><th>코인</th><th>다이아</th><th>기타</th></tr>`;
+  for (const b of RANK_REWARDS) {
+    const extra = b.reward.giftBoxes ? `보물상자×${b.reward.giftBoxes}` : '—';
+    rt += `<tr><td>${b.rankFrom === b.rankTo ? b.rankFrom + '등' : b.rankFrom + '~' + b.rankTo + '등'}</td><td>${fmt(b.reward.coins || 0)}</td><td>${b.reward.diamonds || 0}</td><td style="text-align:left">${extra}</td></tr>`;
+  }
+  rt += '</table>';
+
+  $('dashMissionReal').innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;font-size:11px">
+    <div><b style="color:var(--ink)">🎁 미션 리워드 6티어</b>(missionReward.ts, "Catch the Thief" 벤치마크 — 별3개↑ 승리마다 적립, 만료 시 리셋)<div class="scrollx">${mt}</div></div>
+    <div><b style="color:var(--ink)">⭐ 퍼포먼스 스테이지</b>(dailyChallenge.ts — 참고 이미지 앵커: 스테이지2=목표5,000)<div class="scrollx">${pt}</div></div>
+    <div><b style="color:var(--ink)">🏆 그룹 랭킹 보상</b>(dailyChallenge.ts — "Daily Competition Mission" 벤치마크, 일 리셋)<div class="scrollx">${rt}</div></div>
+  </div>`;
+}
+function renderMissionDash() {
+  const cv = $('cvMissionDash');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height, pad = 56;
+  ctx.clearRect(0, 0, W, H); axes(ctx, W, H, pad);
+  const F = econ.maxFloors;
+  let cumIncome = econ.startDiamonds, cumCost = 0;
+  const incomeSeries = [cumIncome], costSeries = [cumCost];
+  for (let f = 2; f <= F; f++) {
+    const games = Math.max(0, floorReqFor(econ, f) - floorReqFor(econ, f - 1));
+    cumIncome += games * totalDiamondsPerLevelExpected(econ);
+    cumCost += diamondCostForFloor(econ, f);
+    incomeSeries.push(cumIncome);
+    costSeries.push(cumCost);
+  }
+  const maxV = Math.max(...incomeSeries, ...costSeries, 1);
+  const xOf = (i) => pad + (i / Math.max(1, incomeSeries.length - 1)) * (W - pad - 20);
+  const yOf = (v) => H - pad - (v / maxV) * (H - pad - 20);
+  const drawLine = (series, color, dash) => {
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.setLineDash(dash || []);
+    ctx.beginPath();
+    series.forEach((v, i) => { const x = xOf(i), y = yOf(v); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  drawLine(incomeSeries, '#f4bd3d');
+  drawLine(costSeries, '#e0453e', [5, 4]);
+  let deficitFloor = -1;
+  for (let i = 0; i < incomeSeries.length; i++) if (costSeries[i] > incomeSeries[i]) { deficitFloor = i + 1; break; }
+  ctx.fillStyle = '#6d7395'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+  for (const f of [1, 25, 50, 75, 100]) if (f <= F) ctx.fillText(f + '층', xOf(f - 1), H - pad + 16);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#f4bd3d'; ctx.fillText('노랑=누적 수입', pad + 4, 20);
+  ctx.fillStyle = '#e0453e'; ctx.fillText('빨강점선=누적 건설비' + (deficitFloor > 0 ? ` (부족 시작: ${deficitFloor}층)` : ' (전 구간 흑자)'), pad + 4, 34);
+  const totalIncome = incomeSeries[incomeSeries.length - 1];
+  const totalCost = costSeries[costSeries.length - 1];
+  const net = totalIncome - totalCost;
+  $('dashSummary').innerHTML = `<div class="runbox" style="gap:10px">
+      <span class="chip">${F}층 완공 총 필요 다이아 <b>&nbsp;${fmt(totalCost)}</b></span>
+      <span class="chip">같은 구간 확보 가능 다이아(시작+보드+미션+데일리) <b>&nbsp;${fmt(totalIncome)}</b></span>
+      <span class="chip"><span class="flag ${net >= 0 ? 'ok' : 'hard'}">${net >= 0 ? '흑자' : '적자'}</span> ${net >= 0 ? '+' : ''}${fmt(net)}개</span>
+      ${deficitFloor > 0 ? `<span class="chip"><span class="flag hard">부족 시작</span> ${deficitFloor}층부터</span>` : ''}
+      <span class="chip">판당 총 기대 다이아 <b>&nbsp;${totalDiamondsPerLevelExpected(econ).toFixed(2)}개</b></span>
+    </div>`;
+}
+
+function refreshInputs() {
+  for (const inp of document.querySelectorAll('[data-bind]')) {
+    const [store, path] = inp.dataset.bind.split(':');
+    const v = getVal(store, path);
+    inp.value = Array.isArray(v) ? v.join(', ') : String(v);
+  }
+}
+function refreshPreviews() { for (const el of previewRows) el._preview(); }
+
+/* ══ KPI 스트립 ══════════════════════════════════════════ */
+function renderKpis() {
+  const midLv = Math.max(2, Math.round(econ.levelCap / 2));
+  const f1 = feeForLevel(econ, 1), fRef = fee5(econ), fMid = feeForLevel(econ, midLv), fMax = feeForLevel(econ, econ.levelCap);
+  const net = (s) => starCoinsFor(econ, fRef, s) - fRef;
+  const sign = (n) => `<span class="${n >= 0 ? 'pos' : 'neg'}">${n >= 0 ? '+' : ''}${fmt(n)}</span>`;
+  const freeDaily = fRef * econ.missionDailyMult + fRef * econ.idleDailyCapMult;
+  const reqMax = floorReqFor(econ, econ.maxFloors);
+  const capOk = reqMax <= econ.levelCap;
+  // 다이아 수지(캡 여정 누적): 수입 = 승리판×판당(보드+미션리워드+데일리챌린지 합산) + 위클리 추정 / 지출 = 필수 건설 + 경쟁부지.
+  const dIncome = reqMax * totalDiamondsPerLevelExpected(econ);
+  let dBuild = 0;
+  for (let f = 2; f <= econ.maxFloors; f++) dBuild += diamondCostForFloor(econ, f);
+  const dComp = econ.compAuctionDiamonds + econ.compFloorDiamonds * Math.max(0, econ.compFloors - 1);
+  // 위클리 추정: 캡까지 예상 일수(승리판 ÷ 일당 승리) 기준 — 행동/성능 파라미터를 따른다.
+  const estDays = Math.ceil(reqMax / Math.max(0.1, behavior.gamesPerDay * perf.winRate * (behavior.activeDaysPerWeek / 7)));
+  const dWeekly = Math.floor(estDays / 7) * econ.weeklyDiamonds;
+  const dNet = econ.startDiamonds + dIncome + dWeekly - dBuild - dComp;
+  $('kpis').innerHTML = `
+    <div class="kpi"><div class="k">게임비 (Lv1 / Lv${fmt(midLv)} / Lv${fmt(econ.levelCap)}) — ${econ.feeLevelStep}레벨마다 ×${econ.feeStepMult}</div><div class="v gold">${fmt(f1)} / ${fmt(fMid)} / ${fmt(fMax)}</div></div>
+    <div class="kpi"><div class="k">판당 손익 · Lv500 기준 (1★/2★/3★) — 전 구간 동일 비율</div><div class="v">${sign(net(1))} <small>/</small> ${sign(net(2))} <small>/</small> ${sign(net(3))}</div></div>
+    <div class="kpi"><div class="k">일일 무료 회복 상한 · Lv500 (미션+방치캡)</div><div class="v">${fmt(freeDaily)} <small>= 게임비 ${(freeDaily / fRef).toFixed(1)}판</small></div></div>
+    <div class="kpi"><div class="k">${econ.maxFloors}층 완공 여정 (레벨캡 ${fmt(econ.levelCap)})</div><div class="v">Lv ${fmt(reqMax)} ${capOk ? '' : '<span class="neg">⚠캡 초과</span>'} <small>≈ 승리 ${fmt(reqMax)}판${lastJourneyD10 ? ` · 시뮬 D${lastJourneyD10}` : ''}</small></div></div>
+    <div class="kpi"><div class="k">💎 다이아 수지 · 캡 여정 누적 (위클리 포함)</div><div class="v"><span class="${dNet >= 0 ? 'pos' : 'neg'}">${dNet >= 0 ? '+' : ''}${fmt(dNet)}</span> <small>수입 ${fmt(econ.startDiamonds + dIncome + dWeekly)} − 건설 ${fmt(dBuild)} − 경쟁부지 ${fmt(dComp)}</small></div></div>`;
+  const dn = $('diaNote');
+  if (dn) dn.innerHTML = `캡 여정(승리 ${fmt(reqMax)}판 ≈ ${fmt(estDays)}일) 누적: 시작 ${econ.startDiamonds} + 플레이 <b>${fmt(dIncome)}</b>(판당 ${totalDiamondsPerLevelExpected(econ).toFixed(2)}=보드+미션리워드+데일리챌린지) + 위클리 <b>${fmt(dWeekly)}</b>
+    − 필수 건설 <b>${fmt(dBuild)}</b>(수입 연동 ×${econ.diamondCostIncomeRatio}) − 경쟁부지 <b>${fmt(dComp)}</b>(낙찰 ${econ.compAuctionDiamonds}+증축 ${econ.compFloorDiamonds}×${Math.max(0, econ.compFloors - 1)})
+    = <b class="${dNet >= 0 ? 'pos' : 'neg'}">${dNet >= 0 ? '+' : ''}${fmt(dNet)}</b> — 건설이 플레이 수입을 정확히 추종(누진 방지)하므로 잔여 수지는 위클리·경쟁부지·시작분으로만 움직입니다.
+    잉여를 더 조이려면 비율↑ 또는 경쟁부지 다이아↑, 풀려면 비율↓.`;
+}
+
+function onParamChange() { renderKpis(); refreshPreviews(); drawCurves(); renderTrace(); renderModel(); renderMissionDash(); }
+
+/* ══ 곡선 ════════════════════════════════════════════════ */
+function axes(ctx, W, H, pad) { ctx.strokeStyle = '#343a5b'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(pad, 10); ctx.lineTo(pad, H - pad); ctx.lineTo(W - 10, H - pad); ctx.stroke(); }
+function drawCurves() {
+  const cv = $('cvFee'), ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height, pad = 56;
+  ctx.clearRect(0, 0, W, H); axes(ctx, W, H, pad);
+  // x축 = **레벨**(1..levelCap) — 게임비 계단은 feeLevelStep 경계에서만 오른다. 24개 샘플.
+  const CAP = econ.levelCap;
+  const N = 24;
+  const lvs = Array.from({ length: N }, (_, i) => Math.max(1, Math.round(((i + 1) / N) * CAP)));
+  const fees = [], r1 = [], r2 = [], r3 = [];
+  for (const lv of lvs) { const fee = feeForLevel(econ, lv); fees.push(fee); r1.push(starCoinsFor(econ, fee, 1)); r2.push(starCoinsFor(econ, fee, 2)); r3.push(starCoinsFor(econ, fee, 3)); }
+  const maxV = Math.max(...r3) * 1.08;
+  const x = (i) => pad + ((i + 0.5) / N) * (W - pad - 20);
+  const y = (v) => H - pad - (v / maxV) * (H - pad - 20);
+  ctx.fillStyle = '#3f8ef055';
+  const bw = (W - pad - 20) / N * 0.42;
+  fees.forEach((v, i) => ctx.fillRect(x(i) - bw / 2, y(v), bw, H - pad - y(v)));
+  const line = (arr, color) => {
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+    arr.forEach((v, i) => { const px = x(i), py = y(v); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
+    ctx.stroke();
+  };
+  line(r1, '#e0453e'); line(r2, '#f4bd3d'); line(r3, '#2fa85a');
+  ctx.fillStyle = '#a6abc7'; ctx.font = '11px Segoe UI'; ctx.textAlign = 'center';
+  for (let i = 0; i < N; i += 2) { ctx.fillText(`Lv${fmt(lvs[i])}`, x(i), H - pad + 15); ctx.fillStyle = '#8ec2ff'; ctx.fillText(fmt(fees[i]), x(i), H - pad + 29); ctx.fillStyle = '#a6abc7'; }
+  ctx.textAlign = 'left';
+  [['막대=게임비', '#3f8ef0'], ['1★ 보상', '#e0453e'], ['2★ 보상', '#f4bd3d'], ['3★ 보상', '#2fa85a']].forEach(([t, c], i) => { ctx.fillStyle = c; ctx.fillRect(pad + i * 120, 14, 10, 10); ctx.fillStyle = '#a6abc7'; ctx.fillText(t, pad + 14 + i * 120, 23); });
+
+  const cv2 = $('cvDia'), c2 = cv2.getContext('2d');
+  const W2 = cv2.width, H2 = cv2.height;
+  c2.clearRect(0, 0, W2, H2); axes(c2, W2, H2, pad);
+  const F = econ.maxFloors; // 다이아 차트는 층 축(건설 구간별) — 게임비 차트(레벨 축)와 별개.
+  const income = [], cost = [];
+  for (let f = 2; f <= F; f++) {
+    const games = Math.max(0, floorReqFor(econ, f) - floorReqFor(econ, f - 1)) || (f === 2 ? 1 : 0);
+    income.push(games * totalDiamondsPerLevelExpected(econ));
+    cost.push(diamondCostForFloor(econ, f));
+  }
+  const maxD = Math.max(...income, ...cost) * 1.1 || 1;
+  const x2 = (i) => pad + ((i + 0.5) / (F - 1)) * (W2 - pad - 20);
+  const y2 = (v) => H2 - pad - (v / maxD) * (H2 - pad - 18);
+  const bw2 = (W2 - pad - 20) / (F - 1) * 0.3;
+  income.forEach((v, i) => { c2.fillStyle = '#2fa85a88'; c2.fillRect(x2(i) - bw2 - 1, y2(v), bw2, H2 - pad - y2(v)); });
+  cost.forEach((v, i) => { c2.fillStyle = '#a86bf088'; c2.fillRect(x2(i) + 1, y2(v), bw2, H2 - pad - y2(v)); });
+  // **누적 다이아 잔고 라인**(시작 다이아 + Σ(구간수입−건설비), 경쟁부지·위클리 제외 — 별도 주석).
+  const cum = [];
+  let bal = econ.startDiamonds;
+  for (let i = 0; i < income.length; i++) { bal += income[i] - cost[i]; cum.push(bal); }
+  const cumMax = Math.max(...cum, 1);
+  const cumMin = Math.min(...cum, 0);
+  const yCum = (v) => H2 - pad - ((v - cumMin) / Math.max(1, cumMax - cumMin)) * (H2 - pad - 18);
+  c2.strokeStyle = '#f4bd3d'; c2.lineWidth = 2.5; c2.beginPath();
+  cum.forEach((v, i) => { i ? c2.lineTo(x2(i), yCum(v)) : c2.moveTo(x2(i), yCum(v)); });
+  c2.stroke();
+  if (cumMin < 0 || cum.some((v) => v <= 0)) { // 0선(벽) 표시.
+    c2.strokeStyle = '#e0453e'; c2.setLineDash([4, 4]); c2.beginPath();
+    c2.moveTo(pad, yCum(0)); c2.lineTo(W2 - 10, yCum(0)); c2.stroke(); c2.setLineDash([]);
+  }
+  c2.fillStyle = '#f4bd3d'; c2.font = '11px Segoe UI'; c2.textAlign = 'right';
+  c2.fillText(`누적 ${fmt(cum[cum.length - 1] ?? 0)}`, W2 - 14, yCum(cum[cum.length - 1] ?? 0) - 6);
+  c2.fillStyle = '#a6abc7'; c2.textAlign = 'center';
+  const stride2 = Math.max(1, Math.ceil((F - 1) / 12));
+  for (let f = 2; f <= F; f += stride2) c2.fillText(`${f}층`, x2(f - 2), H2 - pad + 15);
+  c2.textAlign = 'left';
+  c2.fillStyle = '#2fa85a'; c2.fillRect(pad, 12, 10, 10); c2.fillStyle = '#a6abc7'; c2.fillText('구간 다이아 수입', pad + 14, 21);
+  c2.fillStyle = '#a86bf0'; c2.fillRect(pad + 160, 12, 10, 10); c2.fillStyle = '#a6abc7'; c2.fillText('건설 비용', pad + 174, 21);
+  c2.fillStyle = '#f4bd3d'; c2.fillRect(pad + 280, 12, 10, 10); c2.fillStyle = '#a6abc7'; c2.fillText('누적 잔고(경쟁부지·위클리 제외)', pad + 294, 21);
+}
+
+/* ══ 트레이스 표 ═════════════════════════════════════════ */
+function renderTrace() {
+  const F = econ.maxFloors;
+  // 100층 스케일 — 1~10층 전체 + 이후 5층 간격 마일스톤만 표시(표 폭발 방지).
+  const floors = [];
+  for (let f = 1; f <= Math.min(10, F); f++) floors.push(f);
+  for (let f = 15; f <= F; f += 5) floors.push(f);
+  if (F > 10 && floors[floors.length - 1] !== F) floors.push(F);
+  let html = '<table><tr><th>층</th><th>해금 Lv</th><th>게임비(그 시점)</th><th>1★</th><th>2★</th><th>3★</th><th>남은카드/장</th><th>수령단위</th><th>구간 판수</th><th>구간 다이아</th><th>건설 다이아</th><th>건설 코인</th><th>경쟁부지 낙찰가</th></tr>';
+  for (const f of floors) {
+    const fee = feeForLevel(econ, Math.max(1, floorReqFor(econ, f))); // 그 층 해금 시점 레벨의 게임비.
+    const games = f < F ? Math.max(0, floorReqFor(econ, f + 1) - floorReqFor(econ, f)) : 0;
+    const cc = floorCoinCost(econ, fee, f);
+    html += `<tr><td>${f}층</td><td>${floorReqFor(econ, f) || '시작'}</td><td><b>${fmt(fee)}</b></td>`
+      + `<td>${fmt(starCoinsFor(econ, fee, 1))}</td><td>${fmt(starCoinsFor(econ, fee, 2))}</td><td>${fmt(starCoinsFor(econ, fee, 3))}</td>`
+      + `<td>${fmt(stockBonusFor(econ, fee, 1))}</td><td>${fmt(claimGoalFor(econ, fee, f))}</td>`
+      + `<td>${f < F ? games : '—'}</td><td>${f < F ? fmt(games * totalDiamondsPerLevelExpected(econ)) : '—'}</td>`
+      + `<td>${f >= 2 ? diamondCostForFloor(econ, f) : '—'}</td><td>${f >= 2 && cc ? fmt(cc) : '—'}</td><td>${fmt(compAuctionCost(econ, fee))}</td></tr>`;
+  }
+  html += '</table>';
+  $('traceTable').innerHTML = html;
+}
+
+/* ══ ② 모델 도식 — 레벨 슬라이더 기반 재화 흐름/가격/수지 뷰 ═══ */
+function floorAtLevel(lv) {
+  let f = 1;
+  for (let i = 2; i <= econ.maxFloors; i++) { if (floorReqFor(econ, i) <= lv) f = i; else break; }
+  return f;
+}
+function renderModel() {
+  const el = $('mLvN');
+  if (!el) return;
+  const lv = Math.min(econ.levelCap, Math.max(1, Math.round(+el.value || 1)));
+  $('mLv').max = String(econ.levelCap);
+  $('mLv').value = String(lv);
+  const fee = feeForLevel(econ, lv);
+  const ramp = boosterLevelFactor(econ, lv);
+  const floor = floorAtLevel(lv);
+  const nextFloor = Math.min(econ.maxFloors, floor + 1);
+  const mults = econ.challengeMults.filter((m, i) => (econ.challengeUnlockLevels[i] ?? 1) <= lv);
+  $('mLvInfo').innerHTML = `Lv <b>&nbsp;${fmt(lv)}</b> · 게임비 <b>&nbsp;${fmt(fee)}</b> · 부스터램프 <b>&nbsp;×${ramp.toFixed(2)}</b> · 해금층 <b>&nbsp;${floor}층</b>`
+    + ` · 도전 배수 <b>&nbsp;${mults.map((m) => 'x' + m).join('·') || 'x1'}</b> <span style="color:var(--ink-3)">(입장 ${mults.map((m) => fmt(fee * m)).join(' / ')})</span>`;
+
+  const s1 = starCoinsFor(econ, fee, 1), s2 = starCoinsFor(econ, fee, 2), s3 = starCoinsFor(econ, fee, 3);
+  const p5 = plus5CostFor(econ, fee, 0, lv), wd = wildCostFor(econ, fee, 0, lv);
+  const trap = Math.round(fee * econ.trapSpendMult * ramp);
+  const evIn = perf.winRate * (perf.starDist[0] * s1 + perf.starDist[1] * s2 + perf.starDist[2] * s3 + stockBonusFor(econ, fee, perf.avgLeftover));
+  const sets = perf.avgSets ?? 0;
+  const missIn = sets * missionCoinPerSet(econ, fee); // 인게임 미션 코인(판당, 승패 무관).
+  const missDia = perf.winRate * sets * missionDiamondPerSet(econ); // 미션 다이아(승리 시 완성풀 지급).
+  const evGame = evIn + missIn - fee - fee * behavior.boosterSpendMult * ramp;
+  const cycle = evGame * econ.trapCycleLevels - (lv >= econ.trapStartLevel ? trap : 0);
+  const idleCap = fee * econ.idleDailyCapMult;
+  const daily = evGame * behavior.gamesPerDay + fee * econ.missionDailyMult + idleCap * behavior.claimDiligence * 0.5; // 방치 실효 ~절반 가정.
+  const sign = (n) => `<span class="${n >= 0 ? 'pos' : 'neg'}">${n >= 0 ? '+' : ''}${fmt(n)}</span>`;
+  const box = (cls, name, val, sub) => `<div class="fbox ${cls}"><span><b>${name}</b>${sub ? `<span class="sub">${sub}</span>` : ''}</span><b>${val}</b></div>`;
+
+  $('modelFlow').innerHTML = `
+  <div class="flow">
+    <div class="fcol">
+      ${box('in', '⭐ 별 보상(판)', `${fmt(s1)} / ${fmt(s2)} / ${fmt(s3)}`, '1★ / 2★ / 3★ · 승리 시')}
+      ${box('in', '🎯 미션 보상(판)', fmt(missIn), `세트 ${sets.toFixed(1)}회 × ${fmt(missionCoinPerSet(econ, fee))}(코인) · 5매치마다`)}
+      ${box('in', '🃏 남은카드(판)', `${fmt(stockBonusFor(econ, fee, 1))}/장`, `평균 ${perf.avgLeftover}장 ≈ ${fmt(stockBonusFor(econ, fee, perf.avgLeftover))}`)}
+      ${box('in', '📅 데일리 미션(일)', fmt(fee * econ.missionDailyMult), '플레이한 날만')}
+      ${box('in', '🏪 점포·방치(일)', `≤ ${fmt(idleCap)}`, `수령단위 ${fmt(claimGoalFor(econ, fee, floor))}(${floor}층 점포)`)}
+      ${box('in', '🏦 경쟁부지(일)', fmt(compDailyYield(econ, fee, econ.compFloors)), '완공 시')}
+    </div>
+    <div class="fwallet">🪙 골드<small>유동 — 항상 얇게</small></div>
+    <div class="fcol">
+      ${box('out', '🎫 게임비(판)', fmt(fee), '레벨 계단 곡선')}
+      ${box('out', '➕ +5카드 (재사용 가산)', `${fmt(p5)} → ${fmt(plus5CostFor(econ, fee, 1, lv))} → ${fmt(plus5CostFor(econ, fee, 2, lv))}`, `와일드 ${fmt(wd)} → ${fmt(wildCostFor(econ, fee, 1, lv))} → ${fmt(wildCostFor(econ, fee, 2, lv))} · 1·2·3회차`)}
+      ${box('out', `🕳️ 함정(${econ.trapCycleLevels}레벨마다)`, fmt(trap), lv >= econ.trapStartLevel ? `기대 부스터 ${econ.trapSpendMult}배×램프` : `Lv${econ.trapStartLevel}부터`)}
+      ${box('out', '🏗️ 층 건설 코인', nextFloor >= econ.floorCoinCostFromFloor ? fmt(floorCoinCost(econ, fee, nextFloor)) : '—', `${nextFloor}층 · ${econ.floorCoinCostFromFloor}층부터`)}
+      ${box('out', '🏦 경쟁부지 투자', fmt(compAuctionCost(econ, fee)), '낙찰(1회)')}
+    </div>
+  </div>
+  <div class="flow" style="margin-top:6px">
+    <div class="fcol">
+      ${box('in', '💎 보드(판당)', `${boardDiamondsExpected(econ).toFixed(2)}개`, `기본${econ.boardDiamondBase}+가끔보너스${(econ.boardDiamondBonusRate * 100).toFixed(0)}%`)}
+      ${box('in', '💎 미션리워드+데일리(판환산)', `${(missionRewardDiamondsPerLevel(econ) + dailyChallengeDiamondsPerDay(econ) / Math.max(1, econ.assumedGamesPerDay)).toFixed(2)}개`, '⚠️추정 — 맨 위 대시보드에서 조정')}
+      ${box('in', '💎 미션 다이아(판)', `${missDia.toFixed(2)}개`, `세트 ${sets.toFixed(1)}회 × ${(missionDiamondPerSet(econ)).toFixed(2)} · 완성풀`)}
+      ${box('in', '💎 위클리', `${econ.weeklyDiamonds}개`, '')}
+    </div>
+    <div class="fwallet dia">💎 다이아<small>희소 — 주 단위</small></div>
+    <div class="fcol">
+      ${box('out', '🏗️ 층 건설', `${diamondCostForFloor(econ, nextFloor)}개`, `${nextFloor}층 · 수입 연동 ×${econ.diamondCostIncomeRatio}`)}
+      ${box('out', '🏦 경쟁부지', `${econ.compAuctionDiamonds} / ${econ.compFloorDiamonds}개`, '낙찰 / 증축당')}
+    </div>
+  </div>
+  <div class="evcards">
+    <div class="evcard"><div class="k">판당 기대 수지 (승률 ${Math.round(perf.winRate * 100)}%·별분포·미션 반영)</div><div class="v">${sign(evGame)}</div><div class="d">별·남은카드 ${fmt(evIn)} + 미션 ${fmt(missIn)} − 게임비 ${fmt(fee)} − 부스터기대 ${fmt(fee * behavior.boosterSpendMult * ramp)}</div></div>
+    <div class="evcard"><div class="k">${econ.trapCycleLevels}레벨 사이클 수지 (함정 1회 포함)</div><div class="v">${sign(cycle)}</div><div class="d">순항 ${econ.trapCycleLevels}판 ${sign(evGame * econ.trapCycleLevels)} − 함정 ${fmt(lv >= econ.trapStartLevel ? trap : 0)}</div></div>
+    <div class="evcard"><div class="k">일일 수지 추정 (${behavior.gamesPerDay}판 + 미션 + 방치½)</div><div class="v">${sign(daily)}</div><div class="d">플레이 ${sign(evGame * behavior.gamesPerDay)} + 미션 ${fmt(fee * econ.missionDailyMult)} + 방치 ~${fmt(idleCap * behavior.claimDiligence * 0.5)}</div></div>
+  </div>`;
+
+  // 레벨별 가격·보상표(마일스톤).
+  const miles = [1, 51, 101, 201, 301, 501, 701, econ.levelCap].filter((v, i, a) => v <= econ.levelCap && a.indexOf(v) === i);
+  let t = '<table><tr><th>레벨</th><th>게임비</th><th>+5카드</th><th>와일드</th><th>1★</th><th>2★</th><th>3★</th><th>함정 기대지출</th><th>램프</th><th>해금층</th></tr>';
+  for (const m of miles) {
+    const f = feeForLevel(econ, m), r = boosterLevelFactor(econ, m);
+    t += `<tr${m === lv ? ' style="outline:1px solid var(--gold)"' : ''}><td>Lv ${fmt(m)}</td><td><b>${fmt(f)}</b></td>`
+      + `<td>${fmt(plus5CostFor(econ, f, 0, m))}</td><td>${fmt(wildCostFor(econ, f, 0, m))}</td>`
+      + `<td>${fmt(starCoinsFor(econ, f, 1))}</td><td>${fmt(starCoinsFor(econ, f, 2))}</td><td>${fmt(starCoinsFor(econ, f, 3))}</td>`
+      + `<td>${m >= econ.trapStartLevel ? fmt(Math.round(f * econ.trapSpendMult * r)) : '—'}</td><td>×${r.toFixed(2)}</td><td>${floorAtLevel(m)}층</td></tr>`;
+  }
+  $('modelTable').innerHTML = t + '</table>';
+}
+
+/* ══ ④ 판 시뮬 ═══════════════════════════════════════════ */
+let lastDealAggregate = null;
+function markPerfManual() { $('perfSource').textContent = '소스: 수동 조정'; }
+async function runDealSim() {
+  const total = editorLevelCount(levelPack);
+  if (!total) { toast('저작 레벨이 없습니다 — cardLevels.json 로드 실패?'); return; }
+  const n = Math.max(20, +$('dealN').value || 300);
+  const seed = +$('dealSeed').value || 42;
+  const last = $('dealScope').value === 'first10' ? Math.min(10, total) : total;
+  const rows = [];
+  const agg = { wins: 0, games: 0, s1: 0, s2: 0, s3: 0, leftoverSum: 0, winCount: 0, setsSum: 0 };
+  $('btnRunDeal').disabled = true;
+  for (let lv = 1; lv <= last; lv++) {
+    $('dealProg').textContent = `레벨 ${lv}/${last} 시뮬 중… (판당 ${n})`;
+    await new Promise((r) => setTimeout(r));
+    const def = levelDef(lv, levelPack);
+    if (!def.layout) continue;
+    const layout = def.layout;
+    const grade = layout.difficulty ?? 2;
+    const opts = layout.initialDeal
+      ? { board: layout.initialDeal.board, waste: layout.initialDeal.waste, stockCount: layout.initialDeal.stock.length }
+      : { stockCount: layout.stock ?? undefined };
+    const r = simulateBatch(layout, grade, econ, n, seed + lv * 1013, opts);
+    rows.push({ lv, grade, r });
+    agg.games += r.n; agg.wins += Math.round(r.winRate * r.n);
+    const w = r.winRate * r.n;
+    agg.s1 += r.starDist[0] * w; agg.s2 += r.starDist[1] * w; agg.s3 += r.starDist[2] * w;
+    agg.leftoverSum += r.avgLeftover * w; agg.winCount += w;
+    agg.setsSum += r.avgSets * r.n; // 판당 세트(미션 틱) — 전 판 기준 가중.
+  }
+  $('btnRunDeal').disabled = false;
+  $('dealProg').textContent = `완료 — ${rows.length}개 레벨 × ${n}판`;
+
+  // 판정 요약 칩.
+  const verdictOf = (r) => (r.winRate < 0.6 ? 'hard' : r.starDist[2] > 0.4 ? 'easy' : 'ok');
+  const counts = { ok: 0, easy: 0, hard: 0 };
+  rows.forEach(({ r }) => counts[verdictOf(r)]++);
+  const W = Math.max(1, agg.winCount);
+  lastDealAggregate = { winRate: agg.games ? agg.wins / agg.games : 0, starDist: [agg.s1 / W, agg.s2 / W, agg.s3 / W], avgLeftover: agg.leftoverSum / W, avgSets: agg.games ? agg.setsSum / agg.games : 0 };
+  $('dealSummary').innerHTML = `<div class="runbox" style="gap:10px">
+      <span class="chip"><span class="flag ok">적정</span> ${counts.ok}</span>
+      <span class="chip"><span class="flag easy">너무 쉬움</span> ${counts.easy}</span>
+      <span class="chip"><span class="flag hard">너무 어려움</span> ${counts.hard}</span>
+      <span class="chip">전체 실측 — 승률 <b>&nbsp;${(lastDealAggregate.winRate * 100).toFixed(1)}%</b> · 별 <b>&nbsp;${lastDealAggregate.starDist.map(pct).join(' / ')}</b> · 남은카드 <b>&nbsp;${lastDealAggregate.avgLeftover.toFixed(1)}</b> · 판당세트 <b>&nbsp;${lastDealAggregate.avgSets.toFixed(2)}</b></span>
+      <button class="btn primary" id="btnApplyPerf">→ ⑤ 여정 성능에 반영</button></div>`;
+  $('btnApplyPerf').addEventListener('click', () => {
+    perf = { winRate: +lastDealAggregate.winRate.toFixed(3), starDist: lastDealAggregate.starDist.map((v) => +v.toFixed(3)), avgLeftover: +lastDealAggregate.avgLeftover.toFixed(2), avgSets: +lastDealAggregate.avgSets.toFixed(2) };
+    refreshInputs();
+    $('perfSource').textContent = `소스: 실측 (레벨 1~${last} × ${n}판) ✓`;
+    toast('실측 성능을 ⑤ 여정 시뮬에 반영했습니다');
+  });
+
+  const distBar = (d) => {
+    const seg = (v, c) => `<span class="bar" style="width:${Math.round(v * 120)}px;background:${c}" title="${pct(v)}"></span>`;
+    return seg(d[0], '#e0453e') + seg(d[1], '#f4bd3d') + seg(d[2], '#2fa85a');
+  };
+  let html = '<table><tr><th>레벨</th><th>보드/스톡</th><th>등급</th><th>승률</th><th>별 분포 (1★/2★/3★)</th><th>%</th><th>평균 세트</th><th>최장 런</th><th>남은카드</th><th>판정</th></tr>';
+  for (const { lv, grade, r } of rows) {
+    const v = verdictOf(r);
+    const flag = v === 'hard' ? '<span class="flag hard">너무 어려움</span>' : v === 'easy' ? '<span class="flag easy">너무 쉬움</span>' : '<span class="flag ok">적정</span>';
+    html += `<tr><td>Lv ${lv}</td><td>${r.boardSize}/${r.stockSize}</td><td>${grade}</td><td>${(r.winRate * 100).toFixed(1)}%</td>`
+      + `<td>${distBar(r.starDist)}</td><td>${r.starDist.map((x) => Math.round(x * 100)).join(' / ')}</td>`
+      + `<td>${r.avgSets.toFixed(2)}</td><td>${r.avgBestRun.toFixed(1)}</td><td>${r.avgLeftover.toFixed(1)}</td><td style="text-align:left">${flag}</td></tr>`;
+  }
+  $('dealResults').innerHTML = html + '</table>';
+}
+
+/* ══ ③ 레벨설계 — scripts/reports/level-simulation-report.json 을 그대로 읽어 보여준다 ═══
+   생성기(scripts/design-levels.mts)·독립 시뮬레이터(scripts/simulate-levels.mts)·게임 내 자동테스트
+   (scripts/analyze-autotest.mts)가 전부 이 한 파일에 병합 기록하므로, 경제탭도 같은 파일을 fetch 해서
+   보여주기만 하면 별도 재구현 없이 항상 최신 데이터를 공유한다(데이터 통합). */
+async function loadLevelReport() {
+  $('reportProg').textContent = '불러오는 중…';
+  try {
+    const res = await fetch('/__level_report', { cache: 'no-store' });
+    const j = await res.json();
+    if (!res.ok || j.ok === false) {
+      levelReport = null;
+      $('reportProg').textContent = j.error ?? '리포트 없음';
+      renderLevelDesign();
+      return;
+    }
+    levelReport = j;
+    $('reportProg').textContent = `레벨 ${Object.keys(levelReport).length}개 로드됨 · ${new Date().toLocaleTimeString()}`;
+    renderLevelDesign();
+  } catch (e) {
+    levelReport = null;
+    $('reportProg').textContent = 'dev 서버 필요(__level_report 엔드포인트): ' + e;
+    renderLevelDesign();
+  }
+}
+
+function renderLevelDesign() {
+  drawLevelCurve();
+  if (!levelReport) {
+    $('reportSummary').innerHTML = '<div class="note">리포트가 없습니다 — 터미널에서 <code>npx tsx scripts/design-levels.mts --write</code> 를 먼저 실행하세요.</div>';
+    $('reportTable').innerHTML = '';
+    return;
+  }
+  const rows = Object.values(levelReport).sort((a, b) => a.level - b.level);
+  const byGrade = { 1: [], 2: [], 3: [] };
+  for (const r of rows) (byGrade[r.grade] ?? byGrade[3]).push(r);
+  const avg = (arr, k) => (arr.length ? arr.reduce((s, r) => s + (r[k] ?? 0), 0) / arr.length : 0);
+  const flagCounts = {
+    noSolution: rows.filter((r) => r.hasSolution === false).length,
+    lowOpen: rows.filter((r) => (r.initialOpen ?? 99) < 5).length,
+    lowMinOpen: rows.filter((r) => (r.minOpenAlongSolution ?? 99) >= 0 && r.minOpenAlongSolution < 3).length,
+    lowWinRate: rows.filter((r) => r.winRate < 0.15).length,
+  };
+  $('reportSummary').innerHTML = `<div class="runbox" style="gap:10px">
+      <span class="chip">총 <b>&nbsp;${rows.length}</b>레벨</span>
+      <span class="chip">등급1 평균승률 <b>&nbsp;${pct(avg(byGrade[1], 'winRate'))}</b>(${byGrade[1].length}개)</span>
+      <span class="chip">등급2 평균승률 <b>&nbsp;${pct(avg(byGrade[2], 'winRate'))}</b>(${byGrade[2].length}개)</span>
+      <span class="chip">등급3 평균승률 <b>&nbsp;${pct(avg(byGrade[3], 'winRate'))}</b>(${byGrade[3].length}개)</span>
+      ${flagCounts.noSolution ? `<span class="chip"><span class="flag hard">해답없음</span> ${flagCounts.noSolution}</span>` : ''}
+      ${flagCounts.lowOpen ? `<span class="chip"><span class="flag hard">오픈&lt;5</span> ${flagCounts.lowOpen}</span>` : ''}
+      ${flagCounts.lowMinOpen ? `<span class="chip"><span class="flag hard">중간오픈&lt;3</span> ${flagCounts.lowMinOpen}</span>` : ''}
+      ${flagCounts.lowWinRate ? `<span class="chip"><span class="flag hard">승률&lt;15%</span> ${flagCounts.lowWinRate}</span>` : ''}
+    </div>`;
+  const hasLive = rows.some((r) => r.liveRuns != null);
+  let html = '<table><tr><th>레벨</th><th>스켈레톤</th><th>등급</th><th>보드/스톡</th><th>승률</th><th>잔여</th>'
+    + '<th>초기오픈</th><th>중간최저</th><th>해답</th>' + (hasLive ? '<th>실측승률</th><th>실측잔여</th>' : '') + '</tr>';
+  for (const r of rows) {
+    const under = r.winRate < wrFloorFor(r.level) - 0.15;
+    html += `<tr><td>Lv ${r.level}</td><td>${r.skeleton ?? ''}</td><td>${r.grade}</td><td>${r.board}/${r.stock}</td>`
+      + `<td>${under ? '<span class="flag hard">' : ''}${(r.winRate * 100).toFixed(0)}%${under ? '</span>' : ''}</td>`
+      + `<td>${r.avgLeftover?.toFixed?.(1) ?? ''}</td><td>${r.initialOpen ?? ''}</td><td>${r.minOpenAlongSolution ?? ''}</td>`
+      + `<td>${r.hasSolution === false ? '<span class="flag hard">✗</span>' : '<span class="flag ok">✓</span>'}</td>`
+      + (hasLive ? `<td>${r.liveRuns != null ? pct(r.liveWinRate) : '—'}</td><td>${r.liveRuns != null ? (r.liveAvgLeftover ?? 0).toFixed(1) : '—'}</td>` : '')
+      + '</tr>';
+  }
+  $('reportTable').innerHTML = html + '</table>';
+}
+
+function drawLevelCurve() {
+  const cv = $('cvLevelCurve'), ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height, pad = 56;
+  ctx.clearRect(0, 0, W, H); axes(ctx, W, H, pad);
+  const xOf = (lv) => pad + ((lv - 1) / (MAX_LEVEL - 1)) * (W - pad - 20);
+  // 등급 경계 점선.
+  ctx.strokeStyle = '#343a5b'; ctx.setLineDash([4, 4]);
+  for (const b of GRADE_BANDS.slice(1)) { const x = xOf(b.from); ctx.beginPath(); ctx.moveTo(x, 10); ctx.lineTo(x, H - pad); ctx.stroke(); }
+  ctx.setLineDash([]);
+  // 막대 = 보드 예산(24~54).
+  ctx.fillStyle = '#3f8ef066';
+  const barMaxY = H - pad, budgetScale = (barMaxY - 20) / 54;
+  for (let lv = 1; lv <= MAX_LEVEL; lv += 2) {
+    const { budget } = curve(lv);
+    const x = xOf(lv);
+    ctx.fillRect(x, barMaxY - budget * budgetScale, Math.max(1, (W - pad - 20) / MAX_LEVEL * 2), budget * budgetScale);
+  }
+  // 선 = 승률 하한(0~1 → y).
+  ctx.strokeStyle = '#f4bd3d'; ctx.lineWidth = 2; ctx.beginPath();
+  for (let lv = 1; lv <= MAX_LEVEL; lv++) {
+    const y = barMaxY - wrFloorFor(lv) * (barMaxY - 20);
+    if (lv === 1) ctx.moveTo(xOf(lv), y); else ctx.lineTo(xOf(lv), y);
+  }
+  ctx.stroke();
+  // 축 라벨.
+  ctx.fillStyle = '#6d7395'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+  for (const lv of [1, 100, 220, 350, 500]) ctx.fillText('Lv' + lv, xOf(lv), H - pad + 16);
+  ctx.textAlign = 'left';
+  ctx.fillText('막대=보드예산(우축 0~54)', pad + 4, 20);
+  ctx.fillStyle = '#f4bd3d'; ctx.fillText('선=승률 하한(0~100%)', pad + 4, 34);
+}
+
+/** 리포트 전체 평균(승률·잔여카드)을 ④ 판 성능(perf)에 반영 — 별분포/세트수는 리포트에 없어 기존값 유지. */
+function applyReportToPerf() {
+  if (!levelReport) { toast('리포트가 없습니다 — 먼저 새로고침하세요'); return; }
+  const rows = Object.values(levelReport);
+  if (!rows.length) return;
+  const avg = (k) => rows.reduce((s, r) => s + (r[k] ?? 0), 0) / rows.length;
+  perf = { ...perf, winRate: +avg('winRate').toFixed(3), avgLeftover: +avg('avgLeftover').toFixed(2) };
+  refreshInputs();
+  $('perfSource').textContent = `소스: 레벨설계 리포트 전체평균(${rows.length}레벨) ✓`;
+  toast('레벨설계 리포트 평균을 ⑤ 여정 시뮬 판 성능에 반영했습니다(별분포·세트수는 기존값 유지)');
+}
+
+/* ══ ⑤ 여정 시뮬 ═════════════════════════════════════════ */
+function runJourney() {
+  const days = Math.max(7, +$('jDays').value || 30);
+  const users = Math.max(50, +$('jUsers').value || 300);
+  const seed = +$('jSeed').value || 7;
+  $('jProg').textContent = '실행 중…';
+  setTimeout(() => {
+    const rep = simulateJourney(econ, behavior, { winRate: perf.winRate, starDist: perf.starDist, avgLeftover: perf.avgLeftover, avgSets: perf.avgSets }, days, users, seed);
+    $('jProg').textContent = `완료 — ${users}명 × ${days}일`;
+    drawJourney(rep);
+    $('jIssues').innerHTML = rep.issues.length
+      ? rep.issues.map((i) => `<div class="issue ${i.severity}"><b>${i.kind}</b> — ${i.message}</div>`).join('')
+      : '<div class="issue info">✔ 검출된 문제 없음</div>';
+    // 100층 스케일 — 마일스톤 층(2·5·10·20…·최대)만 표시.
+    const miles = [2, 5, 10];
+    for (let f = 20; f <= econ.maxFloors; f += 10) miles.push(f);
+    if (miles[miles.length - 1] !== econ.maxFloors) miles.push(econ.maxFloors);
+    const ms = miles.filter((f) => f <= econ.maxFloors);
+    let fh = '<table><tr><th></th>';
+    for (const f of ms) fh += `<th>${f}층</th>`;
+    fh += '</tr><tr><td>평균 도달일</td>';
+    for (const f of ms) {
+      const d = rep.floorReachedDay[f];
+      fh += `<td>${d > 0 ? 'D' + d : '<span style="color:#6d7395">미도달</span>'}</td>`;
+    }
+    fh += '</tr></table>';
+    $('jFloors').innerHTML = fh;
+    const d10 = rep.floorReachedDay[econ.maxFloors];
+    lastJourneyD10 = d10 > 0 ? d10 : null;
+    renderKpis();
+  });
+}
+function drawJourney(rep) {
+  const cv = $('cvJourney'), ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height, pad = 56;
+  ctx.clearRect(0, 0, W, H); axes(ctx, W, H, pad);
+  const days = rep.days;
+  const maxCoin = Math.max(...days.map((d) => d.coins)) * 1.1 || 1;
+  const maxDia = Math.max(...days.map((d) => d.diamonds)) * 1.1 || 1;
+  const x = (i) => pad + (i / Math.max(1, days.length - 1)) * (W - pad - 20);
+  const plot = (get, max, color, dash) => {
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash(dash || []);
+    ctx.beginPath();
+    days.forEach((d, i) => { const py = H - pad - (get(d) / max) * (H - pad - 22); i ? ctx.lineTo(x(i), py) : ctx.moveTo(x(i), py); });
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  plot((d) => d.coins, maxCoin, '#f4bd3d');
+  plot((d) => d.diamonds, maxDia, '#a86bf0');
+  const maxFloorReached = Math.max(...days.map((d) => d.floor)) * 1.2 || 1; // 100층 스케일 — 도달 범위에 맞춰 확대.
+  plot((d) => d.floor, maxFloorReached, '#2fa85a', [5, 4]);
+  plot((d) => d.bankruptRate, 1.1, '#e0453e', [2, 3]);
+  ctx.fillStyle = '#a6abc7'; ctx.font = '11px Segoe UI'; ctx.textAlign = 'center';
+  const step = Math.max(1, Math.round(days.length / 10));
+  for (let i = 0; i < days.length; i += step) ctx.fillText('D' + days[i].day, x(i), H - pad + 15);
+  ctx.textAlign = 'left';
+  const last = days[days.length - 1];
+  ctx.fillStyle = '#eef0fb';
+  ctx.fillText(`종료: 코인 ${fmt(last.coins)} · 다이아 ${fmt(last.diamonds)} · 층 ${last.floor} · Lv ${last.level} · 결제노출 ${pct(last.payPromptRate)}`, pad, H - 8);
+}
+
+/* ══ 저장/불러오기 ═══════════════════════════════════════ */
+$('btnReset').addEventListener('click', () => {
+  econ = { ...DEFAULT_ECON }; behavior = { ...DEFAULT_BEHAVIOR }; perf = { ...DEFAULT_PERF, starDist: [...DEFAULT_PERF.starDist] };
+  refreshInputs(); onParamChange(); markPerfManual(); toast('기본값 복원');
+});
+$('btnExport').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify({ kind: 'econParams', params: econ, behavior, perf }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'economy.json'; a.click();
+});
+$('btnImport').addEventListener('click', () => {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.json';
+  inp.addEventListener('change', async () => {
+    const f = inp.files?.[0]; if (!f) return;
+    try {
+      const parsed = JSON.parse(await f.text());
+      econ = coerceEcon(parsed.params ?? parsed);
+      if (parsed.behavior) behavior = { ...DEFAULT_BEHAVIOR, ...parsed.behavior };
+      if (parsed.perf) perf = { ...DEFAULT_PERF, ...parsed.perf };
+      refreshInputs(); onParamChange(); toast('가져오기 완료');
+    } catch (e) { toast('JSON 파싱 실패: ' + e); }
+  });
+  inp.click();
+});
+$('btnSave').addEventListener('click', async () => {
+  try {
+    const res = await fetch('/__save_econ', { method: 'POST', body: JSON.stringify({ kind: 'econParams', savedAt: new Date().toISOString(), params: econ }, null, 2) });
+    const j = await res.json();
+    toast(j.ok ? `저장 완료 → ${j.path}` : '저장 실패: ' + j.error);
+  } catch (e) { toast('저장 실패(dev 서버 필요·엔드포인트는 서버 재시작 후 활성): ' + e); }
+});
+
+/* ══ 단계 전환 · 초기화 ══════════════════════════════════ */
+for (const st of document.querySelectorAll('.step')) {
+  st.addEventListener('click', () => {
+    document.querySelectorAll('.step').forEach((s) => s.classList.toggle('on', s === st));
+    document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('on', p.id === 'panel-' + st.dataset.step));
+  });
+}
+$('btnRunDeal').addEventListener('click', runDealSim);
+$('btnRunJourney').addEventListener('click', runJourney);
+$('btnReloadReport').addEventListener('click', loadLevelReport);
+$('btnReportToPerf').addEventListener('click', applyReportToPerf);
+// 모델 도식 — 레벨 슬라이더/입력 동기화.
+$('mLv').addEventListener('input', () => { $('mLvN').value = $('mLv').value; renderModel(); });
+$('mLvN').addEventListener('input', () => renderModel());
+
+async function boot() {
+  buildDesignCards();
+  buildMissionDash();
+  try {
+    const res = await fetch('/econ/economy.json', { cache: 'no-store' });
+    if (res.ok) { const j = await res.json(); econ = coerceEcon(j.params ?? j); refreshInputs(); toast('economy.json 로드'); }
+  } catch { /* 없으면 기본값 */ }
+  try {
+    const res = await fetch('/levels/cardLevels.json', { cache: 'no-store' });
+    if (res.ok) {
+      const j = await res.json();
+      levelPack = (j && typeof j === 'object' && 'levels' in j ? j.levels : j) ?? {};
+      $('dealProg').textContent = `저작 레벨 ${editorLevelCount(levelPack)}개 로드됨`;
+    }
+  } catch { $('dealProg').textContent = 'cardLevels.json 로드 실패'; }
+  await loadLevelReport();
+  onParamChange();
+}
+boot();
+</script>

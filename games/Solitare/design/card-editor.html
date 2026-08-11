@@ -389,6 +389,15 @@
     <button class="tool" id="tTangent" title="스트로크를 경로 방향으로 회전(아치·갈런드용)">↻ 접선</button>
     <button class="tool" id="tJitter" title="선택(없으면 전체)에 미세 회전·위치 지터 — 손 배치 느낌">🖐 손맛</button>
     <button class="tool" id="tRealign" title="손맛으로 흐트러진 카드를 다시 정렬 — 회전 0°·격자 스냅">▦ 정돈</button>
+    <select id="partSel" class="tool" title="구조 부품(샘플 배치 문법 — LevelData 44장 분석)">
+      <option value="stripV">기둥(세로체인)</option><option value="stripH">가로줄</option><option value="fan">부채</option>
+      <option value="arcRow">호(스마일)</option><option value="pyramid">피라미드</option><option value="invPyramid">역피라미드</option>
+      <option value="diamondRing">다이아링</option><option value="wall">벽돌벽</option><option value="gate">게이트</option>
+      <option value="diagStrip">사선</option><option value="rosette">로제트</option>
+    </select>
+    <button class="tool" id="tPartStamp" title="선택 부품을 캔버스 중앙에 스탬프(자유 카드로 추가)">⬛ 부품</button>
+    <button class="tool" id="tMirror" title="선택 카드를 좌우 대칭 위치에 복제(회전 반전)">↔ 대칭복제</button>
+    <button class="tool" id="tAutoDesign" title="부품 문법으로 보드 자동 설계 — 재클릭=다른 구도">🎲 자동설계</button>
     <button class="tool" id="tSpread" title="완전히 포개진 카드를 펼쳐 뒤 카드가 보이게 — 앞 카드 최대 50%만 덮음(커버 관계 유지)">⇱ 겹침펼치기</button>
     <button class="tool" id="tFlipZ" title="겹침(덮는/덮이는) 순서 반전 — 선택(없으면 전체). 같은 층 앞뒤도 반전">⇅ 겹침반전</button>
     <button class="tool" id="tDedup" title="같은 자리에 완전히 포개진 중복 카드 제거(배치≠표시 원인)">⊟ 중복정리</button>
@@ -451,6 +460,7 @@
           <label class="f" style="max-width:76px">레벨 번호<input class="t num" id="lvlNum" type="number" min="1" value="1"></label>
           <button class="btn sm primary" id="lvlSaveBtn" style="flex:1">💾 이 레벨 저장 → 게임 적용</button>
         </div>
+        <button class="btn sm" id="lvlDupCur" style="width:100%;margin-top:6px" title="편집 중인(불러온) 레벨을 다음 빈 번호로 복제 — 칩 호버 복제 아이콘은 실수 유발로 제거(2026-07-19)">⧉ 현재 레벨 복제</button>
         <div class="kv" id="lvlCur">편집 중: <b>새 보드(미저장)</b></div>
         <div class="lvlgrid" id="lvlGrid"></div>
         <div class="grid2">
@@ -458,6 +468,8 @@
           <button class="btn sm" id="lvlImport">가져오기</button>
         </div>
         <button class="btn sm primary" id="lvlApplyAll" style="width:100%;margin-top:6px">⭳ 커밋 레벨팩 전체 적용(파일 → 게임)</button>
+        <button class="btn sm" id="lvlCheckAll" style="width:100%;margin-top:6px" title="저장된 모든 레벨의 베이크 딜로 승리 경로 존재를 검증(캡 800,000노드)">🔍 전체 풀이점검</button>
+        <button class="btn sm" id="lvlPurge" style="width:100%;margin-top:6px" title="팩 파일(public/levels/cardLevels.json)에 없는 레벨을 이 브라우저 저장소에서 제거 — 팩 교체(예: v2 50레벨) 후 옛 레벨 잔재 정리용. 삭제 전 확인창.">🧹 파일 기준 정리(잔재 레벨 제거)</button>
         <input type="file" id="lvlFile" accept="application/json" hidden>
       </div>
 
@@ -1862,6 +1874,53 @@ $("#tTangent").onclick=e=>{tangentRot=!tangentRot;e.currentTarget.classList.togg
 $("#tJitter").onclick=applyJitter;
 $("#tRealign").onclick=realignSel;
 $("#tSpread").onclick=spreadPeek;
+// ── 전체 풀이점검 — 저장된 전 레벨의 **베이크 딜** 기준 승리 경로 검증(게임과 동일 규칙, 캡 800k) ──
+$("#lvlCheckAll").onclick=()=>{ const m=lvlAll(); const ns=Object.keys(m).map(Number).sort((a,b)=>a-b);
+  if(!ns.length){ toast("저장된 레벨 없음"); return; }
+  const bad=[], noDeal=[];
+  for(const n of ns){ const d=m[n]; const sl=d.slots||[];
+    if(!d.deal||!Array.isArray(d.deal.stock)||!Array.isArray(d.deal.board)){ noDeal.push(n); continue; }
+    const cov=sl.map((s0,si)=>{ const out=[]; sl.forEach((o,oi)=>{ if(oi===si)return;
+      const front=o.layer>s0.layer||(o.layer===s0.layer&&oi>si); if(!front)return;
+      if(overlap(s0,o)>=(o.layer===s0.layer?SAME_LAYER_MIN:OVERLAP_MIN)) out.push(oi); }); return out; });
+    // **해답 리플레이 우선**(선형·정확 — 대형 보드 탐색 오탐 0%). 해답 없으면 솔버 폴백.
+    const sol=d.deal.solution;
+    if(Array.isArray(sol)&&sol.length){
+      const bn=d.deal.board.length, cl=new Array(bn).fill(false); let cc=0, sp=d.deal.stock.length, w=d.deal.waste, okR=true;
+      const adjR=(a,b)=>{const x=Math.abs(a-b);return x===1||x===12;};
+      for(const op of sol){
+        if(op==='d'){ if(sp<=0){okR=false;break;} sp--; w=d.deal.stock[sp]; }
+        else{ const i=+op.slice(1); if(!(i>=0&&i<bn)||cl[i]||!adjR(d.deal.board[i],w)||!cov[i].every(c=>cl[c])){okR=false;break;} cl[i]=true; cc++; w=d.deal.board[i]; }
+      }
+      if(!(okR&&cc===bn)) bad.push(n);
+    } else if(!isWinnableRanks(d.deal.board.slice(),d.deal.stock.slice(),d.deal.waste,cov,800000,false)) bad.push(n);
+  }
+  const msg = bad.length? "❌ 승리 못 찾음("+bad.length+"): "+bad.join(", ") : "✅ 전 "+ns.length+"레벨 승리 경로 확인";
+  toast(msg); alert(msg+(noDeal.length?" (딜 미저장: "+noDeal.join(",")+")":""));
+};
+// ── 구조 부품(shapeGrammar.mjs — 샘플 LevelData 문법) · 대칭 복제 · 자동설계 ──
+function SG(){ if(!window.ShapeGrammar){ toast("부품 모듈 로드 중 — 잠시 후 다시"); throw new Error("grammar not ready"); } return window.ShapeGrammar; }
+const PART_GEN={ stripV:g=>g.PARTS.stripV(4,46), stripH:g=>g.PARTS.stripH(5,56,1), fan:g=>g.PARTS.fan(5,70,210),
+  arcRow:g=>g.PARTS.arcRow(7,640,70,true), pyramid:g=>g.PARTS.pyramid(3), invPyramid:g=>g.PARTS.invPyramid(3),
+  diamondRing:g=>g.PARTS.diamondRing(8), wall:g=>g.PARTS.wall(2,6), gate:g=>g.PARTS.gate(3,250),
+  diagStrip:g=>g.PARTS.diagStrip(4,58,64,1), rosette:g=>g.PARTS.rosette(6,62) };
+$("#tPartStamp").onclick=()=>{ const g=SG(); const k=$("#partSel").value; flattenAll(); snapshot();
+  const z=zone(); const baseL=S.slots.length?Math.max(...S.slots.map(x=>x.layer))+1:0;
+  const ps=g.place(PART_GEN[k](g), S.frame.w/2, (z.y0+z.y1)/2, baseL);
+  ps.forEach(pt=>S.slots.push({id:uid(),x:Math.round(pt.x),y:Math.round(pt.y),layer:pt.layer,face:"fold",rot:Math.round(pt.rot||0)}));
+  render(); toast("부품 스탬프 "+ps.length+"장 — 드래그로 배치·회전은 rot 스텝"); };
+$("#tMirror").onclick=()=>{ if(!sel.size){ toast("대칭 복제할 카드를 먼저 선택"); return; } flattenAll(); snapshot();
+  const base=[...sel].map(id=>S.slots.find(x=>x.id===id)).filter(Boolean);
+  base.forEach(x=>S.slots.push({id:uid(),x:Math.round(S.frame.w-x.x),y:x.y,layer:x.layer,face:x.face,rot:-(x.rot||0)}));
+  render(); toast("↔ 대칭 복제 "+base.length+"장"); };
+$("#tAutoDesign").onclick=()=>{ const g=SG();
+  const b=parseInt(prompt("보드 카드 수(예산)?", String(Math.max(24, S.slots.length||26)))||"0",10); if(!b) return;
+  flattenAll(); snapshot();
+  const seed=(Date.now()%1000000)*7+(curLevel||1);
+  // v4 연결된 유기적 형상(2026-07-19) — 벽돌 타일로 틈 없이 하나의 그림(돔·아치·산·첨탑). v1(기둥)·v2(역삼각형)·v3(파편) 폐기.
+  const ps=g.composeLevelV4(curLevel||((seed%8)+1), Math.min(32,Math.max(14,b)), g.mulberry32(seed));
+  S.slots=ps.map(pt=>({id:uid(),x:pt.x,y:pt.y,layer:pt.layer,face:"fold",rot:pt.rot||0}));
+  render(); toast("🎲 자동설계 "+S.slots.length+"장 — 재클릭=다른 구도 · 저장 시 딜 검증"); };
 $("#tFlipZ").onclick=()=>{ const ss=selSlots().filter(s=>!isLocked(s)); invertOverlap(ss.length>=2?ss:S.slots.filter(s=>!isLocked(s))); };
 $("#tDedup").onclick=dedupeCards;
 $("#tGrid").onclick=e=>{showGrid=!showGrid;e.currentTarget.classList.toggle("act",showGrid);drawGrid();};
@@ -2037,7 +2096,7 @@ function loadDoc(d){
     const lv=v=>(v==="low"||v==="mid"||v==="high"||v==="vhigh")?v:""; S.diffChain=lv(d.difficulty?.chain); S.diffFeed=lv(d.difficulty?.feed); }
   S.slots=(d.slots||[]).map(s=>({id:s.id||uid(),x:s.x,y:s.y,layer:s.layer||0,face:s.face||"fold",rot:s.rot||0,...(s.gid?{gid:s.gid}:{})}));
   // 게임이 실제 플레이하는 **저장된 딜(초기 딜)** — 있으면 풀이검증이 이 딜의 난이도를 그대로 보여준다(게임=에디터 정합). 편집 시 무효화.
-  loadedDeal=(d.deal&&Array.isArray(d.deal.board)&&d.deal.board.length===S.slots.length)?{board:d.deal.board.slice(),waste:d.deal.waste,stock:Array.isArray(d.deal.stock)?d.deal.stock.slice():[]}:null;
+  loadedDeal=(d.deal&&Array.isArray(d.deal.board)&&d.deal.board.length===S.slots.length)?{board:d.deal.board.slice(),waste:d.deal.waste,stock:Array.isArray(d.deal.stock)?d.deal.stock.slice():[],solution:Array.isArray(d.deal.solution)?d.deal.solution.slice():null}:null;
   gmeta=d.groups&&typeof d.groups==="object"?{...d.groups}:{}; // 레이어 이름 복원(없으면 fallback 이름 사용)
   gHidden={}; gLocked={}; const eg=d.editorGroups||{}; (eg.hidden||[]).forEach(g=>gHidden[g]=true); (eg.locked||[]).forEach(g=>gLocked[g]=true); // 숨김/잠금 복원
   shapeDefs={}; // 새 보드 → 셰이프 파라미터 초기화(불러온 문서는 평탄 카드라 재편집 파라미터 없음)
@@ -2117,8 +2176,35 @@ function seedLevelsFromFile(){
       else if(JSON.stringify(m[n])!==JSON.stringify(src[n])){ m[n]=src[n]; upd++; } // 파일이 최신 → 덮어씀
     }});
     if(add||upd){ lvlSet(m); renderLevels(); toast("커밋 레벨팩 동기화 — 신규 "+add+" · 갱신 "+upd); }
+    // **완전 동기화(PO 2026-07-19)** — 파일(=팩 SSOT)에 없는 레벨은 활성 목록에 남기지 않고 **자동으로
+    //   브라우저 아카이브 키(cardLevels.archive.v1)로 이동**한다. 잔재를 수동 정리에 맡겼더니 옛 500레벨이
+    //   계속 보이고, 저장 시 팩으로 되섞이는 사고가 재발했음. 저장소 쪽 아카이브는 design/archive/ 폴더.
+    const extras=Object.keys(m).filter(n=>!(src[n]&&src[n].slots));
+    if(extras.length){
+      let arch={}; try{ arch=JSON.parse(localStorage.getItem("cardLevels.archive.v1")||"{}"); }catch{}
+      extras.forEach(n=>{ arch[n]=m[n]; delete m[n]; if(curLevel===Number(n)) curLevel=null; });
+      try{ localStorage.setItem("cardLevels.archive.v1", JSON.stringify(arch)); }catch{}
+      lvlSet(m); renderLevels();
+      setTimeout(()=>toast("🗂️ 팩 파일에 없는 레벨 "+extras.length+"개를 아카이브로 이동(브라우저 cardLevels.archive.v1 · 저장소 design/archive/)"),1200);
+    }
   }).catch(()=>{}); }catch{}
 }
+// **파일 기준 정리** — 팩 파일에 없는 레벨을 localStorage 에서 제거(옵트인·확인창). 팩을 통째로 교체했을 때
+//   (예: 2026-07-19 v2 50레벨) localStorage 잔재(옛 51~500 등)가 에디터·dev 게임에 계속 보이는 문제 해소.
+//   제거분은 팩 재생성 아카이브(design/archive/)에서 복구 가능.
+function lvlPurgeToFile(){
+  try{ fetch("/levels/cardLevels.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{
+    if(!d){ toast("팩 파일을 못 읽음(dev 서버 필요)"); return; }
+    const src=d.levels||d; const m=lvlAll();
+    const extras=Object.keys(m).filter(n=>!(src[n]&&src[n].slots));
+    if(!extras.length){ toast("잔재 없음 — 이미 파일과 일치"); return; }
+    if(!confirm("팩 파일에 없는 레벨 "+extras.length+"개("+extras.slice(0,8).join(",")+(extras.length>8?"…":"")+")를 이 브라우저 저장소에서 제거할까요?\n(팩 아카이브에서 복구 가능)")) return;
+    extras.forEach(n=>{ delete m[n]; if(curLevel===Number(n)) curLevel=null; });
+    lvlSet(m); renderLevels(); syncLevelsToServer(); toast("🧹 잔재 "+extras.length+"개 제거 — 파일과 일치");
+  }).catch(()=>toast("팩 파일을 못 읽음")); }catch{}
+}
+document.getElementById("lvlPurge").onclick=lvlPurgeToFile;
+document.getElementById("lvlDupCur").onclick=()=>{ if(curLevel==null){ toast("먼저 복제할 레벨을 불러오세요(레벨 칩 클릭)"); return; } lvlDup(curLevel); };
 function lvlSave(){ const doc=toDoc(); if(!doc.slots.length){toast("빈 보드는 저장 불가");return;}
   let n=parseInt($("#lvlNum").value)||nextLevelNum(); doc.level=n; const m=lvlAll(); m[n]=doc; lvlSet(m);
   curLevel=n; $("#lvlNum").value=n; renderLevels(); syncLevelsToServer();
@@ -2134,7 +2220,7 @@ function lvlDup(n){ const m=lvlAll(); const src=m[n]; if(!src){ toast("레벨 "+
   loadDoc(copy); curLevel=nn; $("#lvlNum").value=nn; $("#mName").value=copy.name; renderLevels();
   toast("레벨 "+n+" → 레벨 "+nn+" 로 복제(편집 중)"); }
 function renderLevels(){ const box=$("#lvlGrid"); if(!box)return; const m=lvlAll(), ns=Object.keys(m).map(Number).sort((a,b)=>a-b);
-  box.innerHTML = ns.length ? ns.map(n=>`<button class="lvlchip${n===curLevel?' cur':''}" data-n="${n}">${n}<small>${m[n].slots.length}장</small><i class="ldup" data-dup="${n}" title="이 레벨 복제">⧉</i><i data-del="${n}" title="삭제">×</i></button>`).join("") : '<div class="empty" style="grid-column:1/-1">저장된 레벨 없음</div>';
+  box.innerHTML = ns.length ? ns.map(n=>`<button class="lvlchip${n===curLevel?' cur':''}" data-n="${n}">${n}<small>${m[n].slots.length}장</small><i data-del="${n}" title="삭제">×</i></button>`).join("") : '<div class="empty" style="grid-column:1/-1">저장된 레벨 없음</div>';
   const cur=$("#lvlCur"); if(cur) cur.innerHTML = curLevel!=null ? `편집 중: <b>레벨 ${curLevel}</b>` : `편집 중: <b>새 보드(미저장)</b>`; }
 $("#expOne").onclick=()=>{const d=toDoc(); if(!d.slots.length){toast("빈 보드");return;} download(d.id+".json",d); toast("내보냄 · "+d.id+".json");};
 $("#impBtn").onclick=()=>$("#impFile").click();
@@ -2186,7 +2272,20 @@ addEventListener("keydown",e=>{
 addEventListener("keyup",e=>{ if(e.key==="x"||e.key==="X"){ explodeHold=false; explodeSet=null; render(); } });
 $("#undoBtn").onclick=undo;
 function runSolve(){ pbClose(); const el=$("#vSolve"); el.textContent="검증 중… (DFS + 난이도 측정)"; el.className="note";
-  setTimeout(()=>{ const r=checkWinnable(); lastSolve=r.ok?r:null; el.className="note "+(r.ok?"good":"bad");
+  setTimeout(()=>{
+    // **저장 해답 리플레이 우선**(대형 보드 탐색 한계 회피 — 전체 풀이점검과 동일 원리).
+    let r=null;
+    if(loadedDeal&&Array.isArray(loadedDeal.solution)&&loadedDeal.solution.length){
+      const cov=buildCoveredBy(), bn=loadedDeal.board.length, cl=new Array(bn).fill(false);
+      let cc=0, dc=0, w=loadedDeal.waste, okR=true; const pb=[];
+      const adjR=(a,b)=>{const x=Math.abs(a-b);return x===1||x===12;};
+      for(const op of loadedDeal.solution){
+        if(op==="d"){ const sr=loadedDeal.stock[loadedDeal.stock.length-1-dc]; if(sr==null){okR=false;break;} dc++; w=sr; pb.push({t:"d",r:sr}); }
+        else{ const i=+String(op).slice(1); if(!(i>=0&&i<bn)||cl[i]||!adjR(loadedDeal.board[i],w)||!cov[i].every(c=>cl[c])){okR=false;break;} cl[i]=true; cc++; w=loadedDeal.board[i]; pb.push({t:"p",i}); }
+      }
+      if(okR&&cc===bn) r={ok:true,msg:"✓ 풀림(저장 해답 "+loadedDeal.solution.length+"수 검증)",boardRanks:loadedDeal.board.slice(),stockRanks:loadedDeal.stock.slice(),waste:loadedDeal.waste,budget:loadedDeal.stock.length,path:pb,restStock:[]};
+    }
+    if(!r) r=checkWinnable(); lastSolve=r.ok?r:null; el.className="note "+(r.ok?"good":"bad");
     if(r.ok){ pbSeq=lastSolve.path||[]; pbBoardRanks=lastSolve.boardRanks; pbStepIdx=0;
       const tgt=S.difficulty||2;
       // **게임 실제 딜 우선**: 저장된 초기 딜(loadedDeal)이 있으면 그 딜의 난이도를 그대로 측정(게임=에디터 일치).
@@ -2224,7 +2323,7 @@ $("#playBtn").onclick=pbTogglePlay;
 $("#pbPrev").onclick=pbPrev; $("#pbNextBtn").onclick=pbNext; $("#pbFirstBtn").onclick=pbFirstStep; $("#pbCloseBtn").onclick=pbClose;
 $("#pbSpd").onclick=e=>{ const b=e.target.closest("[data-spd]"); if(b)pbSetSpeed(+b.dataset.spd); };
 $("#lvlSaveBtn").onclick=lvlSave;
-$("#lvlGrid").onclick=e=>{ const dup=e.target.closest("[data-dup]"); if(dup){e.stopPropagation();lvlDup(+dup.dataset.dup);return;}
+$("#lvlGrid").onclick=e=>{
   const d=e.target.closest("[data-del]"); if(d){e.stopPropagation();if(confirm("레벨 "+d.dataset.del+" 삭제?"))lvlDel(+d.dataset.del);return;}
   const b=e.target.closest("[data-n]"); if(b)lvlLoad(+b.dataset.n); };
 $("#lvlExport").onclick=()=>{ const m=lvlAll(); if(!Object.keys(m).length){toast("저장된 레벨 없음");return;} download("card-levels.json",{kind:"cardLevels",levels:m}); toast("레벨팩 내보냄"); };
@@ -2406,3 +2505,4 @@ addEventListener("resize",()=>{drawGrid();drawCover();layoutZones();});
 addEventListener("beforeunload",saveWip); // 닫기/새로고침 직전 편집중 보드를 즉시 보존(디바운스 대기분 반영)
 if(!lsGet("cardHelpSeen")) $("#help").classList.add("show");
 </script>
+<script type="module" src="./shapeGrammar.mjs"></script>

@@ -1,0 +1,440 @@
+{
+  "domain": "ui",
+  "unit": "blank",
+  "frame": {
+    "w": 720,
+    "h": 1600
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        84,
+        245,
+        552,
+        1046
+      ],
+      "center": [
+        360,
+        768
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_PlayIn_01",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        169,
+        1145,
+        383,
+        126
+      ],
+      "center": [
+        360,
+        1208
+      ],
+      "z": 2,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_PlayIn_05",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3",
+      "type": "text",
+      "label": "텍스트",
+      "rect": [
+        318,
+        1168,
+        84,
+        50
+      ],
+      "center": [
+        360,
+        1193
+      ],
+      "rectApprox": true,
+      "z": 3,
+      "space": "auto",
+      "pin": "none",
+      "text": "PLAY",
+      "at": [
+        360,
+        1193
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 42,
+        "fontFamily": "Luckiest Guy",
+        "color": "#ffffff",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_3_copy",
+      "type": "text",
+      "label": "텍스트 복사",
+      "rect": [
+        289,
+        1060,
+        72,
+        43
+      ],
+      "center": [
+        325,
+        1081
+      ],
+      "rectApprox": true,
+      "z": 4,
+      "space": "auto",
+      "pin": "none",
+      "text": "COST",
+      "at": [
+        325,
+        1081
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#0a0a0b",
+        "strokeW": 0,
+        "fontSize": 36,
+        "fontFamily": "Luckiest Guy",
+        "color": "#56331f",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_4",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        214,
+        1051,
+        58,
+        60
+      ],
+      "center": [
+        243,
+        1081
+      ],
+      "z": 5,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_2-3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy2",
+      "type": "text",
+      "label": "텍스트 복사",
+      "rect": [
+        391,
+        1060,
+        72,
+        43
+      ],
+      "center": [
+        427,
+        1081
+      ],
+      "rectApprox": true,
+      "z": 6,
+      "space": "auto",
+      "pin": "none",
+      "text": "2000",
+      "at": [
+        427,
+        1081
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#0a0a0b",
+        "strokeW": 0,
+        "fontSize": 36,
+        "fontFamily": "Luckiest Guy",
+        "color": "#fcbe03",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_3_copy3",
+      "type": "text",
+      "label": "텍스트 복사",
+      "rect": [
+        333,
+        415,
+        55,
+        26
+      ],
+      "center": [
+        360,
+        428
+      ],
+      "rectApprox": true,
+      "z": 7,
+      "space": "auto",
+      "pin": "none",
+      "text": "level",
+      "at": [
+        360,
+        428
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#0a0a0b",
+        "strokeW": 0,
+        "fontSize": 22,
+        "fontFamily": "Luckiest Guy",
+        "color": "#ffffff",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_3_copy4",
+      "type": "text",
+      "label": "텍스트 복사",
+      "rect": [
+        334,
+        364,
+        52,
+        62
+      ],
+      "center": [
+        360,
+        395
+      ],
+      "rectApprox": true,
+      "z": 8,
+      "space": "auto",
+      "pin": "none",
+      "text": "10",
+      "at": [
+        360,
+        395
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#0a0a0b",
+        "strokeW": 0,
+        "fontSize": 52,
+        "fontFamily": "Luckiest Guy",
+        "color": "#fcbe03",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_5",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        247,
+        679,
+        191,
+        161
+      ],
+      "center": [
+        342,
+        759
+      ],
+      "z": 9,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_PlayIn_02",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        442,
+        752,
+        87,
+        97
+      ],
+      "center": [
+        485,
+        800
+      ],
+      "z": 10,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_PlayIn_04-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        259,
+        541,
+        54,
+        54
+      ],
+      "center": [
+        286,
+        568
+      ],
+      "z": 11,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7_copy2",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        407,
+        541,
+        54,
+        54
+      ],
+      "center": [
+        434,
+        568
+      ],
+      "z": 12,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7_copy",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        321,
+        506,
+        78,
+        78
+      ],
+      "center": [
+        360,
+        545
+      ],
+      "z": 13,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        196,
+        851,
+        328,
+        110
+      ],
+      "center": [
+        360,
+        906
+      ],
+      "z": 14,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_PlayIn_03",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_8",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        554,
+        449,
+        88,
+        93
+      ],
+      "center": [
+        598,
+        495
+      ],
+      "z": 15,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_08_v3",
+      "style": {
+        "tintable": true
+      }
+    }
+  ],
+  "refs": [
+    "asset:up_DailyMission_08_v3",
+    "asset:up_PlayIn_01",
+    "asset:up_PlayIn_02",
+    "asset:up_PlayIn_03",
+    "asset:up_PlayIn_04-1",
+    "asset:up_PlayIn_05",
+    "asset:up_Solitare_UI_02_v3",
+    "asset:up_Solitare_UI_2-3"
+  ],
+  "label": "플레이 진입",
+  "rev": "b7771502"
+}

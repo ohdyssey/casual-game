@@ -16,6 +16,7 @@ import {
   consumeBonusCard,
   drawStock,
   refillStock,
+  refillableCount,
   remaining,
   isWin,
   hasMove,
@@ -187,6 +188,39 @@ describe('refillStock — 소모 카드 5장 스톡 복귀(104장 유니크 불�
     const s = deal(MINI, [C('S', 10), C('S', 2), C('S', 5), C('S', 7)]);
     expect(s.waste).toHaveLength(1);
     expect(refillStock(s, 5, seededRng(1))).toBe(s);
+  });
+
+  /**
+   * 회귀 — PO 2026-07-28 "＋5카드를 선택했을 때 기준카드에 이유없이 와일드카드가 나타난다".
+   * 이미 쓴 와일드가 스톡으로 되돌아가면 ＋5 를 쓸 때마다 공짜 와일드가 재활용되고, 도드로우로 뽑혀
+   * 기준 카드에 난데없이 WILD 아트가 떴다. 와일드는 웨이스트에 **남겨 둔다**(사라지지도 않는다).
+   */
+  it('이미 쓴 와일드는 스톡으로 되돌리지 않는다(웨이스트에 그대로 남는다)', () => {
+    const wild: Card = { id: 'wild_x', suit: 'S', rank: 5, wild: true };
+    const base = deal(MINI, [C('S', 10), C('S', 2), C('S', 5), C('S', 7)]);
+    const s = { ...base, waste: [C('H', 3), wild, C('D', 9), C('C', 4)] }; // top=C4(기준), 중간에 쓴 와일드.
+    const out = refillStock(s, 5, seededRng(1));
+    expect(out.stock.some((c) => c.wild)).toBe(false); // 스톡에 와일드가 섞이지 않는다.
+    expect(out.waste.some((c) => c.wild)).toBe(true); // 웨이스트에는 그대로 남아 있다.
+    expect(wasteTop(out).id).toBe('C4'); // 기준 카드는 유지.
+    expect(out.stock).toHaveLength(2); // 되돌릴 수 있는 건 H3·D9 둘뿐.
+  });
+
+  it('되돌릴 카드가 와일드뿐이면 아무 일도 하지 않는다', () => {
+    const wild: Card = { id: 'wild_x', suit: 'S', rank: 5, wild: true };
+    const base = deal(MINI, [C('S', 10), C('S', 2), C('S', 5), C('S', 7)]);
+    const s = { ...base, waste: [wild, C('C', 4)] };
+    expect(refillStock(s, 5, seededRng(1))).toBe(s);
+    expect(refillableCount(s)).toBe(0);
+  });
+});
+
+describe('refillableCount — ＋5 로 되돌릴 수 있는 장수', () => {
+  it('기준 카드와 쓴 와일드를 뺀 수', () => {
+    const wild: Card = { id: 'wild_x', suit: 'S', rank: 5, wild: true };
+    const base = deal(MINI, [C('S', 10), C('S', 2), C('S', 5), C('S', 7)]);
+    expect(refillableCount({ ...base, waste: [C('H', 3), wild, C('D', 9), C('C', 4)] })).toBe(2);
+    expect(refillableCount({ ...base, waste: [C('C', 4)] })).toBe(0); // 기준만 있으면 0.
   });
 });
 

@@ -92,7 +92,30 @@ let bgmSrc: AudioBufferSourceNode | null = null;
 let currentBgm: Bgm | null = null;
 let desiredBgm: Bgm | null = null;
 let muted = false;
-let bgmMuted = false; // 부지(스테이지)별 사운드 도입(2026-07-15)으로 BGM 기본 재생. setBgmMuted(true) 로 끌 수 있음.
+
+/**
+ * **사운드 볼륨**(0~1, 마스터 게인) — PO 2026-07-28 "사운드볼륨 조절 버튼을 만드세요".
+ *   버튼 하나로 조절할 수 있게 **단계 순환** 방식을 쓴다(슬라이더 위젯 없이 기존 메뉴 행에 그대로 얹힘).
+ *   마지막 단계 0 = 음소거이므로 별도 on/off 토글이 필요 없다(메뉴의 사운드 행이 이 버튼으로 대체됐다).
+ *   설정은 localStorage 에 남아 다음 실행에도 유지된다(세이브 스키마와 무관하게 audio 모듈 안에서 자급).
+ */
+export const VOLUME_STEPS = [1, 0.75, 0.5, 0.25, 0] as const;
+const VOLUME_KEY = 'solitaire.volume';
+
+function loadVolume(): number {
+  try {
+    const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(VOLUME_KEY);
+    if (raw == null) return 1;
+    const v = Number(raw);
+    return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1;
+  } catch {
+    return 1; // 저장소 접근 불가(사파리 프라이빗 등) — 기본 최대 볼륨.
+  }
+}
+let volume = loadVolume();
+// BGM 기본값 — **dev=꺼짐 / 배포(PROD)=켜짐**(2026-07-16 지시: 개발 중 반복 재생 피로 방지).
+//   setBgmMuted() 로 런타임 토글 가능(효과음과 별개).
+let bgmMuted = import.meta.env.DEV;
 let gestureHooked = false;
 
 function ac(): AudioContext | null {
@@ -102,7 +125,7 @@ function ac(): AudioContext | null {
       if (!Ctor) return null;
       ctx = new Ctor();
       master = ctx.createGain();
-      master.gain.value = muted ? 0 : 1;
+      master.gain.value = masterGain();
       master.connect(ctx.destination);
       bgmGain = ctx.createGain();
       bgmGain.gain.value = BGM_LEVEL; // BGM 배경 레벨(낮춤).
@@ -207,9 +230,13 @@ function startDesiredBgm(): void {
   if (bgmMuted) return; // BGM 뮤트 — 재생 시작 안 함.
   const c = ac();
   if (!c || !bgmGain || !desiredBgm) return;
-  // **부지 트랙 폴백** — 부지 전용 파일이 (아직) 없으면 home 으로. 실효 트랙이 같으면 재시작하지 않는다
-  //   (부지 간 팬 이동 중 파일 없는 부지들끼리는 home 이 끊김 없이 이어진다).
-  const eff: Bgm = buffers.has(BGM_FILE[desiredBgm]) ? desiredBgm : desiredBgm === 'play' ? 'play' : 'home';
+  // **스테이지 전용 재생**(2026-07-16 지시) — 그 부지 전용 트랙만 재생하고, 없으면 **무음**.
+  //   (구: home 폴백 → 다른 스테이지에 홈 사운드가 흘러나오는 문제. 이제 다른 스테이지 사운드는 재생하지 않는다.)
+  const eff: Bgm = desiredBgm;
+  if (!buffers.has(BGM_FILE[eff])) {
+    if (bgmSrc) stopBgm(0.4); // 재생 중이던 다른 스테이지 트랙을 페이드아웃.
+    return;
+  }
   if (currentBgm === eff && bgmSrc) return; // 이미 재생 중.
   const buf = buffers.get(BGM_FILE[eff]);
   if (!buf) return; // 아직 디코드 전 — 이후 제스처/재시도에서.
@@ -238,16 +265,54 @@ export function playBgm(name: Bgm): void {
   startDesiredBgm();
 }
 
+/** 실제 마스터 게인 — 음소거면 0, 아니면 설정 볼륨. 이 한 곳이 두 상태를 합치는 유일한 지점. */
+function masterGain(): number {
+  return muted ? 0 : volume;
+}
+function applyMasterGain(): void {
+  if (master && ctx) master.gain.value = masterGain();
+}
+
 /** 음소거 토글. */
 export function setMuted(m: boolean): void {
   muted = m;
-  if (master && ctx) master.gain.value = m ? 0 : 1;
+  applyMasterGain();
 }
 export function isMuted(): boolean {
   return muted;
 }
 
-/** BGM 전용 뮤트(효과음과 별개). 기본 true. false 로 켜면 대기 중인 BGM 을 시작한다. */
+/** 현재 볼륨(0~1). */
+export function getVolume(): number {
+  return volume;
+}
+
+/** 볼륨 설정(0~1 로 클램프) + 저장. 0 이면 음소거와 같은 효과. */
+export function setVolume(v: number): void {
+  volume = Math.min(1, Math.max(0, Number.isFinite(v) ? v : 1));
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(VOLUME_KEY, String(volume));
+  } catch {
+    /* 저장 실패는 무시(이번 세션에만 적용) */
+  }
+  applyMasterGain();
+}
+
+/** **버튼 1개용** — 다음 볼륨 단계로 순환하고 적용된 값을 돌려준다(100→75→50→25→0→100…). */
+export function cycleVolume(): number {
+  const i = VOLUME_STEPS.findIndex((s) => Math.abs(s - volume) < 0.01);
+  setVolume(VOLUME_STEPS[(i + 1) % VOLUME_STEPS.length]); // 목록에 없는 값(-1)이면 0번(=최대)부터.
+  return volume;
+}
+
+/** 메뉴 버튼 라벨 — `🔊 사운드 100%` / `🔇 사운드 꺼짐`. 아이콘은 볼륨 크기를 따라간다. */
+export function volumeLabel(): string {
+  if (muted || volume <= 0) return '🔇 사운드 꺼짐';
+  const icon = volume >= 0.75 ? '🔊' : volume >= 0.4 ? '🔉' : '🔈';
+  return `${icon} 사운드 ${Math.round(volume * 100)}%`;
+}
+
+/** BGM 전용 뮤트(효과음과 별개). 기본값 = dev 꺼짐/배포 켜짐. false 로 켜면 대기 중인 BGM 을 시작한다. */
 export function setBgmMuted(m: boolean): void {
   bgmMuted = m;
   if (m) stopBgm(0.2);

@@ -35,8 +35,12 @@ export interface GroupSpec {
   rowOff: number;     // 그룹 전체의 시작 행(그룹마다 높이를 달리해 실루엣을 만든다).
 }
 
+/** 그룹별로 최종 cells 배열에서 차지하는 [start,end) 구간(입력 groups 와 같은 순서) — 조립 뒤 특정
+ *  그룹만 골라 후처리(예: 세로 뒤집기)하려는 상위 호출자를 위한 것. */
+export interface GroupRange { kind: 'center' | 'pair'; start: number; end: number }
+
 export type AssembleResult =
-  | { ok: true; cells: GridCell[]; colSpan: number; rowSpan: number }
+  | { ok: true; cells: GridCell[]; colSpan: number; rowSpan: number; groupRanges: GroupRange[] }
   | { ok: false; reason: string };
 
 /** 셀 스택 → 그룹 로컬 격자(열 0..width-1). 셀들은 각자 중심을 맞춰 세로로 맞닿게 쌓인다. */
@@ -70,12 +74,14 @@ function conflicts(existing: readonly GridCell[], added: readonly GridCell[]): b
 /** 그룹 목록 → 레벨 격자. 실패하면 사유를 담아 반환한다(상위에서 다른 조합으로 재시도). */
 export function assembleGroups(groups: readonly GroupSpec[]): AssembleResult {
   let cells: GridCell[] = [];
+  const groupRanges: GroupRange[] = [];
   for (const g of groups) {
     const built = buildGroup(g.stack);
     if (!built) return { ok: false, reason: '짝수폭 셀이 섞여 중심 정렬 불가' };
     const shift = (list: readonly GridCell[], left: number) => list.map((c) => ({ col: left + c.col, row: g.rowOff + c.row }));
     const mirroredGroup = built.cells.map((c) => ({ col: built.width - 1 - c.col, row: c.row }));
 
+    const startIdx = cells.length;
     if (g.kind === 'center') {
       const left = CENTER_COL - (built.width - 1) / 2;
       const added = shift(built.cells, left);
@@ -95,6 +101,7 @@ export function assembleGroups(groups: readonly GroupSpec[]): AssembleResult {
       }
       if (!placed) return { ok: false, reason: '쌍 그룹 배치 실패' };
     }
+    groupRanges.push({ kind: g.kind, start: startIdx, end: cells.length });
   }
   const cols = cells.map((c) => c.col);
   const rows = cells.map((c) => c.row);
@@ -109,7 +116,7 @@ export function assembleGroups(groups: readonly GroupSpec[]): AssembleResult {
   for (const c of cells) {
     if (!set.has(key({ col: minCol + maxCol - c.col, row: c.row }))) return { ok: false, reason: '좌우 비대칭 발생' };
   }
-  return { ok: true, cells, colSpan, rowSpan };
+  return { ok: true, cells, colSpan, rowSpan, groupRanges };
 }
 
 /** 그룹 골격 — 그룹이 몇 개이고 각 그룹이 어느 행에서 시작하는지(=레벨의 실루엣). */

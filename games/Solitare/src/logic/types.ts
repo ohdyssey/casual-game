@@ -52,3 +52,17 @@ const SUIT_SYMBOLS: Record<Suit, string> = { S: '♠', H: '♥', D: '♦', C: '�
 export function suitSymbol(suit: Suit): string {
   return SUIT_SYMBOLS[suit];
 }
+
+/**
+ * **무늬 라운드로빈 배정기** — 같은 랭크가 반복 등장할 때 무늬를 순환 배정해 "같은 무늬+같은 랭크"
+ *   카드가 동시에 노출되는 경우를 최소화한다(같은 랭크 4장까지는 전부 다른 무늬, 5장째부터는
+ *   무늬가 4종뿐이라 불가피하게 재사용). 저작 랭크 배열을 카드로 변환할 때(보드·웨이스트) 사용.
+ */
+export function makeSuitCycler(): (rank: number) => Suit {
+  const counts = new Map<number, number>();
+  return (rank: number): Suit => {
+    const n = counts.get(rank) ?? 0;
+    counts.set(rank, n + 1);
+    return SUITS[n % 4];
+  };
+}

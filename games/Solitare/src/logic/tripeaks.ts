@@ -4,8 +4,8 @@
  * 상태 변경 함수(playCard/drawStock)는 원본을 건드리지 않고 새 GameState 를 반환한다.
  * 좌표(px)는 다루지 않는다 — 슬롯 노출/매칭/승패만 판정.
  */
-import type { Card, Rank, Rng } from './types.js';
-import { rankAdjacent } from './types.js';
+import type { Card, Rank, Rng, Suit } from './types.js';
+import { rankAdjacent, SUITS } from './types.js';
 import { type PeakLayout, slotMap } from './layouts.js';
 import { type LuckState, feedProb, chainProb, afterDraw, afterPlay } from './luck.js';
 
@@ -145,6 +145,21 @@ function exposedRanks(state: GameState): Rank[] {
   return out;
 }
 
+/**
+ * **드로우 시점 무늬 배정** — 지금 노출된 카드 중 같은 랭크가 있으면 그 무늬와 겹치지 않게 고른다
+ *   (같은 무늬+같은 랭크 카드가 동시에 화면에 보이는 일을 최소화). 4장 다 노출 중이면 첫 무늬로 폴백.
+ */
+function pickSuitAvoidingExposed(state: GameState, rank: Rank): Suit {
+  const used = new Set<Suit>();
+  for (const id of state.layout.order) {
+    if (!isExposed(state, id)) continue;
+    const c = state.board[id];
+    if (c.rank === rank) used.add(c.suit);
+  }
+  for (const s of SUITS) if (!used.has(s)) return s;
+  return SUITS[0];
+}
+
 /** 랭크 r 이 노출 카드들과 ±1(순환) 매칭되는 개수 — 많을수록 연쇄 잠재력↑. */
 function matchCount(exposed: readonly Rank[], r: Rank): number {
   let c = 0;
@@ -191,9 +206,26 @@ function chooseDynamicRank(exposed: readonly Rank[], luck: LuckState, rng: Rng, 
  */
 export const CURATED_FULL_UNTIL = 0.4;
 export const CURATED_NONE_FROM = 0.65;
-/** 중립 랜덤 단계의 등급별 매칭 확률(고정, 플레이 흐름 무관) — 쉬움일수록 우연히 잘 풀릴 뿐 떠먹이진 않는다. */
-const NEUTRAL_FEED: Record<1 | 2 | 3, number> = { 1: 0.52, 2: 0.44, 3: 0.36 };
+/**
+ * **큐레이션 전역 스위치**(PO 2026-07-27 "큐레이션을 전부 꺼보세요") — false 면 램프를 무시하고 **처음부터 끝까지
+ *   중립 랜덤**으로 뽑는다. 즉 적응형 피드(러버밴딩)·헛뽑기 조절·**막힘 구제가 전부 사라진다** → 잘못 두면
+ *   그대로 막히는 "함정"이 생기지만, 스톡을 다 뽑을 때까지 매칭이 안 나오는 판(운 나쁜 패배)도 함께 생긴다.
+ *   실측(저작 100레벨·레벨당 80판, 계수 0.30 동일 조건): 승률 **50.2% → 43.2%**, 승률 20% 미만 레벨
+ *   **11개 → 21개**. 즉 평균은 7%p 떨어지고 **레벨별 편차가 크게 벌어진다**(운 지배).
+ *   ⚠️ 다시 켤 땐 DYN_STOCK_REDUCE 를 함께 재역산할 것 — 켜면 승률이 그만큼 다시 올라간다.
+ */
+export const CURATION_ENABLED = false;
+/**
+ * 중립 랜덤 단계의 등급별 매칭 편향 확률(고정, 플레이 흐름 무관).
+ *
+ * **2026-07-29 재도입**(0 → 아래) — 한 번 완전히 없앴다가(균등 랜덤) PO 실측으로 난이도 급상승을
+ * 확인했다: lv1 조차 뽑기 비율을 보드만큼(1.0) 줘야 승률 46%. PO 지시: "완전 랜덤성 제거, 약간의
+ * 랜덤성만 — 바로바로 매칭되지만 않게". 예전 NEUTRAL_FEED(62~75%, "성공으로 유도"로 지적받음)의
+ * **절반 이하**로 낮춰 재도입 — 대부분은 매칭되지만 자주 안 되기도 하는 정도.
+ */
+const MODERATE_FEED: Record<1 | 2 | 3, number> = { 1: 0.40, 2: 0.35, 3: 0.30 };
 function curatedProb(state: GameState): number {
+  if (!CURATION_ENABLED) return 0; // 전역 오프 — 모든 뽑기가 중립 랜덤.
   const n = state.layout.slots.length;
   if (n <= 0) return 0;
   const p = state.cleared.size / n;
@@ -213,18 +245,18 @@ export function drawStock(state: GameState, rng?: Rng): GameState {
   // 와일드 카드는 랭크를 재추첨하지 않는다(정체성 유지) — 뽑히면 기준이 되어 아무 카드나 낸다.
   if (luck && rng && !card.wild) {
     const exposed = exposedRanks(state);
+    let rank: Rank;
     if (rng() < curatedProb(state)) {
       // **초반 큐레이션** — 적응형 피드/헛뽑기 + 막힘 구제(낼 수 없으면 반드시 낼 수 있는 랭크).
       const stuck = availableMoves(state).length === 0;
-      const rank = chooseDynamicRank(exposed, luck, rng, stuck);
-      card = { ...card, rank };
-      luck = afterDraw(luck, exposed.some((e) => rankAdjacent(e, rank)));
+      rank = chooseDynamicRank(exposed, luck, rng, stuck);
     } else {
-      // **중반 이후 랜덤플레이(중립 랜덤)** — 러버밴딩·막힘구제·연쇄최적화 **없음**. 등급별 고정 확률의
-      //   순수 동전던지기: NEUTRAL_FEED 확률로 매칭 랭크(균등), 아니면 전체 13랭크 균등(우연 매칭만).
-      //   플레이 흐름과 무관해 "떠먹여 주는" 느낌이 사라지고 운이 지배한다(진짜 랜덤 체감).
-      const wantMatch = exposed.length > 0 && rng() < NEUTRAL_FEED[luck.grade];
-      let rank: Rank;
+      // **약한 매칭 편향**(PO 2026-07-29, 2차 조정) — 처음엔 매칭 편향을 완전히 없앴더니(균등 랜덤
+      // 13랭크) 난이도가 급상승했다(PO 실측: lv1 도 뽑기 비율 1.0=보드만큼 줘야 승률 46%). PO 지시로
+      // "완전 랜덤 제거, 약간의 랜덤성만" — 즉 "바로바로 매칭되지 않을 정도"로만 편향을 낮춘다.
+      // 예전 NEUTRAL_FEED(62~75%, "성공으로 유도하는 의도적 배치"로 지적받음)의 **절반 이하**로 낮춰
+      // 대부분은 매칭되되 가끔은 안 되는 정도로 유지한다.
+      const wantMatch = exposed.length > 0 && rng() < MODERATE_FEED[luck.grade];
       if (wantMatch) {
         const cand = new Set<Rank>();
         for (const e of exposed) {
@@ -236,9 +268,10 @@ export function drawStock(state: GameState, rng?: Rng): GameState {
       } else {
         rank = ALL_RANKS[Math.floor(rng() * ALL_RANKS.length)];
       }
-      card = { ...card, rank };
-      luck = afterDraw(luck, exposed.some((e) => rankAdjacent(e, rank)));
     }
+    // **무늬는 현재 노출된 같은 랭크 카드와 겹치지 않게 배정**(같은 무늬+같은 랭크 동시 노출 최소화).
+    card = { ...card, rank, suit: pickSuitAvoidingExposed(state, rank) };
+    luck = afterDraw(luck, exposed.some((e) => rankAdjacent(e, rank)));
   }
   return {
     ...state,
@@ -315,18 +348,31 @@ export function consumeBonusCard(state: GameState, slotId: string, count: number
 }
 
 /**
+ * ＋5(스톡 보충)로 **되돌릴 수 있는 카드 수** — 웨이스트에서 현재 기준(top)과 **이미 쓴 와일드**를 뺀 장수.
+ *   호출부(부스터 버튼)가 "되돌릴 카드가 없어요" 판정에 쓴다. 0 이면 `refillStock` 도 아무 일도 하지 않는다.
+ */
+export function refillableCount(state: GameState): number {
+  return state.waste.slice(0, -1).filter((c) => !c.wild).length;
+}
+
+/**
  * 스톡 보충: **웨이스트(소모 카드, 현재 기준 top 제외)에서 임의 count 장**을 스톡으로 되돌린다.
  *   카드를 **이동**할 뿐(복사 아님) → 52장 유니크 유지(A가 5장이 되지 않음). 풀이 비면 원본 반환.
+ *
+ * ⚠️ **이미 사용한 와일드 카드는 되돌리지 않는다**(PO 2026-07-28 "＋5카드를 선택했을 때 기준카드에 이유없이
+ *    와일드카드가 나타난다") — 와일드는 보드에서 한 번 뱅킹돼 한 번 쓰이고 웨이스트에 남는데, 이걸 스톡으로
+ *    되돌리면 ＋5 를 쓸 때마다 **공짜 와일드가 무한 재활용**되고 기준 카드에 난데없이 WILD 아트가 뜬다.
+ *    와일드는 웨이스트에 그대로 남겨 둔다(사라지지 않음 — 카드 총량 불변).
  */
 export function refillStock(state: GameState, count: number, rng: Rng): GameState {
   const pool = state.waste.slice(0, -1); // 현재 기준 카드(top)는 유지
-  if (pool.length === 0 || count <= 0) return state;
-  const order = pool.map((_, i) => i);
+  const order = pool.map((c, i) => (c.wild ? -1 : i)).filter((i) => i >= 0); // 쓴 와일드는 후보에서 제외.
+  if (order.length === 0 || count <= 0) return state;
   for (let i = order.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
     [order[i], order[j]] = [order[j], order[i]];
   }
-  const pick = new Set(order.slice(0, Math.min(count, pool.length)));
+  const pick = new Set(order.slice(0, Math.min(count, order.length)));
   const picked: Card[] = [];
   const rest: Card[] = [];
   pool.forEach((c, i) => (pick.has(i) ? picked.push(c) : rest.push(c)));

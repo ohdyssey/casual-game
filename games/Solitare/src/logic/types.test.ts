@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rankAdjacent, isRed, rankLabel, suitSymbol, type Rank } from './types.js';
+import { rankAdjacent, isRed, rankLabel, suitSymbol, makeSuitCycler, type Rank } from './types.js';
 
 describe('rankAdjacent (±1, 순환 A↔K)', () => {
   it('연속 랭크는 인접', () => {
@@ -51,5 +51,28 @@ describe('표시 헬퍼', () => {
     expect(suitSymbol('H')).toBe('♥');
     expect(suitSymbol('D')).toBe('♦');
     expect(suitSymbol('C')).toBe('♣');
+  });
+});
+
+describe('makeSuitCycler — 같은 랭크 무늬 라운드로빈', () => {
+  it('같은 랭크가 4번까지는 전부 다른 무늬', () => {
+    const cycler = makeSuitCycler();
+    const suits = [cycler(7), cycler(7), cycler(7), cycler(7)];
+    expect(new Set(suits).size).toBe(4);
+  });
+
+  it('5번째부터는 무늬가 재사용(4종뿐이라 불가피)되지만 첫 무늬로 순환', () => {
+    const cycler = makeSuitCycler();
+    const suits = Array.from({ length: 5 }, () => cycler(3));
+    expect(suits[4]).toBe(suits[0]);
+  });
+
+  it('서로 다른 랭크는 독립적으로 카운트(랭크 A 의 호출이 랭크 B 에 영향 없음)', () => {
+    const cycler = makeSuitCycler();
+    const a1 = cycler(1);
+    const b1 = cycler(2);
+    const a2 = cycler(1);
+    expect(a1).not.toBe(a2); // 랭크1의 2번째 호출 → 다음 무늬
+    expect(b1).toBeDefined();
   });
 });

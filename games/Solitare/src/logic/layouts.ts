@@ -51,7 +51,13 @@ export interface PeakLayout {
   /** 고급 조정 — 등급 기본값을 덮어쓰는 연쇄/뽑기매칭 목표(각 low/mid/high/vhigh, 미지정 축은 등급 기본). */
   readonly diffAdvanced?: { readonly chain?: 'low' | 'mid' | 'high' | 'vhigh'; readonly feed?: 'low' | 'mid' | 'high' | 'vhigh' };
   /** 에디터에서 검증한 초기 딜(실제 카드 랭크). 첫 플레이에 이 배치를 그대로 사용(재플레이는 재딜). board=슬롯 순서. */
-  readonly initialDeal?: { readonly board: readonly number[]; readonly waste: number; readonly stock: readonly number[] };
+  /** 에디터가 검증한 초기 딜 + **정답 수순**(별 등급의 기준값 — starRating.referenceQuality). */
+  readonly initialDeal?: {
+    readonly board: readonly number[];
+    readonly waste: number;
+    readonly stock: readonly number[];
+    readonly solution?: readonly string[];
+  };
 }
 
 const EPS = 0.01;

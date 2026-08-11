@@ -1,0 +1,1093 @@
+{
+  "domain": "ui",
+  "unit": "home_copy",
+  "frame": {
+    "w": 1080,
+    "h": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_14",
+      "type": "image",
+      "label": "하늘",
+      "rect": [
+        -176,
+        -4272,
+        1438,
+        7012
+      ],
+      "center": [
+        543,
+        -766
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Slitare_BG_Back01-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_1",
+      "type": "image",
+      "label": "배경",
+      "rect": [
+        -176,
+        58,
+        1438,
+        3197
+      ],
+      "center": [
+        543,
+        1656
+      ],
+      "z": 2,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Slitare_BG_Back01_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_15",
+      "type": "image",
+      "label": "타워",
+      "rect": [
+        305,
+        176,
+        843,
+        1200
+      ],
+      "center": [
+        726,
+        776
+      ],
+      "z": 3,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Slitare_BG_Crane_v8",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4",
+      "type": "image",
+      "label": "코인 패널",
+      "rect": [
+        31,
+        41,
+        1018,
+        98
+      ],
+      "center": [
+        540,
+        90
+      ],
+      "z": 4,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_14_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_5",
+      "type": "text",
+      "label": "125,250",
+      "rect": [
+        322,
+        69,
+        126,
+        43
+      ],
+      "center": [
+        385,
+        90
+      ],
+      "rectApprox": true,
+      "z": 5,
+      "space": "auto",
+      "pin": "none",
+      "text": "125,250",
+      "at": [
+        448,
+        90
+      ],
+      "anchorX": "right",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 5,
+        "fontSize": 36,
+        "fontFamily": "Fredoka",
+        "color": "#ffc800",
+        "fontStyle": "700",
+        "align": "right",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "label": "1층 로비",
+      "rect": [
+        124,
+        2394,
+        858,
+        513
+      ],
+      "center": [
+        553,
+        2650
+      ],
+      "z": 6,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Slitare_BG_01_v3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7",
+      "type": "image",
+      "label": "1_캐릭터",
+      "rect": [
+        643,
+        2629,
+        150,
+        233
+      ],
+      "center": [
+        718,
+        2745
+      ],
+      "z": 7,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solirare_Chr_01",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6",
+      "type": "image",
+      "label": "Glass",
+      "rect": [
+        198,
+        2766,
+        690,
+        111
+      ],
+      "center": [
+        543,
+        2821
+      ],
+      "z": 8,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Slitare_BG_Glass",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy",
+      "type": "image",
+      "label": "2층 GoldenCrust",
+      "rect": [
+        124,
+        1882,
+        859,
+        518
+      ],
+      "center": [
+        553,
+        2141
+      ],
+      "z": 9,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Slitare_BG_02_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7_copy",
+      "type": "image",
+      "label": "2_캐릭터",
+      "rect": [
+        300,
+        2119,
+        142,
+        238
+      ],
+      "center": [
+        371,
+        2238
+      ],
+      "z": 10,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solirare_Chr_02",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy",
+      "type": "image",
+      "label": "Glass 복사",
+      "rect": [
+        198,
+        2261,
+        690,
+        111
+      ],
+      "center": [
+        543,
+        2316
+      ],
+      "z": 11,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Slitare_BG_Glass",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy2",
+      "type": "image",
+      "label": "3층 Bean&Bloom",
+      "rect": [
+        112,
+        1377,
+        832,
+        517
+      ],
+      "center": [
+        528,
+        1635
+      ],
+      "z": 12,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Slitare_BG_03_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7_copy2",
+      "type": "image",
+      "label": "2_캐릭터 복사",
+      "rect": [
+        663,
+        1591,
+        119,
+        261
+      ],
+      "center": [
+        722,
+        1721
+      ],
+      "z": 13,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solirare_Chr_03",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy2",
+      "type": "image",
+      "label": "Glass 복사",
+      "rect": [
+        186,
+        1752,
+        690,
+        111
+      ],
+      "center": [
+        531,
+        1807
+      ],
+      "z": 14,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Slitare_BG_Glass",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_8",
+      "type": "image",
+      "label": "플레이 버튼",
+      "rect": [
+        410,
+        2758,
+        266,
+        94
+      ],
+      "center": [
+        543,
+        2805
+      ],
+      "z": 16,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_21",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_9",
+      "type": "text",
+      "label": "게",
+      "rect": [
+        482,
+        2770,
+        156,
+        47
+      ],
+      "center": [
+        560,
+        2793
+      ],
+      "rectApprox": true,
+      "z": 17,
+      "space": "auto",
+      "pin": "none",
+      "text": "계속하기",
+      "at": [
+        560,
+        2793
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 2,
+        "fontSize": 39,
+        "fontFamily": "Do Hyeon",
+        "color": "#ffffff",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_10",
+      "type": "rect",
+      "label": "Level",
+      "rect": [
+        491,
+        2816,
+        144,
+        25
+      ],
+      "center": [
+        563,
+        2828
+      ],
+      "z": 18,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#a73d10",
+        "fillAlpha": 1,
+        "stroke": "#ab4012",
+        "strokeW": 0,
+        "radius": 12
+      }
+    },
+    {
+      "id": "layer_5_copy",
+      "type": "text",
+      "label": "125,250 복사",
+      "rect": [
+        594,
+        69,
+        36,
+        43
+      ],
+      "center": [
+        612,
+        90
+      ],
+      "rectApprox": true,
+      "z": 19,
+      "space": "auto",
+      "pin": "none",
+      "text": "50",
+      "at": [
+        630,
+        90
+      ],
+      "anchorX": "right",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 5,
+        "fontSize": 36,
+        "fontFamily": "Fredoka",
+        "color": "#ffc800",
+        "fontStyle": "700",
+        "align": "right",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_5_copy2",
+      "type": "text",
+      "label": "125,250 복사",
+      "rect": [
+        771,
+        70,
+        54,
+        43
+      ],
+      "center": [
+        798,
+        91
+      ],
+      "rectApprox": true,
+      "z": 20,
+      "space": "auto",
+      "pin": "none",
+      "text": "400",
+      "at": [
+        825,
+        91
+      ],
+      "anchorX": "right",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 5,
+        "fontSize": 36,
+        "fontFamily": "Fredoka",
+        "color": "#ffc800",
+        "fontStyle": "700",
+        "align": "right",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_11",
+      "type": "image",
+      "label": "상점",
+      "rect": [
+        27,
+        186,
+        139,
+        164
+      ],
+      "center": [
+        96,
+        268
+      ],
+      "z": 21,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_15",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_13",
+      "type": "text",
+      "label": "t",
+      "rect": [
+        63,
+        293,
+        68,
+        41
+      ],
+      "center": [
+        97,
+        313
+      ],
+      "rectApprox": true,
+      "z": 22,
+      "space": "auto",
+      "pin": "none",
+      "text": "Shop",
+      "at": [
+        97,
+        313
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 4,
+        "fontSize": 34,
+        "fontFamily": "Do Hyeon",
+        "color": "#ffffff",
+        "fontStyle": "500",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_11_copy",
+      "type": "image",
+      "label": "패키지",
+      "rect": [
+        27,
+        376,
+        139,
+        166
+      ],
+      "center": [
+        96,
+        459
+      ],
+      "z": 23,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_16_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_13_copy",
+      "type": "text",
+      "label": "t 복사",
+      "rect": [
+        63,
+        484,
+        68,
+        41
+      ],
+      "center": [
+        97,
+        504
+      ],
+      "rectApprox": true,
+      "z": 24,
+      "space": "auto",
+      "pin": "none",
+      "text": "Pack",
+      "at": [
+        97,
+        504
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 4,
+        "fontSize": 34,
+        "fontFamily": "Do Hyeon",
+        "color": "#ffffff",
+        "fontStyle": "500",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_11_copy2",
+      "type": "image",
+      "label": "코인 상점",
+      "rect": [
+        27,
+        567,
+        139,
+        166
+      ],
+      "center": [
+        96,
+        650
+      ],
+      "z": 25,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_17_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_13_copy2",
+      "type": "text",
+      "label": "t 복사",
+      "rect": [
+        63,
+        675,
+        68,
+        41
+      ],
+      "center": [
+        97,
+        695
+      ],
+      "rectApprox": true,
+      "z": 26,
+      "space": "auto",
+      "pin": "none",
+      "text": "Gold",
+      "at": [
+        97,
+        695
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 4,
+        "fontSize": 34,
+        "fontFamily": "Do Hyeon",
+        "color": "#ffffff",
+        "fontStyle": "500",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_11_copy3",
+      "type": "image",
+      "label": "리그",
+      "rect": [
+        915,
+        186,
+        139,
+        164
+      ],
+      "center": [
+        984,
+        268
+      ],
+      "z": 27,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_18_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_13_copy3",
+      "type": "text",
+      "label": "t 복사",
+      "rect": [
+        965,
+        328,
+        34,
+        41
+      ],
+      "center": [
+        982,
+        348
+      ],
+      "rectApprox": true,
+      "z": 28,
+      "space": "auto",
+      "pin": "none",
+      "text": "15",
+      "at": [
+        982,
+        348
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 4,
+        "fontSize": 34,
+        "fontFamily": "Do Hyeon",
+        "color": "#ffffff",
+        "fontStyle": "500",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_11_copy4",
+      "type": "image",
+      "label": "랭킹",
+      "rect": [
+        915,
+        376,
+        139,
+        166
+      ],
+      "center": [
+        984,
+        459
+      ],
+      "z": 29,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_19_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_13_copy4",
+      "type": "text",
+      "label": "t 복사",
+      "rect": [
+        948,
+        484,
+        68,
+        41
+      ],
+      "center": [
+        982,
+        504
+      ],
+      "rectApprox": true,
+      "z": 30,
+      "space": "auto",
+      "pin": "none",
+      "text": "Rank",
+      "at": [
+        982,
+        504
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 4,
+        "fontSize": 34,
+        "fontFamily": "Do Hyeon",
+        "color": "#ffffff",
+        "fontStyle": "500",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_11_copy5",
+      "type": "image",
+      "label": "시즌패스",
+      "rect": [
+        915,
+        567,
+        139,
+        167
+      ],
+      "center": [
+        984,
+        650
+      ],
+      "z": 31,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_20_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_13_copy5",
+      "type": "text",
+      "label": "t 복사",
+      "rect": [
+        948,
+        675,
+        68,
+        41
+      ],
+      "center": [
+        982,
+        695
+      ],
+      "rectApprox": true,
+      "z": 32,
+      "space": "auto",
+      "pin": "none",
+      "text": "Pass",
+      "at": [
+        982,
+        695
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 4,
+        "fontSize": 34,
+        "fontFamily": "Do Hyeon",
+        "color": "#ffffff",
+        "fontStyle": "500",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_12",
+      "type": "text",
+      "label": "Lv 4",
+      "rect": [
+        540,
+        2817,
+        44,
+        26
+      ],
+      "center": [
+        562,
+        2830
+      ],
+      "rectApprox": true,
+      "z": 33,
+      "space": "auto",
+      "pin": "none",
+      "text": "Lv 4",
+      "at": [
+        562,
+        2830
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 22,
+        "fontFamily": "Russo One",
+        "color": "#ffffff",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_16",
+      "type": "image",
+      "label": "4층",
+      "rect": [
+        112,
+        871,
+        856,
+        516
+      ],
+      "center": [
+        540,
+        1129
+      ],
+      "z": 34,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Slitare_BG_04_v3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy3",
+      "type": "image",
+      "label": "Glass 복사",
+      "rect": [
+        183,
+        1243,
+        690,
+        111
+      ],
+      "center": [
+        528,
+        1298
+      ],
+      "z": 35,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Slitare_BG_Glass",
+      "style": {
+        "tintable": true
+      }
+    }
+  ],
+  "refs": [
+    "asset:up_Slitare_BG_01_v3",
+    "asset:up_Slitare_BG_02_v2",
+    "asset:up_Slitare_BG_03_v2",
+    "asset:up_Slitare_BG_04_v3",
+    "asset:up_Slitare_BG_Back01-1",
+    "asset:up_Slitare_BG_Back01_v2",
+    "asset:up_Slitare_BG_Crane_v8",
+    "asset:up_Slitare_BG_Glass",
+    "asset:up_Solirare_Chr_01",
+    "asset:up_Solirare_Chr_02",
+    "asset:up_Solirare_Chr_03",
+    "asset:up_Solitare_UI_14_v2",
+    "asset:up_Solitare_UI_15",
+    "asset:up_Solitare_UI_16_v2",
+    "asset:up_Solitare_UI_17_v2",
+    "asset:up_Solitare_UI_18_v2",
+    "asset:up_Solitare_UI_19_v2",
+    "asset:up_Solitare_UI_20_v2",
+    "asset:up_Solitare_UI_21"
+  ],
+  "label": "타워 건설 템플릿",
+  "hints": {
+    "interactiveCandidates": [
+      {
+        "id": "layer_8",
+        "label": "플레이 버튼",
+        "confidence": 0.95,
+        "suggestedAction": "play",
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_21)",
+          "이름에 버튼/구매 표현 (\"플레이 버튼\")",
+          "인접 캡션 텍스트 \"계속하기\" (layer_9)",
+          "이름에서 동작 추정 → \"play\""
+        ]
+      },
+      {
+        "id": "layer_11_copy",
+        "label": "패키지",
+        "confidence": 0.9,
+        "suggestedAction": "package",
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_16_v2)",
+          "인접 캡션 텍스트 \"Pack\" (layer_13_copy)",
+          "같은 크기 아이콘 4개 묶음 = 메뉴/내비 패턴",
+          "이름에서 동작 추정 → \"package\""
+        ]
+      },
+      {
+        "id": "layer_11_copy2",
+        "label": "코인 상점",
+        "confidence": 0.9,
+        "suggestedAction": "shop",
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_17_v2)",
+          "인접 캡션 텍스트 \"Gold\" (layer_13_copy2)",
+          "같은 크기 아이콘 4개 묶음 = 메뉴/내비 패턴",
+          "이름에서 동작 추정 → \"shop\""
+        ]
+      },
+      {
+        "id": "layer_11_copy4",
+        "label": "랭킹",
+        "confidence": 0.9,
+        "suggestedAction": "rank",
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_19_v2)",
+          "인접 캡션 텍스트 \"Rank\" (layer_13_copy4)",
+          "같은 크기 아이콘 4개 묶음 = 메뉴/내비 패턴",
+          "이름에서 동작 추정 → \"rank\""
+        ]
+      },
+      {
+        "id": "layer_11_copy5",
+        "label": "시즌패스",
+        "confidence": 0.9,
+        "suggestedAction": "pass",
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_20_v2)",
+          "인접 캡션 텍스트 \"Pass\" (layer_13_copy5)",
+          "같은 크기 아이콘 4개 묶음 = 메뉴/내비 패턴",
+          "이름에서 동작 추정 → \"pass\""
+        ]
+      },
+      {
+        "id": "layer_11",
+        "label": "상점",
+        "confidence": 0.7,
+        "suggestedAction": "shop",
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_15)",
+          "인접 캡션 텍스트 \"Shop\" (layer_13)",
+          "이름에서 동작 추정 → \"shop\""
+        ]
+      },
+      {
+        "id": "layer_11_copy3",
+        "label": "리그",
+        "confidence": 0.7,
+        "suggestedAction": "league",
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_18_v2)",
+          "인접 캡션 텍스트 \"15\" (layer_13_copy3)",
+          "이름에서 동작 추정 → \"league\""
+        ]
+      },
+      {
+        "id": "layer_4",
+        "label": "코인 패널",
+        "confidence": 0.7,
+        "suggestedAction": "gold",
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_14_v2)",
+          "인접 캡션 텍스트 \"125,250\" (layer_5)",
+          "이름에서 동작 추정 → \"gold\""
+        ]
+      }
+    ],
+    "note": "추정입니다 — 저작된 값이 아닙니다. 확정이 필요하면 에디터에서 「버튼」과 역할(action:이름)을 지정하세요. 구현 시에는 이 후보를 근거로 삼되, 코드에 TODO 로 남겨 사람이 확인할 수 있게 하세요."
+  },
+  "rev": "f2869daa"
+}

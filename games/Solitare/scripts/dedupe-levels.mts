@@ -27,9 +27,22 @@ function rngOf(seed: number): () => number {
 }
 const pick = <T>(arr: readonly T[], r: number): T => arr[Math.floor(r * arr.length) % arr.length];
 
-function buildStack(pool: readonly string[], wantCards: number, maxRows: number, rnd: () => number): CellShape[] {
+// build-cells-range.mts 와 동일한 오픈 리듬 편향(좁은 시작+중반 확산 하나) — 재조립되는 소수(≈500 중
+// 6건 안팎)의 중복 레벨도 같은 리듬을 따르게 한다.
+const CHOKE = ['기둥1', '기둥2'];
+const BULGE = ['다이아5', '넓은봉우리3', '좁은봉우리3'];
+
+function buildStack(pool: readonly string[], wantCards: number, maxRows: number, rnd: () => number, forceBulge: boolean): CellShape[] {
   const stack: CellShape[] = [];
   let cards = 0, rows = 0, guard = 0;
+
+  const chokeFits = CHOKE.filter((n) => pool.includes(n) && CELLS[n].rows <= maxRows - rows && CELLS[n].count <= wantCards - cards + 4);
+  if (chokeFits.length) { const c = CELLS[pick(chokeFits, rnd())]; stack.push(c); cards += c.count; rows += c.rows; }
+  if (forceBulge) {
+    const bulgeFits = BULGE.filter((n) => pool.includes(n) && CELLS[n].rows <= maxRows - rows && CELLS[n].count <= wantCards - cards + 6);
+    if (bulgeFits.length) { const c = CELLS[pick(bulgeFits, rnd())]; stack.push(c); cards += c.count; rows += c.rows; }
+  }
+
   while (cards < wantCards && rows < maxRows && guard++ < 30) {
     const fits = pool.filter((n) => CELLS[n].rows <= maxRows - rows && CELLS[n].count <= wantCards - cards + 4);
     if (fits.length === 0) break;
@@ -45,13 +58,15 @@ function recompose(level: number, target: number, used: Set<string>, salt: numbe
   let best: { cells: { col: number; row: number }[]; key: string; score: number; sig: string } | null = null;
   for (let trial = 0; trial < 400; trial++) {
     const skel = SKELETONS[(level - 1 + salt + Math.floor(trial / 25)) % SKELETONS.length];
+    const bulgeIdx = skel.groups.findIndex((g) => g.kind === 'center');
+    const forcedIdx = bulgeIdx >= 0 ? bulgeIdx : 0;
     const groups: GroupSpec[] = [];
     let acc = 0, failed = false;
     skel.groups.forEach((g, i) => {
       if (failed) return;
       const mult = g.kind === 'pair' ? 2 : 1;
       const wantCards = Math.max(1, Math.round((target - acc) / (skel.groups.length - i) / mult) + Math.floor(rnd() * 3) - 1);
-      const stack = buildStack(g.kind === 'center' ? CENTER_STACKABLE : STACKABLE, wantCards, MAX_ROW_SPAN + 1 - g.rowOff, rnd);
+      const stack = buildStack(g.kind === 'center' ? CENTER_STACKABLE : STACKABLE, wantCards, MAX_ROW_SPAN + 1 - g.rowOff, rnd, i === forcedIdx);
       if (stack.length === 0) { failed = true; return; }
       groups.push({ kind: g.kind, stack, rowOff: g.rowOff });
       acc += stack.reduce((s, c) => s + c.count, 0) * mult;

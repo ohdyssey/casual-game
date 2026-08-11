@@ -16,6 +16,39 @@ const peakDoc = (withCover: boolean): CardBoardDoc => ({
   ],
 });
 
+/** 위아래로 dy 만큼 어긋난 두 장(b=layer1 이 a=layer0 을 덮는 위치). 겹침 면적비 = (164-dy)/164. */
+const pairDoc = (dy: number): CardBoardDoc => ({
+  kind: 'cardBoard',
+  card: { w: 120, h: 164 },
+  slots: [
+    { id: 'a', x: 500, y: 600, layer: 0 },
+    { id: 'b', x: 500, y: 600 + dy, layer: 1 },
+  ],
+});
+const coveredByOf = (doc: CardBoardDoc, id: string): readonly string[] => cardBoardToLayout(doc, 't').slots.find((s) => s.id === id)!.coveredBy;
+
+describe('커버 판정 임계 — 눈에 보일 만큼 겹쳐야 덮인 것(PO 2026-07-27)', () => {
+  it('아주 살짝(면적 ~5%) 걸친 카드는 덮은 것으로 치지 않는다 — 화면상 열려 보이는데 안 눌리던 문제', () => {
+    expect(coveredByOf(pairDoc(156), 'a')).toEqual([]); // 겹침 8/164 ≈ 4.9%
+  });
+
+  it('경계 부근(면적 ~8.5%)도 아직 덮은 것이 아니다', () => {
+    expect(coveredByOf(pairDoc(150), 'a')).toEqual([]); // 겹침 14/164 ≈ 8.5%
+  });
+
+  it('눈에 보일 만큼(면적 ~21%) 겹치면 덮은 것이다', () => {
+    expect(coveredByOf(pairDoc(130), 'a')).toEqual(['b']); // 겹침 34/164 ≈ 20.7%
+  });
+
+  it('많이 겹치면 당연히 덮은 것', () => {
+    expect(coveredByOf(pairDoc(60), 'a')).toEqual(['b']); // 겹침 104/164 ≈ 63%
+  });
+
+  it('덮는 쪽(앞 카드)은 어느 경우에도 덮이지 않는다', () => {
+    expect(coveredByOf(pairDoc(130), 'b')).toEqual([]);
+  });
+});
+
 describe('cardBoardToLayout — 에디터 문서 → 게임 레이아웃', () => {
   it('coveredBy(문서 값)·절대좌표(ax/ay)·bbox 보존', () => {
     const l = cardBoardToLayout(peakDoc(true), 'test');

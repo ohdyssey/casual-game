@@ -11,24 +11,46 @@
  * ⚠️ HD(1080×2400) — 절대 좌표(순수 FIT 1:1).
  */
 import Phaser from 'phaser';
-import { loadGameAssets, UI_HOME_KEY, UI_ENTRY_KEY, BACK_BG_KEY, floorArtKey, uploadPath } from '../assets.js';
+import { loadGameAssets, UI_HOME_KEY, BACK_BG_KEY, floorArtKey, uploadPath } from '../assets.js';
 import { buildLayout, LayoutIndex, type LayoutDoc, type LayoutEntry } from '../ui/layoutLoader.js';
 import { preloadCustomers, registerCustomerFrames, startCustomerVisits, type CustomerSpot } from './customers.js';
 import { startOfficeTalk, type OfficeSpeaker, type OfficeTalkHandle, type OfficeRole } from './officeTalk.js';
-import { wireClerkTalk, themeForFloor, THEME_RIVAL_LOT } from './clerkTalk.js';
+import { wireClerkTalk, themeForFloor, themeForStage2Floor, THEME_RIVAL_LOT } from './clerkTalk.js';
+import { setTalkCtxProvider } from './talkContext.js';
 import { buildTopHeader, type TopHeader } from './topHeader.js';
+import { EDITOR_PACK_URL } from './PlayScene.js';
+import { buildMissionRewardBanner } from './missionRewardBanner.js';
+import { buildEntryPopup, createChallengeBadge, type EntryDoc } from './entryPopup.js';
+import { buildCollectionPopup, UI_COLLECTION_KEY, UI_COLLECTION_PATH, CARD_ART_SETS, COUNT_BADGE_KEY, NEW_CARD_BADGE_KEY, collectionCardKey } from './collectionPopup.js';
+import { buildCollectionHub } from './collectionHub.js';
+import { defaultCollection } from '../logic/collection.js';
 import { preloadClouds, startCloudDrift } from './clouds.js';
 import { startRoadsTraffic, type CarTrafficOpts } from './cars.js';
 import { addContactShadow } from './shadows.js';
 import { FLOORS, TOTAL_LEVELS, editorLevelCount } from '../logic/levels.js';
 import type { CardBoardDoc } from '../logic/editorLevels.js';
-import { loadSave, writeSave, resetProgress, FLOOR_COST, MAX_FLOORS, GAME_FEE, diamondCostFor, floorLevelReq, type SaveData } from '../save.js';
-import { preloadAudio, playBgm, sfx, setMuted, isMuted, type Bgm } from '../audio.js';
+import { loadSave, writeSave, resetProgress, FLOOR_COST, MAX_FLOORS, diamondCostFor, floorLevelReq, missionRewardOf, storeAcquireCostFor, START_COINS, START_DIAMONDS, type SaveData } from '../save.js';
+import { freshMissionState } from '../logic/missionReward.js';
+import { ECON_JSON_KEY, ECON_JSON_URL, setEconFromJson, entryFeeFor, econ } from '../econRuntime.js';
+import {
+  usesIntegratedClaim,
+  incomePerPeriod,
+  msUntilFull,
+  canClaim,
+  capacityFor,
+  periodFor,
+  formatIncomeTimer,
+  isBankFull,
+  accrueByTime,
+} from '../logic/storeIncome.js';
+import { preloadAudio, playBgm, sfx, cycleVolume, volumeLabel, type Bgm } from '../audio.js';
+import { popupOrganicIn, popupOrganicOut } from './popupFx.js';
+import { openItemShop } from './itemShop.js';
 
 /** 층 아트 텍스처 키(…_BG_01..05, 뒤에 _v2 같은 버전 접미사 허용). 배경(…_BG_Back01)·지붕(…_BG_roof)·유리는 제외. */
 const FLOOR_KEY_RE = /_BG_0[1-5](?:_v\d+)?$/;
 
-/** 에디터 저작 레벨 팩(public/levels/cardLevels.json) — PlayScene 과 동일 키. */
+/** 에디터 저작 레벨 팩(public/levels/cardLevels.json) — PlayScene 과 동일 키·동일 경로(캐시 무효화 포함). */
 const EDITOR_PACK_KEY = 'editorLevelPack';
 
 const W = 1080;
@@ -62,7 +84,11 @@ const LIFT_HOOK = 320; // 건설 시 고리를 새 층 최종 중심보다 이�
 const FLOOR_LIFT = 200; // 새 층이 최종 위치보다 이만큼 위에서 시작해 낙하(쿵). 크레인 고리 아래로 유지(케이블 정상). ⚠️세밀조정 대상.
 const DYN_FLOOR_OVERLAP = 30; // 동적 층(4층+)이 **바로 아래층 상단을 침범**하는 양(px). 값↓=4층이 더 위로(겹침↓·틈 방지). ⚠️튜닝.
 const INITIAL_OWNED = 1; // **초기 소유 층수(1층만 소유)** — 2층은 건설돼 있으나 미소유 → 점포매입.
-const HEADER_MARGIN = 240; // 상단 여백 — 최상단까지 스크롤했을 때 건설 버튼이 헤더 아래로 내려와 보이게.
+// 상단 여백 — 최상단까지 스크롤했을 때 건설 버튼이 헤더 아래로 내려와 보이게.
+// ⚠️2026-07-19: 헤더 바로 아래 **미션 리워드 배너**(missionRewardBanner.ts, uiCam 고정·화면 y 약 240~385)가
+//   생기면서 240 이었던 옛 여백이 배너에 가려 "상층 건설 버튼이 안 보인다"는 QA 재현 — 배너 하단(약 385)보다
+//   더 아래로 내려오도록 여백을 키운다.
+const HEADER_MARGIN = 420;
 const MAX_TOP_MARGIN = 520; // **최상층(10) 완공** 시 지붕 위 여백 — 헤더와 겹치지 않게 하늘 공간을 넉넉히.
 const BOTTOM_SAFE = 30; // 하단 여백 — 뷰 하단이 근경(지면) 안쪽에 머물게(끝선 안 보이게).
 const LOT_DX = 1080; // **두 번째 부지(우측 타워) 가로 오프셋** = 한 화면. 지면(도로/중경 복사)이 이미 우측을 덮음.
@@ -151,7 +177,7 @@ const visitYieldFor = (floor: number): number => FLOOR_VISIT_YIELD[((floor - 1) 
 // 사이드 부지(단층 파일럿 상점) 수익 — 부지(stage)마다 다르게.
 const SIDE_LOT_YIELD: Record<number, number> = { 4: 5, 5: 7, 6: 9 };
 // **부지(스테이지)별 BGM** — 카메라 스테이지 인덱스(-2..3, LOT_DX 배수) → 트랙 이름.
-//   public/audio/bgm_lot_*.m4a 파일을 넣으면 그 부지에서 재생, 없으면 audio.ts 폴백이 home 을 유지.
+//   public/audio/bgm_lot_*.m4a 파일을 넣으면 그 부지에서 재생, 없으면 **무음**(다른 스테이지 사운드 재생 금지, 2026-07-16).
 const STAGE_BGM: readonly Bgm[] = ['lot_l2', 'lot_l1', 'home', 'lot_r1', 'lot_r2', 'lot_r3'];
 const CLAIM_BUBBLE_KEY = 'up_Solitare_UI_11'; // 말머리 풍선(주문 말풍선 재사용).
 const CLAIM_COIN_KEY = 'up_Solitare_UI_2-3'; // 말풍선에 띄울 코인 아이콘.
@@ -175,32 +201,7 @@ const pad2 = (n: number): string => String(n).padStart(2, '0');
 //   반복해서 건설 연출만 확인하기 위한 임시 모드. 실제 건설로 전환하려면 false.
 const DEMO_CONSTRUCTION = true;
 
-/** 진입 팝업(blank.json) 노드 — layoutLoader 의 LayoutNode 상위집합(텍스트 그림자 포함). */
-interface EntryNode {
-  readonly id: string;
-  readonly type: string;
-  readonly key?: string;
-  readonly x: number;
-  readonly y: number;
-  readonly w?: number;
-  readonly h?: number;
-  readonly visible?: boolean;
-  readonly text?: string;
-  readonly fontSize?: number;
-  readonly fontFamily?: string;
-  readonly color?: string;
-  readonly stroke?: string;
-  readonly strokeW?: number;
-  readonly shadow?: boolean;
-  readonly shadowColor?: string;
-  readonly shadowX?: number;
-  readonly shadowY?: number;
-  readonly shadowBlur?: number;
-}
-interface EntryDoc {
-  readonly frame: { designW: number; designH: number };
-  readonly nodes: ReadonlyArray<EntryNode>;
-}
+// 진입 팝업(blank.json) 노드 타입은 entryPopup.ts 에서 import(EntryNode/EntryDoc) — 데일리미션 팝업도 재사용.
 // 층 파사드의 **시각 모서리**(이미지 좌우/상하 여백 보정) — 노드 중심 대비 비율. ⚠️세밀조정 대상.
 const BLD_HALF = 0.42; // 상단/하단 모서리 x = 중심 ± w×0.42.
 const BLD_TOP = 0.3; // 상단 모서리 y = 중심 − h×0.30.
@@ -216,6 +217,7 @@ export class HomeScene extends Phaser.Scene {
   private towerFloors: LayoutEntry[] = [];
   private officeFloors: Phaser.GameObjects.Image[] = []; // 좌측 공공건물 타워 5층(프리빌트) — 세로 스크롤 상한 산출용.
   officeTalk?: OfficeTalkHandle; // 공공건물 대화 디렉터(소방수·경찰관 등 말 걸기) — public: 디버그/검증용 핸들.
+  private talkDaysAway = 0; // 이번 진입 기준 마지막 접속 경과 일수(대화 맥락용).
   private officeRoof?: Phaser.GameObjects.Image; // 공공건물 최상층 지붕(civic 돔·시계·네임플레이트).
   private craneImg?: Phaser.GameObjects.Image;
   private craneIsLayout = false; // 크레인이 에디터 레이아웃 노드면 true → 그 위치(아래층에 붙인 위치) 그대로 사용.
@@ -232,6 +234,10 @@ export class HomeScene extends Phaser.Scene {
   private continueLabelDX = 0;
   private continueLabelDY = 27;
   private constructing = false;
+  /** 콜렉션 카드 팝업 등 자체 스와이프 제스처를 쓰는 오버레이가 열려 있는 동안 타워 드래그 스크롤을 잠근다
+   *   (2026-07-19 QA "스와이프하면 뒤 타워도 같이 움직인다" — enableTowerScroll 이 this.input 전역 리스너라
+   *   팝업 쪽 stopPropagation 으로는 못 막고, 이 플래그로 직접 막아야 한다). */
+  private scrollSuspended = false;
   /** 층별 장식(유리/캐릭터) 오브젝트 — 건설 연출이 해당 층의 장식만 등장시키도록. */
   private floorDecor = new Map<number, { glass?: Phaser.GameObjects.Image; char?: Phaser.GameObjects.Image }>();
   /** UI 전용 카메라(줌·스크롤 없음) — 월드(타워)만 줌/스크롤하고 HUD 는 고정 크기로. */
@@ -279,6 +285,12 @@ export class HomeScene extends Phaser.Scene {
   private atMaxFloor = false; // 최상층(10) 완공 상태 — 최상단 여백을 크게(공간 확보).
   private justBuiltLevel = 0; // 직전에 건설한 층 — 프레이밍을 그 층에 맞춘다(0=없음).
   private builtFloors = 3; // **건설된(보이는) 층 수(제자리 진행)** — 재시작 없이 finishConstruction 에서 증가.
+  // 점포 수익 통합 수금 배지(에디터 저작 노드) + 1초 갱신 타이머.
+  private incomePanel?: Phaser.GameObjects.Image;
+  private incomeAmountText?: Phaser.GameObjects.Text;
+  private incomeTimerText?: Phaser.GameObjects.Text;
+  private incomeTicker?: Phaser.Time.TimerEvent;
+  private incomeBank = 0; // 수금함 잔액(손님이 떨어뜨린 코인 누적) — 세이브 storeIncomeBank 미러.
   private ownedFloors = 1; // **소유한 층 수** — 건설됐지만 미소유 층은 점포매입 대상. 매입/건설 시 증가.
   private customerActive = new Set<string>(); // 손님 시트 중복 방지 공유 셋(동적 층 추가 시에도 공유).
   private customerSpots: CustomerSpot[] = []; // **라이브** 손님 스팟 배열 — 랜덤 스포너가 참조, 건설 시 push.
@@ -292,7 +304,9 @@ export class HomeScene extends Phaser.Scene {
     preloadCustomers(this); // 점포 방문 손님 시트(10종).
     preloadClouds(this); // 하늘 구름 3종.
     // 에디터 저작 레벨 팩(배포 시 번들). 없어도 무방(dev 는 localStorage 공유).
-    this.load.json(EDITOR_PACK_KEY, 'levels/cardLevels.json');
+    this.load.json(EDITOR_PACK_KEY, EDITOR_PACK_URL);
+    // 경제 파라미터(시뮬 도구 '게임 반영' 산출물) — 없으면 DEFAULT_ECON 폴백(로드 에러 무해).
+    this.load.json(ECON_JSON_KEY, ECON_JSON_URL);
     // 층 건물 아트를 확실히 선로딩(매니페스트 타이밍과 무관하게) → 색상 사각형 폴백 방지.
     for (let i = 1; i <= TOTAL_LEVELS; i++) {
       const k = floorArtKey(i);
@@ -346,6 +360,19 @@ export class HomeScene extends Phaser.Scene {
     this.load.json(UI_OFFICE_KEY, 'ui/layouts/home_copy2.json'); // 관리자 배치 좌표(빌딩 대비 상대).
     this.load.json(UI_SALE_KEY, 'ui/layouts/home_copy2_copy.json'); // 판매건물 간판·텍스트 배치 좌표(빌딩 대비 상대).
     this.load.json(UI_DAILY_KEY, 'ui/layouts/blank_copy.json'); // 데일리 미션 팝업 레이아웃.
+    this.load.json(UI_COLLECTION_KEY, UI_COLLECTION_PATH); // 콜렉션 카드 팝업 레이아웃(Pass 아이콘).
+    // 세트별 테마 배너(up_CollecttionCard_02..10)는 loadGameAssets 의 ui-assets.json 매니페스트 로더가 자동 로드.
+    // 콜렉션 카드 **보유 장수 배지 원판**(PO 2026-07-26: Solitare_UI_Play_03-1 위에 숫자) — 매니페스트 밖 직접 로드.
+    if (!this.textures.exists(COUNT_BADGE_KEY)) this.load.image(COUNT_BADGE_KEY, uploadPath(COUNT_BADGE_KEY));
+    // **NEW 배지 리본**(2026-07-20: Solitare_UI_Play_03-3, 허브·세트 상세 공용) — 매니페스트 밖 직접 로드.
+    if (!this.textures.exists(NEW_CARD_BADGE_KEY)) this.load.image(NEW_CARD_BADGE_KEY, uploadPath(NEW_CARD_BADGE_KEY));
+    // **세트별 카드 아트**(2번 세트부터, 수동 이식·매니페스트 밖) — CARD_ART_SETS 등록분만 직접 로드(9장/세트).
+    for (const set of CARD_ART_SETS) {
+      for (let c = 1; c <= 9; c++) {
+        const k = collectionCardKey(set, c);
+        if (!this.textures.exists(k)) this.load.image(k, uploadPath(k));
+      }
+    }
     // **구입 가능한 폐건물** — 앞 'FOR SALE' 표지판(UI_24-1~3) + 상단 간판(UI_25-1~3, 잠금/구입 메시지). 부지별 변형·건설 시 삭제.
     for (let n = 1; n <= FOR_SALE_VARIANTS; n++) {
       const k24 = `up_Solitare_UI_24-${n}`;
@@ -365,9 +392,16 @@ export class HomeScene extends Phaser.Scene {
     return Math.max(1, editorLevelCount(pack));
   }
 
-  create(): void {
+  create(data?: { fromLoad?: boolean }): void {
+    // **로딩에서 진입 시 검정에서 페이드인** — 홈 초기 렌더(하늘 배경)가 찰나 노출되던 하늘색 플래시 방지.
+    //   먼저 검정으로 덮고 즉시 페이드인 → 홈 아트가 다 그려진 뒤 부드럽게 드러난다.
+    if (data?.fromLoad) {
+      this.cameras.main.setBackgroundColor('#0a0810');
+      this.cameras.main.fadeIn(360, 10, 8, 16);
+    }
     this.uiObjects = []; // restart 마다 재수집(스테일 참조 누적 방지).
     this.uiCam = undefined;
+    setEconFromJson(this.cache.json.get(ECON_JSON_KEY)); // 경제 SSOT(economy.json) 적용 — 없으면 기본값.
     const save = loadSave();
     // 데모 모드: 저장과 무관하게 **점포매입 → 건설 데모**. 진행은 restart init(demoBuilt)로 이어붙여 3층 시작 → 최대 10층까지 쌓는다.
     this.justBuiltLevel = 0;
@@ -401,6 +435,19 @@ export class HomeScene extends Phaser.Scene {
     this.constructing = false;
     this.floorClaimBubbles.clear(); // 씬 재사용 대비: 스테일 말풍선 참조 비움(오브젝트는 씬 재시작이 파괴).
     this.loadFloorBanks(); // 층별 누적 코인을 세이브에서 로드.
+    // **대화 컨텍스트(지능화 1단계)** — 점원/공공건물 맥락 대사가 읽는 게임 상태 제공 + 복귀 일수 추적.
+    this.talkDaysAway = this.trackDaysAway();
+    setTalkCtxProvider(() => {
+      const sv = loadSave();
+      return {
+        hour: new Date().getHours(),
+        coins: sv.coins,
+        level: sv.level,
+        builtFloors: this.builtFloors,
+        daysAway: this.talkDaysAway,
+        bankFull: (fl: number) => (this.floorBanks.get(fl) ?? 0) >= FLOOR_COIN_GOAL,
+      };
+    });
     playBgm('home'); // 홈 BGM(첫 제스처에서 실제 시작).
 
     // 홈(로비)에는 카드가 있어선 안 된다 — 비정상 전환으로 play/preview 가 남아 있으면 강제 정지(카드 오버레이 방지).
@@ -457,14 +504,30 @@ export class HomeScene extends Phaser.Scene {
     });
     this.homeHeader = header;
     this.collectHud(idx, header); // HUD(헤더·레일)를 UI 카메라 대상으로 등록(고정·비줌).
-    // **아이템샵** — 좌측 레일 '상점'(layer_11)·'골드'(layer_11_copy2) 아이콘 → 코인/다이아 팩 상점.
-    for (const id of ['layer_11', 'layer_11_copy2']) {
-      const b = idx.tryById<Phaser.GameObjects.Image>(id);
+    // **미션 리워드 배너**(연속 플레이 별 수집) — 헤더 바로 아래, 플레이 화면과 동일 위치/구성.
+    const mrState = missionRewardOf(save, Date.now());
+    save.missionReward = mrState; // 만료 리셋이 있었다면 즉시 저장(다음 진입 때도 일관).
+    writeSave(save);
+    // 타워홈에서는 살짝 더 아래(PO 2026-07-18). 홈에 머무는 중 제한시간이 끝나면 리셋 상태를 즉시 반영한다.
+    const missionBanner = buildMissionRewardBanner(this, mrState, 60, 1580, () => {
+      const s = loadSave();
+      const next = missionRewardOf(s, Date.now());
+      s.missionReward = next;
+      writeSave(s);
+      missionBanner.setState(next);
+    });
+    this.uiObjects.push(...missionBanner.objects);
+    // **아이템샵** — 좌측 레일 '상점'(layer_11) 아이콘 → 코인/다이아 팩 상점.
+    //   ⚠️ layer_11_copy2 는 디자이너가 **점포 수익 통합 수금 배지**로 옮겨 재사용했다(2026-07-28) →
+    //      상점 배선에서 제외하고 아래 setupStoreIncome() 이 수금 버튼으로 잡는다.
+    {
+      const b = idx.tryById<Phaser.GameObjects.Image>('layer_11');
       b?.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
         sfx('button');
         this.openItemShop();
       });
     }
+    this.setupStoreIncome(idx); // 점포 수익 통합 수금(배지 + 10분 타이머).
     // **데일리 미션** — 우측 상단 '트로피'(layer_11_copy3, 15·타이머) 아이콘 → 데일리 경쟁 미션 팝업.
     idx
       .tryById<Phaser.GameObjects.Image>('layer_11_copy3')
@@ -472,6 +535,14 @@ export class HomeScene extends Phaser.Scene {
       .on('pointerdown', () => {
         sfx('button');
         this.showDailyMission();
+      });
+    // **콜렉션 카드**(2026-07-19) — 우측 'Pass'(layer_11_copy5) 아이콘 → 세트별 콜렉션 카드 팝업.
+    idx
+      .tryById<Phaser.GameObjects.Image>('layer_11_copy5')
+      ?.setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        sfx('button');
+        this.showCollectionCards();
       });
     // **좌우 스테이지 이동 화살표**(디자이너 배치) — 스와이프를 모르는 플레이어용. 누르면 한 스테이지씩 팬.
     //   layer_17=좌(x=72), layer_17_copy=우(x=1004). 해당 방향 스테이지 없으면 updateLotArrows 가 숨김.
@@ -517,13 +588,17 @@ export class HomeScene extends Phaser.Scene {
   }
 
   /**
-   * **계속하기(플레이) 버튼을 최상단(최신) 건설 층의 전면 발코니에 배치**(요구사항: 최종 업그레이드 층에 CTA).
-   *   층이 늘면(건설 완료) 그 새 최상층으로 함께 올라간다. 월드 오브젝트라 타워와 함께 스크롤.
+   * **계속하기(플레이) 버튼을 최상단 "소유"층의 전면 발코니에 배치**(요구사항: 최종 업그레이드 층에 CTA).
+   *   ⚠️ 2026-07-19 수정 — 예전엔 `builtFloors`(건설=보이기만, 미소유 가능) 기준이라, 2층이 지어져 있지만
+   *   아직 매입 전이면 플레이 버튼이 2층 발코니(매입 게이트 뒤)로 올라가 버려 **1층엔 진입 버튼이 없는 것처럼
+   *   보였다**(PO 리포트). 실제 플레이도 소유 최고층에서 진행하므로(PlayScene floorThemeIdx) 버튼도 그 층과
+   *   맞춘다 — `ownedFloors` 기준으로 변경.
+   *   층을 매입/건설하면 그 새 최상층으로 함께 올라간다. 월드 오브젝트라 타워와 함께 스크롤.
    */
   private placeContinueButton(): void {
     const btn = this.continueBtn;
     if (!btn) return;
-    const topLevel = Math.max(1, Math.min(this.builtFloors, this.towerFloors.length));
+    const topLevel = Math.max(1, Math.min(this.ownedFloors, this.towerFloors.length));
     const entry = this.towerFloors[topLevel - 1];
     if (!entry) return;
     const cx = entry.node.x ?? W / 2;
@@ -548,116 +623,29 @@ export class HomeScene extends Phaser.Scene {
   }
 
   /**
-   * **게임 진입 팝업**(레벨 엔트리) — 에디터 저작 blank.json(패널·별·보상·플레이 버튼)을 SSOT 로 렌더.
+   * **도전 배수 선택 줄**(진입 팝업 공용, 임시 코드드로우 — 디자인 재작업 예정).
+   *   해금(레벨) 배수만 활성 — 선택 시 onChange(mult). '베팅' 용어 금지(비도박 프레임).
+   */
+  /**
+   * **게임 진입 팝업**(레벨 엔트리) — entryPopup.ts(blank.json SSOT, 홈·플레이 공용)를 그린다.
    *   디자인 미저작 시 코드 드로우 폴백(startPlayFallback).
    */
   private startPlay(level: number): void {
-    const doc = (this.cache.json.get(UI_ENTRY_KEY) ?? null) as EntryDoc | null;
-    if (doc && Array.isArray(doc.nodes) && doc.nodes.length > 0) this.startPlayFromLayout(level, doc);
-    else this.startPlayFallback(level);
-  }
-
-  /**
-   * blank.json 진입 팝업 렌더 — 프레임(720×1600)을 세로HD(1080×2400)에 균일 스케일(×1.5)로 매핑.
-   *   동적 배선: 레벨 번호·게임비 표시·PLAY 버튼(코인 충분 여부)·닫기(딤 배경/패널 ✕).
-   *   보상(보물상자·별·슬롯)은 패널 아트에 포함 — 오버레이 노드만 좌표대로 얹는다.
-   */
-  private startPlayFromLayout(level: number, doc: EntryDoc): void {
-    const save = loadSave();
-    const enough = save.coins >= GAME_FEE;
-    const scale = W / doc.frame.designW; // 720 → 1080 = 1.5.
-    const layer = this.add.container(0, 0).setDepth(4000);
-    this.pinToUi(layer); // UI(고정) 카메라 전용.
-
-    // 딤 배경 — 탭하면 닫힘(입력 하부 차단 겸용).
-    const closePopup = (): void => {
-      sfx('level_close');
-      layer.destroy();
-    };
-    const scrim = this.add.rectangle(0, 0, W, H, 0x140a1e, 0.86).setOrigin(0, 0).setInteractive();
-    scrim.on('pointerdown', closePopup);
-    layer.add(scrim);
-
-    // 노드 렌더(이미지/텍스트) — id 로 조회해 이후 동적 배선.
-    const byId = new Map<string, Phaser.GameObjects.Image | Phaser.GameObjects.Text>();
-    for (const n of doc.nodes) {
-      if (n.visible === false) continue;
-      let obj: Phaser.GameObjects.Image | Phaser.GameObjects.Text | null = null;
-      if (n.type === 'image' && n.key) {
-        if (!this.textures.exists(n.key)) continue; // 텍스처 누락 방어.
-        const img = this.add.image(n.x * scale, n.y * scale, n.key);
-        if (n.w && n.h) img.setDisplaySize(n.w * scale, n.h * scale);
-        obj = img;
-      } else if (n.type === 'text') {
-        const family = n.fontFamily ? `"${n.fontFamily}", "Jua", sans-serif` : '"Jua", sans-serif';
-        const t = this.add.text(n.x * scale, n.y * scale, n.text ?? '', {
-          fontFamily: family,
-          fontSize: `${Math.round((n.fontSize ?? 20) * scale)}px`,
-          color: n.color ?? '#ffffff',
-          align: 'center',
-        });
-        if (n.stroke && (n.strokeW ?? 0) > 0) t.setStroke(n.stroke, (n.strokeW ?? 0) * 2 * scale);
-        if (n.shadow) t.setShadow((n.shadowX ?? 2) * scale, (n.shadowY ?? 2) * scale, n.shadowColor ?? '#000000', (n.shadowBlur ?? 2) * scale, false, true);
-        obj = t;
-      }
-      if (!obj) continue;
-      obj.setOrigin(0.5, 0.5);
-      layer.add(obj);
-      byId.set(n.id, obj);
-    }
-
-    // ── 동적 배선 ──
-    // 레벨 번호(‘10’) → 현재(이어갈) 레벨.
-    (byId.get('layer_3_copy4') as Phaser.GameObjects.Text | undefined)?.setText(`${level}`);
-    // 게임비(‘2000’) → 실제 게임비(코인). 표시=차감액 동일(정직). 부족 시 적색.
-    (byId.get('layer_3_copy2') as Phaser.GameObjects.Text | undefined)
-      ?.setText(GAME_FEE.toLocaleString())
-      .setColor(enough ? '#fcbe03' : '#e74c3c');
-
-    // PLAY 버튼(배경 layer_2 + 텍스트 layer_3).
-    const playBg = byId.get('layer_2') as Phaser.GameObjects.Image | undefined;
-    const playTxt = byId.get('layer_3') as Phaser.GameObjects.Text | undefined;
-    if (!enough) playBg?.setTint(0x9a9a9a); // 코인 부족 = 회색 처리.
-    const doPlay = (): void => {
-      if (!enough) {
-        sfx('no_coin');
-        this.toast('코인이 부족해요');
-        return;
-      }
-      sfx('floor_select');
-      const s = loadSave();
-      s.coins = Math.max(0, s.coins - GAME_FEE);
-      writeSave(s);
-      this.homeHeader?.setCoins(s.coins);
-      layer.destroy();
-      this.scene.start('play', { level });
-    };
-    if (playBg) {
-      const pressTargets = [playBg, playTxt].filter(Boolean) as Phaser.GameObjects.GameObject[];
-      playBg.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
-        // displaySize 이미지는 절대 scale 트윈이 크기를 깨므로 y 상대 넛지로 눌림 피드백.
-        this.tweens.add({ targets: pressTargets, y: '+=6', duration: 80, yoyo: true, onComplete: doPlay });
-      });
-    }
-
-    // 닫기(✕) — 패널(layer_1) 아트 우상단에 히트존(딤 배경 탭으로도 닫힘).
-    const panel = doc.nodes.find((n) => n.id === 'layer_1');
-    if (panel?.w && panel.h) {
-      const zx = (panel.x + panel.w * 0.46) * scale;
-      const zy = (panel.y - panel.h * 0.47) * scale;
-      const z = this.add.zone(zx, zy, 120 * scale, 120 * scale).setOrigin(0.5).setInteractive({ useHandCursor: true });
-      z.on('pointerdown', closePopup);
-      layer.add(z);
-    }
-
-    // 등장 페이드인.
-    layer.setAlpha(0);
-    this.tweens.add({ targets: layer, alpha: 1, duration: 160, ease: 'Quad.easeOut' });
+    const handle = buildEntryPopup(this, {
+      level,
+      pinToUi: (o) => this.pinToUi(o), // UI(고정) 카메라 전용 — 타워 스크롤과 무관.
+      toast: (msg) => this.toast(msg),
+      onCoinsChanged: (coins) => this.homeHeader?.setCoins(coins),
+      onPlay: ({ level: lv, mult }) => this.scene.start('play', { level: lv, mult }),
+    });
+    if (!handle) this.startPlayFallback(level);
   }
 
   /**
    * **데일리 미션 팝업**(우상단 랭크 버튼) — 에디터 저작 blank_copy.json(720×1600 · DAILY COMPETITION MISSION)을
    *   세로HD(1080×2400)에 균일 스케일(×1.5)로 렌더. 지금은 저작 그대로(정적) + 닫기만 배선(랭킹/점수 동적화는 백엔드 시).
+   *   열림/닫힘은 **유기체(젤리) 연출**(popupFx) — 저작 노드들을 중심 기준 frame(+절대좌표 유지용 inner)에
+   *   담아 전체 프레임이 통째로 부풀었다 안착한다.
    */
   private showDailyMission(): void {
     const doc = (this.cache.json.get(UI_DAILY_KEY) ?? null) as EntryDoc | null;
@@ -669,16 +657,32 @@ export class HomeScene extends Phaser.Scene {
     const layer = this.add.container(0, 0).setDepth(4000);
     this.pinToUi(layer); // UI(고정) 카메라 전용.
 
-    const closePopup = (): void => {
-      sfx('level_close');
-      layer.destroy();
-    };
     const scrim = this.add.rectangle(0, 0, W, H, 0x140a1e, 0.86).setOrigin(0, 0).setInteractive();
-    scrim.on('pointerdown', closePopup); // 딤 배경 탭 = 닫기.
     layer.add(scrim);
+    // 유기체 연출용 프레임 — 중심(W/2,H/2) 기준으로 스케일해야 젤리 안착이 화면 가운데서 일어난다.
+    //   inner 는 저작 절대좌표(n.x*scale)를 그대로 쓰기 위한 역오프셋(−W/2,−H/2).
+    const frame = this.add.container(W / 2, H / 2);
+    layer.add(frame);
+    const inner = this.add.container(-W / 2, -H / 2);
+    frame.add(inner);
+
+    let closing = false; // 닫힘 애니 중 재클릭 가드.
+    const closePopup = (): void => {
+      if (closing) return;
+      closing = true;
+      sfx('level_close');
+      popupOrganicOut(this, scrim, frame, () => layer.destroy());
+    };
+    scrim.on('pointerdown', closePopup); // 딤 배경 탭 = 닫기.
 
     const byId = new Map<string, Phaser.GameObjects.Image | Phaser.GameObjects.Text>();
-    for (const n of doc.nodes) {
+    // ⚠️2026-07-19: doc.nodes 배열 순서가 에디터 저작 depth 순서와 다르다(blank_copy.json 확인, QA "레이어
+    //   배치가 잘못됐다·진행바 안 텍스트/랭크 뱃지가 안 보인다"). `obj.setDepth()`만으론 부족하다 — Phaser
+    //   Container 는 자식을 depth 로 자동 정렬하지 않고 **list 배열 순서 그대로** 그린다(씬 루트 디스플레이
+    //   리스트와 달리 자동 depthSort 없음). authored depth 오름차순으로 미리 정렬한 뒤 순서대로 추가해야
+    //   뒷단(낮은 depth) 배경이 앞단(높은 depth) 텍스트/아이콘을 덮어버리지 않는다.
+    const sortedNodes = [...doc.nodes].sort((a, b) => (a.depth ?? 0) - (b.depth ?? 0));
+    for (const n of sortedNodes) {
       if (n.visible === false) continue;
       let obj: Phaser.GameObjects.Image | Phaser.GameObjects.Text | null = null;
       if (n.type === 'image' && n.key) {
@@ -700,16 +704,118 @@ export class HomeScene extends Phaser.Scene {
       }
       if (!obj) continue;
       obj.setOrigin(0.5, 0.5);
-      layer.add(obj);
+      obj.setDepth(n.depth ?? 0);
+      inner.add(obj);
       byId.set(n.id, obj);
     }
 
     // 닫기(✕) 버튼 = layer_3_copy19(하단 빨간 X, up_DailyMission_08_v2).
     (byId.get('layer_3_copy19') as Phaser.GameObjects.Image | undefined)?.setInteractive({ useHandCursor: true }).on('pointerdown', closePopup);
 
-    // 등장 페이드인.
-    layer.setAlpha(0);
-    this.tweens.add({ targets: layer, alpha: 1, duration: 160, ease: 'Quad.easeOut' });
+    this.drawDailyRankingMock(inner, scale);
+
+    popupOrganicIn(this, scrim, frame); // 유기체(젤리) 열림 연출(기존 단순 페이드인 대체).
+  }
+
+  /**
+   * **가상 랭킹 데이터**(PO 2026-07-20) — 백엔드 연동 전까지 이름·점수·보상을 가상으로 채워 화면을
+   *   "살아있게" 보여준다. blank_copy.json 에는 순위 뱃지(layer_2*)·행 배경 아트만 저작돼 있고 이름/점수/
+   *   보상 텍스트 노드는 없어서, 그 행 위치(design y)에 코드로 겹쳐 그린다. 5번 행("나")의 점수는 상단
+   *   "My SCORE"(layer_3_copy12, 2,450)와 동일하게 맞춰 같은 사람임을 알아보기 쉽게 했다.
+   */
+  private drawDailyRankingMock(layer: Phaser.GameObjects.Container, scale: number): void {
+    const ROWS: ReadonlyArray<{ y: number; name: string; score: number; coins: number; gems: number; you?: boolean }> = [
+      { y: 891, name: '베이킹요정', score: 18420, coins: 5000, gems: 50 },
+      { y: 969, name: '도넛매니아', score: 15730, coins: 3000, gems: 30 },
+      { y: 1051, name: '카드왕김씨', score: 13050, coins: 2000, gems: 20 },
+      { y: 1129, name: '달빛굽는사람', score: 9870, coins: 1000, gems: 10 },
+      { y: 1214, name: '나 (You)', score: 2450, coins: 500, gems: 5, you: true },
+      { y: 1290, name: 'Guest_42', score: 1180, coins: 200, gems: 0 },
+    ];
+    const NAME_X = 250;
+    const SCORE_X = 420;
+    const COIN_X = 520;
+    const GEM_X = 605;
+    const depth = 40; // 뱃지·행 배경(depth ≤37)보다 위.
+    for (const row of ROWS) {
+      const y = row.y * scale;
+      const nameTxt = this.add
+        .text(NAME_X * scale, y, row.name, {
+          fontFamily: '"Jua", sans-serif',
+          fontSize: `${Math.round(24 * scale)}px`,
+          color: row.you ? '#ffe066' : '#5a3a2a',
+        })
+        .setOrigin(0, 0.5)
+        .setDepth(depth);
+      nameTxt.setStroke('#3a2010', 3);
+      layer.add(nameTxt);
+
+      const scoreTxt = this.add
+        .text(SCORE_X * scale, y, row.score.toLocaleString(), {
+          fontFamily: '"Jua", sans-serif',
+          fontSize: `${Math.round(24 * scale)}px`,
+          color: '#2e7d32',
+          fontStyle: '700',
+        })
+        .setOrigin(0.5)
+        .setDepth(depth);
+      layer.add(scoreTxt);
+
+      if (row.coins > 0) {
+        const coinTxt = this.add
+          .text(COIN_X * scale, y, `🪙${row.coins >= 1000 ? `${(row.coins / 1000).toLocaleString()}K` : row.coins}`, {
+            fontFamily: '"Jua", sans-serif',
+            fontSize: `${Math.round(18 * scale)}px`,
+            color: '#ffffff',
+          })
+          .setOrigin(0.5)
+          .setDepth(depth);
+        layer.add(coinTxt);
+      }
+      if (row.gems > 0) {
+        const gemTxt = this.add
+          .text(GEM_X * scale, y, `💎${row.gems}`, {
+            fontFamily: '"Jua", sans-serif',
+            fontSize: `${Math.round(18 * scale)}px`,
+            color: '#ffffff',
+          })
+          .setOrigin(0.5)
+          .setDepth(depth);
+        layer.add(gemTxt);
+      }
+    }
+  }
+
+  /**
+   * **콜렉션 카드**(우상단 Pass 아이콘, 2026-07-19) — 세트를 직접 여는 대신 **메인 카드(허브)**를 먼저 연다
+   *   (PO 지시: "콜렉션카드를 직접 진입하지 말고 이 메인카드에 진입 후 각 카드 스테이지에 진입" — 허브는
+   *   다시 제작될 예정이라 collectionHub.ts 는 지금은 코드 드로우 임시 그리드다). 허브에서 세트를 고르면
+   *   그 세트의 상세 화면(collectionPopup.ts, blank_copy2.json)을 `initialPage`로 열고, 그 화면을 닫으면
+   *   허브로 돌아온다(드릴다운 네비게이션). 열려 있는 동안 **타워 드래그 스크롤을 잠근다**(scrollSuspended)
+   *   — 안 그러면 카드 스와이프와 배경 타워 드래그 스크롤이 같은 포인터 제스처에 동시에 반응한다(2026-07-19 QA).
+   */
+  private showCollectionCards(): void {
+    this.scrollSuspended = true;
+    const hub = buildCollectionHub(this, {
+      pinToUi: (o) => this.pinToUi(o),
+      onClose: () => {
+        this.scrollSuspended = false;
+      },
+      onSelect: (setIndex) => {
+        hub.layer.setVisible(false);
+        const popup = buildCollectionPopup(this, {
+          initialPage: setIndex,
+          pinToUi: (o) => this.pinToUi(o),
+          onClose: () => {
+            hub.layer.setVisible(true); // 세트 화면을 닫으면 메인 카드로 복귀.
+          },
+        });
+        if (!popup) {
+          hub.layer.setVisible(true);
+          this.toast('콜렉션 카드 준비 중');
+        }
+      },
+    });
   }
 
   /**
@@ -718,7 +824,6 @@ export class HomeScene extends Phaser.Scene {
    */
   private startPlayFallback(level: number): void {
     const save = loadSave();
-    const enough = save.coins >= GAME_FEE;
     const cx = W / 2;
     const layer = this.add.container(0, 0).setDepth(4000);
     this.pinToUi(layer);
@@ -781,25 +886,37 @@ export class HomeScene extends Phaser.Scene {
     });
     layer.add(this.add.text(cx, slotY + 150, '아이템(부스터) — 배치 자리', { fontFamily: '"Jua", sans-serif', fontSize: '26px', color: '#a98' }).setOrigin(0.5));
 
-    // ── 플레이 버튼(대형) + 게임비 ──
-    const playBg = this.add.rectangle(cx, panelBot - 200, 560, 150, enough ? 0x4caf50 : 0x9a9a9a).setStrokeStyle(8, 0xffffff).setInteractive({ useHandCursor: true });
+    // ── 플레이 버튼(대형) + 게임비(레벨 곡선 × 도전 배수) ──
+    const playBg = this.add.rectangle(cx, panelBot - 200, 560, 150, 0x4caf50).setStrokeStyle(8, 0xffffff).setInteractive({ useHandCursor: true });
     const playTxt = this.add.text(cx, panelBot - 200, '플레이', { fontFamily: '"Jua", sans-serif', fontSize: '68px', color: '#ffffff', stroke: '#2a6a2a', strokeThickness: 6 }).setOrigin(0.5);
     layer.add(playBg);
     layer.add(playTxt);
-    layer.add(this.add.text(cx, panelBot - 90, `게임비  🪙 ${GAME_FEE.toLocaleString()}   (보유 ${save.coins.toLocaleString()})`, { fontFamily: '"Jua", sans-serif', fontSize: '38px', color: enough ? '#7a4a1a' : '#c0392b' }).setOrigin(0.5));
+    const costText = this.add.text(cx, panelBot - 90, '', { fontFamily: '"Jua", sans-serif', fontSize: '38px', color: '#7a4a1a' }).setOrigin(0.5);
+    layer.add(costText);
+    let mult = 1;
+    const refreshCost = (): boolean => {
+      const fee = entryFeeFor(level, mult);
+      const ok = loadSave().coins >= fee;
+      costText.setText(`게임비  🪙 ${fee.toLocaleString()}   (보유 ${save.coins.toLocaleString()})`).setColor(ok ? '#7a4a1a' : '#c0392b');
+      playBg.setFillStyle(ok ? 0x4caf50 : 0x9a9a9a);
+      return ok;
+    };
+    createChallengeBadge(this, layer, level, cx, panelBot - 340, 110, 1, (msg) => this.toast(msg), (m) => { mult = m; refreshCost(); });
+    refreshCost();
     const doPlay = (): void => {
-      if (!enough) {
+      const fee = entryFeeFor(level, mult);
+      const s = loadSave();
+      if (s.coins < fee) {
         sfx('no_coin');
         this.toast('코인이 부족해요');
         return;
       }
       sfx('floor_select');
-      const s = loadSave();
-      s.coins = Math.max(0, s.coins - GAME_FEE);
+      s.coins = Math.max(0, s.coins - fee);
       writeSave(s);
       this.homeHeader?.setCoins(s.coins);
       layer.destroy();
-      this.scene.start('play', { level });
+      this.scene.start('play', { level, mult });
     };
     playBg.on('pointerdown', () => {
       this.tweens.add({ targets: [playBg, playTxt], scaleX: 0.94, scaleY: 0.94, duration: 80, yoyo: true, onComplete: doPlay });
@@ -807,68 +924,20 @@ export class HomeScene extends Phaser.Scene {
   }
 
   /**
-   * **아이템샵**(Solitare_UI_ItemShop) — 코인 팩·다이아 팩 상점 오버레이. 데모: 팩 탭 시 해당 재화를 지급(무료).
-   *   이미지에 팩/버튼이 박혀 있어, 각 팩 위에 **투명 히트존**을 얹어 처리한다.
+   * **아이템샵** — 코인 팩·다이아 팩 상점 오버레이. 화면 구성은 공용 모듈 itemShop.ts 가 그린다
+   *   (PO 2026-07-29 "게임플레이시 숍메뉴에 접근할 수 있어야 함" → 플레이 화면과 **같은 화면**을 쓰기 위해
+   *   씬 밖으로 분리). 여기서는 홈 전용 배선(UI 카메라 고정 + 헤더 갱신 + 토스트)만 넘긴다.
    */
   private openItemShop(): void {
-    const key = 'up_Solitare_UI_ItemShop';
-    const layer = this.add.container(0, 0).setDepth(4500);
-    this.pinToUi(layer);
-    layer.add(this.add.rectangle(0, 0, W, H, 0x140a1e, 0.88).setOrigin(0, 0).setInteractive());
-    if (!this.textures.exists(key)) {
-      const t = this.add.text(W / 2, H / 2, '아이템샵 준비중\n(탭하여 닫기)', { fontFamily: '"Jua", sans-serif', fontSize: '50px', color: '#fff', align: 'center' }).setOrigin(0.5).setInteractive();
-      t.on('pointerdown', () => layer.destroy());
-      layer.add(t);
-      return;
-    }
-    const img = this.add.image(W / 2, H / 2, key);
-    const src = img.texture.getSourceImage() as { width: number; height: number };
-    const dw = 880; // 가로폭 축소(화면보다 작게).
-    const dh = dw * (src.height / src.width);
-    img.setDisplaySize(dw, dh);
-    layer.add(img);
-    const left = W / 2 - dw / 2;
-    const top = H / 2 - dh / 2;
-    // 정규화 좌표(이미지 대비)에 투명 히트존.
-    const zone = (nx: number, ny: number, nw: number, nh: number, on: () => void): void => {
-      const z = this.add.zone(left + nx * dw, top + ny * dh, nw * dw, nh * dh).setOrigin(0.5).setInteractive({ useHandCursor: true });
-      z.on('pointerdown', on);
-      layer.add(z);
-    };
-    const grantCoin = (amt: number): void => {
-      const s = loadSave();
-      s.coins += amt;
-      writeSave(s);
-      this.homeHeader?.setCoins(s.coins);
-      sfx('coin_burst', { volume: 0.3 });
-      this.toast(`🪙 +${amt.toLocaleString()} (데모)`, true);
-    };
-    const grantDiamond = (amt: number): void => {
-      const s = loadSave();
-      s.diamonds = (s.diamonds ?? 0) + amt;
-      writeSave(s);
-      this.refreshHomeDiamond();
-      sfx('button');
-      this.toast(`💎 +${amt} (데모)`, true);
-    };
-    // 닫기(X) 우상단.
-    zone(0.86, 0.072, 0.12, 0.055, () => {
-      sfx('level_close');
-      layer.destroy();
+    openItemShop(this, {
+      pin: (layer) => this.pinToUi(layer),
+      onCoins: (n) => this.homeHeader?.setCoins(n),
+      onDiamonds: () => this.refreshHomeDiamond(),
+      toast: (msg) => this.toast(msg, true),
     });
-    // 코인 팩(2×2) — 1,000 / 5,000 / 11,000 / 65,000.
-    zone(0.28, 0.262, 0.38, 0.15, () => grantCoin(1000));
-    zone(0.7, 0.262, 0.38, 0.15, () => grantCoin(5000));
-    zone(0.28, 0.456, 0.38, 0.15, () => grantCoin(11000));
-    zone(0.7, 0.456, 0.38, 0.15, () => grantCoin(65000));
-    // 다이아 팩(2×2) — 30 / 100 / 300 / 500.
-    zone(0.28, 0.7, 0.38, 0.14, () => grantDiamond(30));
-    zone(0.7, 0.7, 0.38, 0.14, () => grantDiamond(100));
-    zone(0.28, 0.858, 0.38, 0.14, () => grantDiamond(300));
-    zone(0.7, 0.858, 0.38, 0.14, () => grantDiamond(500));
   }
 
-  /** 설정 오버레이 — 레벨 선택 · 배치 점검 · 사운드 토글. */
+  /** 설정 오버레이 — 레벨 선택 · 배치 점검 · 사운드 토글 · 레벨 설정 · 리셋 관리. */
   private openSettings(save: SaveData): void {
     const cont = Math.min(Math.max(1, save.level), this.levelCount());
     const layer = this.add.container(0, 0).setDepth(3000);
@@ -904,35 +973,36 @@ export class HomeScene extends Phaser.Scene {
       layer.add(t);
       return t;
     };
-    mkBtn(620, '≡ 레벨 선택', '#3a2a52', () => {
+    mkBtn(560, '≡ 레벨 선택', '#3a2a52', () => {
       sfx('level_open');
       layer.destroy();
       this.showLevelSelect(loadSave());
     });
-    mkBtn(770, '🔍 배치 점검', '#2a6a9a', () => {
+    mkBtn(700, '🔍 배치 점검', '#2a6a9a', () => {
       if (this.constructing) return; // 건설/철거 애니 중 이탈 금지(소프트락 방지).
       sfx('button');
       this.scene.start('preview', { level: cont });
     });
-    const soundLabel = (): string => `${isMuted() ? '🔇' : '🔊'} 사운드: ${isMuted() ? '꺼짐' : '켜짐'}`;
-    const snd = mkBtn(920, soundLabel(), '#4a3a5a', () => {
-      setMuted(!isMuted());
-      snd.setText(soundLabel());
-      if (!isMuted()) sfx('button');
+    // **사운드 볼륨**(PO 2026-07-28) — 플레이 메뉴와 동일한 단계 순환 버튼(100→75→50→25→꺼짐).
+    const snd = mkBtn(840, volumeLabel(), '#4a3a5a', () => {
+      const v = cycleVolume();
+      snd.setText(volumeLabel());
+      if (v > 0) sfx('button');
     });
-    // **재화 재설정**(개발/테스트) — 코인·다이아 값을 조정/초기화.
-    mkBtn(1070, '💰 재화 재설정', '#2a7a5a', () => {
+    // **레벨 설정**(개발/테스트) — 현재 진행 레벨을 임의 값으로 조정(상한 = 저작된 레벨 수).
+    mkBtn(980, '🎚 레벨 설정', '#5a4a2a', () => {
       sfx('button');
       layer.destroy();
-      this.openCurrencyEditor();
+      this.openLevelEditor();
     });
-    // **건설 리셋**(임시저장 초기화) — 확인 후 초기 상태로 재시작.
-    mkBtn(1220, '🔄 건설 리셋', '#a15c1e', () => {
+    // **리셋 관리**(개발/테스트) — 레벨·건설·이벤트 리셋 + 재화 재설정을 한 화면에 모아둔다(2026-07-19,
+    //   예전엔 이 4개가 설정 목록에 낱개로 흩어져 있어 관리가 번거로웠다).
+    mkBtn(1120, '🔄 리셋 관리', '#a15c1e', () => {
       sfx('button');
       layer.destroy();
-      this.confirmReset();
+      this.openResetMenu();
     });
-    mkBtn(1400, '✕ 닫기', '#c0392b', () => {
+    mkBtn(1260, '✕ 닫기', '#c0392b', () => {
       sfx('level_close');
       layer.destroy();
     });
@@ -950,6 +1020,93 @@ export class HomeScene extends Phaser.Scene {
         .setOrigin(0.5, 1)
         .setAlpha(0.8),
     );
+  }
+
+  /**
+   * **리셋 관리**(설정 → 🔄 리셋 관리, 2026-07-19) — 개발/테스트용 리셋 4종을 한 화면에 모은다:
+   *   레벨 리셋 · 건설 리셋 · 이벤트 리셋(신설) · 재화 재설정. 예전엔 설정 목록에 낱개 버튼으로 흩어져
+   *   있어 서로 다른 화면(직접 실행/확인창/별도 에디터)을 오가야 했다 — 여기서 한 번에 접근한다.
+   */
+  private openResetMenu(): void {
+    const layer = this.add.container(0, 0).setDepth(3000);
+    this.pinToUi(layer);
+    layer.add(this.add.rectangle(0, 0, W, H, 0x140a1e, 0.92).setOrigin(0, 0).setInteractive());
+    layer.add(
+      this.add
+        .text(W / 2, 380, '🔄 리셋 관리', {
+          fontFamily: '"Jua", sans-serif',
+          fontSize: '76px',
+          color: '#ffe066',
+          stroke: '#7a2d9a',
+          strokeThickness: 9,
+        })
+        .setOrigin(0.5),
+    );
+    const mkBtn = (y: number, label: string, bgc: string, fn: () => void): void => {
+      const t = this.add
+        .text(W / 2, y, label, {
+          fontFamily: '"Jua", sans-serif',
+          fontSize: '50px',
+          color: '#ffffff',
+          backgroundColor: bgc,
+          padding: { x: 40, y: 26 },
+          align: 'center',
+          fixedWidth: 660,
+        })
+        .setOrigin(0.5)
+        .setShadow(0, 4, '#00000066', 8)
+        .setInteractive({ useHandCursor: true });
+      t.on('pointerdown', fn);
+      layer.add(t);
+    };
+    // **레벨 리셋** — 진행 레벨을 1로 되돌린다(플레이 기록도 초기화). PO 2026-07-20: "모든 상황을 1레벨로
+    //   초기화" + "콜렉션 카드를 전부 0으로" — 콜렉션 보유 상태도 함께 비운다(defaultCollection()이 SSOT).
+    mkBtn(600, '⏮ 레벨 리셋 (→ Lv1)', '#6a3a9a', () => {
+      sfx('button');
+      const s = loadSave();
+      s.level = 1;
+      s.playedLevels = [];
+      s.collection = defaultCollection();
+      writeSave(s);
+      this.homeHeader?.setLevel(1);
+      this.toast('레벨을 1로 리셋했어요(콜렉션 포함)', true);
+      layer.destroy();
+      this.scene.restart(); // 타워/진행 표시 갱신.
+    });
+    // **건설 리셋** — 확인창을 거쳐 초기 상태(건설/부지)로 재시작.
+    mkBtn(740, '🏗 건설 리셋', '#a15c1e', () => {
+      sfx('button');
+      layer.destroy();
+      this.confirmReset();
+    });
+    // **이벤트 리셋**(신설, 2026-07-19) — 미션 리워드(상단 배너) 진행도를 1티어·0진행으로 되돌린다.
+    //   코인·다이아·레벨·건설 등 다른 저장값은 건드리지 않는다.
+    mkBtn(880, '🎉 이벤트 리셋', '#7a3a5a', () => {
+      sfx('button');
+      const s = loadSave();
+      s.missionReward = freshMissionState(1, Date.now());
+      writeSave(s);
+      this.toast('이벤트 진행도를 초기화했어요', true);
+      layer.destroy();
+      this.scene.restart(); // 미션 배너 갱신.
+    });
+    // **재화 재설정** — 코인·다이아 조정/초기화 전용 화면으로.
+    mkBtn(1020, '💰 재화 재설정', '#2a7a5a', () => {
+      sfx('button');
+      layer.destroy();
+      this.openCurrencyEditor();
+    });
+    // **전체 레벨 테스트**(2026-07-20) — 진행도(save.level)와 무관하게 저작된 모든 레벨을 잠금 해제해
+    // 바로 골라 플레이할 수 있는 QA 전용 진입점(정상 "레벨 선택"의 게이팅은 그대로 유지, 별도 화면).
+    mkBtn(1160, '🧪 전체 레벨 테스트', '#3a5a9a', () => {
+      sfx('button');
+      layer.destroy();
+      this.showLevelSelect(loadSave(), true);
+    });
+    mkBtn(1300, '✕ 닫기', '#c0392b', () => {
+      sfx('level_close');
+      layer.destroy();
+    });
   }
 
   /**
@@ -1013,10 +1170,75 @@ export class HomeScene extends Phaser.Scene {
       t.on('pointerdown', fn);
       layer.add(t);
     };
-    big(1440, '↺ 초기값 (코인 1000·다이아 30)', '#2a7a5a', () => setVals(1000, 30));
+    big(1440, `↺ 초기값 (코인 ${START_COINS.toLocaleString()}·다이아 ${START_DIAMONDS})`, '#2a7a5a', () => setVals(START_COINS, START_DIAMONDS));
     big(1620, '✕ 닫기', '#c0392b', () => {
       sfx('level_close');
       layer.destroy();
+    });
+    refresh();
+  }
+
+  /**
+   * **레벨 설정 메뉴**(설정 → 🎚 레벨 설정) — 현재 진행 레벨 표시 + 조정(±)·Lv1/최대 바로가기.
+   *   상한 = 에디터에 저작된 레벨 수(levelCount) — 그 이상은 플레이할 레벨이 없으므로 여기서 클램프.
+   *   레벨을 내리면 그 이상 레벨의 플레이 기록(playedLevels)도 정리해 첫 플레이(에디터 초기 딜)로
+   *   되돌린다(레벨 리셋 →Lv1 과 동일한 규칙). 변경이 있었으면 닫을 때 씬 재시작(타워/진행 표시 갱신).
+   */
+  private openLevelEditor(): void {
+    const max = this.levelCount();
+    let changed = false;
+    const layer = this.add.container(0, 0).setDepth(3200);
+    this.pinToUi(layer);
+    layer.add(this.add.rectangle(0, 0, W, H, 0x140a1e, 0.94).setOrigin(0, 0).setInteractive());
+    layer.add(this.add.text(W / 2, 480, '🎚 레벨 설정', { fontFamily: '"Jua", sans-serif', fontSize: '72px', color: '#ffe066', stroke: '#7a2d9a', strokeThickness: 9 }).setOrigin(0.5));
+    const lvlVal = this.add.text(W / 2, 700, '', { fontFamily: '"Jua", sans-serif', fontSize: '54px', color: '#8fd3ff' }).setOrigin(0.5);
+    layer.add(lvlVal);
+    const refresh = (): void => {
+      const s = loadSave();
+      lvlVal.setText(`⭐ 현재 레벨 : Lv ${s.level.toLocaleString()}  (최대 Lv ${max.toLocaleString()})`);
+      this.homeHeader?.setLevel(s.level);
+    };
+    const applyLevel = (n: number): void => {
+      const s = loadSave();
+      const lv = Math.min(max, Math.max(1, Math.floor(n)));
+      if (lv !== s.level) {
+        writeSave({ ...s, level: lv, playedLevels: (s.playedLevels ?? []).filter((p) => p < lv) });
+        changed = true;
+      }
+      sfx('button');
+      refresh();
+    };
+    // 작은 조정 버튼(±) — 재화 재설정 메뉴와 동일한 스타일.
+    const small = (x: number, y: number, label: string, bg: string, fn: () => void): void => {
+      const t = this.add
+        .text(x, y, label, { fontFamily: '"Jua", sans-serif', fontSize: '40px', color: '#fff', backgroundColor: bg, padding: { x: 26, y: 16 }, align: 'center', fixedWidth: 220 })
+        .setOrigin(0.5)
+        .setInteractive({ useHandCursor: true });
+      t.on('pointerdown', fn);
+      layer.add(t);
+    };
+    small(W / 2 - 390, 860, '−10', '#7a3a3a', () => applyLevel(loadSave().level - 10));
+    small(W / 2 - 130, 860, '−1', '#7a3a3a', () => applyLevel(loadSave().level - 1));
+    small(W / 2 + 130, 860, '+1', '#3a6a3a', () => applyLevel(loadSave().level + 1));
+    small(W / 2 + 390, 860, '+10', '#3a6a3a', () => applyLevel(loadSave().level + 10));
+    small(W / 2 - 260, 1000, '−100', '#7a3a3a', () => applyLevel(loadSave().level - 100));
+    small(W / 2 + 260, 1000, '+100', '#3a6a3a', () => applyLevel(loadSave().level + 100));
+    // 바로가기 + 닫기.
+    const big = (y: number, label: string, bg: string, fn: () => void): void => {
+      const t = this.add
+        .text(W / 2, y, label, { fontFamily: '"Jua", sans-serif', fontSize: '50px', color: '#fff', backgroundColor: bg, padding: { x: 40, y: 24 }, align: 'center', fixedWidth: 640 })
+        .setOrigin(0.5)
+        .setShadow(0, 4, '#00000066', 8)
+        .setInteractive({ useHandCursor: true });
+      t.on('pointerdown', fn);
+      layer.add(t);
+    };
+    big(1200, '⏮ Lv 1 로', '#6a3a9a', () => applyLevel(1));
+    big(1360, `⏭ 최대 (Lv ${max.toLocaleString()})`, '#2a7a5a', () => applyLevel(max));
+    big(1540, '✕ 닫기', '#c0392b', () => {
+      sfx('level_close');
+      layer.destroy();
+      if (changed) this.scene.restart(); // 타워/진행 표시 갱신(레벨 리셋과 동일).
     });
     refresh();
   }
@@ -1110,8 +1332,12 @@ export class HomeScene extends Phaser.Scene {
       });
   }
 
-  /** 레벨 선택 오버레이 — **저작된 레벨(1..N)만** 표시, 진행(save.level) 이하만 탭 가능. 그리드 드래그 스크롤. */
-  private showLevelSelect(save: SaveData): void {
+  /**
+   * 레벨 선택 오버레이 — **저작된 레벨(1..N)만** 표시, 진행(save.level) 이하만 탭 가능(정상 플레이 경로).
+   * `testMode=true` 면 진행도와 무관하게 **전부 잠금 해제**해서 아무 레벨이나 바로 테스트 플레이할 수
+   * 있다(설정→🔄 리셋 관리→🧪 전체 레벨 테스트 전용 진입점 — 실제 플레이어 진행 게이팅은 안 건드림).
+   */
+  private showLevelSelect(save: SaveData, testMode = false): void {
     const total = this.levelCount(); // 에디터에 저작된 레벨 수(그 이상은 아예 표시하지 않음)
     const layer = this.add.container(0, 0).setDepth(2000);
     this.pinToUi(layer); // 레벨 선택 오버레이 — UI(고정) 카메라 전용.
@@ -1119,9 +1345,9 @@ export class HomeScene extends Phaser.Scene {
     layer.add(bg);
     layer.add(
       this.add
-        .text(W / 2, 130, '레벨 선택', {
+        .text(W / 2, 130, testMode ? '🧪 전체 레벨 테스트' : '레벨 선택', {
           fontFamily: '"Jua", sans-serif',
-          fontSize: '72px',
+          fontSize: testMode ? '58px' : '72px',
           color: '#ffe066',
           stroke: '#7a2d9a',
           strokeThickness: 8,
@@ -1141,7 +1367,7 @@ export class HomeScene extends Phaser.Scene {
       const idx = lv - 1;
       const x = startX + (idx % cols) * cellW;
       const y = startY + Math.floor(idx / cols) * cellH;
-      const unlocked = lv <= Math.min(save.level, total);
+      const unlocked = testMode || lv <= Math.min(save.level, total);
       const btn = this.add
         .text(x, y, unlocked ? `${lv}` : `🔒`, {
           fontFamily: '"Jua", sans-serif',
@@ -1217,7 +1443,7 @@ export class HomeScene extends Phaser.Scene {
         glass: this.nearestEntry(e.node, /_BG_Glass/i)?.obj as Phaser.GameObjects.Image | undefined,
         char: decorChar,
       });
-      wireClerkTalk(this, decorChar, themeForFloor(level)); // 점원 탭 = 점포 테마 대사.
+      wireClerkTalk(this, decorChar, themeForFloor(level), level); // 점원 탭 = 점포 테마 대사(+층 맥락).
       if (level <= this.builtFloors) {
         obj.setAlpha(1); // 건설됨 — **표시만**. 층 탭으로 게임 진입 안 함(게임은 '계속하기'로만 진입).
       } else {
@@ -2042,7 +2268,7 @@ export class HomeScene extends Phaser.Scene {
       char = this.add.image(lot.cx + LOT2_FLOOR_W * 0.22, y + LOT2_FLOOR_H * 0.16, chKey).setDepth(depth + 1.5).setVisible(visible);
       char.setDisplaySize(char.width * (245 / char.height), 245);
       this.pinToWorld(char);
-      wireClerkTalk(this, char, THEME_RIVAL_LOT); // 사이드(경쟁부지) 점원 탭 = 경쟁 시스템 예고 대사.
+      wireClerkTalk(this, char, THEME_RIVAL_LOT, 0); // 사이드(경쟁부지) 점원 탭 = 경쟁 시스템 예고 대사.
     }
     lot.floor = { img, char };
     return { img, char };
@@ -2427,7 +2653,7 @@ export class HomeScene extends Phaser.Scene {
       char = this.add.image(LOT2_CX + side * fw * 0.22, y + fh * 0.16, chKey).setDepth(depth + 1.5).setVisible(visible);
       char.setDisplaySize(char.width * (245 / char.height), 245);
       this.pinToWorld(char);
-      wireClerkTalk(this, char, 0); // 스테이지2 점원 탭 = 공용 대사.
+      wireClerkTalk(this, char, themeForStage2Floor(level), 0); // 스테이지2 점포 테마 대사(서점·문구·장난감…).
     }
     // **1층은 앞 유리팬스 없음**(타워1 1층과 동일 예외). 2층+ 만 유리팬스.
     let glass: Phaser.GameObjects.Image | undefined;
@@ -2765,69 +2991,93 @@ export class HomeScene extends Phaser.Scene {
   }
 
   /**
-   * 에디터 저작 **점포 버튼(up_Solitare_UI_22 × 3)** 배선 + depth 정정.
+   * 에디터 저작 **점포매입/건설 버튼**(2026-07-19 재설계) 배선 + depth 정정.
+   *   디자이너가 버튼을 **하나만**(layer_8_copy) 다시 만들어 매입·건설 두 상태에서 재사용한다("이 점포매입
+   *   버튼을 건설버튼으로도 사용합니다" PO 지시) — 예전엔 층별로 버튼 3개(layer_8_copy/2/3)를 미리 깔아두고
+   *   그중 하나를 골라 썼지만, 이제 버튼 1개 + 라벨(layer_10) + 고정 비용 표시(코인 아이콘 layer_8_copy4·
+   *   "1.5K" layer_10_copy3·다이아 아이콘 layer_8_copy5·"20" layer_10_copy4, STORE_ACQUIRE_COST)를
+   *   대상 층 자리(매입) 또는 지붕 위(건설)로 매번 옮겨 그린다.
    *   - 손님/말풍선/코인이 (floorDepth+1.8 ~ +50) 이라 depth 12~37 버튼을 **앞에서 가리던 문제** →
    *     버튼·라벨 depth 를 손님 코인(최대 floorDepth+50) 위로 올린다(월드 오브젝트 유지=타워와 함께 스크롤).
-   *   - **최상단(y 최소) 버튼 = 건축**(다음 층 건설 연출). 나머지 = 매입(현재 준비중 토스트).
    */
   private wireStoreButtons(idx: LayoutIndex): void {
     const BTN_LIFT = 110; // 손님 코인(floorDepth+50, 최대 ~64) 위로 확실히.
-    const PAIRS: ReadonlyArray<{ btn: string; label: string }> = [
-      { btn: 'layer_8_copy', label: 'layer_10' },
-      { btn: 'layer_8_copy2', label: 'layer_10_copy' },
-      { btn: 'layer_8_copy3', label: 'layer_10_copy2' },
-    ];
-    const items: Array<{
-      obj: Phaser.GameObjects.Image;
-      x: number;
-      y: number;
-      label?: Phaser.GameObjects.Text;
-    }> = [];
-    for (const p of PAIRS) {
-      const obj = idx.tryById<Phaser.GameObjects.Image>(p.btn);
-      const node = idx.nodeById(p.btn);
-      if (!obj || !node) continue;
-      const label = idx.tryById<Phaser.GameObjects.Text>(p.label);
-      const d = (node.depth ?? 0) + BTN_LIFT; // depth 정정 — 손님 위로(라벨은 버튼 +1).
-      obj.setDepth(d);
-      label?.setDepth(d + 1);
-      items.push({ obj, x: node.x, y: node.y, label });
-    }
-    if (items.length === 0) return;
-    const ordered = items.sort((a, b) => a.y - b.y);
-    const buildItem = ordered[0]; // 최상단(건축) 버튼 = **건설용**(지붕 위).
-    const purchaseByFloor = ordered.slice(1).sort((a, b) => b.y - a.y); // y 큰 순: [2층 매입, 3층 매입].
+    const btn = idx.tryById<Phaser.GameObjects.Image>('layer_8_copy');
+    const btnNode = idx.nodeById('layer_8_copy');
+    if (!btn || !btnNode) return;
+    const title = idx.tryById<Phaser.GameObjects.Text>('layer_10');
+    const titleNode = idx.nodeById('layer_10');
+    const coinIcon = idx.tryById<Phaser.GameObjects.Image>('layer_8_copy4');
+    const coinIconNode = idx.nodeById('layer_8_copy4');
+    const coinText = idx.tryById<Phaser.GameObjects.Text>('layer_10_copy3');
+    const coinTextNode = idx.nodeById('layer_10_copy3');
+    const gemIcon = idx.tryById<Phaser.GameObjects.Image>('layer_8_copy5');
+    const gemIconNode = idx.nodeById('layer_8_copy5');
+    const gemText = idx.tryById<Phaser.GameObjects.Text>('layer_10_copy4');
+    const gemTextNode = idx.nodeById('layer_10_copy4');
+
+    const d = (btnNode.depth ?? 0) + BTN_LIFT; // depth 정정 — 손님 위로(부속 요소는 버튼보다 위).
+    btn.setDepth(d);
+    title?.setDepth(d + 1);
+    coinIcon?.setDepth(d + 1);
+    gemIcon?.setDepth(d + 1);
+    coinText?.setDepth(d + 2);
+    gemText?.setDepth(d + 2);
+
+    // 부속 요소는 버튼(layer_8_copy) 저작 위치 대비 **상대 오프셋**을 유지한 채로 함께 옮겨 다닌다.
+    const rel = (node: LayoutEntry['node'] | undefined): { dx: number; dy: number } =>
+      node ? { dx: node.x - btnNode.x, dy: node.y - btnNode.y } : { dx: 0, dy: 0 };
+    const titleRel = rel(titleNode);
+    const coinIconRel = rel(coinIconNode);
+    const coinTextRel = rel(coinTextNode);
+    const gemIconRel = rel(gemIconNode);
+    const gemTextRel = rel(gemTextNode);
+    const moveTo = (bx: number, by: number): void => {
+      btn.setPosition(bx, by);
+      title?.setOrigin(0.5).setPosition(bx + titleRel.dx, by + titleRel.dy).setAlign('center');
+      coinIcon?.setPosition(bx + coinIconRel.dx, by + coinIconRel.dy);
+      coinText?.setOrigin(0.5).setPosition(bx + coinTextRel.dx, by + coinTextRel.dy);
+      gemIcon?.setPosition(bx + gemIconRel.dx, by + gemIconRel.dy);
+      gemText?.setOrigin(0.5).setPosition(bx + gemTextRel.dx, by + gemTextRel.dy);
+    };
+    // 비용 표시 — **대상 층의 비용**(층당 +0.5K, PO 2026-07-29). 층을 안 넘기면 1층 기준.
+    const setCostVisible = (visible: boolean, floor = 1): void => {
+      const cost = storeAcquireCostFor(floor);
+      coinIcon?.setVisible(visible);
+      coinText?.setVisible(visible).setText(cost.coins >= 1000 ? `${(cost.coins / 1000).toLocaleString()}K` : `${cost.coins}`);
+      gemIcon?.setVisible(visible);
+      gemText?.setVisible(visible).setText(`${cost.diamonds}`);
+    };
+
     this.atMaxFloor = this.builtFloors >= MAX_FLOORS; // 프레이밍 상단 여백을 크게(공간 확보).
     // **개념**: 건설된(보이는) 미소유 층이 있으면 그 층 **점포매입**(그 층 자리), 없으면 다음 미건설 층 **건설**(지붕 위).
     const purchaseStep = this.ownedFloors < this.builtFloors;
     const complete = !purchaseStep && this.builtFloors >= MAX_FLOORS;
 
-    // 모든 버튼 초기화(숨김 + 리스너 제거).
-    for (const it of items) {
-      it.obj.removeAllListeners('pointerdown');
-      it.obj.setVisible(false);
-      it.label?.setVisible(false);
-    }
+    btn.removeAllListeners('pointerdown');
+    this.buildStoreBtn = btn;
+    this.buildStoreLabel = title;
 
     if (complete) {
-      this.buildStoreBtn = buildItem.obj; // 완공 — 버튼 없음(프레이밍 기준만).
-      this.buildStoreLabel = buildItem.label;
-      buildItem.obj.disableInteractive();
-    } else if (purchaseStep) {
-      // ── **점포매입** — 대상 층의 매입 버튼을 **그 층 자리(저작 위치)**에 표시(지붕 위 X). ──
+      btn.setVisible(false);
+      title?.setVisible(false);
+      setCostVisible(false);
+      btn.disableInteractive();
+      return;
+    }
+
+    if (purchaseStep) {
+      // ── **점포매입** — 대상 층의 저작 슬롯 위치(layer_2* 층 자리) 기준 버튼 표시. ──
       const target = this.ownedFloors + 1;
-      const it = purchaseByFloor[target - 2] ?? purchaseByFloor[0];
-      it.obj.setPosition(it.x, it.y);
-      it.label
-        ?.setOrigin(0.5)
-        .setPosition(it.x, it.y)
-        .setText(`${target}층 점포매입\n💎 ${diamondCostFor(target)}`)
-        .setAlign('center');
-      it.obj.setVisible(true).setInteractive({ useHandCursor: true });
-      it.label?.setVisible(true);
-      it.obj.on('pointerdown', () => this.purchaseFloor(target));
-      this.buildStoreBtn = it.obj;
-      this.buildStoreLabel = it.label;
+      const floorEntry = this.towerFloors[target - 1];
+      const bx = floorEntry ? floorEntry.node.x : btnNode.x;
+      const by = floorEntry ? floorEntry.node.y + (btnNode.y - (this.towerFloors[1]?.node.y ?? btnNode.y)) : btnNode.y;
+      moveTo(bx, by);
+      title?.setText(`${target}층 점포매입`).setFontSize(38).setLineSpacing(0);
+      setCostVisible(true, target);
+      btn.setAlpha(1).setVisible(true).setInteractive({ useHandCursor: true });
+      title?.setVisible(true);
+      btn.on('pointerdown', () => this.purchaseFloor(target));
     } else {
       // ── **건설** — 다음 미건설 층. 건축 버튼을 **지붕 위**에. ──
       const target = Math.min(MAX_FLOORS, this.builtFloors + 1);
@@ -2835,29 +3085,40 @@ export class HomeScene extends Phaser.Scene {
       const playerLevel = loadSave().level;
       const locked = playerLevel < req;
       const roofObj = idx.entries().find((e) => /roof/i.test(e.node.key ?? ''))?.obj as Phaser.GameObjects.Image | undefined;
-      const bx = roofObj ? roofObj.x : W / 2;
-      const by = roofObj ? roofObj.y - roofObj.displayHeight / 2 - 30 - buildItem.obj.displayHeight / 2 : 319;
-      buildItem.obj.setPosition(bx, by);
-      // 레벨 미달이면 **잠금 표시**(🔒 Lv N), 충족이면 다이아 비용.
-      buildItem.label
-        ?.setOrigin(0.5)
-        .setPosition(bx, by)
-        .setText(locked ? `${target}층 건설\n🔒 Lv ${req}` : `${target}층 건설\n💎 ${diamondCostFor(target)}`)
-        .setAlign('center');
-      buildItem.obj.setVisible(true).setInteractive({ useHandCursor: true });
-      buildItem.obj.setAlpha(locked ? 0.75 : 1);
-      buildItem.label?.setVisible(true);
-      buildItem.obj.on('pointerdown', () => {
+      const bx = roofObj ? roofObj.x : btnNode.x;
+      const by = roofObj ? roofObj.y - roofObj.displayHeight / 2 - 30 - btn.displayHeight / 2 : btnNode.y;
+      moveTo(bx, by);
+      // 제목은 **점포매입과 동일 타입**(한 줄, 38px) — 잠금 여부와 무관하게 항상 "N층 건설"만 표시.
+      title?.setText(`${target}층 건설`).setFontSize(38).setLineSpacing(0);
+      if (locked) {
+        // ⚠️2026-07-19: "🔒 Lv N"을 제목에 두 번째 줄로 욱여넣던 방식(버튼 밖으로 삐져나옴)을 폐기 —
+        //   **점포매입의 비용 행과 동일 타입**(제목 아래, 아이콘+숫자 한 줄)으로 자리만 재사용해 잠금 정보를
+        //   표시한다. 코인/다이아 아이콘 두 개는 숨기고, 그 행의 폭 전체에 "🔒 Lv N" 한 줄만 중앙정렬.
+        coinIcon?.setVisible(false);
+        gemIcon?.setVisible(false);
+        gemText?.setVisible(false);
+        coinText
+          ?.setVisible(true)
+          .setOrigin(0.5)
+          .setPosition(bx, by + coinTextRel.dy)
+          .setFontSize(30)
+          .setLineSpacing(0)
+          .setText(`🔒 Lv ${req}`);
+      } else {
+        setCostVisible(true, target);
+      }
+      btn.setVisible(true).setInteractive({ useHandCursor: true });
+      btn.setAlpha(locked ? 0.75 : 1);
+      title?.setVisible(true);
+      btn.on('pointerdown', () => {
         if (this.constructing) return;
         if (locked) {
           sfx('build_fail');
           this.toast(`🔒 레벨 ${req} 이상 필요\n(현재 레벨 ${playerLevel})`);
           return;
         }
-        this.runConstruction(target, FLOOR_COST[target] ?? 0);
+        this.runConstruction(target, storeAcquireCostFor(target).coins);
       });
-      this.buildStoreBtn = buildItem.obj;
-      this.buildStoreLabel = buildItem.label;
     }
   }
 
@@ -2867,22 +3128,25 @@ export class HomeScene extends Phaser.Scene {
    */
   private purchaseFloor(level: number): void {
     if (this.constructing) return;
-    // **점포매입 비용 = 다이아**(업그레이드와 동일 곡선). 부족하면 차단.
-    const cost = diamondCostFor(level);
+    // **점포매입 비용 = 건설과 동일**(층별 곡선, storeAcquireCostFor). 부족하면 차단.
+    const cost = storeAcquireCostFor(level);
     const s = loadSave();
-    if ((s.diamonds ?? 0) < cost) {
+    if (s.coins < cost.coins || (s.diamonds ?? 0) < cost.diamonds) {
       sfx('build_fail');
-      this.toast(`💎 다이아가 부족해요 (필요 ${cost})`);
+      this.toast(`재화가 부족해요 (필요 🪙${cost.coins.toLocaleString()} 💎${cost.diamonds})`);
       return;
     }
     this.ownedFloors = Math.max(this.ownedFloors, level); // 소유.
-    s.diamonds = Math.max(0, (s.diamonds ?? 0) - cost); // 다이아 차감.
+    s.coins = Math.max(0, s.coins - cost.coins);
+    s.diamonds = Math.max(0, (s.diamonds ?? 0) - cost.diamonds);
     s.ownedFloors = this.ownedFloors; // **임시저장**: 소유 상태 저장.
     writeSave(s);
     this.refreshHomeDiamond();
+    this.homeHeader?.setCoins(s.coins);
     sfx('build');
-    this.toast(`${level}층 점포매입 성공!\n(💎 -${cost})`, true);
+    this.toast(`${level}층 점포매입 성공!\n(🪙-${cost.coins.toLocaleString()} 💎-${cost.diamonds})`, true);
     if (this.layoutIdx) this.wireStoreButtons(this.layoutIdx); // 상단 버튼 재배선(→ "3층 건설").
+    this.placeContinueButton(); // 계속하기 버튼도 새로 매입한 층으로 함께 이동.
     this.panToFloor(level, 900); // 매입한 층으로 부드럽게 포커스.
   }
 
@@ -2958,7 +3222,7 @@ export class HomeScene extends Phaser.Scene {
     let startX = 0;
     let axis: 'none' | 'x' | 'y' = 'none'; // 이 제스처의 잠긴 축(상하 or 좌우) — 한쪽만 반응.
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      if (this.constructing) return;
+      if (this.constructing || this.scrollSuspended) return;
       this.scrollDragging = true;
       this.scrollVel = 0;
       this.scrollVelX = 0;
@@ -2970,7 +3234,7 @@ export class HomeScene extends Phaser.Scene {
       axis = 'none';
     });
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-      if (!this.scrollDragging || !p.isDown || this.constructing) return;
+      if (!this.scrollDragging || !p.isDown || this.constructing || this.scrollSuspended) return;
       // **축 잠금**: 시작점 대비 누적 이동으로 지배 축을 정한다(정해지기 전엔 아무 것도 안 움직임 → 드리프트 방지).
       if (axis === 'none') {
         const tdx = Math.abs(p.x - startX);
@@ -3053,7 +3317,7 @@ export class HomeScene extends Phaser.Scene {
 
   /**
    * **부지별 사운드** — 카메라가 머무는 스테이지(-2..3, LOT_DX 배수)의 BGM 으로 전환한다.
-   *   부지 전용 트랙(bgm_lot_*.m4a)이 없으면 audio.ts 폴백이 home 을 끊김 없이 유지한다.
+   *   부지 전용 트랙(bgm_lot_*.m4a)이 없으면 **무음**(audio.ts가 이전 트랙 페이드아웃) — 다른 스테이지 사운드는 재생하지 않는다.
    */
   private updateStageBgm(): void {
     const idx = Phaser.Math.Clamp(Math.round(this.cameras.main.scrollX / LOT_DX), -2, 3);
@@ -3357,7 +3621,7 @@ export class HomeScene extends Phaser.Scene {
       char = this.add.image(charX, fy + fh * 0.16, charKey).setDepth(glassDepth - 0.5);
       char.setDisplaySize(char.width * (245 / char.height), 245); // 아래층 점원 키(~240)에 맞춤.
       char.setVisible(built);
-      wireClerkTalk(this, char, themeForFloor(level)); // 동적 층 점원 탭 = 점포 테마 대사.
+      wireClerkTalk(this, char, themeForFloor(level), level); // 동적 층 점원 탭 = 점포 테마 대사(+층 맥락).
     }
     return { glass, char };
   }
@@ -3450,11 +3714,11 @@ export class HomeScene extends Phaser.Scene {
       this.toast(`🔒 레벨 ${req} 이상 필요 (현재 ${s.level})`);
       return;
     }
-    // **건물 건설/업그레이드 비용 = 다이아**(처음 10, 단계별 증가). 부족하면 차단.
-    const dCost = diamondCostFor(level);
-    if ((s.diamonds ?? 0) < dCost) {
+    // **건설 비용 = 점포매입과 동일**(층별 곡선, storeAcquireCostFor). 코인·다이아 둘 다 필요.
+    const need = storeAcquireCostFor(level);
+    if (s.coins < need.coins || (s.diamonds ?? 0) < need.diamonds) {
       sfx('build_fail');
-      this.toast(`💎 다이아가 부족해요 (필요 ${dCost})`);
+      this.toast(`재화가 부족해요 (필요 🪙${need.coins.toLocaleString()} 💎${need.diamonds})`);
       return;
     }
     const idx = this.layoutIdx;
@@ -3612,12 +3876,15 @@ export class HomeScene extends Phaser.Scene {
     // **건설 = 소유** — 저장 **전에** 소유를 반영해야 한다. (안 그러면 저장된 ownedFloors 가 builtFloors 보다
     //   1 뒤처져, 다음 홈 진입 때 방금 지은 층을 '미소유'로 보고 **불필요한 N층 점포매입 버튼**이 뜬다 = 재매입 버그.)
     this.ownedFloors = Math.max(this.ownedFloors, this.builtFloors);
-    // **임시저장**: 건설 레벨 저장 + **다이아 비용 차감**(건물 업그레이드 비용) + 소유 반영.
+    // **임시저장**: 건설 레벨 저장 + **코인·다이아 비용 차감**(층별 곡선, 점포매입과 동일) + 소유 반영.
+    const paid = storeAcquireCostFor(level);
     const s = loadSave();
-    s.diamonds = Math.max(0, (s.diamonds ?? 0) - diamondCostFor(level));
+    s.coins = Math.max(0, s.coins - paid.coins);
+    s.diamonds = Math.max(0, (s.diamonds ?? 0) - paid.diamonds);
     s.builtFloors = this.builtFloors;
     s.ownedFloors = Math.max(s.ownedFloors ?? 0, this.ownedFloors);
     writeSave(s);
+    this.homeHeader?.setCoins(s.coins);
     this.advanceAfterBuild(level);
   }
 
@@ -3741,12 +4008,25 @@ export class HomeScene extends Phaser.Scene {
       // depth = **이 층 유리팬스 바로 뒤**(유리가 손님을 가림). 유리 없으면 아트 살짝 앞. 버튼(120+)보다 훨씬 아래.
       depth: glass ? glass.depth - 0.3 : (f.depth ?? 0) + 1.8,
       floor: level,
-      onSatisfied: (fl, coins) => this.accrueFloorCoins(fl, coins), // 만족 방문 → 상점 수익만큼 누적.
+      onSatisfied: (fl, coins, dx, dy) => this.accrueFloorCoins(fl, coins, dx, dy), // 만족 방문 → 누적 + 떨어진 자리에서 흡입.
       coinYield: visitYieldFor(level), // **상점별 수익성** — 고층일수록 방문 1회 수익↑.
     };
   }
 
   // ── 점포 코인 누적 → 말풍선 수령 ─────────────────────────────────────
+  /** 마지막 접속 일수 추적 — 이번 진입 기준 경과 일수를 반환하고 타임스탬프를 갱신한다(대화 맥락용). */
+  private trackDaysAway(): number {
+    try {
+      const K = 'solitaire.lastSeen.v1';
+      const prev = parseInt(localStorage.getItem(K) ?? '0', 10);
+      localStorage.setItem(K, String(Date.now()));
+      if (!prev || !Number.isFinite(prev)) return 0;
+      return Math.max(0, Math.floor((Date.now() - prev) / 86_400_000));
+    } catch {
+      return 0;
+    }
+  }
+
   /** 세이브의 층별 누적 코인을 런타임 맵으로 로드(create 초기화용). */
   private loadFloorBanks(): void {
     this.floorBanks.clear();
@@ -3758,7 +4038,212 @@ export class HomeScene extends Phaser.Scene {
   }
 
   /** 이미 목표를 채운 층에 수령 말풍선을 띄운다(홈 재진입 시 복원). */
+  // ── 점포 수익 통합 수금(PO 2026-07-28) ──────────────────────────────
+  //   층이 여러 층이면 층별로 받기 번거로우므로 **한 배지에 모아** 받는다. 주기는 10분,
+  //   **받지 않으면 더 쌓이지 않는다**(storeIncome.pendingIncome 의 한 주기 상한).
+  //   배지는 에디터 저작: 패널 layer_11_copy2 · 금액 layer_13_copy7 · 타이머 layer_13_copy2.
+
+  /** 마지막 정산 시각 — 없으면(구 세이브·첫 실행) 지금부터 시작해 저장한다. */
+  private storeIncomeAt(): number {
+    const s = loadSave();
+    if (typeof s.storeIncomeAt === 'number' && Number.isFinite(s.storeIncomeAt)) return s.storeIncomeAt;
+    const now = Date.now();
+    writeSave({ ...s, storeIncomeAt: now });
+    return now;
+  }
+
+  /** 한 주기에 쌓이는 코인 — 건설된 층 전체 합(경제 모델 재사용). 층이 늘면 자동으로 커진다. */
+  private incomePerPeriodNow(): number {
+    return incomePerPeriod(econ(), entryFeeFor(loadSave().level, 1), this.builtFloors);
+  }
+
+  /** 이 층수에서의 **수금 주기**(ms) — 층이 늘수록 길어진다(PO 2026-07-30). */
+  private incomePeriod(): number {
+    return periodFor(this.builtFloors);
+  }
+
+  private setupStoreIncome(idx: LayoutIndex): void {
+    this.incomeBank = Math.max(0, Math.floor(loadSave().storeIncomeBank ?? 0));
+    this.incomePanel = idx.tryById<Phaser.GameObjects.Image>('layer_11_copy2');
+    this.incomeAmountText = idx.tryById<Phaser.GameObjects.Text>('layer_13_copy7');
+    this.incomeTimerText = idx.tryById<Phaser.GameObjects.Text>('layer_13_copy2');
+    if (!this.incomePanel) return;
+    this.incomePanel.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.claimStoreIncome());
+    this.refreshStoreIncome();
+    // 1초마다 남은 시간·금액 갱신(가벼운 텍스트 갱신뿐).
+    this.incomeTicker?.remove(false);
+    this.incomeTicker = this.time.addEvent({ delay: 1000, loop: true, callback: () => this.refreshStoreIncome() });
+  }
+
+  /**
+   * 수금함 상한 = 한 주기(10분)분 총액 **× 업그레이드 배수**. 층이 늘면 상한도 자동으로 늘어난다.
+   *   업그레이드는 아직 UI 가 없어 항상 레벨 0 이다(PO 2026-07-29 "이후에 기능을 추가할 예정") —
+   *   세이브에 `storeIncomeLevel` 을 올려주기만 하면 상한과 시간당 수입이 함께 오른다.
+   */
+  private incomeCap(): number {
+    return capacityFor(this.incomePerPeriodNow(), loadSave().storeIncomeLevel ?? 0);
+  }
+
+  /**
+   * **시간 적립 반영**(PO 2026-07-29) — 마지막 정산 이후 흐른 시간만큼 수금함에 넣고 저장한다.
+   *   화면 진입·1초 틱·손님 방문 등 **아무 때나 불러도 안전**하다(소비한 시간만 당기므로 중복 적립 없음).
+   *   앱을 껐던 시간도 그대로 들어온다 — 서버 없이 기기 시계만으로 동작하는 기본 구현이다.
+   *   ⚠️ 기기 시계를 앞으로 돌리면 그만큼 더 받는다(오프라인 보상의 알려진 한계) — 서버 시각 도입 시 해결 대상.
+   */
+  private tickStoreIncome(): void {
+    const sv = loadSave();
+    const at = this.storeIncomeAt();
+    const r = accrueByTime(this.incomeBank, at, Date.now(), this.incomeCap(), this.incomePeriod());
+    if (r.bank === this.incomeBank && r.lastAt === at) return; // 변화 없음 — 저장도 생략.
+    this.incomeBank = r.bank;
+    writeSave({ ...sv, storeIncomeBank: r.bank, storeIncomeAt: r.lastAt });
+  }
+
+  /** 배지 표시 갱신 — 수금함 잔액 + 남은 시간. 통합 구간이 아니면(3층 미만) 배지를 숨긴다. */
+  private refreshStoreIncome(): void {
+    const show = usesIntegratedClaim(this.builtFloors);
+    this.incomePanel?.setVisible(show);
+    this.incomeAmountText?.setVisible(show);
+    this.incomeTimerText?.setVisible(show);
+    if (!show) return;
+    this.tickStoreIncome(); // 화면을 보고 있는 동안에도 시간 적립을 계속 반영.
+    const cap = this.incomeCap();
+    this.incomeAmountText?.setText(this.incomeBank.toLocaleString());
+    // 가득이면 '수령'(=받을 수 있다), 아니면 남은 시간. ⚠️ 예전엔 '수령'/'가득'을 서로 다른 기준
+    //   (타이머 vs 잔액)으로 판정해 **가득인데 수령이 안 되는** 모순 표시가 났다 — 이제 기준은 잔액 하나뿐.
+    this.incomeTimerText?.setText(canClaim(this.incomeBank, cap) ? '수령' : formatIncomeTimer(msUntilFull(this.incomeBank, cap, this.incomePeriod())));
+  }
+
+  /**
+   * 통합 수금 — 한 주기(전 층 발생)를 다 채웠을 때만 받는다(찔끔 수금 방지).
+   *   ⚠️ **코인이 날아가는 연출은 여기가 아니라 '수익 발생 시점'에 있다**(`emitFloorIncome`) — 배지에는 이미
+   *      코인이 모여 있는 상태이므로, 수령은 그 모인 금액을 지갑으로 옮기는 즉시 처리다.
+   */
+  private claimStoreIncome(): void {
+    const now = Date.now();
+    this.tickStoreIncome(); // 누른 순간까지의 적립을 먼저 반영하고 판정한다(1초 틱 사이의 오차 제거).
+    const cap = this.incomeCap();
+    if (!canClaim(this.incomeBank, cap)) {
+      sfx('button');
+      this.toast(`아직 모으는 중이에요 — ${formatIncomeTimer(msUntilFull(this.incomeBank, cap, this.incomePeriod()))} 남음`);
+      return;
+    }
+    const amount = this.incomeBank;
+    if (amount <= 0) {
+      sfx('button');
+      this.toast('아직 모인 수익이 없어요');
+      return;
+    }
+    const s = loadSave();
+    s.coins += amount;
+    s.storeIncomeBank = 0; // 비우고
+    s.storeIncomeAt = now; // 여기서부터 다시 10분.
+    writeSave(s);
+    this.incomeBank = 0;
+    this.homeHeader?.setCoins(s.coins);
+    sfx('coin_burst');
+    this.pulseIncomeBadge();
+    this.toast(`점포 수익 🪙 ${amount.toLocaleString()} 수령!`);
+    this.refreshStoreIncome();
+  }
+
+  /**
+   * 흡입 코인 크기 — **시작 0.125 → 도착 0.055**(PO 2026-07-28 "절반으로" 두 차례 반영).
+   *   ⚠️ 두 값을 **같은 비율로** 줄여야 한다. 시작만 줄이면 날아가며 오히려 커져 보인다.
+   */
+  private static readonly COIN_FLY_START = 0.125;
+  private static readonly COIN_FLY_END = 0.055;
+
+  /** 층당 날릴 코인 수 — 한 층이 발생할 때 이만큼이 배지로 빨려든다. */
+  private static readonly INCOME_COINS_PER_FLOOR = 4;
+
+  /**
+   * **손님 코인 → 수금 배지 흡입 연출**(PO 2026-07-28 "손님이 동전이 떨어지면서 수령점으로 조금씩 빨아들이도록")
+   *   — 손님이 만족하고 코인을 떨어뜨린 **그 층에서** 코인이 튀어나와 수금 배지로 빨려든다.
+   *
+   *   ⚠️ 좌표계가 둘이다 — 층(점원)은 **월드**(mainCam, 타워와 함께 스크롤·줌)이고 배지는 **고정 UI**(uiCam)다.
+   *      그래서 층의 현재 **화면 좌표**를 `cam.worldView` 로 역산해 코인을 UI 레이어에 띄운다(줌·스크롤 반영).
+   *   숫자(배지 잔액)는 `refreshStoreIncome` 이 순수 로직(`pendingIncome`)으로 계산하므로, 이 연출이 실패해도
+   *   금액이 어긋나지 않는다 — 연출은 **순수 장식**이다.
+   */
+  private flyCoinsToIncomeBadge(floor: number, amount: number, dropX?: number, dropY?: number): void {
+    const panel = this.incomePanel;
+    if (!panel || amount <= 0 || !this.textures.exists(CLAIM_COIN_KEY)) return;
+    const cam = this.cameras.main;
+    const view = cam.worldView;
+    if (view.width <= 0 || view.height <= 0) return;
+    // 점원이 없으면(아트 미배치) 층 파사드 중심에서 출발 — 연출이 통째로 빠지지 않게 폴백.
+    // 출발점 = **손님이 코인을 떨어뜨린 자리**(customers 가 넘겨준 월드 좌표). 없으면 점원 → 층 파사드 순 폴백.
+    const clerk = this.floorDecor.get(floor)?.char;
+    const node = this.towerFloors[floor - 1]?.node;
+    const world =
+      dropX != null && dropY != null
+        ? { x: dropX, y: dropY }
+        : clerk
+          ? { x: clerk.x, y: clerk.y }
+          : node
+            ? { x: node.x ?? W / 2, y: node.y }
+            : null;
+    if (!world) return;
+    const from = {
+      x: ((world.x - view.x) / view.width) * cam.width,
+      y: ((world.y - view.y) / view.height) * cam.height,
+    };
+    const depth = (panel.depth ?? 0) + 5; // 배지 위로 지나가게.
+    const perCoin = HomeScene.INCOME_COINS_PER_FLOOR;
+    sfx('coin_burst', { volume: 0.125 }); // 흡입 연출음 — 손님마다 울리므로 작게(PO 2026-07-28 절반으로).
+    for (let c = 0; c < perCoin; c++) {
+      const coin = this.add
+        .image(from.x + Phaser.Math.Between(-26, 26), from.y + Phaser.Math.Between(-18, 18), CLAIM_COIN_KEY)
+        .setDepth(depth)
+        .setScale(HomeScene.COIN_FLY_START);
+      this.pinToUi(coin);
+      const last = c === perCoin - 1;
+      // **떨어지다 빨려드는 포물선**(PO 2026-07-28) — 손님이 떨어뜨린 자리에서 **먼저 아래로 떨어졌다가**
+      //   수금 배지 쪽으로 휘어 빨려든다. 그래서 제어점을 출발점 **아래**(중점 위가 아니라)에 두고,
+      //   가로로는 출발점 근처에 붙여(0.18) 초반에는 낙하처럼 보이게 한다.
+      //   ⚠️ 제어점을 위에 두면 던져 올리는 토스 궤적이 된다 — 낙하감이 사라진다.
+      const sx = coin.x;
+      const sy = coin.y;
+      const dist = Phaser.Math.Distance.Between(sx, sy, panel.x, panel.y);
+      const fall = Math.min(120, dist * 0.26); // 거리에 비례한 낙하 깊이(과하지 않게 상한).
+      const cxp = sx + (panel.x - sx) * 0.18; // 초반엔 거의 제자리에서 떨어진다.
+      const cyp = sy + fall;
+      this.tweens.addCounter({
+        from: 0,
+        to: 1,
+        delay: c * 60,
+        duration: 520,
+        ease: 'Cubic.easeIn', // 뒤로 갈수록 빨라져 '빨려드는' 느낌.
+        onUpdate: (tw) => {
+          if (!coin.scene) return; // 파괴된 뒤 좌표를 쓰지 않는다(게임 루프 사망 방지).
+          const t = tw.getValue() ?? 0;
+          const u = 1 - t;
+          coin.x = u * u * sx + 2 * u * t * cxp + t * t * panel.x;
+          coin.y = u * u * sy + 2 * u * t * cyp + t * t * panel.y;
+          coin.setScale(Phaser.Math.Linear(HomeScene.COIN_FLY_START, HomeScene.COIN_FLY_END, t));
+          coin.setAlpha(Phaser.Math.Linear(1, 0.9, t));
+        },
+        onComplete: () => {
+          coin.destroy(); // 도착 즉시 정리(파괴된 뒤 트윈이 남지 않게).
+          if (last) this.pulseIncomeBadge();
+        },
+      });
+    }
+  }
+
+  /** 배지가 코인을 받아 삼키는 반응 — 짧게 커졌다 돌아온다. */
+  private pulseIncomeBadge(): void {
+    const panel = this.incomePanel;
+    if (!panel) return;
+    const base = panel.scaleX;
+    this.tweens.killTweensOf(panel);
+    panel.setScale(base);
+    this.tweens.add({ targets: panel, scaleX: base * 1.1, scaleY: base * 1.1, duration: 110, yoyo: true, ease: 'Quad.easeOut' });
+  }
+
   private restoreClaimBubbles(): void {
+    if (usesIntegratedClaim(this.builtFloors)) return; // 통합 수금 구간 — 층별 말풍선을 쓰지 않는다.
     const shown = Math.min(this.builtFloors, this.towerFloors.length);
     for (let level = 1; level <= shown; level++) {
       if ((this.floorBanks.get(level) ?? 0) >= FLOOR_COIN_GOAL) this.spawnClaimBubble(level);
@@ -3769,8 +4254,19 @@ export class HomeScene extends Phaser.Scene {
    * 만족 방문 1회 → 이 층에 **떨어뜨린 코인 수만큼** 누적(세이브 반영). **100 도달 시 상한 고정 + 더 누적 안 함**
    *   (플레이어가 수령하기 전까지 정지). 목표 도달 시 점원 위 수령 말풍선 표시.
    */
-  private accrueFloorCoins(floor: number, coins: number): void {
+  private accrueFloorCoins(floor: number, coins: number, dropX?: number, dropY?: number): void {
     if (floor < 1 || floor > this.builtFloors) return;
+    // **3층부터는 통합 수금**(PO 2026-07-28) — 층별 말풍선을 쓰지 않는다.
+    //   ⚠️ **적립은 여기서 하지 않는다**(PO 2026-07-29 "접속하든 안 하든, 플레이 중이든 수집") — 수익의 근거는
+    //      오직 **시간**(accrueByTime)이다. 손님 방문은 그 적립을 **눈에 보이게 하는 연출**일 뿐이라,
+    //      여기서 또 더하면 화면을 보고 있는 동안만 두 배로 쌓이는 이중 적립이 된다.
+    if (usesIntegratedClaim(this.builtFloors)) {
+      this.tickStoreIncome(); // 지금까지의 시간 적립부터 반영하고,
+      if (isBankFull(this.incomeBank, this.incomeCap())) return; // 가득이면 연출도 생략(수령 대기).
+      this.flyCoinsToIncomeBadge(floor, coins, dropX, dropY); // 손님이 떨어뜨린 자리 → 배지 흡입(연출만).
+      this.refreshStoreIncome();
+      return;
+    }
     const cur = this.floorBanks.get(floor) ?? 0;
     if (cur >= FLOOR_COIN_GOAL) return; // **이미 가득참(100) → 수령 전까지 더 누적하지 않음.**
     const next = Math.min(FLOOR_COIN_GOAL, cur + Math.max(1, Math.floor(coins))); // 100 상한.

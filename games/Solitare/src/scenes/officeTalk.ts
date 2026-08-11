@@ -10,6 +10,7 @@
  */
 import Phaser from 'phaser';
 import { sfx } from '../audio.js';
+import { pickCtxLine, isNight, type CtxGroup } from './talkContext.js';
 
 export type OfficeRole = 'fire' | 'police' | 'tax' | 'post' | 'mayor';
 
@@ -18,48 +19,92 @@ export interface OfficeSpeaker {
   readonly role: OfficeRole;
 }
 
-/** 캐릭터별 대사(짧게 — 작은 말풍선 2줄 이내). 탭할 때마다 순서대로 회전. */
-const DIALOGUE: Record<OfficeRole, readonly string[]> = {
-  fire: [
-    '가스 밸브 잠그셨죠?\n불조심이 최고예요!',
-    '문어발 콘센트는\n화재 1순위입니다!',
-    '환기구 기름때가\n제일 무섭습니다.',
-    '난로·실외기 조심!\n계절마다 불씨가 달라요.',
-    '소방 점검 합격!\n소화기 위치는 아시죠?',
-    '최고의 소방관은\n사장님의 "조심"입니다.',
-  ],
-  police: [
-    '좀도둑 신고가 늘었어요.\n현금은 금고에!',
-    '도둑은 "깜빡한 문"을\n좋아합니다. 문단속!',
-    '수상한 사람 보이면\n바로 신고해 주세요.',
-    'CCTV 사각지대만 없애도\n도난이 절반 줍니다.',
-    '밤에 환한 가게는\n도둑이 피해 갑니다.',
-    '바쁠수록 계산대 주변을\n한 번 더 살펴 주세요.',
-  ],
-  tax: [
-    '매출이 늘면 세금도\n늘어요. 아시죠?',
-    '오늘 매출은 오늘 기록!\n절세의 첫걸음입니다.',
-    '사장님의 세금이\n이 도시를 움직입니다.',
-    '영수증은 꼭 모아 두세요.\n공제받을 때 웃어요.',
-    '새 층 축하드려요!\n다음 신고 잊지 마시고요.',
-    '성실 납세자에겐\n좋은 일만 생깁니다!',
-  ],
-  post: [
-    '도시의 소식은 전부\n제가 배달해 드릴게요!',
-    '좋은 소식은 예고 없이\n옵니다. 우편함 확인!',
-    '사장님 가게 소문,\n우표보다 빨리 퍼져요!',
-    '비가 와도 눈이 와도\n배달은 계속됩니다.',
-    '새 이벤트 소식이\n곧 도착할 예정이에요!',
-    '택배가 늘었다는 건\n장사가 잘된다는 뜻이죠?',
-  ],
-  mayor: [
-    '이 도시의 중심은\n사장님 타워예요!',
-    '층이 오를 때마다\n스카이라인이 바뀝니다.',
-    '다음 분기엔 가로수를\n더 심을 겁니다.',
-    '이 타워 덕에 동네가\n살아났대요. 고마워요!',
-    '도시는 혼자 크지 않죠.\n시청은 사장님 편!',
-    '거리가 사장님 불빛으로\n가득할 그날까지!',
-  ],
+interface RolePool {
+  readonly base: readonly string[];
+  readonly ctx?: readonly CtxGroup[];
+}
+
+/** 캐릭터별 대사(짧게 — 작은 말풍선 2줄 이내). base=탭 회전, ctx=**맥락 우선**(시간·재산·진행도·복귀). */
+const DIALOGUE: Record<OfficeRole, RolePool> = {
+  fire: {
+    base: [
+      '가스 밸브 잠그셨죠?\n불조심이 최고예요!',
+      '문어발 콘센트는\n화재 1순위입니다!',
+      '환기구 기름때가\n제일 무섭습니다.',
+      '난로·실외기 조심!\n계절마다 불씨가 달라요.',
+      '소방 점검 합격!\n소화기 위치는 아시죠?',
+      '최고의 소방관은\n사장님의 "조심"입니다.',
+      '라멘집 화력이 세던데…\n오늘도 순찰 다녀왔어요.',
+      '출동 없는 하루가\n저희에겐 최고의 날이죠.',
+      '비상구 앞에는 물건을\n두지 말아 주세요!',
+    ],
+    ctx: [
+      { when: (c) => isNight(c), lines: ['이 밤에도 타워 불빛이…\n전열기구 확인 부탁해요!'] },
+      { when: (c) => c.builtFloors >= 8, lines: ['타워가 높아질수록\n소방 점검도 꼼꼼하게!'] },
+    ],
+  },
+  police: {
+    base: [
+      '좀도둑 신고가 늘었어요.\n현금은 금고에!',
+      '도둑은 "깜빡한 문"을\n좋아합니다. 문단속!',
+      '수상한 사람 보이면\n바로 신고해 주세요.',
+      'CCTV 사각지대만 없애도\n도난이 절반 줍니다.',
+      '밤에 환한 가게는\n도둑이 피해 갑니다.',
+      '바쁠수록 계산대 주변을\n한 번 더 살펴 주세요.',
+      '이 구역 치안은\n제가 책임집니다!',
+      '경쟁부지 쪽도 요즘\n순찰을 강화했습니다.',
+      '안전한 거리가\n장사도 잘되는 거리죠.',
+    ],
+    ctx: [
+      { when: (c) => isNight(c), lines: ['야간 순찰 중입니다.\n마감 문단속 잊지 마세요!'] },
+      { when: (c) => c.coins >= 30000, lines: ['요즘 금고가 두둑하시죠?\n보안에 더 신경 쓰세요!'] },
+    ],
+  },
+  tax: {
+    base: [
+      '매출이 늘면 세금도\n늘어요. 아시죠?',
+      '오늘 매출은 오늘 기록!\n절세의 첫걸음입니다.',
+      '사장님의 세금이\n이 도시를 움직입니다.',
+      '영수증은 꼭 모아 두세요.\n공제받을 때 웃어요.',
+      '새 층 축하드려요!\n다음 신고 잊지 마시고요.',
+      '성실 납세자에겐\n좋은 일만 생깁니다!',
+      '장부와 현실이 다르면…\n제가 다 압니다?',
+      '신고 기한은 달력에\n크게 표시해 두세요.',
+    ],
+    ctx: [
+      { when: (c) => c.coins >= 30000, lines: ['재산이 꽤 되시네요…\n신고 준비는 되셨죠?'] },
+      { when: (c) => c.builtFloors >= 6, lines: ['층이 이렇게 늘었으니\n재산세도 궁금하시죠?'] },
+    ],
+  },
+  post: {
+    base: [
+      '도시의 소식은 전부\n제가 배달해 드릴게요!',
+      '좋은 소식은 예고 없이\n옵니다. 우편함 확인!',
+      '사장님 가게 소문,\n우표보다 빨리 퍼져요!',
+      '비가 와도 눈이 와도\n배달은 계속됩니다.',
+      '새 이벤트 소식이\n곧 도착할 예정이에요!',
+      '택배가 늘었다는 건\n장사가 잘된다는 뜻이죠?',
+      '옆 도시에서 온 엽서에\n이 타워 얘기가 있었어요!',
+      '자전거 바퀴가 닳도록\n돌겠습니다!',
+    ],
+    ctx: [{ when: (c) => c.daysAway >= 2, lines: ['안 계신 동안 소식이\n잔뜩 쌓였어요! 어서 오세요~'] }],
+  },
+  mayor: {
+    base: [
+      '이 도시의 중심은\n사장님 타워예요!',
+      '층이 오를 때마다\n스카이라인이 바뀝니다.',
+      '다음 분기엔 가로수를\n더 심을 겁니다.',
+      '이 타워 덕에 동네가\n살아났대요. 고마워요!',
+      '도시는 혼자 크지 않죠.\n시청은 사장님 편!',
+      '거리가 사장님 불빛으로\n가득할 그날까지!',
+      '경쟁도 좋지만\n상생이 먼저입니다.',
+      '시민들의 웃음이\n제 월급입니다, 하하!',
+    ],
+    ctx: [
+      { when: (c) => c.builtFloors >= 8, lines: ['타워가 벌써 이만큼!\n도시의 자랑입니다.'] },
+      { when: (c) => c.level >= 50, lines: ['사장님의 성공 스토리,\n시정 소식지에 실어도 될까요?'] },
+    ],
+  },
 };
 
 const STORE_KEY = 'solitaire.officeTalk.v1'; // { rot: {role: idx}, last: role }
@@ -183,12 +228,14 @@ export function startOfficeTalk(
 
   /** 다음 대사(회전) — 표시 후 인덱스를 전진·저장. */
   const nextMsg = (role: OfficeRole): string => {
-    const list = DIALOGUE[role];
+    const list = DIALOGUE[role].base;
     const i = (state.rot[role] ?? 0) % list.length;
     state.rot[role] = i + 1;
     saveState(state);
     return list[i];
   };
+  /** 첫 발화 — **맥락(조건) 대사 우선**, 없으면 기본 로테이션. */
+  const openingMsg = (role: OfficeRole): string => pickCtxLine(DIALOGUE[role].ctx, 0) ?? nextMsg(role);
 
   const show = (sp: OfficeSpeaker): void => {
     if (!sp.img.active) return;
@@ -196,7 +243,7 @@ export function startOfficeTalk(
     state.last = sp.role;
     saveState(state);
     sfx('toast', { volume: 0.35 });
-    const hb = createTalkBubble(scene, sp.img, nextMsg(sp.role));
+    const hb = createTalkBubble(scene, sp.img, openingMsg(sp.role));
     if (!hb) return;
     bubble = hb;
     // **탭 = 다음 메시지로 회전**(유지시간 리셋). 풍선 전체가 히트 영역.

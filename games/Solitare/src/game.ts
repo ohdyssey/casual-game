@@ -2,6 +2,7 @@ import type { GameModule } from '@casual/core';
 import { LoadScene } from './scenes/LoadScene.js';
 import { HomeScene } from './scenes/HomeScene.js';
 import { PlayScene } from './scenes/PlayScene.js';
+import { PlayKlondikeScene } from './scenes/PlayKlondikeScene.js';
 import { LayoutPreviewScene } from './scenes/LayoutPreviewScene.js';
 
 /**
@@ -24,10 +25,10 @@ export const SolitaireGame: GameModule = {
   id: 'solitaire',
   title: '솔리테어 하이츠',
   // 첫 씬 = 로딩 화면(스플래시) → 본편 에셋 적재 후 home.
-  scenes: [LoadScene, HomeScene, PlayScene, LayoutPreviewScene],
-  // 캔버스 기본 배경 — 로딩 스플래시/홈 하늘색과 **동일(#8ecbf0)**. (예전 보라 #2a1830 은 부팅·레터박스·씬 전환
-  //   찰나에 보라 플래시로 노출됐다 → 하늘색으로 통일해 로딩~홈까지 보라 화면이 절대 안 보이게.)
-  backgroundColor: '#8ecbf0',
+  scenes: [LoadScene, HomeScene, PlayScene, PlayKlondikeScene, LayoutPreviewScene],
+  // 캔버스 기본 배경 — **어두운 색**(PO 2026-07-17). 예전엔 하늘색(#8ecbf0)이라 로딩→홈 씬 전환/레터박스 찰나에
+  //   **하늘색 플래시**로 노출됐다 → 로딩 아트·페이드가 모두 어두운색이므로 캔버스도 어둡게 통일해 하늘색이 절대 안 보이게.
+  backgroundColor: '#141019',
   designWidth: 1080,
   designHeight: 2400,
   theme: { brand: '#E86FA6' },

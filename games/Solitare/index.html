@@ -26,6 +26,10 @@
         position: fixed; inset: 0;
         width: 100vw; height: 100dvh;
         overflow: hidden;
+        /* ⚠️ top 은 반드시 0 (형제 게임 전부 동일). Phaser ScaleManager 는 부모 크기를
+           getBoundingClientRect() = **padding 포함 보더박스**로 재므로, padding-top 을 주면
+           캔버스는 100dvh 높이 그대로 만들어지면서 그만큼 아래로 밀려 하단이 overflow:hidden 에
+           잘린다(아이폰에서 뽑기더미/되돌리기/WILD 버튼 잘림). 노치 회피는 코드 배치로 해결할 것. */
         padding: 0 env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
         box-sizing: border-box;
       }

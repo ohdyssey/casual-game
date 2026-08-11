@@ -29,7 +29,13 @@ export interface CardBoardDoc {
   /** 설계 난이도 등급(1=쉬움·2=보통·3=어려움) + 고급 조정(연쇄/뽑기매칭 목표). 게임 딜이 이 값으로 세 요소를 제어. */
   readonly difficulty?: { readonly target?: number; readonly chain?: string; readonly feed?: string };
   /** 에디터에서 검증(테스트)한 **실제 카드 배치**(초기 딜). board=슬롯 순서 랭크·waste=시작 기준·stock=스톡 랭크. 게임 첫 플레이가 이 배치로 시작. */
-  readonly deal?: { readonly board: readonly number[]; readonly waste: number; readonly stock: readonly number[] };
+  readonly deal?: {
+    readonly board: readonly number[];
+    readonly waste: number;
+    readonly stock: readonly number[];
+    /** 에디터 솔버가 찾은 **정답 수순**(`p<슬롯>` / `d`) — 별 등급의 기준값(starRating.referenceQuality). */
+    readonly solution?: readonly string[];
+  };
   readonly slots: readonly CardBoardSlot[];
 }
 
@@ -43,8 +49,23 @@ const DEFAULT_CARD_H = 143;
  */
 const CANON_CARD_W = 120;
 const CANON_CARD_H = 164;
-const OVERLAP_MIN = 0.01; // 에디터와 동일: 위 레이어가 조금이라도(≥1%) 겹치면 덮인 것(위아래=커버 관계)
-const SAME_LAYER_MIN = 0.01; // 같은 층 카드끼리도 ≥1% 겹치면(나중 인덱스=위에 그려진 카드가) 앞 카드를 덮음 — 무조건 가리면 아래 오픈 안 됨
+/**
+ * **덮였다고 눈에 보이는 최소 겹침 면적비**(PO 2026-07-27: "카드가 아주 살짝 걸쳐서 덮는 경우 덮인 것인지
+ *   명확하지 않다. 인지 가능하도록 간격을 조절하라").
+ *
+ * 예전 기준은 **1%** 였다 — 면적 1% 만 걸쳐도 덮인 것으로 판정 → 화면에서는 완전히 열려 보이는 카드가
+ *   탭해도 안 눌린다. 실측(2026-07-27, 저작 100 레벨 · 커버쌍 8310):
+ *     겹침 <5% 409 쌍(4.9%) · <12% 882 쌍(10.6%) — 100 레벨 중 **96 개**에 존재. p25=37% · p50=72% 라
+ *     "진짜 커버"와 "살짝 걸침"은 분포상 뚜렷이 갈린다 → 그 사이(15%)를 기준선으로 잡는다.
+ *
+ * ⚠️ **카드를 밀어 겹침을 키우는 방식은 실측으로 폐기**했다 — 보드가 조밀해 한 장을 밀면 옆 카드와 새 접촉이
+ *   생겨 커버쌍이 8310→8861 로 **늘고** 얕은 커버도 882→1185 로 오히려 악화됐다. 게다가 엣지가 늘면 저작된
+ *   정답 수순(deal.solution)이 무효가 될 수 있다. **엣지를 없애는 방향**(임계 상향)은 제약만 줄이므로
+ *   기존 정답 수순이 그대로 유효하다.
+ */
+const PERCEPTIBLE_COVER = 0.15;
+const OVERLAP_MIN = PERCEPTIBLE_COVER; // 다른 층: 이만큼 겹쳐야 덮인 것(그 미만은 눈에 안 보여 커버로 치지 않는다).
+const SAME_LAYER_MIN = PERCEPTIBLE_COVER; // 같은 층(나중 인덱스가 위에 그려짐)도 동일 기준.
 
 interface Pt {
   x: number;
@@ -111,6 +132,34 @@ function overlapRatio(a: CardBoardSlot, b: CardBoardSlot, cw: number, ch: number
   return polyArea(clipPoly(corners(a, cw, ch), corners(b, cw, ch))) / (cw * ch);
 }
 
+/** 배치된 카드 한 장(정규화 좌표) — 겹침 계산·밀어넣기에 필요한 최소 형태. */
+interface PlacedCard {
+  readonly id: string;
+  readonly x: number;
+  readonly y: number;
+  readonly layer: number;
+  readonly rot?: number;
+}
+
+/** o 가 s 를 **앞에서** 덮는 위치인가(층이 높거나, 같은 층이면 나중 인덱스 = 위에 그려짐). */
+function isFrontOf(o: PlacedCard, oi: number, s: PlacedCard, si: number): boolean {
+  return o.layer > s.layer || (o.layer === s.layer && oi > si);
+}
+
+/** 커버쌍 목록 — `{ back: 덮이는 카드 인덱스, front: 덮는 카드 인덱스 }`. 에디터 coverOf 와 동일 규칙. */
+function coverPairs(list: readonly PlacedCard[], cw: number, ch: number): Array<{ back: number; front: number }> {
+  const out: Array<{ back: number; front: number }> = [];
+  for (let si = 0; si < list.length; si++) {
+    for (let oi = 0; oi < list.length; oi++) {
+      if (si === oi) continue;
+      if (!isFrontOf(list[oi], oi, list[si], si)) continue;
+      const min = list[oi].layer === list[si].layer ? SAME_LAYER_MIN : OVERLAP_MIN;
+      if (overlapRatio(list[si], list[oi], cw, ch) >= min) out.push({ back: si, front: oi });
+    }
+  }
+  return out;
+}
+
 /** CardBoard 문서 → PeakLayout. coveredBy 는 문서 값 우선, 없으면 겹침으로 파생. */
 export function cardBoardToLayout(doc: CardBoardDoc, id: string): PeakLayout {
   const src = doc.slots ?? [];
@@ -126,17 +175,12 @@ export function cardBoardToLayout(doc: CardBoardDoc, id: string): PeakLayout {
   const ccy = src.length ? (Math.min(...src.map((s) => s.y)) + Math.max(...src.map((s) => s.y))) / 2 : 0;
   const raw = src.map((s) => ({ ...s, x: ccx + (s.x - ccx) * kx, y: ccy + (s.y - ccy) * ky }));
 
-  // 커버 = 시각적으로 앞에 있는 카드(층이 높거나, 같은 층이면 나중 인덱스=위에 그려짐)가 겹치면 덮음.
-  //   다른 층 ≥1% · 같은 층 ≥15%(이웃 카드 오검출 방지). 에디터 coverOf 와 동일 규칙.
-  const derive = (s: (typeof raw)[number], si: number): string[] =>
-    raw
-      .filter((o, oi) => {
-        if (o.id === s.id) return false;
-        const front = o.layer > s.layer || (o.layer === s.layer && oi > si);
-        if (!front) return false;
-        return overlapRatio(s, o, cw, ch) >= (o.layer === s.layer ? SAME_LAYER_MIN : OVERLAP_MIN);
-      })
-      .map((o) => o.id);
+  // 커버 = 시각적으로 앞에 있는 카드(층이 높거나, 같은 층이면 나중 인덱스=위에 그려짐)가 **눈에 보일 만큼**
+  //   겹치면 덮음(PERCEPTIBLE_COVER). 에디터 coverOf 와 동일 규칙.
+  const covered = new Map<number, string[]>();
+  for (const { back, front } of coverPairs(raw, cw, ch)) {
+    covered.set(back, [...(covered.get(back) ?? []), raw[front].id]);
+  }
 
   let minX = Infinity;
   let minY = Infinity;
@@ -150,12 +194,12 @@ export function cardBoardToLayout(doc: CardBoardDoc, id: string): PeakLayout {
   }
 
   // 커버 그래프는 **항상 좌표에서 재계산**한다(문서에 저장된 coveredBy 를 신뢰하지 않음) →
-  //   임계값(OVERLAP_MIN) 변경이나 예전 저장분에도 현재 규칙이 그대로 적용된다(위에 ≥1% 겹치면 아래=덮임).
+  //   임계값(PERCEPTIBLE_COVER) 변경이나 예전 저장분에도 현재 규칙이 그대로 적용된다.
   const slots: LayoutSlot[] = raw.map((s, i) => ({
     id: s.id,
     row: s.layer,
     col: 0,
-    coveredBy: derive(s, i),
+    coveredBy: covered.get(i) ?? [],
     rot: s.rot ?? 0,
     ax: s.x,
     ay: s.y,
@@ -175,7 +219,13 @@ export function cardBoardToLayout(doc: CardBoardDoc, id: string): PeakLayout {
   const dBoard = d && Array.isArray(d.board) && d.board.length === raw.length ? d.board.map(rk) : null;
   const initialDeal =
     dBoard && !dBoard.includes(null) && rk(d!.waste) != null && Array.isArray(d!.stock)
-      ? { board: dBoard as number[], waste: rk(d!.waste) as number, stock: d!.stock.map(rk).filter((r): r is number => r != null) }
+      ? {
+          board: dBoard as number[],
+          waste: rk(d!.waste) as number,
+          stock: d!.stock.map(rk).filter((r): r is number => r != null),
+          // 정답 수순은 있으면 그대로 넘긴다(별 등급 기준값). 문자열 배열이 아니면 무시.
+          ...(Array.isArray(d!.solution) && d!.solution.every((x) => typeof x === 'string') ? { solution: [...d!.solution] } : {}),
+        }
       : undefined;
   return {
     id,

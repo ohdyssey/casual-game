@@ -202,10 +202,19 @@ function bakeArt(scene: Phaser.Scene, srcKey: string): string | null {
   return key;
 }
 
+/** 앞면 서명 — 같은 카드+하이라이트면 같은 문자열(중복 그리기 판별). */
+function faceSig(card: Card, highlight: boolean): string {
+  return `face:${card.rank}${card.suit}${card.wild ? 'w' : ''}:${highlight ? 1 : 0}`;
+}
+
 export class CardView extends Phaser.GameObjects.Image {
   private readonly cw: number;
   private faceUp = false;
   private flipping = false;
+  /** **지금 그려져 있는 내용의 서명**(back / face:<카드>:<하이라이트> / art:<키>) — 중복 갱신 판별용.
+   *   같은 내용을 다시 그리면 setTexture+setDisplaySize 가 진행 중인 스케일 트윈(펄스 등)을 리셋해
+   *   미세한 튐이 생긴다. 호출부가 isShowing* 로 먼저 확인하고 넘길 수 있게 서명을 유지한다. */
+  private shownSig = 'back';
 
   constructor(scene: Phaser.Scene, x: number, y: number, w: number, _h: number, interactive = true) {
     bakeBack(scene);
@@ -224,14 +233,26 @@ export class CardView extends Phaser.GameObjects.Image {
 
   showBack(): void {
     this.faceUp = false;
+    this.shownSig = 'back';
     this.setTexture(bakeBack(this.scene));
     this.applyDisplay();
   }
 
   showFace(card: Card, highlight = false): void {
     this.faceUp = true;
+    this.shownSig = faceSig(card, highlight);
     this.setTexture(bakeFace(this.scene, card, highlight));
     this.applyDisplay();
+  }
+
+  /** 지금 이 카드(같은 하이라이트)를 앞면으로 보여주고 있는가 — 불필요한 재그리기 회피용. */
+  isShowingFace(card: Card, highlight = false): boolean {
+    return this.faceUp && this.shownSig === faceSig(card, highlight);
+  }
+
+  /** 지금 와일드 아트를 보여주고 있는가. */
+  isShowingWild(): boolean {
+    return this.faceUp && this.shownSig === `art:${WILD_SRC_KEY}`;
   }
 
   /** 특수 아트(와일드·+N 보너스 등)를 카드 앞면으로 표시 — 아트가 없으면 뒷면으로 폴백. */
@@ -242,6 +263,7 @@ export class CardView extends Phaser.GameObjects.Image {
       return;
     }
     this.faceUp = true;
+    this.shownSig = `art:${srcKey}`;
     this.setTexture(key);
     this.applyDisplay();
   }
@@ -272,6 +294,14 @@ export class CardView extends Phaser.GameObjects.Image {
       duration: half,
       ease: 'Cubic.easeIn',
       onComplete: () => {
+        // ⚠️ **파괴 방어**(PO 2026-07-28 "자동 진행되다 멈춤"의 진짜 원인) — 뒤집기 도중 이 뷰가 destroy 되면
+        //   Phaser 가 `this.scene = undefined` 로 만들지만 **이 트윈은 죽이지 않는다**. 그 상태로 아래를 실행하면
+        //   TypeError 가 TweenManager 밖으로 튀고, RequestAnimationFrame.step 은 try/catch 가 없어
+        //   **다음 프레임을 예약하지 못한다 → 게임 전체가 영구 정지**한다.
+        if (!this.scene) {
+          this.flipping = false;
+          return;
+        }
         this.showFace(card, highlight); // 엣지온 순간 앞면으로 교체(applyDisplay 가 배율 리셋)
         const full = this.scaleX; // 앞면 표시 후 자연 배율
         this.scaleX = 0.02;
@@ -281,11 +311,62 @@ export class CardView extends Phaser.GameObjects.Image {
           duration: half + 20,
           ease: 'Back.easeOut',
           onComplete: () => {
+            if (!this.scene) {
+              this.flipping = false;
+              return;
+            }
             this.scaleX = full;
             this.flipping = false;
           },
         });
       },
     });
+  }
+
+  /**
+   * 이 카드의 **정상 배율** — 텍스처가 슈퍼샘플(SS)+여백(PAD)까지 구워져 있어 `setScale(1)` 은 카드를
+   *   2배 이상으로 키운다. 펄스·흔들기 같은 스케일 연출은 반드시 이 값을 기준으로 해야 한다.
+   */
+  get baseScale(): number {
+    return this.cw / REF_W / SS;
+  }
+
+  /** 짧게 눌렀다 놓는 펄스(스톡 더미 "돌아가는 중" 신호 등) — 끝나면 **정상 배율로 복귀**한다. */
+  pulse(depth = 0.9, duration = 60): void {
+    if (!this.scene || this.flipping) return; // 뒤집기 중이면 배율을 건드리지 않는다(연출 충돌).
+    const base = this.baseScale;
+    this.scene.tweens.killTweensOf(this);
+    this.setScale(base);
+    this.scene.tweens.add({
+      targets: this,
+      scaleX: base * depth,
+      scaleY: base * depth,
+      duration,
+      yoyo: true,
+      ease: 'Quad.easeOut',
+      onComplete: () => {
+        if (this.scene) this.setScale(base);
+      },
+    });
+  }
+
+  /** 진행 중인 뒤집기를 취소하고 **즉시** 앞면으로 — 자동 완성처럼 연출할 시간이 없는 구간용. */
+  showFaceNow(card: Card, highlight = false): void {
+    if (this.flipping) {
+      this.scene?.tweens.killTweensOf(this);
+      this.flipping = false;
+    }
+    this.showFace(card, highlight); // applyDisplay 가 배율을 정상값으로 되돌린다.
+  }
+
+  /**
+   * 파괴 직전 정리 — Phaser 가 `destroy()` 초입(**아직 scene 이 살아 있을 때**) 호출한다.
+   *   이 오브젝트를 타깃으로 한 트윈을 반드시 끊는다: Phaser 는 destroy 시 트윈을 죽이지 않으므로,
+   *   남은 트윈의 콜백이 파괴된 뷰를 만져 게임 루프를 죽이는 사고를 원천 차단한다.
+   *   (`Tween.stop()` 은 onComplete 를 발화시키지 않아 재진입 위험도 없다.)
+   */
+  protected preDestroy(): void {
+    this.scene?.tweens.killTweensOf(this);
+    this.flipping = false;
   }
 }

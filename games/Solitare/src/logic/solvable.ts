@@ -6,28 +6,60 @@
  * 셔플을 재시도한다(형제 게임 Grillking/PawLink 의 solvable 보장 패턴 계승).
  */
 import { createDeck, shuffle } from './deck.js';
-import { SUITS, type Card, type Rank, type Rng } from './types.js';
+import { SUITS, makeSuitCycler, type Card, type Rank, type Rng, type Suit } from './types.js';
 import type { PeakLayout } from './layouts.js';
 import { type GameState, deal, dealBoardStock } from './tripeaks.js';
 import { initLuck } from './luck.js';
 import { type Grade, type FactorLevel, greedyWinRate, gradeFromWinRate, traceFactors, GRADE_TARGET_WINRATE, CHAIN_TARGET, FEED_TARGET } from './difficulty.js';
 
 /**
- * 동적 딜 뽑기 수 감소율 — 저작/등급 산출 스톡에 곱하는 계수(사용자 요청: 뽑기 카드가 너무 많음).
- *   2026-07-15 직전 수준(0.7)의 60%로 축소(0.42) → **뽑기 약 10% 추가(0.42×1.1≈0.46)**로 소폭 상향.
- *   모든 레벨·양 경로(baked deal + 동적) 균일 적용.
+ * 동적 딜 뽑기 수 계수 — 저작/등급 산출 스톡에 곱한다. 모든 레벨·양 경로(baked deal + 동적) 균일 적용.
+ *
+ * **이 값은 감(感)이 아니라 목표 승률로 역산한다**(PO 2026-07-27 "승률을 50% 정도로 유지"). 저작 100레벨을
+ *   레벨당 100판 그리디 시뮬(simulate.ts)로 돌려 평균 승률이 목표에 닿는 계수를 고른다.
+ *
+ * ⚠️ **딜 스톡이 곧 플레이 스톡이 아니다**(PO 2026-07-27: "와일드를 보드카드로부터 받거나 +카드를 받는
+ *    구조상 지금도 8장 정도 발생") — 보드 와일드(+1)·보너스 +N(기대 ≈2)·5매치 세트마다의 미션 보상 카드
+ *    (기대 ≈1.1/세트)가 플레이 중 계속 들어온다. 이 유입을 빼고 맞추면 **승률은 과소·잔여는 과소평가**된다.
+ *    simulate.ts 가 이 3종을 실게임과 같은 함수로 재현하도록 고친 뒤 다시 잰 값이 아래 표다.
+ *
+ *     계수   딜 스톡   승률(중앙)   승리 시 잔여(평균/최대)   잔여 8장+ 레벨
+ *     0.84   11.0장    85.9% (93%)   7.5장 / 18.1장           37개  ← PO 가 지적한 상태
+ *     0.60    8.0장    73.0% (78%)   5.5장 / 13.1장           23개
+ *     0.45    6.0장    61.5% (65%)   4.4장 / 10.9장            5개
+ *     0.30    4.3장    50.3% (51%)   3.6장 /  7.9장            0개  ← 큐레이션 ON 기준 목표 50%
+ *     0.25    3.6장    46.4% (43%)   3.3장 /  7.8장            0개
+ *
+ * ⚠️ **큐레이션 OFF 전환 후 재측정**(PO 2026-07-27 "큐레이션을 끄고 뽑기 카드를 10% 증대"):
+ *    큐레이션을 끄면 같은 계수에서 승률이 7%p 떨어진다(0.30 기준 50.2%→43.2%). 그 상태에서 **딜 스톡을
+ *    10% 올린 값이 0.35**(4.27→4.73장, +10.8%) → 승률 45.3% · 잔여 3.7장.
+ *    ⚠️ `dynamicStockCount` 의 **최소 3장 하한**이 저작 스톡이 작은 레벨(28/100)에 걸려 있어, 계수를 조금
+ *       올려도 딜 스톡이 안 움직인다(0.30→0.33 은 +2%뿐). 스톡을 실제로 N% 올리려면 **딜 스톡 평균을 직접
+ *       재서** 계수를 정할 것 — 계수 비율과 장수 비율이 일치하지 않는다.
+ *
+ * ⚠️ 승률과 "남는 카드"는 **트레이드오프**다(승률↑ = 잔여↑). 한쪽만 보고 조정하지 말고 반드시 이 표를
+ *    다시 만들 것 — 유입 모델을 뺀 채로 재면 계수가 3배 가까이 어긋난다(0.84 vs 0.30, 실제로 겪음).
  */
-export const DYN_STOCK_REDUCE = 0.46;
+export const DYN_STOCK_REDUCE = 0.35;
 
-/** 보드 카드 랭크 반복 상한(동일 숫자 4개 이상 방지). */
+/** 보드 카드 랭크 반복 상한(동일 숫자 4개 이상 방지) — n≤39(13랭크×3)까지는 이 상한을 그대로 지킨다. */
 const MAX_PER_RANK = 3;
 
 /**
- * 셔플된 덱에서 **보드용 n장**을 고른다 — 동일 카드(랭크+무늬) 없이(2덱 중복 배제), **랭크당 ≤3장**.
+ * 셔플된 덱에서 **보드용 n장**을 고른다 — 동일 카드(랭크+무늬) 없이(2덱 중복 배제), **랭크당 ≤3장(가능한 한)**.
  *   → 보드에 같은 숫자 4개 이상/동일 숫자·무늬가 나오지 않는다(확률적으로 흔한 뭉침을 규칙으로 차단).
- *   나머지(rest)는 웨이스트+스톡으로(여긴 중복 허용). n ≤ 13×3=39 이어야 채워진다.
+ *   나머지(rest)는 웨이스트+스톡으로(여긴 중복 허용).
+ *
+ * ⚠️ **2026-07-18 수정**: n>39(예: 500레벨 확장의 대형 보드 40~54)면 상한 3으로는 n장을 절대 못 채워
+ *   `board.length<n` 이 항상 실패 → 호출부 dealWinnable 이 매번 **완전 폴백**(deal(), 요청한 startStock
+ *   무시하고 덱 나머지를 통째로 스톡에 욱여넣음, 103-n장씩)으로 빠졌다. 재베이크 경로는 이 폴백 결과를
+ *   그대로 저장해버려 "뽑기를 너무 많이 뽑는다" 피드백의 실제 원인이었다(설계 43장 요청 → 실제 저장 58장
+ *   등, 최대 +35% 초과 관측). 상한을 n 에 맞춰 **필요한 만큼만** 완화(n≤39 는 기존 3 그대로 불변)해
+ *   dealWinnable 의 정상 경로(=startStock 존중)가 항상 성공하게 한다 — 무제한 폴백보다 상한이 있는 편이
+ *   랭크 뭉침도 오히려 덜하다.
  */
 function selectVariedBoard(shuffled: readonly Card[], n: number): { board: Card[]; rest: Card[] } {
+  const maxPerRank = Math.max(MAX_PER_RANK, Math.ceil(n / 13));
   const board: Card[] = [];
   const rest: Card[] = [];
   const rankCount = new Map<number, number>();
@@ -35,7 +67,7 @@ function selectVariedBoard(shuffled: readonly Card[], n: number): { board: Card[
   for (const c of shuffled) {
     const rc = rankCount.get(c.rank) ?? 0;
     const rs = `${c.suit}${c.rank}`;
-    if (board.length < n && rc < MAX_PER_RANK && !usedRS.has(rs)) {
+    if (board.length < n && rc < maxPerRank && !usedRS.has(rs)) {
       board.push(c);
       rankCount.set(c.rank, rc + 1);
       usedRS.add(rs);
@@ -154,7 +186,8 @@ export function dealWinnable(
 
 /**
  * **에디터가 저장한 초기 딜(테스트한 카드 배치)로 그대로 딜** — board 랭크를 슬롯 순서대로, waste/stock 랭크를 고정 배치.
- *   랭크만 지정돼 있으므로 무늬는 순환 배정(매칭은 무늬 무시). board 가 부족하면 null(호출부가 폴백).
+ *   랭크만 지정돼 있으므로 무늬는 **라운드로빈 순환 배정**(같은 무늬+같은 랭크 동시 노출 최소화. 매칭 자체는 무늬 무관).
+ *   board 가 부족하면 null(호출부가 폴백).
  */
 export function dealFromInitial(
   layout: PeakLayout,
@@ -162,7 +195,8 @@ export function dealFromInitial(
 ): GameState | null {
   const n = layout.slots.length;
   if (!deal.board || deal.board.length < n) return null;
-  const card = (rank: number, prefix: string, i: number): Card => ({ id: `${prefix}${i}`, suit: SUITS[i % 4], rank: rank as Rank });
+  const cycler = makeSuitCycler();
+  const card = (rank: number, prefix: string, i: number): Card => ({ id: `${prefix}${i}`, suit: cycler(rank), rank: rank as Rank });
   const board = deal.board.slice(0, n).map((r, i) => card(r, 'b', i));
   const waste = card(deal.waste, 'w', 0);
   const stock = deal.stock.map((r, i) => card(r, 's', i));
@@ -256,12 +290,19 @@ export function dealForGrade(
 }
 
 /** 동적 딜의 뽑기(스톡) 수 — base=저작값(designed) 또는 등급별 산출 → **양쪽 모두** DYN_STOCK_REDUCE(0.46) 를 곱한다(균일). */
+/**
+ * **딜 스톡 하한**(PO 2026-07-27 "뽑기카드 숫자가 너무 적다") — 계수만으로는 저작 스톡이 작은 레벨이
+ *   3장까지 내려가 더미가 비어 보였다(계수 0.35 기준 5장 미만이 36/100 레벨). 계수를 올리면 원래 넉넉하던
+ *   레벨까지 같이 부풀어 잔여가 늘어나므로, **얇은 레벨만 끌어올리는** 하한으로 따로 잡는다.
+ */
+const MIN_DYN_STOCK = 5;
+
 function dynamicStockCount(n: number, grade: Grade, designed?: number): number {
   const base =
     designed != null && designed >= 0
       ? designed
       : Math.round(n * (grade === 1 ? 0.9 : grade === 2 ? 0.75 : 0.6));
-  return Math.max(3, Math.round(base * DYN_STOCK_REDUCE));
+  return Math.max(MIN_DYN_STOCK, Math.round(base * DYN_STOCK_REDUCE));
 }
 
 /**
@@ -278,9 +319,9 @@ export function dealDynamic(
   opts?: { board?: readonly number[]; waste?: number; stockCount?: number },
 ): GameState {
   const n = layout.slots.length;
-  const mk = (rank: number, prefix: string, i: number): Card => ({
+  const mk = (rank: number, prefix: string, i: number, suit: Suit = SUITS[i % 4]): Card => ({
     id: `${prefix}${i}`,
-    suit: SUITS[i % 4],
+    suit,
     rank: (((rank - 1 + 13) % 13) + 1) as Rank,
   });
 
@@ -288,8 +329,11 @@ export function dealDynamic(
   let waste: Card;
   if (opts?.board && opts.board.length >= n) {
     // 에디터가 저작한 보드 배치는 유지(디자이너 의도) — 스톡만 동적으로.
-    board = opts.board.slice(0, n).map((r, i) => mk(r, 'b', i));
-    waste = mk(opts.waste ?? opts.board[0], 'w', 0);
+    //   **무늬는 라운드로빈 순환 배정**(같은 무늬+같은 랭크가 보드/기준에 동시 노출되는 일을 최소화).
+    const cycler = makeSuitCycler();
+    board = opts.board.slice(0, n).map((r, i) => mk(r, 'b', i, cycler(((r - 1 + 13) % 13) + 1)));
+    const wr = opts.waste ?? opts.board[0];
+    waste = mk(wr, 'w', 0, cycler(((wr - 1 + 13) % 13) + 1));
   } else {
     const deck = shuffle(createDeck(), rng);
     const sel = selectVariedBoard(deck, n);

@@ -1,0 +1,1115 @@
+{
+  "domain": "ui",
+  "unit": "blank_copy2",
+  "frame": {
+    "w": 720,
+    "h": 1600
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        40,
+        231,
+        641,
+        1216
+      ],
+      "center": [
+        360,
+        839
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_CollecttionCard_Frame",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        311,
+        1423,
+        99,
+        101
+      ],
+      "center": [
+        360,
+        1473
+      ],
+      "z": 2,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_08-1_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        211,
+        471,
+        70,
+        72
+      ],
+      "center": [
+        246,
+        507
+      ],
+      "z": 3,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_2-3_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy2",
+      "type": "text",
+      "label": "텍스트 복사",
+      "rect": [
+        206,
+        522,
+        72,
+        43
+      ],
+      "center": [
+        242,
+        543
+      ],
+      "rectApprox": true,
+      "z": 4,
+      "space": "auto",
+      "pin": "none",
+      "text": "2000",
+      "at": [
+        242,
+        543
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#0a0a0b",
+        "strokeW": 0,
+        "fontSize": 36,
+        "fontFamily": "Luckiest Guy",
+        "color": "#fcbe03",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_5",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        35,
+        109,
+        650,
+        315
+      ],
+      "center": [
+        360,
+        266
+      ],
+      "z": 5,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_CollecttionCard_01",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4_copy",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        425,
+        472,
+        82,
+        69
+      ],
+      "center": [
+        466,
+        506
+      ],
+      "z": 6,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_PlayIn_02_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy",
+      "type": "text",
+      "label": "텍스트 복사",
+      "rect": [
+        438,
+        522,
+        54,
+        43
+      ],
+      "center": [
+        465,
+        543
+      ],
+      "rectApprox": true,
+      "z": 7,
+      "space": "auto",
+      "pin": "none",
+      "text": "200",
+      "at": [
+        465,
+        543
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#0a0a0b",
+        "strokeW": 0,
+        "fontSize": 36,
+        "fontFamily": "Luckiest Guy",
+        "color": "#ffffff",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_3",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        119,
+        608,
+        134,
+        203
+      ],
+      "center": [
+        186,
+        709
+      ],
+      "z": 8,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_01_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_8",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        230,
+        606,
+        44,
+        50
+      ],
+      "center": [
+        252,
+        631
+      ],
+      "z": 9,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_Play_03-3_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy3",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        295,
+        609,
+        134,
+        201
+      ],
+      "center": [
+        362,
+        709
+      ],
+      "z": 10,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_02",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy4",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        473,
+        609,
+        134,
+        201
+      ],
+      "center": [
+        540,
+        709
+      ],
+      "z": 11,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_03",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy5",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        119,
+        851,
+        134,
+        201
+      ],
+      "center": [
+        186,
+        951
+      ],
+      "z": 12,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_04",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy6",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        295,
+        851,
+        134,
+        201
+      ],
+      "center": [
+        362,
+        951
+      ],
+      "z": 13,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_05",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy7",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        473,
+        851,
+        134,
+        201
+      ],
+      "center": [
+        540,
+        951
+      ],
+      "z": 14,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_06",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy8",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        119,
+        1097,
+        134,
+        201
+      ],
+      "center": [
+        186,
+        1197
+      ],
+      "z": 15,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_07",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy9",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        295,
+        1097,
+        134,
+        201
+      ],
+      "center": [
+        362,
+        1197
+      ],
+      "z": 16,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_08",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy10",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        473,
+        1097,
+        134,
+        201
+      ],
+      "center": [
+        540,
+        1197
+      ],
+      "z": 17,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_09",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        168,
+        592,
+        29,
+        29
+      ],
+      "center": [
+        182,
+        606
+      ],
+      "z": 18,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        346,
+        592,
+        29,
+        29
+      ],
+      "center": [
+        360,
+        606
+      ],
+      "z": 19,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy2",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        525,
+        592,
+        29,
+        29
+      ],
+      "center": [
+        539,
+        606
+      ],
+      "z": 20,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy3",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        154,
+        835,
+        29,
+        29
+      ],
+      "center": [
+        168,
+        849
+      ],
+      "z": 21,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy4",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        184,
+        835,
+        29,
+        29
+      ],
+      "center": [
+        198,
+        849
+      ],
+      "z": 22,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy5",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        332,
+        835,
+        29,
+        29
+      ],
+      "center": [
+        346,
+        849
+      ],
+      "z": 23,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy6",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        362,
+        835,
+        29,
+        29
+      ],
+      "center": [
+        376,
+        849
+      ],
+      "z": 24,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy7",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        511,
+        835,
+        29,
+        29
+      ],
+      "center": [
+        525,
+        849
+      ],
+      "z": 25,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy8",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        542,
+        835,
+        29,
+        29
+      ],
+      "center": [
+        556,
+        849
+      ],
+      "z": 26,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy9",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        142,
+        1080,
+        29,
+        29
+      ],
+      "center": [
+        156,
+        1094
+      ],
+      "z": 27,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy10",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        172,
+        1080,
+        29,
+        29
+      ],
+      "center": [
+        186,
+        1094
+      ],
+      "z": 28,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy11",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        202,
+        1080,
+        29,
+        29
+      ],
+      "center": [
+        216,
+        1094
+      ],
+      "z": 29,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy12",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        318,
+        1080,
+        29,
+        29
+      ],
+      "center": [
+        332,
+        1094
+      ],
+      "z": 30,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy13",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        347,
+        1080,
+        29,
+        29
+      ],
+      "center": [
+        361,
+        1094
+      ],
+      "z": 31,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy14",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        377,
+        1080,
+        29,
+        29
+      ],
+      "center": [
+        391,
+        1094
+      ],
+      "z": 32,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy15",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        500,
+        1080,
+        29,
+        29
+      ],
+      "center": [
+        514,
+        1094
+      ],
+      "z": 33,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy16",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        530,
+        1080,
+        29,
+        29
+      ],
+      "center": [
+        544,
+        1094
+      ],
+      "z": 34,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy17",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        559,
+        1080,
+        29,
+        29
+      ],
+      "center": [
+        573,
+        1094
+      ],
+      "z": 35,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7",
+      "type": "text",
+      "label": "9",
+      "rect": [
+        328,
+        1368,
+        14,
+        34
+      ],
+      "center": [
+        335,
+        1385
+      ],
+      "rectApprox": true,
+      "z": 36,
+      "space": "auto",
+      "pin": "none",
+      "text": "9",
+      "at": [
+        335,
+        1385
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 4,
+        "fontSize": 28,
+        "fontFamily": "Jua",
+        "color": "#ffffff",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_7_copy",
+      "type": "text",
+      "label": "5 복사",
+      "rect": [
+        350,
+        1368,
+        56,
+        34
+      ],
+      "center": [
+        378,
+        1385
+      ],
+      "rectApprox": true,
+      "z": 37,
+      "space": "auto",
+      "pin": "none",
+      "text": "/  9",
+      "at": [
+        378,
+        1385
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 4,
+        "fontSize": 28,
+        "fontFamily": "Jua",
+        "color": "#ffffff",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    }
+  ],
+  "refs": [
+    "asset:up_01_v2",
+    "asset:up_02",
+    "asset:up_03",
+    "asset:up_04",
+    "asset:up_05",
+    "asset:up_06",
+    "asset:up_07",
+    "asset:up_08",
+    "asset:up_09",
+    "asset:up_CollecttionCard_01",
+    "asset:up_CollecttionCard_Frame",
+    "asset:up_DailyMission_08-1_v2",
+    "asset:up_PlayIn_02_v2",
+    "asset:up_Solitare_UI_02_v4",
+    "asset:up_Solitare_UI_2-3_v4",
+    "asset:up_Solitare_UI_Play_03-3_v2"
+  ],
+  "label": "콜렉션 카드1",
+  "hints": {
+    "interactiveCandidates": [
+      {
+        "id": "layer_4",
+        "label": "새 레이어",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_2-3_v4)",
+          "인접 캡션 텍스트 \"2000\" (layer_3_copy2)"
+        ]
+      },
+      {
+        "id": "layer_6",
+        "label": "새 레이어",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy10",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy11",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy12",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy13",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy14",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy15",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy16",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy17",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy2",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy3",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy4",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy5",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy6",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy7",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy8",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_6_copy9",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_02_v4)",
+          "같은 크기 아이콘 18개 묶음 = 메뉴/내비 패턴"
+        ]
+      }
+    ],
+    "note": "추정입니다 — 저작된 값이 아닙니다. 확정이 필요하면 에디터에서 「버튼」과 역할(action:이름)을 지정하세요. 구현 시에는 이 후보를 근거로 삼되, 코드에 TODO 로 남겨 사람이 확인할 수 있게 하세요."
+  },
+  "rev": "29accfb9"
+}

@@ -35,6 +35,12 @@
       "name": "경쟁부지",
       "file": "ui/layouts/home_copy2_copy2.json",
       "category": "custom"
+    },
+    {
+      "id": "blank_copy2",
+      "name": "콜렉션 카드1",
+      "file": "ui/layouts/blank_copy2.json",
+      "category": "custom"
     }
   ]
 }

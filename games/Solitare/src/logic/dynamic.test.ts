@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildClusterLayout } from './layouts.js';
 import { seededRng } from './deck.js';
-import { drawStock, playCard, availableMoves, isWin, wasteTop } from './tripeaks.js';
+import { drawStock, playCard, availableMoves, isWin, wasteTop, isExposed } from './tripeaks.js';
 import { dealDynamic, DYN_STOCK_REDUCE } from './solvable.js';
 import { initLuck, feedProb, chainProb, afterDraw, afterPlay } from './luck.js';
 
@@ -48,7 +48,21 @@ describe('dealDynamic — 동적 딜', () => {
     const s = dealDynamic(LAYOUT, seededRng(1), 2, { stockCount: designed });
     expect(s.luck).toBeDefined();
     expect(s.luck?.grade).toBe(2);
-    expect(s.stock.length).toBe(Math.round(designed * DYN_STOCK_REDUCE)); // 0.46 → round(9.2)=9
+    expect(s.stock.length).toBe(Math.round(designed * DYN_STOCK_REDUCE)); // 0.30 → round(6.0)=6
+  });
+
+  /**
+   * 계수는 **목표 승률 50%** 에서 역산한 값이다(PO 2026-07-27). 플레이 중 스톡 유입(와일드·보너스+N·미션
+   * 보상 카드)까지 반영한 실측 스윕상 0.25→46% · 0.30→50% · 0.45→62% · 0.84→86%(잔여 8장+ 레벨 37개)였다.
+   * 이 밴드를 벗어나면 solvable.ts 의 스윕표를 다시 만들어야 한다는 신호.
+   */
+  it('계수는 목표 승률(50%) 밴드 안에 있다', () => {
+    expect(DYN_STOCK_REDUCE).toBeGreaterThanOrEqual(0.25);
+    expect(DYN_STOCK_REDUCE).toBeLessThanOrEqual(0.4);
+  });
+
+  it('아주 작은 저작값에도 최소 3장은 보장한다(스톡 0 으로 시작하는 사고 방지)', () => {
+    expect(dealDynamic(LAYOUT, seededRng(1), 2, { stockCount: 1 }).stock.length).toBeGreaterThanOrEqual(3);
   });
 
   it('저작 보드 배치를 유지한다(designer 의도)', () => {
@@ -58,6 +72,20 @@ describe('dealDynamic — 동적 딜', () => {
       expect(s.board[id].rank).toBe(board[i]);
     });
     expect(wasteTop(s).rank).toBe(7);
+  });
+
+  it('저작 보드에 같은 랭크가 반복돼도 무늬는 라운드로빈 배정(같은 무늬+같은 랭크 중복 없음, 4장 이하)', () => {
+    // 24슬롯·13랭크 → 랭크 1~11 은 정확히 2번씩 등장(i%13+1). 각 랭크별 무늬가 겹치지 않아야 한다.
+    const board = Array.from({ length: LAYOUT.slots.length }, (_, i) => ((i % 13) + 1));
+    const s = dealDynamic(LAYOUT, seededRng(1), 2, { board, waste: 7, stockCount: 10 });
+    const seenByRank = new Map<number, Set<string>>();
+    for (const id of LAYOUT.order) {
+      const c = s.board[id];
+      const set = seenByRank.get(c.rank) ?? new Set<string>();
+      expect(set.has(c.suit)).toBe(false); // 이 랭크에서 이미 쓰인 무늬면 중복(4장 이하이므로 발생 금지)
+      set.add(c.suit);
+      seenByRank.set(c.rank, set);
+    }
   });
 });
 
@@ -86,6 +114,32 @@ describe('동적 드로우 — 뽑는 랭크가 럭에 따라 결정', () => {
       hard += clearedByGreedy(3, seed);
     }
     expect(easy).toBeGreaterThan(hard);
+  });
+
+  it('드로우된 카드는 현재 노출된 같은 랭크 카드와 무늬가 겹치지 않는다(동시 노출 최소화)', () => {
+    // 여러 시드로 긴 플레이(그리디+드로우)를 돌리며 매 드로우 직후 불변식을 검사.
+    for (let seed = 1; seed <= 12; seed++) {
+      const rng = seededRng(seed * 97 + 3);
+      let s = dealDynamic(LAYOUT, rng, 2, { stockCount: 16 });
+      for (let guard = 0; guard < 60 && s.stock.length > 0; guard++) {
+        const moves = availableMoves(s);
+        if (moves.length > 0 && guard % 3 !== 0) {
+          s = playCard(s, moves[0]); // 가끔은 플레이(드로우만 반복하지 않게)
+          continue;
+        }
+        s = drawStock(s, rng);
+        const top = wasteTop(s);
+        for (const id of LAYOUT.order) {
+          if (!isExposed(s, id)) continue;
+          const c = s.board[id];
+          if (c.rank === top.rank) {
+            // 노출된 동일 랭크 카드 중 방금 뽑힌 카드 자신과의 비교는 무의미(보드 카드 vs 웨이스트 카드는 별개 인스턴스) —
+            //   여기서 확인하는 건 "노출된 다른 보드 카드"가 방금 뽑힌 카드와 무늬까지 겹치는가.
+            expect(c.suit).not.toBe(top.suit);
+          }
+        }
+      }
+    }
   });
 
   it('동적 드로우가 스톡을 소비하고 콤보를 리셋한다', () => {

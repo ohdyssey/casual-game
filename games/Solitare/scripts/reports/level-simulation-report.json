@@ -1,0 +1,3293 @@
+{
+  "1": {
+    "level": 1,
+    "skeleton": "무지개아치",
+    "grade": 1,
+    "board": 14,
+    "stock": 17,
+    "winRate": 0.05,
+    "avgLeftover": 1.5,
+    "initialOpen": 8,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 2,
+    "waves": [
+      8,
+      6
+    ],
+    "maxWave": 8
+  },
+  "2": {
+    "level": 2,
+    "skeleton": "화환링",
+    "grade": 1,
+    "board": 15,
+    "stock": 21,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 9,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 0,
+    "waves": [
+      9,
+      5,
+      1
+    ],
+    "maxWave": 9
+  },
+  "3": {
+    "level": 3,
+    "skeleton": "돔",
+    "grade": 1,
+    "board": 20,
+    "stock": 31,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 5,
+    "hasSolution": true,
+    "expandEvents": 0,
+    "waves": [
+      7,
+      6,
+      5,
+      2
+    ],
+    "maxWave": 7
+  },
+  "4": {
+    "level": 4,
+    "skeleton": "아치배너",
+    "grade": 1,
+    "board": 19,
+    "stock": 21,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 6,
+    "minOpenAlongSolution": 5,
+    "hasSolution": true,
+    "expandEvents": 3,
+    "waves": [
+      6,
+      7,
+      5,
+      1
+    ],
+    "maxWave": 7
+  },
+  "5": {
+    "level": 5,
+    "skeleton": "고원",
+    "grade": 1,
+    "board": 20,
+    "stock": 31,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 0,
+    "waves": [
+      7,
+      6,
+      5,
+      2
+    ],
+    "maxWave": 7
+  },
+  "6": {
+    "level": 6,
+    "skeleton": "언덕",
+    "grade": 1,
+    "board": 17,
+    "stock": 32,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 2,
+    "waves": [
+      7,
+      5,
+      3,
+      2
+    ],
+    "maxWave": 7
+  },
+  "7": {
+    "level": 7,
+    "skeleton": "부채왕관",
+    "grade": 1,
+    "board": 20,
+    "stock": 25,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 5,
+    "hasSolution": true,
+    "expandEvents": 0,
+    "waves": [
+      7,
+      6,
+      5,
+      2
+    ],
+    "maxWave": 7
+  },
+  "8": {
+    "level": 8,
+    "skeleton": "첨탑",
+    "grade": 1,
+    "board": 17,
+    "stock": 26,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 2,
+    "waves": [
+      7,
+      5,
+      3,
+      2
+    ],
+    "maxWave": 7
+  },
+  "9": {
+    "level": 9,
+    "skeleton": "계단탑",
+    "grade": 1,
+    "board": 20,
+    "stock": 34,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 3,
+    "waves": [
+      7,
+      5,
+      3,
+      3,
+      2
+    ],
+    "maxWave": 7
+  },
+  "10": {
+    "level": 10,
+    "skeleton": "무지개",
+    "grade": 1,
+    "board": 21,
+    "stock": 23,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 2,
+    "waves": [
+      7,
+      6,
+      4,
+      4
+    ],
+    "maxWave": 7
+  },
+  "11": {
+    "level": 11,
+    "skeleton": "꽃송이",
+    "grade": 1,
+    "board": 22,
+    "stock": 30,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 0,
+    "waves": [
+      7,
+      6,
+      4,
+      3,
+      2
+    ],
+    "maxWave": 7
+  },
+  "12": {
+    "level": 12,
+    "skeleton": "무지개아치",
+    "grade": 1,
+    "board": 14,
+    "stock": 20,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 8,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 3,
+    "waves": [
+      8,
+      6
+    ],
+    "maxWave": 8
+  },
+  "13": {
+    "level": 13,
+    "skeleton": "화환링",
+    "grade": 1,
+    "board": 15,
+    "stock": 12,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 9,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 0,
+    "waves": [
+      9,
+      5,
+      1
+    ],
+    "maxWave": 9
+  },
+  "14": {
+    "level": 14,
+    "skeleton": "돔",
+    "grade": 1,
+    "board": 22,
+    "stock": 27,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 5,
+    "hasSolution": true,
+    "expandEvents": 0,
+    "waves": [
+      7,
+      6,
+      5,
+      4
+    ],
+    "maxWave": 7
+  },
+  "15": {
+    "level": 15,
+    "skeleton": "아치배너",
+    "grade": 1,
+    "board": 22,
+    "stock": 36,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 6,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 5,
+    "waves": [
+      6,
+      7,
+      5,
+      3,
+      1
+    ],
+    "maxWave": 7
+  },
+  "16": {
+    "level": 16,
+    "skeleton": "고원",
+    "grade": 2,
+    "board": 22,
+    "stock": 21,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 5,
+    "hasSolution": true,
+    "expandEvents": 0,
+    "waves": [
+      7,
+      6,
+      5,
+      4
+    ],
+    "maxWave": 7
+  },
+  "17": {
+    "level": 17,
+    "skeleton": "언덕",
+    "grade": 2,
+    "board": 17,
+    "stock": 23,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 3,
+    "waves": [
+      7,
+      5,
+      3,
+      2
+    ],
+    "maxWave": 7
+  },
+  "18": {
+    "level": 18,
+    "skeleton": "부채왕관",
+    "grade": 2,
+    "board": 24,
+    "stock": 31,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 1,
+    "waves": [
+      7,
+      6,
+      5,
+      4,
+      2
+    ],
+    "maxWave": 7
+  },
+  "19": {
+    "level": 19,
+    "skeleton": "첨탑",
+    "grade": 2,
+    "board": 17,
+    "stock": 23,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 1,
+    "waves": [
+      7,
+      5,
+      3,
+      2
+    ],
+    "maxWave": 7
+  },
+  "20": {
+    "level": 20,
+    "skeleton": "계단탑",
+    "grade": 2,
+    "board": 23,
+    "stock": 30,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 2,
+    "waves": [
+      7,
+      5,
+      3,
+      3,
+      3,
+      2
+    ],
+    "maxWave": 7
+  },
+  "21": {
+    "level": 21,
+    "skeleton": "무지개",
+    "grade": 2,
+    "board": 24,
+    "stock": 34,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 2,
+    "waves": [
+      7,
+      6,
+      4,
+      4,
+      3
+    ],
+    "maxWave": 7
+  },
+  "22": {
+    "level": 22,
+    "skeleton": "꽃송이",
+    "grade": 2,
+    "board": 25,
+    "stock": 32,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 2,
+    "hasSolution": true,
+    "expandEvents": 3,
+    "waves": [
+      7,
+      6,
+      4,
+      3,
+      3,
+      2
+    ],
+    "maxWave": 7
+  },
+  "23": {
+    "level": 23,
+    "skeleton": "무지개아치",
+    "grade": 2,
+    "board": 19,
+    "stock": 27,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 8,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 3,
+    "waves": [
+      8,
+      6,
+      5
+    ],
+    "maxWave": 8
+  },
+  "24": {
+    "level": 24,
+    "skeleton": "화환링",
+    "grade": 2,
+    "board": 15,
+    "stock": 12,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 9,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 0,
+    "waves": [
+      9,
+      5,
+      1
+    ],
+    "maxWave": 9
+  },
+  "25": {
+    "level": 25,
+    "skeleton": "돔",
+    "grade": 2,
+    "board": 25,
+    "stock": 23,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 0,
+    "waves": [
+      7,
+      6,
+      5,
+      4,
+      3
+    ],
+    "maxWave": 7
+  },
+  "26": {
+    "level": 26,
+    "skeleton": "아치배너",
+    "grade": 2,
+    "board": 25,
+    "stock": 32,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 6,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 6,
+    "waves": [
+      6,
+      7,
+      5,
+      5,
+      2
+    ],
+    "maxWave": 7
+  },
+  "27": {
+    "level": 27,
+    "skeleton": "고원",
+    "grade": 2,
+    "board": 25,
+    "stock": 26,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 5,
+    "hasSolution": true,
+    "expandEvents": 0,
+    "waves": [
+      7,
+      6,
+      5,
+      4,
+      3
+    ],
+    "maxWave": 7
+  },
+  "28": {
+    "level": 28,
+    "skeleton": "언덕",
+    "grade": 2,
+    "board": 17,
+    "stock": 26,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 1,
+    "waves": [
+      7,
+      5,
+      3,
+      2
+    ],
+    "maxWave": 7
+  },
+  "29": {
+    "level": 29,
+    "skeleton": "부채왕관",
+    "grade": 2,
+    "board": 26,
+    "stock": 33,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 1,
+    "waves": [
+      7,
+      6,
+      5,
+      4,
+      4
+    ],
+    "maxWave": 7
+  },
+  "30": {
+    "level": 30,
+    "skeleton": "첨탑",
+    "grade": 2,
+    "board": 17,
+    "stock": 23,
+    "winRate": 0.05,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 3,
+    "waves": [
+      7,
+      5,
+      3,
+      2
+    ],
+    "maxWave": 7
+  },
+  "31": {
+    "level": 31,
+    "skeleton": "계단탑",
+    "grade": 2,
+    "board": 27,
+    "stock": 46,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 2,
+    "hasSolution": true,
+    "expandEvents": 5,
+    "waves": [
+      7,
+      5,
+      3,
+      3,
+      3,
+      3,
+      3
+    ],
+    "maxWave": 7
+  },
+  "32": {
+    "level": 32,
+    "skeleton": "무지개",
+    "grade": 2,
+    "board": 27,
+    "stock": 40,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 5,
+    "waves": [
+      7,
+      6,
+      4,
+      4,
+      4,
+      2
+    ],
+    "maxWave": 7
+  },
+  "33": {
+    "level": 33,
+    "skeleton": "꽃송이",
+    "grade": 2,
+    "board": 28,
+    "stock": 34,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 4,
+    "waves": [
+      7,
+      6,
+      4,
+      3,
+      3,
+      3,
+      2
+    ],
+    "maxWave": 7
+  },
+  "34": {
+    "level": 34,
+    "skeleton": "무지개아치",
+    "grade": 2,
+    "board": 19,
+    "stock": 30,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 8,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 3,
+    "waves": [
+      8,
+      6,
+      5
+    ],
+    "maxWave": 8
+  },
+  "35": {
+    "level": 35,
+    "skeleton": "화환링",
+    "grade": 2,
+    "board": 21,
+    "stock": 20,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 9,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 0,
+    "waves": [
+      9,
+      5,
+      5,
+      1,
+      1
+    ],
+    "maxWave": 9
+  },
+  "36": {
+    "level": 36,
+    "skeleton": "돔",
+    "grade": 2,
+    "board": 28,
+    "stock": 37,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 1,
+    "waves": [
+      7,
+      6,
+      5,
+      4,
+      3,
+      3
+    ],
+    "maxWave": 7
+  },
+  "37": {
+    "level": 37,
+    "skeleton": "아치배너",
+    "grade": 2,
+    "board": 28,
+    "stock": 43,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 6,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 6,
+    "waves": [
+      6,
+      7,
+      5,
+      5,
+      3,
+      1,
+      1
+    ],
+    "maxWave": 7
+  },
+  "38": {
+    "level": 38,
+    "skeleton": "고원",
+    "grade": 2,
+    "board": 29,
+    "stock": 35,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 1,
+    "waves": [
+      7,
+      6,
+      5,
+      4,
+      4,
+      3
+    ],
+    "maxWave": 7
+  },
+  "39": {
+    "level": 39,
+    "skeleton": "언덕",
+    "grade": 3,
+    "board": 17,
+    "stock": 20,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 1,
+    "waves": [
+      7,
+      5,
+      3,
+      2
+    ],
+    "maxWave": 7
+  },
+  "40": {
+    "level": 40,
+    "skeleton": "부채왕관",
+    "grade": 3,
+    "board": 29,
+    "stock": 35,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 1,
+    "waves": [
+      7,
+      6,
+      5,
+      4,
+      4,
+      3
+    ],
+    "maxWave": 7
+  },
+  "41": {
+    "level": 41,
+    "skeleton": "첨탑",
+    "grade": 3,
+    "board": 17,
+    "stock": 23,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 3,
+    "waves": [
+      7,
+      5,
+      3,
+      2
+    ],
+    "maxWave": 7
+  },
+  "42": {
+    "level": 42,
+    "skeleton": "계단탑",
+    "grade": 3,
+    "board": 30,
+    "stock": 36,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 2,
+    "hasSolution": true,
+    "expandEvents": 7,
+    "waves": [
+      7,
+      5,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3
+    ],
+    "maxWave": 7
+  },
+  "43": {
+    "level": 43,
+    "skeleton": "무지개",
+    "grade": 3,
+    "board": 31,
+    "stock": 46,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 4,
+    "waves": [
+      7,
+      6,
+      4,
+      4,
+      4,
+      4,
+      2
+    ],
+    "maxWave": 7
+  },
+  "44": {
+    "level": 44,
+    "skeleton": "꽃송이",
+    "grade": 3,
+    "board": 31,
+    "stock": 49,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 4,
+    "waves": [
+      7,
+      6,
+      4,
+      3,
+      3,
+      3,
+      3,
+      2
+    ],
+    "maxWave": 7
+  },
+  "45": {
+    "level": 45,
+    "skeleton": "무지개아치",
+    "grade": 3,
+    "board": 19,
+    "stock": 21,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 8,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 3,
+    "waves": [
+      8,
+      6,
+      5
+    ],
+    "maxWave": 8
+  },
+  "46": {
+    "level": 46,
+    "skeleton": "화환링",
+    "grade": 3,
+    "board": 24,
+    "stock": 25,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 8,
+    "minOpenAlongSolution": 5,
+    "hasSolution": true,
+    "expandEvents": 2,
+    "waves": [
+      8,
+      7,
+      7,
+      1,
+      1
+    ],
+    "maxWave": 8
+  },
+  "47": {
+    "level": 47,
+    "skeleton": "돔",
+    "grade": 3,
+    "board": 31,
+    "stock": 43,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 4,
+    "hasSolution": true,
+    "expandEvents": 1,
+    "waves": [
+      7,
+      6,
+      5,
+      4,
+      3,
+      3,
+      3
+    ],
+    "maxWave": 7
+  },
+  "48": {
+    "level": 48,
+    "skeleton": "아치배너",
+    "grade": 3,
+    "board": 31,
+    "stock": 25,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 6,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 8,
+    "waves": [
+      6,
+      7,
+      5,
+      5,
+      5,
+      3
+    ],
+    "maxWave": 7
+  },
+  "49": {
+    "level": 49,
+    "skeleton": "고원",
+    "grade": 3,
+    "board": 32,
+    "stock": 50,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 3,
+    "waves": [
+      7,
+      6,
+      5,
+      4,
+      4,
+      4,
+      2
+    ],
+    "maxWave": 7
+  },
+  "50": {
+    "level": 50,
+    "skeleton": "언덕",
+    "grade": 3,
+    "board": 17,
+    "stock": 20,
+    "winRate": 0,
+    "avgLeftover": 0,
+    "initialOpen": 7,
+    "minOpenAlongSolution": 3,
+    "hasSolution": true,
+    "expandEvents": 2,
+    "waves": [
+      7,
+      5,
+      3,
+      2
+    ],
+    "maxWave": 7
+  },
+  "51": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "52": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "53": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "54": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "55": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "56": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "57": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "58": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "59": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "60": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "61": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "62": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "63": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "64": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "65": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "66": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "67": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "68": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "69": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "70": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "71": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "72": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "73": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "74": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "75": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "76": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "77": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "78": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "79": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "80": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "81": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "82": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "83": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "84": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "85": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "86": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "87": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "88": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "89": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "90": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "91": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "92": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "93": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "94": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "95": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "96": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "97": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "98": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "99": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "100": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "101": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "102": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "103": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "104": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "105": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "106": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "107": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "108": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "109": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "110": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "111": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "112": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "113": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "114": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "115": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "116": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "117": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "118": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "119": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "120": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "121": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "122": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "123": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "124": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "125": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "126": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "127": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "128": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "129": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "130": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "131": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "132": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "133": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "134": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "135": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "136": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "137": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "138": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "139": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "140": {
+    "winRate": 0.2,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "141": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "142": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "143": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "144": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "145": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "146": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "147": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "148": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "149": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "150": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "151": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "152": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "153": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "154": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "155": {
+    "winRate": 0.2,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "156": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "157": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "158": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "159": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "160": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "161": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "162": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "163": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "164": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "165": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "166": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "167": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "168": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "169": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "170": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "171": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "172": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "173": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "174": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "175": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "176": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "177": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "178": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "179": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "180": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "181": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "182": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "183": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "184": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "185": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "186": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "187": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "188": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "189": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "190": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "191": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "192": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "193": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "194": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "195": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "196": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "197": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "198": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "199": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "200": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "201": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "202": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "203": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "204": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "205": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "206": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "207": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "208": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "209": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "210": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "211": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "212": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "213": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "214": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "215": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "216": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "217": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "218": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "219": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "220": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "221": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "222": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "223": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "224": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "225": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "226": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "227": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "228": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "229": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "230": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "231": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "232": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "233": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "234": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "235": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "236": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "237": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "238": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "239": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "240": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "241": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "242": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "243": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "244": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "245": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "246": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "247": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "248": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "249": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "250": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "251": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "252": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "253": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "254": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "255": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "256": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "257": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "258": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "259": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "260": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "261": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "262": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "263": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "264": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "265": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "266": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "267": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "268": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "269": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "270": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "271": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "272": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "273": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "274": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "275": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "276": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "277": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "278": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "279": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "280": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "281": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "282": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "283": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "284": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "285": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "286": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "287": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "288": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "289": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "290": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "291": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "292": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "293": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "294": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "295": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "296": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "297": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "298": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "299": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "300": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "301": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "302": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "303": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "304": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "305": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "306": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "307": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "308": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "309": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "310": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "311": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "312": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "313": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "314": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "315": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "316": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "317": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "318": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "319": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "320": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "321": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "322": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "323": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "324": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "325": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "326": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "327": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "328": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "329": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "330": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "331": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "332": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "333": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "334": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "335": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "336": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "337": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "338": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "339": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "340": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "341": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "342": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "343": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "344": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "345": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "346": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "347": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "348": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "349": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "350": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "351": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "352": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "353": {
+    "winRate": 0.4,
+    "avgLeftover": 1.5,
+    "hasSolution": true
+  },
+  "354": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "355": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "356": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "357": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "358": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "359": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "360": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "361": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "362": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "363": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "364": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "365": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "366": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "367": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "368": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "369": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "370": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "371": {
+    "winRate": 0.4,
+    "avgLeftover": 2.5,
+    "hasSolution": true
+  },
+  "372": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "373": {
+    "winRate": 0.2,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "374": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "375": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "376": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "377": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "378": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "379": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "380": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "381": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "382": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "383": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "384": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "385": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "386": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "387": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "388": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "389": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "390": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "391": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "392": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "393": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "394": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "395": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "396": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "397": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "398": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "399": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "400": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "401": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "402": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "403": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "404": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "405": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "406": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "407": {
+    "winRate": 0.6,
+    "avgLeftover": 4,
+    "hasSolution": true
+  },
+  "408": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "409": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "410": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "411": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "412": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "413": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "414": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "415": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "416": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "417": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "418": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "419": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "420": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "421": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "422": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "423": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "424": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "425": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "426": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "427": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "428": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "429": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "430": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "431": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "432": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "433": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "434": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "435": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "436": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "437": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "438": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "439": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "440": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "441": {
+    "winRate": 1,
+    "avgLeftover": 3,
+    "hasSolution": true
+  },
+  "442": {
+    "winRate": 0.8,
+    "avgLeftover": 4,
+    "hasSolution": true
+  },
+  "443": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "444": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "445": {
+    "winRate": 0.2,
+    "avgLeftover": 2,
+    "hasSolution": true
+  },
+  "446": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "447": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "448": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "449": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "450": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "451": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "452": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "453": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "454": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "455": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "456": {
+    "winRate": 0.4,
+    "avgLeftover": 0.5,
+    "hasSolution": true
+  },
+  "457": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "458": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "459": {
+    "winRate": 0.8,
+    "avgLeftover": 2.75,
+    "hasSolution": true
+  },
+  "460": {
+    "winRate": 0.2,
+    "avgLeftover": 1,
+    "hasSolution": true
+  },
+  "461": {
+    "winRate": 0.2,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "462": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "463": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "464": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "465": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "466": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "467": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "468": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "469": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "470": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "471": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "472": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "473": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "474": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "475": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "476": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "477": {
+    "winRate": 0.2,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "478": {
+    "winRate": 0.8,
+    "avgLeftover": 3.5,
+    "hasSolution": true
+  },
+  "479": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "480": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "481": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "482": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "483": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "484": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "485": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "486": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "487": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "488": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "489": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "490": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "491": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "492": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "493": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "494": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "495": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "496": {
+    "winRate": 0.2,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "497": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "498": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "499": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  },
+  "500": {
+    "winRate": 0,
+    "avgLeftover": 0,
+    "hasSolution": true
+  }
+}

@@ -1,0 +1,1068 @@
+{
+  "domain": "ui",
+  "unit": "blank_copy",
+  "frame": {
+    "w": 720,
+    "h": 1600
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        28,
+        239,
+        666,
+        1245
+      ],
+      "center": [
+        361,
+        861
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_02-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7_copy",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        39,
+        109,
+        643,
+        288
+      ],
+      "center": [
+        360,
+        253
+      ],
+      "z": 2,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_01-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        204,
+        693,
+        312,
+        40
+      ],
+      "center": [
+        360,
+        713
+      ],
+      "z": 3,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_05",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy4",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        105,
+        396,
+        511,
+        349
+      ],
+      "center": [
+        360,
+        570
+      ],
+      "z": 4,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_02-2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy9",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        241,
+        523,
+        239,
+        22
+      ],
+      "center": [
+        360,
+        534
+      ],
+      "z": 5,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_04_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy20",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        127,
+        456,
+        466,
+        250
+      ],
+      "center": [
+        360,
+        581
+      ],
+      "z": 6,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_02-3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy10",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        142,
+        590,
+        437,
+        94
+      ],
+      "center": [
+        360,
+        637
+      ],
+      "z": 7,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_17",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy21",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        185,
+        548,
+        350,
+        32
+      ],
+      "center": [
+        360,
+        564
+      ],
+      "z": 8,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_02-4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        183,
+        605,
+        55,
+        56
+      ],
+      "center": [
+        210,
+        633
+      ],
+      "z": 9,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_2-3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4_copy",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        333,
+        609,
+        55,
+        48
+      ],
+      "center": [
+        360,
+        633
+      ],
+      "z": 10,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_2-2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4_copy2",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        486,
+        613,
+        55,
+        53
+      ],
+      "center": [
+        513,
+        639
+      ],
+      "z": 11,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_16",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy3",
+      "type": "text",
+      "label": "텍스트 복사",
+      "rect": [
+        180,
+        425,
+        360,
+        24
+      ],
+      "center": [
+        360,
+        437
+      ],
+      "rectApprox": true,
+      "z": 12,
+      "space": "auto",
+      "pin": "none",
+      "text": "Score higher to earn bigger rewards!",
+      "at": [
+        360,
+        437
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#0a0a0b",
+        "strokeW": 0,
+        "fontSize": 20,
+        "fontFamily": "Jua",
+        "color": "#2e1f1f",
+        "fontStyle": "300",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_3_copy11",
+      "type": "text",
+      "label": "텍스트 복사",
+      "rect": [
+        178,
+        484,
+        56,
+        17
+      ],
+      "center": [
+        206,
+        492
+      ],
+      "rectApprox": true,
+      "z": 13,
+      "space": "auto",
+      "pin": "none",
+      "text": "My SCORE",
+      "at": [
+        178,
+        492
+      ],
+      "anchorX": "left",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#0a0a0b",
+        "strokeW": 0,
+        "fontSize": 14,
+        "fontFamily": "Fredoka",
+        "color": "#ffffff",
+        "fontStyle": "700",
+        "align": "left",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_3_copy12",
+      "type": "text",
+      "label": "텍스트 복사",
+      "rect": [
+        178,
+        495,
+        70,
+        34
+      ],
+      "center": [
+        213,
+        512
+      ],
+      "rectApprox": true,
+      "z": 14,
+      "space": "auto",
+      "pin": "none",
+      "text": "2,450",
+      "at": [
+        178,
+        512
+      ],
+      "anchorX": "left",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#0a0a0b",
+        "strokeW": 2,
+        "fontSize": 28,
+        "fontFamily": "Titan One",
+        "color": "#ffffff",
+        "fontStyle": "300",
+        "align": "left",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_3_copy13",
+      "type": "text",
+      "label": "텍스트 복사",
+      "rect": [
+        482,
+        495,
+        70,
+        34
+      ],
+      "center": [
+        517,
+        512
+      ],
+      "rectApprox": true,
+      "z": 15,
+      "space": "auto",
+      "pin": "none",
+      "text": "5,000",
+      "at": [
+        482,
+        512
+      ],
+      "anchorX": "left",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#0a0a0b",
+        "strokeW": 2,
+        "fontSize": 28,
+        "fontFamily": "Titan One",
+        "color": "#ffffff",
+        "fontStyle": "300",
+        "align": "left",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_3_copy14",
+      "type": "text",
+      "label": "텍스트 복사",
+      "rect": [
+        483,
+        484,
+        42,
+        17
+      ],
+      "center": [
+        504,
+        492
+      ],
+      "rectApprox": true,
+      "z": 16,
+      "space": "auto",
+      "pin": "none",
+      "text": "TARGET",
+      "at": [
+        483,
+        492
+      ],
+      "anchorX": "left",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#0a0a0b",
+        "strokeW": 0,
+        "fontSize": 14,
+        "fontFamily": "Fredoka",
+        "color": "#ffffff",
+        "fontStyle": "700",
+        "align": "left",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_3_copy15",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        426,
+        517,
+        32,
+        52
+      ],
+      "center": [
+        442,
+        543
+      ],
+      "z": 17,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_03-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy16",
+      "type": "text",
+      "label": "텍스트 복사",
+      "rect": [
+        187,
+        649,
+        45,
+        22
+      ],
+      "center": [
+        209,
+        660
+      ],
+      "rectApprox": true,
+      "z": 18,
+      "space": "auto",
+      "pin": "none",
+      "text": "5,000",
+      "at": [
+        209,
+        660
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#0a0a0b",
+        "strokeW": 2,
+        "fontSize": 18,
+        "fontFamily": "Titan One",
+        "color": "#ffffff",
+        "fontStyle": "300",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_3_copy17",
+      "type": "text",
+      "label": "텍스트 복사",
+      "rect": [
+        351,
+        650,
+        18,
+        22
+      ],
+      "center": [
+        360,
+        661
+      ],
+      "rectApprox": true,
+      "z": 19,
+      "space": "auto",
+      "pin": "none",
+      "text": "20",
+      "at": [
+        360,
+        661
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#0a0a0b",
+        "strokeW": 2,
+        "fontSize": 18,
+        "fontFamily": "Titan One",
+        "color": "#ffffff",
+        "fontStyle": "300",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_3_copy18",
+      "type": "text",
+      "label": "텍스트 복사",
+      "rect": [
+        511,
+        649,
+        9,
+        22
+      ],
+      "center": [
+        515,
+        660
+      ],
+      "rectApprox": true,
+      "z": 20,
+      "space": "auto",
+      "pin": "none",
+      "text": "1",
+      "at": [
+        515,
+        660
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#0a0a0b",
+        "strokeW": 2,
+        "fontSize": 18,
+        "fontFamily": "Titan One",
+        "color": "#ffffff",
+        "fontStyle": "300",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_6",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        195,
+        380,
+        330,
+        44
+      ],
+      "center": [
+        360,
+        402
+      ],
+      "z": 21,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_02-1-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy2",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        96,
+        803,
+        529,
+        47
+      ],
+      "center": [
+        360,
+        826
+      ],
+      "z": 22,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_05-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy5",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        134,
+        758,
+        452,
+        45
+      ],
+      "center": [
+        360,
+        780
+      ],
+      "z": 23,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_02-6",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        96,
+        852,
+        529,
+        78
+      ],
+      "center": [
+        360,
+        891
+      ],
+      "z": 24,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_06-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy6",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        96,
+        929,
+        529,
+        86
+      ],
+      "center": [
+        360,
+        972
+      ],
+      "z": 25,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_07-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy7",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        96,
+        1009,
+        529,
+        86
+      ],
+      "center": [
+        360,
+        1052
+      ],
+      "z": 26,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_07-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy8",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        96,
+        1090,
+        529,
+        86
+      ],
+      "center": [
+        360,
+        1133
+      ],
+      "z": 27,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_07-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy22",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        96,
+        1170,
+        529,
+        86
+      ],
+      "center": [
+        360,
+        1213
+      ],
+      "z": 28,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_07-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy23",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        96,
+        1251,
+        529,
+        86
+      ],
+      "center": [
+        360,
+        1294
+      ],
+      "z": 29,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_07-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        111,
+        860,
+        55,
+        62
+      ],
+      "center": [
+        138,
+        891
+      ],
+      "z": 30,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_09",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        112,
+        938,
+        55,
+        63
+      ],
+      "center": [
+        139,
+        969
+      ],
+      "z": 31,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_10",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy2",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        112,
+        1020,
+        55,
+        63
+      ],
+      "center": [
+        139,
+        1051
+      ],
+      "z": 32,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_11",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy3",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        111,
+        1098,
+        55,
+        63
+      ],
+      "center": [
+        138,
+        1129
+      ],
+      "z": 33,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_12",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy4",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        99,
+        1176,
+        85,
+        77
+      ],
+      "center": [
+        141,
+        1214
+      ],
+      "z": 34,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_13",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_5",
+      "type": "text",
+      "label": "5",
+      "rect": [
+        130,
+        1197,
+        17,
+        41
+      ],
+      "center": [
+        138,
+        1217
+      ],
+      "rectApprox": true,
+      "z": 35,
+      "space": "auto",
+      "pin": "none",
+      "text": "5",
+      "at": [
+        138,
+        1217
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 1,
+        "fontSize": 34,
+        "fontFamily": "Do Hyeon",
+        "color": "#ffffff",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_5_copy",
+      "type": "text",
+      "label": "5 복사",
+      "rect": [
+        130,
+        1270,
+        17,
+        41
+      ],
+      "center": [
+        138,
+        1290
+      ],
+      "rectApprox": true,
+      "z": 36,
+      "space": "auto",
+      "pin": "none",
+      "text": "6",
+      "at": [
+        138,
+        1290
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 1,
+        "fontSize": 34,
+        "fontFamily": "Do Hyeon",
+        "color": "#ffffff",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_3_copy19",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        294,
+        1334,
+        132,
+        133
+      ],
+      "center": [
+        360,
+        1400
+      ],
+      "z": 37,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_DailyMission_08-1",
+      "style": {
+        "tintable": true
+      }
+    }
+  ],
+  "refs": [
+    "asset:up_DailyMission_01-1",
+    "asset:up_DailyMission_02-1",
+    "asset:up_DailyMission_02-1-1",
+    "asset:up_DailyMission_02-2",
+    "asset:up_DailyMission_02-3",
+    "asset:up_DailyMission_02-4",
+    "asset:up_DailyMission_02-6",
+    "asset:up_DailyMission_03-1",
+    "asset:up_DailyMission_04_v2",
+    "asset:up_DailyMission_05",
+    "asset:up_DailyMission_05-1",
+    "asset:up_DailyMission_06-1",
+    "asset:up_DailyMission_07-1",
+    "asset:up_DailyMission_08-1",
+    "asset:up_DailyMission_09",
+    "asset:up_DailyMission_10",
+    "asset:up_DailyMission_11",
+    "asset:up_DailyMission_12",
+    "asset:up_DailyMission_13",
+    "asset:up_DailyMission_16",
+    "asset:up_DailyMission_17",
+    "asset:up_Solitare_UI_2-2",
+    "asset:up_Solitare_UI_2-3"
+  ],
+  "label": "데일리미션",
+  "hints": {
+    "interactiveCandidates": [
+      {
+        "id": "layer_4",
+        "label": "새 레이어",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_2-3)",
+          "인접 캡션 텍스트 \"5,000\" (layer_3_copy16)"
+        ]
+      },
+      {
+        "id": "layer_4_copy",
+        "label": "새 레이어 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_2-2)",
+          "인접 캡션 텍스트 \"20\" (layer_3_copy17)"
+        ]
+      }
+    ],
+    "note": "추정입니다 — 저작된 값이 아닙니다. 확정이 필요하면 에디터에서 「버튼」과 역할(action:이름)을 지정하세요. 구현 시에는 이 후보를 근거로 삼되, 코드에 TODO 로 남겨 사람이 확인할 수 있게 하세요."
+  },
+  "rev": "e35f36bb"
+}

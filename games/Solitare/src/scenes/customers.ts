@@ -80,7 +80,11 @@ export interface CustomerSpot {
   /** 스테이지(1=좌측 기본, 2=우측). 아이템 세트 선택. 미지정=1. */
   readonly stage?: number;
   /** **만족 방문 콜백** — 손님이 만족(코인 드랍)하면 이 층·**획득 코인**으로 호출(점포 코인 누적용). */
-  readonly onSatisfied?: (floor: number, coins: number) => void;
+  /**
+   * 만족 방문 정산 — `dropX/dropY` 는 **코인이 실제로 떨어진 월드 좌표**(허리 아래쯤).
+   *   호출부(HomeScene)가 그 지점에서 수금 배지로 코인을 날리는 연출에 쓴다(PO 2026-07-28).
+   */
+  readonly onSatisfied?: (floor: number, coins: number, dropX: number, dropY: number) => void;
   /**
    * **상점 수익성** — 만족 방문 1회당 획득 코인. 상점(층)마다 다르게 설정한다(고급 상점=고수익).
    *   미지정이면 기존 기본(3~4 랜덤). 코인 연출 개수·+N 표기도 이 값에 비례.
@@ -251,8 +255,10 @@ function visit(
     if (!res.bad) {
       const amount = spot.coinYield ?? Phaser.Math.Between(3, 4); // 상점별 수익(미지정=기존 기본).
       const visual = Phaser.Math.Clamp(2 + Math.round(amount / 3), 3, 8); // 수익 비례 코인 연출 개수.
-      dropCoins(scene, spot.centerX, spot.groundY - spot.height * 0.35, spot.depth, visual, amount);
-      spot.onSatisfied?.(spot.floor, amount);
+      const dropX = spot.centerX;
+      const dropY = spot.groundY - spot.height * 0.35;
+      dropCoins(scene, dropX, dropY, spot.depth, visual, amount);
+      spot.onSatisfied?.(spot.floor, amount, dropX, dropY); // 떨어뜨린 자리 → 수금 배지 흡입 연출용.
     }
   });
   // ⑤ 옆모습(퇴장 방향)으로 점원 반대편(등장 지점)으로 걸어 나가며 페이드아웃.
@@ -299,7 +305,7 @@ function makeBubble(
   const bubW = bub.displayWidth;
   const bubH = bub.displayHeight;
   const bodyCx = cx + (0.5 - tailX) * bubW; // 몸통 중앙 x(원점이 꼬리라 중앙에서 벗어남 보정).
-  const cy = tailY - bubH * 0.57; // 몸통 중앙 y(꼬리 위).
+  const cy = tailY - bubH * 0.62; // 몸통 중앙 y(꼬리 위) — 아이템 위치 살짝 상향(PO 2026-07-18, 0.57→0.62).
   const content = scene.add.image(bodyCx, cy, contentKey).setOrigin(0.5, 0.5).setDepth(baseDepth + 41).setAlpha(0);
   pinWorld(scene, content);
   const fit = Math.min((bubH * 0.5) / content.height, (BW * 0.62) / content.width);

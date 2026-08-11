@@ -50,6 +50,14 @@ export const floorArtKey = (level: number): string => `up_Solitaire_BG_0${((leve
  */
 //   ⚠️ char_chef·char_girl 시트는 좌우가 **반대(수평 미러, frame6이 좌향)** → flip:true 로 sprite 를 뒤집어
 //      셋 다 동일 프레임 매핑을 쓴다(1·2번 캐릭터 좌우 방향 반대 문제 해결). char_man 만 정상(우향).
+/**
+ * **미션 리워드 티어 완료 팝업** 배경 — 공통에셋(Pannel_03) 이식(에디터에 팝업 저작은 없음).
+ *   상단 고정 진행 배너 자체는 에디터 저작(up_Rewards_*·up_Item_01_01-4, ui-assets.json 매니페스트로 자동 로드)이라
+ *   여기서 별도로 로드할 필요 없음 — missionRewardBanner.ts 참고.
+ */
+export const MISSION_BOX_PANEL_KEY = 'up_Solitare_MissionBox_Panel';
+const MISSION_REWARD_KEYS = [MISSION_BOX_PANEL_KEY] as const;
+
 export const CHAR_SHEETS: ReadonlyArray<{
   key: string;
   path: string;
@@ -73,6 +81,10 @@ export function loadGameAssets(scene: Phaser.Scene): void {
     if (!scene.textures.exists(s.key)) {
       scene.load.spritesheet(s.key, s.path, { frameWidth: s.frameW, frameHeight: s.frameH });
     }
+  }
+  // 미션 리워드 배너/팝업 에셋 — 에디터 매니페스트 밖(수동 이식)이라 직접 로드.
+  for (const key of MISSION_REWARD_KEYS) {
+    if (!scene.textures.exists(key)) scene.load.image(key, uploadPath(key));
   }
   scene.load.on(`filecomplete-json-${UI_MANIFEST_KEY}`, () => {
     const manifest = (scene.cache.json.get(UI_MANIFEST_KEY) ?? {}) as Record<string, string>;

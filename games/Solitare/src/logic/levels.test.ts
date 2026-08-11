@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { levelDef, FLOORS, TOTAL_LEVELS, editorLevelCount } from './levels.js';
+import { levelDef, FLOORS, TOTAL_LEVELS, editorLevelCount, MAX_PROGRESS_LEVEL } from './levels.js';
 import type { CardBoardDoc } from './editorLevels.js';
 
 /** n장짜리 에디터 문서(겹치지 않게 가로로 나열 — coveredBy 는 전부 피크). */
@@ -10,13 +10,33 @@ const doc = (n: number): CardBoardDoc => ({
 });
 
 describe('levelDef — 에디터 저작 배치만(절차 생성 제거)', () => {
-  it('저작 문서가 있으면 그 배치를, 없으면 null', () => {
+  it('저작 문서가 있으면 그 배치를, 완전히 없으면 null', () => {
     const pack = { '1': doc(6), '2': doc(9) };
     expect(levelDef(1, pack).layout).not.toBeNull();
     expect(levelDef(1, pack).layout?.slots.length).toBe(6);
     expect(levelDef(2, pack).layout?.slots.length).toBe(9);
-    expect(levelDef(3, pack).layout).toBeNull(); // 미저작 레벨
     expect(levelDef(1).layout).toBeNull(); // 팩 없음(노드=localStorage 없음)
+  });
+
+  it('저작 수를 넘는 진행도는 저작 풀을 순환 재사용한다(2026-07-19: 진행도≠콘텐츠)', () => {
+    const pack = { '1': doc(6), '2': doc(9) };
+    // 저작 2장 뿐이어도 3번째 진행도부터 막히지 않고 1번(6장)으로 순환.
+    expect(levelDef(3, pack).contentLevel).toBe(1);
+    expect(levelDef(3, pack).layout?.slots.length).toBe(6);
+    expect(levelDef(4, pack).contentLevel).toBe(2);
+    expect(levelDef(4, pack).layout?.slots.length).toBe(9);
+    expect(levelDef(5, pack).contentLevel).toBe(1); // 3번째 순환.
+    // level 필드(진행도)는 원래 요청값 그대로 — 표시/경제 카운터용.
+    expect(levelDef(501, pack).level).toBe(501);
+  });
+
+  it('저작 레벨이 하나도 없으면 순환 없이 그대로 null(방어)', () => {
+    expect(levelDef(3).layout).toBeNull();
+    expect(levelDef(3).contentLevel).toBe(3); // contentCount=0 → 그대로 반환.
+  });
+
+  it('진행도 상한(MAX_PROGRESS_LEVEL)은 500(콘텐츠 수)보다 훨씬 크다', () => {
+    expect(MAX_PROGRESS_LEVEL).toBeGreaterThan(500);
   });
 
   it('층 테마는 아트 5종 순환(레벨 수와 무관)', () => {

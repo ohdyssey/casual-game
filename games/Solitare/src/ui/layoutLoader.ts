@@ -101,7 +101,29 @@ function makeText(scene: Phaser.Scene, n: LayoutNode): Phaser.GameObjects.Text {
   return t;
 }
 
-/** *.json 문서를 씬에 생성. 텍스처 누락 노드는 건너뛴다(DEV 에서만 경고). */
+/**
+ * 이 로더가 **일부러** 그리지 않는 노드 타입 — 코드가 직접 소비한다.
+ *   path(동선): PlayScene.spawnPedestrians 가 points 를 웨이포인트로 읽어 쓴다(그림 아님).
+ * 여기 없는 미지의 타입은 아래에서 경고한다.
+ */
+const NON_RENDERED_TYPES: ReadonlySet<string> = new Set(['path']);
+
+/** 같은 원인으로 매 프레임/매 씬 로그가 도배되지 않도록 1회만 경고. */
+const warned = new Set<string>();
+
+function warnOnce(msg: string): void {
+  if (warned.has(msg)) return;
+  warned.add(msg);
+  console.warn(msg);
+}
+
+/**
+ * *.json 문서를 씬에 생성. 텍스처 누락·미지원 타입 노드는 건너뛰되 **항상 경고**한다.
+ *
+ * ⚠️ 이 로더는 에디터(phaser-ui-editor)의 최소 사본이라, 에디터가 새로 지원하는 노드 타입
+ *   (field·repeater 등)은 해석하지 못한다. 조용히 사라지면 원인 추적이 사실상 불가능하므로
+ *   PROD 에서도 경고를 남긴다 — 화면에서 요소가 안 보이면 콘솔부터 확인할 것.
+ */
 export function buildLayout(scene: Phaser.Scene, doc: LayoutDoc): LayoutIndex {
   const index = new LayoutIndex(doc);
   for (const n of doc.nodes) {
@@ -111,8 +133,8 @@ export function buildLayout(scene: Phaser.Scene, doc: LayoutDoc): LayoutIndex {
         const img = scene.add.image(n.x, n.y, n.key);
         if (n.w && n.h) img.setDisplaySize(n.w, n.h);
         obj = img;
-      } else if (import.meta.env?.DEV) {
-        console.warn(`[layout] texture missing for node ${n.id}: ${n.key}`);
+      } else {
+        warnOnce(`[layout] 텍스처 없음 — 노드 ${n.id}(${n.name ?? ''}) key=${n.key}. 이 노드는 화면에 그려지지 않는다.`);
       }
     } else if (n.type === 'rect') {
       // radius 가 있으면 라운드 사각형(Phaser Rectangle 은 모서리 반경 미지원 → Graphics 로 그린다).
@@ -133,6 +155,11 @@ export function buildLayout(scene: Phaser.Scene, doc: LayoutDoc): LayoutIndex {
       continue;
     } else if (n.type === 'text') {
       obj = makeText(scene, n);
+    } else if (n.type === 'image') {
+      warnOnce(`[layout] image 노드에 key 가 없다 — ${n.id}(${n.name ?? ''}). 에디터에서 텍스처를 지정할 것.`);
+    } else if (!NON_RENDERED_TYPES.has(n.type)) {
+      // 에디터가 이 로더보다 앞서 나간 경우(신규 노드 타입). 사본 갱신 전까지는 렌더 불가.
+      warnOnce(`[layout] 미지원 노드 타입 "${n.type}" — ${n.id}(${n.name ?? ''}). 이 로더(에디터 런타임 최소 사본)가 해석하지 못해 화면에서 누락된다.`);
     }
     if (!obj) continue;
     obj.setOrigin(0.5, 0.5);

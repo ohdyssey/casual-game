@@ -1,0 +1,242 @@
+[
+  {
+    "key": "비행기(모래시계)",
+    "board": 24,
+    "open": 4,
+    "topHalfOpen": 4,
+    "bottomHalfOpen": 0,
+    "solMoves": 37
+  },
+  {
+    "key": "비행기(모래시계)(역전)",
+    "board": 24,
+    "open": 5,
+    "topHalfOpen": 5,
+    "bottomHalfOpen": 0,
+    "solMoves": 38
+  },
+  {
+    "key": "다이아몬드",
+    "board": 27,
+    "open": 7,
+    "topHalfOpen": 5,
+    "bottomHalfOpen": 2,
+    "solMoves": 40
+  },
+  {
+    "key": "피라미드",
+    "board": 25,
+    "open": 1,
+    "topHalfOpen": 1,
+    "bottomHalfOpen": 0,
+    "solMoves": 35
+  },
+  {
+    "key": "피라미드(역전)",
+    "board": 25,
+    "open": 7,
+    "topHalfOpen": 5,
+    "bottomHalfOpen": 2,
+    "solMoves": 41
+  },
+  {
+    "key": "깔때기",
+    "board": 25,
+    "open": 7,
+    "topHalfOpen": 5,
+    "bottomHalfOpen": 2,
+    "solMoves": 40
+  },
+  {
+    "key": "깔때기(역전)",
+    "board": 25,
+    "open": 1,
+    "topHalfOpen": 1,
+    "bottomHalfOpen": 0,
+    "solMoves": 39
+  },
+  {
+    "key": "육각형",
+    "board": 26,
+    "open": 4,
+    "topHalfOpen": 4,
+    "bottomHalfOpen": 0,
+    "solMoves": 39
+  },
+  {
+    "key": "지그재그별",
+    "board": 26,
+    "open": 7,
+    "topHalfOpen": 7,
+    "bottomHalfOpen": 0,
+    "solMoves": 40
+  },
+  {
+    "key": "사람",
+    "board": 26,
+    "open": 3,
+    "topHalfOpen": 3,
+    "bottomHalfOpen": 0,
+    "solMoves": 46
+  },
+  {
+    "key": "사람(역전)",
+    "board": 26,
+    "open": 6,
+    "topHalfOpen": 4,
+    "bottomHalfOpen": 2,
+    "solMoves": 42
+  },
+  {
+    "key": "천사날개",
+    "board": 25,
+    "open": 8,
+    "topHalfOpen": 8,
+    "bottomHalfOpen": 0,
+    "solMoves": 39
+  },
+  {
+    "key": "전사",
+    "board": 26,
+    "open": 7,
+    "topHalfOpen": 7,
+    "bottomHalfOpen": 0,
+    "solMoves": 40
+  },
+  {
+    "key": "나무",
+    "board": 25,
+    "open": 9,
+    "topHalfOpen": 5,
+    "bottomHalfOpen": 4,
+    "solMoves": 38
+  },
+  {
+    "key": "나무(역전)",
+    "board": 25,
+    "open": 11,
+    "topHalfOpen": 9,
+    "bottomHalfOpen": 2,
+    "solMoves": 39
+  },
+  {
+    "key": "산맥",
+    "board": 26,
+    "open": 9,
+    "topHalfOpen": 9,
+    "bottomHalfOpen": 0,
+    "solMoves": 39
+  },
+  {
+    "key": "산맥(역전)",
+    "board": 26,
+    "open": 8,
+    "topHalfOpen": 6,
+    "bottomHalfOpen": 2,
+    "solMoves": 38
+  },
+  {
+    "key": "꽃",
+    "board": 24,
+    "open": 13,
+    "topHalfOpen": 9,
+    "bottomHalfOpen": 4,
+    "solMoves": 37
+  },
+  {
+    "key": "폭포",
+    "board": 27,
+    "open": 6,
+    "topHalfOpen": 6,
+    "bottomHalfOpen": 0,
+    "solMoves": 47
+  },
+  {
+    "key": "폭포(역전)",
+    "board": 27,
+    "open": 3,
+    "topHalfOpen": 3,
+    "bottomHalfOpen": 0,
+    "solMoves": 45
+  },
+  {
+    "key": "성벽첨탑",
+    "board": 24,
+    "open": 12,
+    "topHalfOpen": 10,
+    "bottomHalfOpen": 2,
+    "solMoves": 36
+  },
+  {
+    "key": "성벽첨탑(역전)",
+    "board": 24,
+    "open": 11,
+    "topHalfOpen": 7,
+    "bottomHalfOpen": 4,
+    "solMoves": 36
+  },
+  {
+    "key": "왕관",
+    "board": 25,
+    "open": 7,
+    "topHalfOpen": 7,
+    "bottomHalfOpen": 0,
+    "solMoves": 37
+  },
+  {
+    "key": "하트",
+    "board": 26,
+    "open": 6,
+    "topHalfOpen": 4,
+    "bottomHalfOpen": 2,
+    "solMoves": 40
+  },
+  {
+    "key": "하트(역전)",
+    "board": 26,
+    "open": 3,
+    "topHalfOpen": 3,
+    "bottomHalfOpen": 0,
+    "solMoves": 46
+  },
+  {
+    "key": "나비",
+    "board": 26,
+    "open": 6,
+    "topHalfOpen": 6,
+    "bottomHalfOpen": 0,
+    "solMoves": 40
+  },
+  {
+    "key": "새",
+    "board": 26,
+    "open": 8,
+    "topHalfOpen": 8,
+    "bottomHalfOpen": 0,
+    "solMoves": 37
+  },
+  {
+    "key": "새(역전)",
+    "board": 26,
+    "open": 5,
+    "topHalfOpen": 5,
+    "bottomHalfOpen": 0,
+    "solMoves": 42
+  },
+  {
+    "key": "물고기",
+    "board": 25,
+    "open": 6,
+    "topHalfOpen": 4,
+    "bottomHalfOpen": 2,
+    "solMoves": 35
+  },
+  {
+    "key": "물고기(역전)",
+    "board": 25,
+    "open": 5,
+    "topHalfOpen": 5,
+    "bottomHalfOpen": 0,
+    "solMoves": 38
+  }
+]

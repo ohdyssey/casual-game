@@ -35,12 +35,43 @@ const BONUS_PATTERN: readonly number[] = (() => {
   return arr;
 })();
 
+/**
+ * 슬롯별 "노출까지 남은 단계"(구조적 깊이) — 초기 노출 슬롯이 0, 그걸 다 치워야 열리는 슬롯이 1, ...
+ * 커버 그래프만으로 계산(카드 랭크·매칭과 무관) — waveWidths 와 동일한 BFS.
+ */
+function exposureDepth(layout: PeakLayout, exposedNow: ReadonlySet<string>): Map<string, number> {
+  const depth = new Map<string, number>();
+  const cleared = new Set(exposedNow);
+  let frontier = [...exposedNow];
+  for (const id of frontier) depth.set(id, 0);
+  let d = 0;
+  while (frontier.length) {
+    d++;
+    const next: string[] = [];
+    for (const s of layout.slots) {
+      if (cleared.has(s.id)) continue;
+      if (s.coveredBy.every((c) => cleared.has(c))) next.push(s.id);
+    }
+    for (const id of next) { cleared.add(id); depth.set(id, d); }
+    frontier = next;
+  }
+  return depth;
+}
+
 /** PlayScene.designateWild() 와 동일한 선택 규칙 — 초기 비노출 슬롯 중 결정적 셔플로 와일드·보너스 위치 결정. */
 function assignSpecials(layout: PeakLayout, start: GameState, level: number) {
   const exposedNow = new Set(layout.order.filter((id) => isExposed(start, id)));
   const covered = layout.order.filter((id) => !exposedNow.has(id));
-  const pool = covered.length ? covered : layout.order.filter((id) => !exposedNow.has(id));
+  let pool = covered.length ? covered : layout.order.filter((id) => !exposedNow.has(id));
   if (!pool.length) return { wildSlotId: undefined as string | undefined, bonusSlotId: undefined as string | undefined, bonusCount: 0 };
+  // **가장 늦게(=거의 다 클리어된 시점) 노출되는 구간은 후보에서 뺀다**(PO 2026-07-29 "와일드/보너스가
+  // 가장 아래쪽에 나와 사실상 쓸 필요가 없다") — 남은 깊이의 마지막 35%는 제외, 걸러지고 남는 게
+  // 없으면(아주 얕은 보드) 원래 후보 전체로 되돌린다.
+  const depth = exposureDepth(layout, exposedNow);
+  const maxDepth = Math.max(0, ...pool.map((id) => depth.get(id) ?? 0));
+  const cutoff = Math.floor(maxDepth * 0.65);
+  const shallow = pool.filter((id) => (depth.get(id) ?? 0) <= cutoff);
+  if (shallow.length) pool = shallow;
   const rng = seededRng(level * 733 + 991);
   const shuffled = pool.map((id) => ({ id, r: rng() })).sort((a, b) => a.r - b.r).map((o) => o.id);
   const wildSlotId = shuffled[0];
