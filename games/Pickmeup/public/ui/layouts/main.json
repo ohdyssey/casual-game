@@ -1,4 +1,88 @@
 {
-  "frame": { "designW": 720, "designH": 1280 },
-  "nodes": []
+  "schemaVersion": 2,
+  "frame": {
+    "designW": 1080,
+    "designH": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "name": "배경",
+      "key": "30af3ae4-0f9e-47dd-b6d0-cb05e125c31f",
+      "x": 92,
+      "y": 640,
+      "w": 8400,
+      "h": 1280,
+      "depth": -1,
+      "visible": true,
+      "tintable": true
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_Pickmeup_BG_01",
+      "x": 540,
+      "y": 1200,
+      "w": 1080,
+      "h": 2400,
+      "depth": 1,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_3__shadow",
+      "type": "image",
+      "key": "up_Pickmeup_BG_01-01__sh_1d5bvcv",
+      "x": 157,
+      "y": 266,
+      "w": 278,
+      "h": 264,
+      "depth": 2
+    },
+    {
+      "id": "layer_3",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_Pickmeup_BG_01-01",
+      "x": 157,
+      "y": 266,
+      "w": 241,
+      "h": 227,
+      "depth": 2,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_4__shadow",
+      "type": "image",
+      "key": "up_Pickmeup_BG_01-05__sh_10zwmj3",
+      "x": 540,
+      "y": 1243,
+      "w": 368,
+      "h": 368,
+      "depth": 3
+    },
+    {
+      "id": "layer_4",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_Pickmeup_BG_01-05",
+      "x": 540,
+      "y": 1243,
+      "w": 352,
+      "h": 352,
+      "depth": 3,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    }
+  ]
 }
