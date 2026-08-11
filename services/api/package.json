@@ -1,0 +1,21 @@
+{
+  "name": "@casual/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "게임 공용 백엔드 API — Vercel 서버리스 함수. 게임별로 /api/v1/<게임>/ 아래에 붙인다.",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev --listen 3000",
+    "deploy": "vercel deploy --prod",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@casual/ttt-rules": "*",
+    "@supabase/supabase-js": "^2.48.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5"
+  }
+}

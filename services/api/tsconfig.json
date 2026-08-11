@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // 서버리스 런타임 — DOM 은 없지만 fetch/Request/Response 같은 웹 표준은 쓴다.
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["src", "api"]
+}
