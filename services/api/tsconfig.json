@@ -1,10 +1,41 @@
 {
-  "extends": "../../tsconfig.base.json",
+  // ⚠️ 일부러 `extends` 를 쓰지 않는다(다른 워크스페이스와 다른 점).
+  //
+  // Vercel 은 Root Directory(services/api)를 기준으로 이 파일을 읽는데, 그 **밖**에 있는
+  // ../../tsconfig.base.json 을 따라가지 않는다. 그러면 설정이 통째로 무시되고 기본값
+  // (strict 꺼짐)으로 컴파일된다 — 로컬 타입체크는 통과하는데 배포만 깨지는,
+  // 원인을 찾기 어려운 실패가 된다(2026-08-11 실제 발생).
+  //
+  // 그래서 필요한 옵션을 여기 전부 적어 둔다. tsconfig.base.json 을 고칠 때 이 파일도
+  // 같이 봐야 한다.
   "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     // 서버리스 런타임 — DOM 은 없지만 fetch/Request/Response 같은 웹 표준은 쓴다.
     "lib": ["ES2022", "DOM"],
     "types": ["node"],
-    "noEmit": true
+
+    // strict 가 꺼지면 zod 추론이 전부 optional 로 무너지고 판별 유니온 좁히기도 깨진다.
+    // 이 서버의 타입 안전성은 여기에 통째로 의존한다.
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false,
+    "noEmit": true,
+
+    // 게임 규칙 공유 패키지 — 빌드 산출물이 없어 소스를 직접 가리킨다.
+    "baseUrl": ".",
+    "paths": {
+      "@casual/ttt-rules": ["../../packages/ttt-rules/src/index.ts"],
+      "@casual/ttt-rules/*": ["../../packages/ttt-rules/src/*"]
+    }
   },
   "include": ["src", "api"]
 }
