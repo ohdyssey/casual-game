@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 2,
+  "frame": {
+    "designW": 720,
+    "designH": 1600
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_Pannel_03",
+      "x": 360,
+      "y": 706,
+      "w": 495,
+      "h": 620,
+      "depth": 1,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_UI_profile_04-4",
+      "x": 360,
+      "y": 879,
+      "w": 193,
+      "h": 59,
+      "depth": 2,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_3",
+      "type": "text",
+      "name": "시",
+      "text": "게임일시 정지",
+      "x": 360,
+      "y": 548,
+      "fontSize": 28,
+      "fontFamily": "Luckiest Guy",
+      "color": "#ffffff",
+      "stroke": "#009de0",
+      "strokeW": 4,
+      "align": "center",
+      "depth": 5,
+      "visible": true,
+      "fontStyle": "500"
+    },
+    {
+      "id": "layer_2_copy",
+      "type": "image",
+      "name": "새 레이어 복사",
+      "key": "up_UI_profile_04-3",
+      "x": 360,
+      "y": 656,
+      "w": 193,
+      "h": 52,
+      "depth": 6,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_2_copy2",
+      "type": "image",
+      "name": "새 레이어 복사",
+      "key": "up_UI_profile_04-2",
+      "x": 360,
+      "y": 804,
+      "w": 193,
+      "h": 52,
+      "depth": 7,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_2_copy3",
+      "type": "image",
+      "name": "새 레이어 복사",
+      "key": "up_UI_profile_04-1",
+      "x": 360,
+      "y": 728,
+      "w": 193,
+      "h": 49,
+      "depth": 8,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    }
+  ]
+}

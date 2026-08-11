@@ -82,12 +82,34 @@ export const STORE_ASSETS: Record<string, string> = {
  */
 export const UI_HOME_LAYOUT_KEY = 'ui_home_layout';
 export const UI_HOME_LAYOUT_PATH = 'ui/layouts/blank.json';
+// 게임플레이 화면(크롬: 배경/헤더/타이머/사이드아이콘/하단메뉴) — 에디터 "플레이 화면"(blank_copy2).
+export const UI_PLAY_LAYOUT_KEY = 'ui_play_layout';
+export const UI_PLAY_LAYOUT_PATH = 'ui/layouts/blank_copy2.json';
+// 결과 팝업 — 에디터 "팝업 성공"(blank_3) / "팝업 실패"(blank_3_copy).
+export const UI_WIN_LAYOUT_KEY = 'ui_win_layout';
+export const UI_WIN_LAYOUT_PATH = 'ui/layouts/blank_3.json';
+export const UI_LOSE_LAYOUT_KEY = 'ui_lose_layout';
+export const UI_LOSE_LAYOUT_PATH = 'ui/layouts/blank_3_copy.json';
+// 메시지창(토스트) — 에디터 "빈 화면"(blank_4). 패널 + "Msg" 텍스트 노드.
+export const UI_MSG_LAYOUT_KEY = 'ui_msg_layout';
+export const UI_MSG_LAYOUT_PATH = 'ui/layouts/blank_4.json';
+// 일시정지 메뉴 — 에디터 "팝업 메뉴표시"(blank_3_copy_copy). 패널 + 제목 + 버튼 이미지 4개.
+export const UI_MENU_LAYOUT_KEY = 'ui_menu_layout';
+export const UI_MENU_LAYOUT_PATH = 'ui/layouts/blank_3_copy_copy.json';
 export const UI_MANIFEST_KEY = 'ui_assets';
 export const UI_MANIFEST_PATH = 'ui-assets.json';
 
-/** preload — 진입화면 레이아웃 + 업로드 이미지 매니페스트를 로드(이미지는 매니페스트 완료 시 큐잉). */
+/**
+ * preload — 진입화면 + 게임플레이 + 결과팝업 에디터 레이아웃 + 업로드 이미지 매니페스트를 로드.
+ * 업로드 이미지는 4개 레이아웃 공통 풀(매니페스트) → 매니페스트 완료 시 한 번에 큐잉.
+ */
 export function loadHomeUi(scene: Phaser.Scene): void {
   scene.load.json(UI_HOME_LAYOUT_KEY, UI_HOME_LAYOUT_PATH);
+  scene.load.json(UI_PLAY_LAYOUT_KEY, UI_PLAY_LAYOUT_PATH);
+  scene.load.json(UI_WIN_LAYOUT_KEY, UI_WIN_LAYOUT_PATH);
+  scene.load.json(UI_LOSE_LAYOUT_KEY, UI_LOSE_LAYOUT_PATH);
+  scene.load.json(UI_MSG_LAYOUT_KEY, UI_MSG_LAYOUT_PATH);
+  scene.load.json(UI_MENU_LAYOUT_KEY, UI_MENU_LAYOUT_PATH);
   scene.load.json(UI_MANIFEST_KEY, UI_MANIFEST_PATH);
   scene.load.on(`filecomplete-json-${UI_MANIFEST_KEY}`, () => {
     const manifest = (scene.cache.json.get(UI_MANIFEST_KEY) ?? {}) as Record<string, string>;

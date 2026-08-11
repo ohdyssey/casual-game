@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 2,
+  "frame": {
+    "designW": 720,
+    "designH": 1600
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_Pannel_01",
+      "x": 360,
+      "y": 740,
+      "w": 438,
+      "h": 448,
+      "depth": 1,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_UI_profile_03-2",
+      "x": 429,
+      "y": 862,
+      "w": 121,
+      "h": 53,
+      "depth": 2,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_2_copy",
+      "type": "image",
+      "name": "새 레이어 복사",
+      "key": "up_UI_profile_03-1_v2",
+      "x": 292,
+      "y": 862,
+      "w": 121,
+      "h": 53,
+      "depth": 3,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_3",
+      "type": "text",
+      "name": "시간 초과",
+      "text": "시간 초과",
+      "x": 360,
+      "y": 682,
+      "fontSize": 28,
+      "fontFamily": "Luckiest Guy",
+      "color": "#ffffff",
+      "stroke": "#e00f00",
+      "strokeW": 4,
+      "align": "center",
+      "depth": 5,
+      "visible": true,
+      "fontStyle": "500"
+    },
+    {
+      "id": "layer_4",
+      "type": "text",
+      "name": "w",
+      "text": "점수 0",
+      "x": 360,
+      "y": 732,
+      "fontSize": 28,
+      "fontFamily": "Jua",
+      "color": "#000000",
+      "stroke": "#5a3210",
+      "strokeW": 0,
+      "align": "center",
+      "depth": 6,
+      "visible": true
+    }
+  ]
+}

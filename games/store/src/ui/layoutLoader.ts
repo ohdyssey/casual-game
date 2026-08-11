@@ -96,8 +96,14 @@ function originXFor(align?: string): number {
   return 0.5;
 }
 
+// 에디터가 지정하는 라틴 전용 디스플레이 폰트(웹폰트 미로드 → 한글이 시스템 폴백으로 깨짐).
+// 이들은 Jua 로 대체해 한글+영문을 한 폰트로 일관 렌더한다(부팅 시 preloadFonts 로 Jua 선로딩됨).
+const LATIN_ONLY_FONTS = new Set(['Luckiest Guy', 'Fredoka', 'Poppins', 'Baloo', 'Chango']);
+
 function makeText(scene: Phaser.Scene, n: LayoutNode): Phaser.GameObjects.Text {
-  const family = n.fontFamily ? `"${n.fontFamily}", "Jua", sans-serif` : '"Jua", sans-serif';
+  // 한글+영문 모두 지원하는 Jua 로 통일. 에디터 폰트가 라틴 전용이거나 미지정이면 Jua 우선.
+  const useEditorFont = n.fontFamily && !LATIN_ONLY_FONTS.has(n.fontFamily);
+  const family = useEditorFont ? `"${n.fontFamily}", "Jua", sans-serif` : '"Jua", system-ui, sans-serif';
   const bold = (parseInt(n.fontStyle ?? '', 10) || 0) >= 700;
   const t = scene.add.text(n.x, n.y, n.text ?? '', {
     fontFamily: family,

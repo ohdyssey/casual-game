@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 2,
+  "frame": {
+    "designW": 1080,
+    "designH": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_2",
+      "type": "image",
+      "name": "배경",
+      "key": "up_Store_Loading_BG_01_v2",
+      "x": 540,
+      "y": 1200,
+      "w": 1080,
+      "h": 2400,
+      "depth": -1,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_1",
+      "type": "image",
+      "name": "로고",
+      "key": "up_Store_Logo",
+      "x": 540,
+      "y": 584,
+      "w": 588,
+      "h": 384,
+      "depth": 1,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    }
+  ]
+}

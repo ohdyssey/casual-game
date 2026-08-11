@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 2,
+  "frame": {
+    "designW": 720,
+    "designH": 1600
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_Pannel_04",
+      "x": 360,
+      "y": 451,
+      "w": 525,
+      "h": 158,
+      "depth": 1,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_2",
+      "type": "text",
+      "name": "Msg",
+      "text": "Msg",
+      "x": 360,
+      "y": 450,
+      "fontSize": 28,
+      "fontFamily": "Luckiest Guy",
+      "color": "#000000",
+      "stroke": "#000000",
+      "strokeW": 0,
+      "align": "center",
+      "depth": 2,
+      "visible": true
+    }
+  ]
+}

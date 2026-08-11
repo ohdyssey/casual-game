@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 2,
+  "frame": {
+    "designW": 720,
+    "designH": 1600
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_Pannel_02_v3",
+      "x": 360,
+      "y": 707,
+      "w": 515,
+      "h": 410,
+      "depth": 1,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_UI_profile_03-2",
+      "x": 359,
+      "y": 826,
+      "w": 121,
+      "h": 53,
+      "depth": 2,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_2_copy",
+      "type": "image",
+      "name": "새 레이어 복사",
+      "key": "up_UI_profile_03-1_v2",
+      "x": 222,
+      "y": 826,
+      "w": 121,
+      "h": 53,
+      "depth": 3,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_2_copy2",
+      "type": "image",
+      "name": "새 레이어 복사",
+      "key": "up_UI_profile_03-3",
+      "x": 496,
+      "y": 826,
+      "w": 121,
+      "h": 54,
+      "depth": 4,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_3",
+      "type": "text",
+      "name": "상품 정리 완료",
+      "text": "상품 정리 완료",
+      "x": 360,
+      "y": 682,
+      "fontSize": 28,
+      "fontFamily": "Luckiest Guy",
+      "color": "#ffffff",
+      "stroke": "#04db00",
+      "strokeW": 3,
+      "align": "center",
+      "depth": 5,
+      "visible": true,
+      "fontStyle": "500"
+    },
+    {
+      "id": "layer_4",
+      "type": "text",
+      "name": "w",
+      "text": "점수 1910",
+      "x": 360,
+      "y": 732,
+      "fontSize": 28,
+      "fontFamily": "Jua",
+      "color": "#000000",
+      "stroke": "#5a3210",
+      "strokeW": 0,
+      "align": "center",
+      "depth": 6,
+      "visible": true
+    },
+    {
+      "id": "layer_4_copy",
+      "type": "text",
+      "name": "w 복사",
+      "text": "+191",
+      "x": 360,
+      "y": 767,
+      "fontSize": 24,
+      "fontFamily": "Jua",
+      "color": "#04e000",
+      "stroke": "#5a3210",
+      "strokeW": 0,
+      "align": "center",
+      "depth": 7,
+      "visible": true
+    }
+  ]
+}

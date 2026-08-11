@@ -1,107 +1,244 @@
 /**
- * storeOverlays — 승/패 결과 + 데드락 오버레이 UI(StoreScene 에서 분리).
- * 씬과 콜백을 받아 패널/버튼을 그린다. 게임 로직 없음 — 표시 + 콜백 위임뿐(동작 보존).
+ * storeOverlays — 팝업/메시지를 **에디터 레이아웃(SSOT)** 으로 렌더.
+ *   · 승리   = "팝업 성공"(blank_3)      — RETRY/HOME/NEXT
+ *   · 실패   = "팝업 실패"(blank_3_copy) — RETRY/HOME
+ *   · 메시지 = "빈 화면"(blank_4)        — 패널 + Msg 텍스트(토스트)
+ *
+ * 팝업 레이아웃 프레임(720×1600)을 게임 캔버스(1080×2400)에 비율 맞춰 스케일·중앙 배치하고,
+ * 점수/코인/메시지 텍스트를 노드 id 로 동적 바인딩, 버튼 노드 위에 탭 존을 얹어 콜백을 배선한다.
  */
 
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, COLORS, strokeText } from '@casual/core';
 import { sfx } from '../audio.js';
+import { buildLayout, type LayoutDoc, type LayoutIndex } from '../ui/layoutLoader.js';
+import { DEFAULT_AVATAR_KEY } from '../meta/index.js';
 
-/** 오버레이 컨테이너 + 반투명 배경 + 흰 패널 공통 셋업. */
-function overlayBase(scene: Phaser.Scene, panelW: number, panelH: number, panelTop: number, backdropAlpha = 0.55): Phaser.GameObjects.Container {
+export interface ResultPopupOpts {
+  /** 배경 딤 알파(승리=리플레이 노출 위해 옅게, 실패=표준). */
+  readonly backdropAlpha: number;
+  /** 노드 id → 덮어쓸 텍스트(점수·코인·제목). */
+  readonly binds: Record<string, string>;
+  /** 노드 id → 클릭 콜백(RETRY/HOME/NEXT 등 버튼). */
+  readonly buttons: Record<string, () => void>;
+}
+
+/**
+ * 통합 프로필 적용 — 에디터가 저작한 프로필 디자인(배경 + 아바타 + 프레임)을 SSOT 로 사용.
+ *  · 레이아웃에 'Profile_img' 노드가 있으면(에디터 저작): 그 텍스처만 사용자 아바타로 교체(위치·배경 유지).
+ *  · 없으면(플레이 레이아웃 미갱신): 에디터(blank.json) 디자인을 코드로 보강 — 민트 배경 rect + 아바타.
+ *    추후 에디터에 Profile_img 가 추가되면 자동으로 교체 경로로 전환된다.
+ */
+export function applyProfile(scene: Phaser.Scene, index: LayoutIndex, doc: LayoutDoc, frameId: string, avatarKey: string): void {
+  const key = avatarKey && scene.textures.exists(avatarKey) ? avatarKey : DEFAULT_AVATAR_KEY;
+  const imgNode = doc.nodes.find((n) => n.name === 'Profile_img');
+  if (imgNode) {
+    const img = index.tryById<Phaser.GameObjects.Image>(imgNode.id);
+    if (img && scene.textures.exists(key)) img.setTexture(key);
+    return;
+  }
+  // 코드 보강 — 에디터 blank.json 스펙(프레임 111,121 기준): 배경 rect(#66ffe6, 132×123, y=112) + 아바타(129×129, y=115).
+  const frame = index.nodeById(frameId);
+  if (!frame) return;
+  const d = frame.depth ?? 11;
+  const bg = scene.add.graphics().setDepth(d - 2);
+  bg.fillStyle(0x66ffe6, 1);
+  bg.fillRect(frame.x - 66, frame.y - 70.5, 132, 123);
+  if (scene.textures.exists(key)) {
+    scene.add.image(frame.x, frame.y - 6, key).setDisplaySize(129, 129).setDepth(d - 1);
+  }
+}
+
+/** 캔버스에 fit·중앙 배치된 레이아웃 렌더 결과 — 노드 월드 좌표 조회 지원(탭존 배치용). */
+export interface RenderedLayout {
+  readonly index: LayoutIndex;
+  readonly container: Phaser.GameObjects.Container;
+  readonly scale: number;
+  /** 노드 id 의 월드 중심 좌표·표시 크기(없으면 null). */
+  worldRect(id: string): { x: number; y: number; w: number; h: number } | null;
+}
+
+/**
+ * 에디터 레이아웃 doc 을 캔버스에 fit(min 스케일)해 프레임 중심=캔버스 중심으로 배치한다(공용).
+ * 버튼/텍스트 후처리는 호출자가 index·worldRect 로 수행.
+ */
+export function renderLayoutFit(scene: Phaser.Scene, doc: LayoutDoc, depth: number): RenderedLayout {
+  const cw = scene.scale.width;
+  const ch = scene.scale.height;
+  const fw = doc.frame?.designW || cw;
+  const fh = doc.frame?.designH || ch;
+  const s = Math.min(cw / fw, ch / fh); // 프레임을 캔버스에 fit
+  const ox = cw / 2 - (fw / 2) * s; // 프레임 중심 → 캔버스 중심
+  const oy = ch / 2 - (fh / 2) * s;
+
+  const index = buildLayout(scene, doc);
+  const container = scene.add.container(ox, oy).setScale(s).setDepth(depth);
+  for (const e of index.entries()) container.add(e.obj);
+
+  return {
+    index,
+    container,
+    scale: s,
+    worldRect(id: string) {
+      const n = index.nodeById(id);
+      if (!n) return null;
+      return { x: ox + n.x * s, y: oy + n.y * s, w: (n.w ?? 120) * s, h: (n.h ?? 60) * s };
+    },
+  };
+}
+
+/**
+ * 에디터 팝업 레이아웃을 렌더한다. layoutKey = 캐시에 로드된 팝업 doc 키(UI_WIN/LOSE_LAYOUT_KEY).
+ * 프레임을 캔버스에 fit 후 프레임 중심 = 캔버스 중심으로 배치 → 버튼 존은 월드 좌표로 얹는다.
+ */
+export function showResultPopup(scene: Phaser.Scene, layoutKey: string, opts: ResultPopupOpts): void {
+  const doc = scene.cache.json.get(layoutKey) as LayoutDoc | undefined;
+  if (!doc?.nodes?.length) return;
+
   sfx(scene, 'sfx_popup_open');
-  const cy = GAME_HEIGHT / 2;
-  const layer = scene.add.container(0, 0).setDepth(100);
-  layer.add(scene.add.rectangle(GAME_WIDTH / 2, cy, GAME_WIDTH, GAME_HEIGHT, 0x000000, backdropAlpha).setInteractive());
-  const panelBg = scene.add.graphics();
-  panelBg.fillStyle(0xffffff, 1);
-  panelBg.fillRoundedRect(GAME_WIDTH / 2 - panelW / 2, panelTop, panelW, panelH, 28);
-  layer.add(panelBg);
-  return layer;
-}
+  const cw = scene.scale.width;
+  const ch = scene.scale.height;
 
-export interface ResultOverlayOpts {
-  title: string;
-  /** 제목 외곽선 색(승=stateWin / 패=stateWarn). */
-  color: string;
-  subtitle: string;
-  score: number;
-  isWin: boolean;
-  onRetry: () => void;
-  onHome: () => void;
-  onNext: () => void;
-}
+  // 배경 딤(전체 캔버스).
+  const backdrop = scene.add.rectangle(cw / 2, ch / 2, cw, ch, 0x000000, opts.backdropAlpha).setDepth(100).setInteractive();
 
-/** 승/패 결과 오버레이. 승=다시/홈/다음 3버튼, 패=다시/홈 2버튼. */
-export function showResultOverlay(scene: Phaser.Scene, opts: ResultOverlayOpts): void {
-  const cy = GAME_HEIGHT / 2;
-  const panelW = opts.isWin ? 540 : 440;
-  // 승리=배경 매칭 리플레이가 보이도록 덜 어둡게(0.4), 패배=표준(0.55).
-  const layer = overlayBase(scene, panelW, 300, cy - 150, opts.isWin ? 0.4 : 0.55);
+  const rl = renderLayoutFit(scene, doc, 101);
 
-  layer.add(strokeText(scene, GAME_WIDTH / 2, cy - 80, opts.title, 42, { strokeColor: opts.color, strokeWidth: 7 }).setOrigin(0.5));
-  layer.add(strokeText(scene, GAME_WIDTH / 2, cy - 16, `점수 ${opts.score}`, 28, { color: COLORS.hudText, strokeWidth: 0 }).setOrigin(0.5));
-  if (opts.subtitle) {
-    layer.add(strokeText(scene, GAME_WIDTH / 2, cy + 26, opts.subtitle, 26, { color: COLORS.brandGreen, strokeWidth: 0 }).setOrigin(0.5));
+  // 동적 텍스트 바인딩.
+  for (const [id, text] of Object.entries(opts.binds)) {
+    rl.index.tryById<Phaser.GameObjects.Text>(id)?.setText(text);
   }
 
-  const button = (x: number, w: number, label: string, size: number, texKey: string, onClick: () => void): void => {
-    const btn = scene.add.image(x, cy + 100, texKey).setOrigin(0.5);
-    btn.setDisplaySize(w, 60);
-    layer.add(btn);
-    layer.add(strokeText(scene, x, cy + 96, label, size, { strokeWidth: 0 }).setOrigin(0.5));
-    layer.add(
-      scene.add
-        .zone(x, cy + 100, w, 60)
-        .setInteractive({ useHandCursor: true })
-        .on('pointerdown', () => {
-          sfx(scene, 'sfx_button_tap');
-          onClick();
-        }),
-    );
+  const zones: Phaser.GameObjects.Zone[] = [];
+  const destroy = (): void => {
+    backdrop.destroy();
+    rl.container.destroy();
+    zones.forEach((z) => z.destroy());
   };
 
-  if (opts.isWin) {
-    button(GAME_WIDTH / 2 - 170, 150, '🔄 다시', 20, 'ui_btn_yellow', opts.onRetry);
-    button(GAME_WIDTH / 2, 150, '🏠 홈', 22, 'ui_btn_blue', opts.onHome);
-    button(GAME_WIDTH / 2 + 170, 150, '➡️ 다음', 20, 'ui_btn_yellow', opts.onNext);
+  // 버튼 존(월드 좌표) — 노드 표시 크기 기반 히트 영역 + 눌림 연출.
+  for (const [id, onClick] of Object.entries(opts.buttons)) {
+    const rect = rl.worldRect(id);
+    const obj = rl.index.tryById<Phaser.GameObjects.Image>(id);
+    if (!rect || !obj) continue;
+    const zone = scene.add
+      .zone(rect.x, rect.y, rect.w, rect.h)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(102)
+      .on('pointerdown', () => {
+        sfx(scene, 'sfx_button_tap');
+        const bx = obj.scaleX;
+        const by = obj.scaleY;
+        scene.tweens.killTweensOf(obj);
+        scene.tweens.add({ targets: obj, scaleX: bx * 0.9, scaleY: by * 0.9, duration: 90, yoyo: true, ease: 'Quad.easeOut' });
+        destroy();
+        onClick();
+      });
+    zones.push(zone);
+  }
+}
+
+/**
+ * 메시지 토스트 — 에디터 "빈 화면"(blank_4) 레이아웃(패널 + Msg 텍스트)을 SSOT 로 렌더.
+ * 긴 문구는 패널 폭에 맞춰 **최대 2줄**로 줄바꿈, 약 3초 표시 후 **페이드 아웃**.
+ * 레이아웃 미로드 시 조용히 무시(방어) — 호출자가 코드 폴백 여부 판단.
+ * @returns 렌더 성공 여부(false=레이아웃 없음).
+ */
+export function showMessagePopup(scene: Phaser.Scene, layoutKey: string, msg: string): boolean {
+  const doc = scene.cache.json.get(layoutKey) as LayoutDoc | undefined;
+  if (!doc?.nodes?.length) return false;
+
+  const rl = renderLayoutFit(scene, doc, 300);
+
+  // 첫 text 노드(=Msg) 에 메시지 바인딩 + 패널 폭 기준 최대 2줄 줄바꿈.
+  const textNode = doc.nodes.find((n) => n.type === 'text');
+  const panelNode = doc.nodes.find((n) => n.type === 'image');
+  const t = textNode ? rl.index.tryById<Phaser.GameObjects.Text>(textNode.id) : undefined;
+  if (t) {
+    const wrapW = Math.max(160, (panelNode?.w ?? 480) - 90); // 패널 내부 폭(좌우 여백)
+    t.setAlign('center');
+    t.setWordWrapWidth(wrapW, true); // advanced=한글 등 공백 없는 긴 문구도 글자 단위 줄바꿈
+    t.setMaxLines(2);
+    t.setText(msg);
+    t.setOrigin(0.5); // 2줄에도 패널 중앙 정렬 유지
+  }
+
+  // 약 3초 표시 후 페이드 아웃(600ms).
+  scene.tweens.add({ targets: rl.container, alpha: 0, delay: 2400, duration: 600, onComplete: () => rl.container.destroy() });
+  return true;
+}
+
+/**
+ * 확인 팝업 — 메시지 패널(blank_4)을 배경 딤 위에 **고정 표시**(자동 사라짐 없음)하고, 패널 아래
+ * OK 버튼(okTextureKey)을 눌러야 onOk 실행. 데드락 셔플처럼 "즉시 실행" 대신 플레이어 확인을 받는 흐름용.
+ */
+export function showConfirmPopup(
+  scene: Phaser.Scene,
+  layoutKey: string,
+  msg: string,
+  okTextureKey: string,
+  onOk: () => void,
+): void {
+  const cw = scene.scale.width;
+  const ch = scene.scale.height;
+  sfx(scene, 'sfx_popup_open');
+  const backdrop = scene.add.rectangle(cw / 2, ch / 2, cw, ch, 0x000000, 0.5).setDepth(310).setInteractive();
+
+  let panel: Phaser.GameObjects.Container | undefined;
+  let panelBottomY = ch / 2;
+  const doc = scene.cache.json.get(layoutKey) as LayoutDoc | undefined;
+  if (doc?.nodes?.length) {
+    const rl = renderLayoutFit(scene, doc, 311);
+    panel = rl.container;
+    const textNode = doc.nodes.find((n) => n.type === 'text');
+    const panelNode = doc.nodes.find((n) => n.type === 'image');
+    const t = textNode ? rl.index.tryById<Phaser.GameObjects.Text>(textNode.id) : undefined;
+    if (t) {
+      const wrapW = Math.max(160, (panelNode?.w ?? 480) - 90);
+      t.setAlign('center');
+      t.setWordWrapWidth(wrapW, true);
+      t.setMaxLines(2);
+      t.setText(msg);
+      t.setOrigin(0.5);
+    }
+    const pr = panelNode ? rl.worldRect(panelNode.id) : null;
+    if (pr) panelBottomY = pr.y + pr.h / 2;
+  }
+
+  // OK 버튼(공통 에셋 UI_btn_01). 텍스처 미로드 시 캡슐 대체.
+  const okY = panelBottomY + 96;
+  const okW = 300;
+  const okBtn = scene.add.container(cw / 2, okY).setDepth(312);
+  let okH = 110;
+  if (scene.textures.exists(okTextureKey)) {
+    const img = scene.add.image(0, 0, okTextureKey);
+    okH = (okW / img.width) * img.height;
+    img.setDisplaySize(okW, okH);
+    okBtn.add(img);
   } else {
-    button(GAME_WIDTH / 2 - 100, 170, '🔄 다시', 22, 'ui_btn_yellow', opts.onRetry);
-    button(GAME_WIDTH / 2 + 100, 170, '🏠 홈', 24, 'ui_btn_blue', opts.onHome);
+    const g = scene.add.graphics();
+    g.fillStyle(0x009de0, 1);
+    g.fillRoundedRect(-okW / 2, -okH / 2, okW, okH, 24);
+    okBtn.add(g);
+    okBtn.add(scene.add.text(0, 0, 'OK', { fontFamily: '"Jua", sans-serif', fontSize: '42px', color: '#ffffff' }).setOrigin(0.5));
   }
-}
 
-export interface DeadlockOverlayOpts {
-  onShuffle: () => void;
-  onRetry: () => void;
-}
-
-/** 데드락(셔플 유도) 오버레이. 셔플/다시 2버튼 — 클릭 시 패널 닫고 콜백. */
-export function showDeadlockOverlay(scene: Phaser.Scene, opts: DeadlockOverlayOpts): void {
-  const cy = GAME_HEIGHT / 2;
-  const layer = overlayBase(scene, 480, 340, cy - 170);
-
-  layer.add(strokeText(scene, GAME_WIDTH / 2, cy - 90, '풀 수 없는 상태입니다!', 32, { strokeColor: COLORS.stateWarn, strokeWidth: 7 }).setOrigin(0.5));
-  layer.add(strokeText(scene, GAME_WIDTH / 2, cy - 25, '더 이상 진행할 수 없습니다.', 22, { color: COLORS.hudText, strokeWidth: 0 }).setOrigin(0.5));
-  layer.add(strokeText(scene, GAME_WIDTH / 2, cy + 10, '셔플하거나 다시 시작해 주세요.', 20, { color: '#888888', strokeWidth: 0 }).setOrigin(0.5));
-
-  const button = (x: number, texKey: string, label: string, onClick: () => void): void => {
-    const btn = scene.add.image(x, cy + 95, texKey).setOrigin(0.5);
-    btn.setDisplaySize(160, 60);
-    layer.add(btn);
-    layer.add(strokeText(scene, x, cy + 91, label, 22, { strokeWidth: 0 }).setOrigin(0.5));
-    layer.add(
-      scene.add
-        .zone(x, cy + 95, 160, 60)
-        .setInteractive({ useHandCursor: true })
-        .on('pointerdown', () => {
-          sfx(scene, 'sfx_button_tap');
-          layer.destroy();
-          onClick();
-        }),
-    );
+  const destroy = (): void => {
+    backdrop.destroy();
+    panel?.destroy();
+    okBtn.destroy();
+    okZone.destroy();
   };
-
-  button(GAME_WIDTH / 2 - 110, 'ui_btn_yellow', '🔀 셔플', opts.onShuffle);
-  button(GAME_WIDTH / 2 + 110, 'ui_btn_blue', '🔄 다시', opts.onRetry);
+  const okZone = scene.add
+    .zone(cw / 2, okY, okW, okH)
+    .setInteractive({ useHandCursor: true })
+    .setDepth(313)
+    .on('pointerdown', () => {
+      sfx(scene, 'sfx_button_tap');
+      scene.tweens.killTweensOf(okBtn);
+      scene.tweens.add({ targets: okBtn, scaleX: 0.9, scaleY: 0.9, duration: 90, yoyo: true, ease: 'Quad.easeOut' });
+      scene.time.delayedCall(120, () => {
+        destroy();
+        onOk();
+      });
+    });
 }

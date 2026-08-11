@@ -1,23 +1,28 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, COLORS, placeCover, strokeText, capsule } from '@casual/core';
+import { COLORS, startCountdown, strokeText } from '@casual/core';
 import { createState, tap, canPlace, hasLegalMove, markLost } from '../logic/storeMachine.js';
 import type { StoreState, LevelConfig, SlotRef, ProductKind } from '../logic/types.js';
 import { generateLevel, PRODUCTS } from '../logic/levels.js';
 import { solveStatus, solvePath, hintFirstMove, solveFullPath, type SolveMove } from '../logic/generate.js';
-import { sfx, startBgm } from '../audio.js';
+import { sfx, startBgm, isBgmOn, isSfxOn, setBgmEnabled, setSfxEnabled } from '../audio.js';
 import { track } from '../analytics.js';
-import { loadProfile, saveProfile, recordResult, addCoins, coinsFromScore } from '../meta/index.js';
+import { loadProfile, saveProfile, recordResult, addCoins, coinsFromScore, consumeLife, availableLives, DEFAULT_AVATAR_KEY } from '../meta/index.js';
 import { GRID, SLOT_GAP, type CellBox, computeShelfLayout, slotGeom as computeSlotGeom, type SlotGeom } from './storeLayout.js';
 import { assembleShelf, type AssembledShelf } from './shelfAssembly.js';
-import { showResultOverlay, showDeadlockOverlay } from './storeOverlays.js';
+import { showResultPopup, showMessagePopup, showConfirmPopup, renderLayoutFit, applyProfile } from './storeOverlays.js';
+import { buildLayout, type LayoutDoc, type LayoutIndex, type LayoutObject } from '../ui/layoutLoader.js';
+import { UI_PLAY_LAYOUT_KEY, UI_WIN_LAYOUT_KEY, UI_LOSE_LAYOUT_KEY, UI_MSG_LAYOUT_KEY, UI_MENU_LAYOUT_KEY } from '../assets.js';
 
 const hex = (s: string): number => parseInt(s.replace('#', ''), 16);
 
 const DEBUG_CELLS = false;
-/** 데드락: **미리 예측하지 않고** 실제 반복(이미 지나온 상태로만 되돌이) 연속 횟수가 이만큼이면 셔플 제안. */
+/** 데드락: **미리 예측하지 않고** 실제 반복(이미 지나온 상태로만 되돌이) 연속 횟수가 이만큼이면 자동 셔플. */
 const LOOP_REPEAT_LIMIT = 6;
 /** 자동완성: 최단 해법이 이 수 이하로 남으면 남은 수를 빠르게 자동 실행해 마감. */
 const AUTO_FINISH_MOVES = 5;
+
+/** 승리 후 배경 리플레이 — 전체가 아니라 **마지막 N수(마감 장면)만** 반복 재생. */
+const WIN_REPLAY_TAIL = 3;
 /** 아이템을 바닥 기준 이만큼 위로 배치. */
 const ITEM_LIFT = 6;
 /** 그림자를 바닥(floorBase) 기준 이만큼 위로 올려 아이템 하단 뒤에 겹치게(그림자=아이템 뒤). */
@@ -26,8 +31,35 @@ const SHADOW_RAISE = 6;
 const CHAR_ITEM_SCALE = 1.2;
 /** 캐릭터 발이 진열대 표면에 살짝 얹혀 박히는 양(px, 자연스러운 안착감). */
 const CHAR_REST_SINK = 8;
-/** 캐릭터 depth(진열장/아이템 위, 디버그/오버레이 아래). */
-const CHAR_DEPTH = 20;
+/** 캐릭터 depth(진열장/아이템 위, 헤더/오버레이 아래). */
+const CHAR_DEPTH = 6;
+
+// ── 세로 HD(1080×2400) 게임플레이 보드 배치(에디터 크롬의 빈 중앙 밴드) ──
+/** 진열장 depth(배경 위, 헤더/사이드/하단메뉴 아래). 에디터 배경=depth1, 헤더=11~. */
+const SHELF_DEPTH = 2;
+const ITEM_DEPTH = 3;
+/** 진열장 하단 정렬 Y — 하단 메뉴(y≈2221) 위. */
+const BOARD_BOTTOM_Y = 2055;
+/** 진열장 세로 밴드 상한(초과 시 축소해 사이드 아이콘 행/하단 메뉴 침범 방지). */
+const BOARD_TARGET_H = 1440;
+
+// ── 에디터 "플레이 화면"(blank_copy2.json) 노드 id ──
+const P = {
+  bg: 'layer_1',
+  profile: 'layer_5', // 프로필창(프레임) — 안에 통합 아바타 렌더
+  lv: 'layer_3_copy', // "Lv 21"
+  timer: 'layer_3', // "02:30"
+  coin: 'layer_13_copy7', // "36,708"
+  settings: 'layer_8',
+  clock: 'layer_10_copy', // 02-1 시계(장식)
+  pause: 'layer_10_copy2', // 02-2 일시정지
+  // 하단 메뉴 5종
+  home: 'layer_10_copy3', // 02-3 홈
+  hint: 'layer_10_copy4', // 02-4 힌트
+  restart: 'layer_10_copy5', // 02-5 재시작
+  test: 'layer_10_copy6', // 02-6 테스트 5수
+  undo: 'layer_10_copy7', // 02-7 되돌리기(BACK)
+} as const;
 
 interface MoveAnim {
   kind: string;
@@ -53,9 +85,10 @@ export class StoreScene extends Phaser.Scene {
   // 진열장 종류별 상품 배치 보정(기존 이미지=GRID 원근값, 조립식=평면 0). buildShelf* 가 설정.
   private floorOffset = GRID.floorOffset;
   private rowOffsets: readonly number[] = GRID.rowOffset;
-  private scoreText!: Phaser.GameObjects.Text;
-  private timerText!: Phaser.GameObjects.Text;
-  private comboImg!: Phaser.GameObjects.Container;
+  private chrome?: LayoutIndex; // 에디터 플레이 화면(크롬) 인덱스
+  private timerText?: Phaser.GameObjects.Text; // 에디터 타이머 노드(동적 바인딩)
+  private lvText?: Phaser.GameObjects.Text; // 에디터 레벨 노드
+  private coinText?: Phaser.GameObjects.Text; // 에디터 코인 노드
   private timeLeft = 0;
   private timerEvent?: Phaser.Time.TimerEvent;
   private animating = false;
@@ -67,6 +100,7 @@ export class StoreScene extends Phaser.Scene {
   private loopRepeats = 0; // 새 상태 없이 연속 반복(되돌이)한 이동 수
   private autoPlaying = false; // 자동완성 진행 중(입력 차단)
   private replaying = false; // 승리 후 오버레이 뒤 배경 리플레이 중(입력 차단)
+  private replayMoves: SolveMove[] = []; // 승리 리플레이 전체 해법(1회 계산 후 마지막 N수만 반복)
   // 상품 텍스처별 불투명 영역(하단 여백·실제 폭·높이) 캐시 — 그림자 폭·바닥 부착용.
   private opaqueCache = new Map<string, { padBottom: number; width: number; height: number }>();
   private loadingSpinner?: Phaser.GameObjects.Container; // 로딩 스피너
@@ -82,6 +116,11 @@ export class StoreScene extends Phaser.Scene {
   }
 
   create(): void {
+    // 하트 게이트 — 0이면 진입 불가(실패로 소진 후 재시도 포함). 홈으로 복귀.
+    if (availableLives(loadProfile(), Date.now()) <= 0) {
+      this.scene.start('HomeScene');
+      return;
+    }
     this.animating = false;
     this.deadlockShowing = false;
     this.warned10 = false;
@@ -97,78 +136,214 @@ export class StoreScene extends Phaser.Scene {
     const emptyN = this.level.cells.filter((c) => c.length === 0).length;
     track('level_start', { level: this.levelIndex + 1, empty: emptyN, kinds: this.level.cells.length - emptyN });
 
-    // 배경(매장 내부)
-    if (this.textures.exists('bg_room')) placeCover(this, 'bg_room', GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT);
-    else this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, hex(COLORS.surfaceFloor));
+    // 에디터 "플레이 화면"(SSOT) = 배경 + 헤더(프로필/하트/코인/설정) + 타이머 + 사이드 아이콘 + 하단 메뉴.
+    // 진열장/아이템은 이 크롬의 빈 중앙 밴드에 코드로 그린다(네이티브 1080×2400).
+    this.buildChrome();
 
     this.ensureShadowTexture();
-    this.buildHud(this.level.timeSec ?? 0);
     this.buildShelf();
-    this.buildPowerups();
 
-    this.shelfLayer = this.add.container(0, 0);
+    this.shelfLayer = this.add.container(0, 0).setDepth(ITEM_DEPTH);
     this.render();
 
     if (this.level.timeSec) {
-      this.timeLeft = this.level.timeSec;
-      this.timerEvent = this.time.addEvent({ delay: 1000, loop: true, callback: () => this.onTick() });
+      this.timeLeft = this.level.timeSec; // 표시값은 즉시(HUD), 감소는 카운트다운 뒤부터.
+      // 타임어택 시작 예고 — 3·2·1 카운트다운(코어 공용) 후 타이머 개시.
+      void startCountdown(this).then(() => {
+        if (!this.scene.isActive()) return; // 카운트 중 씬 이탈 방어
+        this.timerEvent = this.time.addEvent({ delay: 1000, loop: true, callback: () => this.onTick() });
+      });
     }
 
     startBgm(this); // 배경음악 지속(씬 전환에도 끊기지 않음)
     sfx(this, 'sfx_level_start');
+    this.showStageIntro(); // 스테이지 진입 시 레벨 배너(다음 스테이지 이동 시 현재 레벨 표시)
   }
 
-  // ─── 이미지 배치 헬퍼(높이 기준 스케일) ───
-  private imgH(key: string, x: number, y: number, h: number): Phaser.GameObjects.Image {
-    const img = this.add.image(x, y, key).setOrigin(0.5);
-    const tex = img.texture.getSourceImage() as { width: number; height: number };
-    img.setScale(h / tex.height);
-    return img;
+  /** 레벨 시작(다음 스테이지 이동 포함) 시 "STAGE N" 배너를 잠깐 표시 후 사라짐. */
+  private showStageIntro(): void {
+    const c = this.add.container(this.scale.width / 2, this.scale.height * 0.3).setDepth(200);
+    c.add(strokeText(this, 0, -34, 'STAGE', 40, { strokeColor: COLORS.brandGreen, strokeWidth: 6 }).setOrigin(0.5));
+    c.add(strokeText(this, 0, 26, `${this.levelIndex + 1}`, 96, { strokeColor: COLORS.brandGreen, strokeWidth: 10 }).setOrigin(0.5));
+    c.setScale(0.6).setAlpha(0);
+    this.tweens.add({ targets: c, scale: 1, alpha: 1, duration: 320, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: c, alpha: 0, delay: 1150, duration: 500, onComplete: () => c.destroy() });
   }
 
-  // ─── 상단 HUD (UI 에셋 + 동적 숫자) ───
-  private buildHud(timeSec: number): void {
-    const y = 64;
-    // 상단 HUD 바 배경(나무톤)
-    capsule(this, 12, 28, GAME_WIDTH - 24, 78, '#f3d6a4', { radius: 26, outline: 5, outlineColor: '#e2b277', shadowAlpha: 0.18 });
-    // Lv 뱃지 (UI_01) + 레벨 숫자 오버레이
-    if (this.textures.exists('ui_lv')) {
-      this.imgH('ui_lv', 84, y, 52);
-      strokeText(this, 84, y, `Lv.${this.levelIndex + 1}`, 22, { color: '#ffffff', strokeWidth: 0 }).setOrigin(0.5);
-    }
-    // 타이머 (UI_02) + 시간 오버레이 (새 HUD에 맞춰 패치 제거 및 텍스트 위치 정렬)
-    if (this.textures.exists('ui_timer')) {
-      this.imgH('ui_timer', 300, y, 60);
-      const tx = 300 + 20; // 오른편 영역 보정
-      this.timerText = strokeText(this, tx, y, this.fmtTime(timeSec), 26, { color: '#5a3a1a', strokeWidth: 0 });
-      this.timerText.setOrigin(0.5);
-    }
-    // 점수(별) (UI_03) + 숫자 오버레이 (새 HUD에 맞춰 패치 제거 및 텍스트 위치 정렬)
-    if (this.textures.exists('ui_score')) {
-      this.imgH('ui_score', 500, y, 56);
-      const sx = 500 + 15; // 오른편 영역 보정
-      this.scoreText = strokeText(this, sx, y, '0', 24, { color: '#5a3a1a', strokeWidth: 0 });
-      this.scoreText.setOrigin(0.5);
+  // ─── 에디터 "플레이 화면"(SSOT 크롬) 렌더 + 동적 바인딩 ───
+  private buildChrome(): void {
+    const doc = this.cache.json.get(UI_PLAY_LAYOUT_KEY) as LayoutDoc | undefined;
+    if (doc?.nodes?.length) {
+      this.chrome = buildLayout(this, doc);
+      this.bindChrome();
     } else {
-      this.scoreText = strokeText(this, 500, y, '0', 24, { strokeColor: COLORS.brandGreen, strokeWidth: 5 }).setOrigin(0.5);
+      // 레이아웃 로드 실패 방어 — 배경색만(화면 비지 않게).
+      this.add
+        .rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, hex(COLORS.surfaceFloor))
+        .setDepth(0);
     }
-    // 일시정지 (UI_04) → 홈
-    if (this.textures.exists('ui_pause')) {
-      const p = this.imgH('ui_pause', 672, y, 56);
-      p.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
-        sfx(this, 'sfx_button_tap');
-        this.scene.start('HomeScene');
+  }
+
+  private bindChrome(): void {
+    const c = this.chrome;
+    if (!c) return;
+    // 통합 프로필 — 에디터 저작 디자인(배경+아바타) 적용. 플레이 레이아웃 미갱신 시 코드로 보강.
+    const playDoc = this.cache.json.get(UI_PLAY_LAYOUT_KEY) as LayoutDoc | undefined;
+    if (playDoc) applyProfile(this, c, playDoc, P.profile, loadProfile().avatarKey ?? DEFAULT_AVATAR_KEY);
+    // 정적 수치: 레벨 · 코인.
+    this.lvText = c.tryById<Phaser.GameObjects.Text>(P.lv);
+    this.lvText?.setText(`Lv ${this.levelIndex + 1}`);
+    this.coinText = c.tryById<Phaser.GameObjects.Text>(P.coin);
+    this.coinText?.setText(loadProfile().coins.toLocaleString());
+    // 타이머(동적) — 에디터 텍스트 노드 재사용.
+    this.timerText = c.tryById<Phaser.GameObjects.Text>(P.timer);
+    this.timerText?.setText(this.fmtTime(this.level.timeSec ?? 0));
+
+    // 설정 기어 · 일시정지 → 공용 메뉴(계속/사운드/홈).
+    this.wireBtn(P.settings, () => this.openMenu());
+    this.wireBtn(P.pause, () => this.openMenu());
+    // 하단 메뉴 5종.
+    this.wireBtn(P.home, () => { sfx(this, 'sfx_button_tap'); this.scene.start('HomeScene'); });
+    this.wireBtn(P.hint, () => this.useHint());
+    this.wireBtn(P.restart, () => { sfx(this, 'sfx_button_tap'); this.scene.start('StoreScene', { levelIndex: this.levelIndex }); });
+    this.wireBtn(P.test, () => this.useTestHint());
+    this.wireBtn(P.undo, () => this.useUndo());
+
+    // 힌트·되돌리기 잔여 수 뱃지(에디터 아이콘 우하단).
+    const p = loadProfile();
+    this.hintText = this.badge(P.hint, String(p.powerups.hint ?? 0));
+    this.undoText = this.badge(P.undo, String(p.powerups.undo ?? 0));
+  }
+
+  /** 에디터 노드 위에 탭 존 + 눌림 연출을 얹는다(히트 영역 = 노드 표시 크기). */
+  private wireBtn(id: string, onClick: () => void): void {
+    const node = this.chrome?.nodeById(id);
+    const obj = this.chrome?.tryById<LayoutObject>(id) as
+      | (LayoutObject & { x: number; y: number; scaleX: number; scaleY: number; setScale: (x: number, y?: number) => unknown })
+      | undefined;
+    if (!node || !obj) return;
+    this.add
+      .zone(obj.x, obj.y, node.w ?? 100, node.h ?? 100)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(90)
+      .on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, ev?: Phaser.Types.Input.EventData) => {
+        ev?.stopPropagation?.();
+        const sx = obj.scaleX;
+        const sy = obj.scaleY;
+        this.tweens.killTweensOf(obj);
+        obj.setScale(sx, sy);
+        this.tweens.add({ targets: obj, scaleX: sx * 0.9, scaleY: sy * 0.9, duration: 90, yoyo: true, ease: 'Quad.easeOut' });
+        onClick();
       });
+  }
+
+  /** 에디터 아이콘 우하단 카운트 뱃지(힌트·되돌리기 잔여 수). */
+  private badge(id: string, value: string): Phaser.GameObjects.Text | undefined {
+    const node = this.chrome?.nodeById(id);
+    if (!node) return undefined;
+    const bx = node.x + (node.w ?? 100) / 2 - 14;
+    const by = node.y + (node.h ?? 100) / 2 - 14;
+    this.add.circle(bx, by, 24, hex(COLORS.brandGreen)).setDepth(48).setStrokeStyle(3, 0xffffff);
+    return strokeText(this, bx, by, value, 26, { strokeWidth: 0 }).setOrigin(0.5).setDepth(49);
+  }
+
+  // ─── 일시정지 메뉴 — 에디터 "팝업 메뉴표시"(blank_3_copy_copy) SSOT. 버튼은 이미지 키로 매핑(순서 무관). ───
+  private openMenu(): void {
+    if (this.timerEvent) this.timerEvent.paused = true;
+    sfx(this, 'sfx_popup_open');
+    const doc = this.cache.json.get(UI_MENU_LAYOUT_KEY) as LayoutDoc | undefined;
+    if (!doc?.nodes?.length) { this.openMenuLegacy(); return; } // 방어: 레이아웃 미로드 시 코드 메뉴
+
+    const w = this.scale.width;
+    const h = this.scale.height;
+    const layer = this.add.container(0, 0).setDepth(250);
+    layer.add(this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.6).setInteractive());
+    const rl = renderLayoutFit(this, doc, 251);
+    layer.add(rl.container);
+
+    const resume = (): void => {
+      sfx(this, 'sfx_popup_close');
+      if (this.timerEvent && this.state.status === 'playing') this.timerEvent.paused = false;
+      layer.destroy();
+    };
+    const reopen = (): void => { layer.destroy(); this.openMenu(); };
+
+    // 버튼 이미지 키 → 동작(노드 id·배치 순서 변경에 무관).
+    const actions: Record<string, () => void> = {
+      'up_UI_profile_04-3': resume, // ▶ CONTINUE
+      'up_UI_profile_04-1': () => { setSfxEnabled(!isSfxOn()); reopen(); }, // 🔔 SFX
+      'up_UI_profile_04-2': () => { setBgmEnabled(this, !isBgmOn()); reopen(); }, // 🎵 BGM
+      'up_UI_profile_04-4': () => { sfx(this, 'sfx_button_tap'); this.scene.start('HomeScene'); }, // 🏠 HOME
+    };
+    // 토글 OFF 상태는 흐리게 — 현재 켜짐/꺼짐 피드백(에셋은 단일 상태 이미지라 알파로 표현).
+    const dimmed: Record<string, boolean> = {
+      'up_UI_profile_04-1': !isSfxOn(),
+      'up_UI_profile_04-2': !isBgmOn(),
+    };
+
+    for (const n of doc.nodes) {
+      if (n.type !== 'image' || !n.key) continue;
+      const obj = rl.index.tryById<Phaser.GameObjects.Image>(n.id);
+      if (obj && dimmed[n.key]) obj.setAlpha(0.45);
+      const onClick = actions[n.key];
+      const rect = rl.worldRect(n.id);
+      if (!onClick || !rect) continue;
+      const zone = this.add
+        .zone(rect.x, rect.y, rect.w, rect.h)
+        .setInteractive({ useHandCursor: true })
+        .setDepth(252)
+        .on('pointerdown', () => {
+          if (obj) {
+            const bx = obj.scaleX;
+            const by = obj.scaleY;
+            this.tweens.killTweensOf(obj);
+            this.tweens.add({ targets: obj, scaleX: bx * 0.9, scaleY: by * 0.9, duration: 90, yoyo: true, ease: 'Quad.easeOut' });
+          }
+          onClick();
+        });
+      layer.add(zone); // layer 파괴 시 존도 함께 제거
     }
-    // 콤보 (UI_05) — combo>1 일 때 표시
-    this.comboImg = this.add.container(GAME_WIDTH / 2, 134).setVisible(false);
-    if (this.textures.exists('ui_combo')) {
-      const c = this.add.image(0, 0, 'ui_combo').setOrigin(0.5);
-      const tex = c.texture.getSourceImage() as { width: number; height: number };
-      c.setScale(46 / tex.height);
-      const label = strokeText(this, 0, -1, '', 22, { color: '#ffffff', strokeWidth: 0 }).setOrigin(0.5).setName('lbl');
-      this.comboImg.add([c, label]);
-    }
+  }
+
+  // ─── (폴백) 코드 드로우 일시정지 메뉴 — 에디터 레이아웃 미로드 시. ───
+  private openMenuLegacy(): void {
+    if (this.timerEvent) this.timerEvent.paused = true;
+    sfx(this, 'sfx_popup_open');
+    const w = this.scale.width;
+    const h = this.scale.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const layer = this.add.container(0, 0).setDepth(250);
+    layer.add(this.add.rectangle(cx, cy, w, h, 0x000000, 0.6).setInteractive());
+    const pg = this.add.graphics();
+    pg.fillStyle(0xffffff, 1);
+    pg.fillRoundedRect(cx - 330, cy - 380, 660, 760, 32);
+    layer.add(pg);
+    layer.add(strokeText(this, cx, cy - 280, '일시정지', 46, { strokeColor: COLORS.brandGreen, strokeWidth: 7 }).setOrigin(0.5));
+    const resume = (): void => {
+      sfx(this, 'sfx_popup_close');
+      if (this.timerEvent && this.state.status === 'playing') this.timerEvent.paused = false;
+      layer.destroy();
+    };
+    const reopen = (): void => { layer.destroy(); this.openMenu(); };
+    this.menuBtn(layer, cx, cy - 130, 400, 100, '▶ 계속하기', COLORS.brandGreen, resume);
+    this.menuBtn(layer, cx, cy - 10, 400, 100, isBgmOn() ? '🎵 배경음악 ON' : '🎵 배경음악 OFF', isBgmOn() ? COLORS.gemBlue : COLORS.surfaceWood, () => { setBgmEnabled(this, !isBgmOn()); reopen(); });
+    this.menuBtn(layer, cx, cy + 110, 400, 100, isSfxOn() ? '🔔 효과음 ON' : '🔔 효과음 OFF', isSfxOn() ? COLORS.gemBlue : COLORS.surfaceWood, () => { setSfxEnabled(!isSfxOn()); reopen(); });
+    this.menuBtn(layer, cx, cy + 250, 400, 100, '🏠 홈으로', COLORS.stateWarn, () => { sfx(this, 'sfx_button_tap'); this.scene.start('HomeScene'); });
+  }
+
+  private menuBtn(layer: Phaser.GameObjects.Container, cx: number, cy: number, w: number, h: number, label: string, fill: string, onClick: () => void): void {
+    const g = this.add.graphics();
+    g.fillStyle(hex(fill), 1);
+    g.fillRoundedRect(cx - w / 2, cy - h / 2, w, h, 22);
+    layer.add(g);
+    layer.add(strokeText(this, cx, cy, label, 30, { strokeWidth: 0 }).setOrigin(0.5));
+    layer.add(
+      this.add
+        .zone(cx, cy, w, h)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => { sfx(this, 'sfx_button_tap'); onClick(); }),
+    );
   }
 
   private fmtTime(sec: number): string {
@@ -178,14 +353,10 @@ export class StoreScene extends Phaser.Scene {
   }
 
   private updateHud(): void {
-    this.scoreText.setText(String(this.state.score));
     if (this.timerText) {
       this.timerText.setText(this.fmtTime(this.timeLeft));
-      this.timerText.setColor(this.timeLeft <= 10 ? '#e63946' : '#5a3a1a');
+      this.timerText.setColor(this.timeLeft <= 10 ? '#e63946' : '#ffffff');
     }
-    const on = this.state.combo > 1;
-    this.comboImg.setVisible(on);
-    if (on) (this.comboImg.getByName('lbl') as Phaser.GameObjects.Text)?.setText(`Combo x${this.state.combo}`);
   }
 
   private onTick(): void {
@@ -202,9 +373,11 @@ export class StoreScene extends Phaser.Scene {
       this.state = markLost(this.state);
       this.timerEvent?.remove();
       track('level_fail', { level: this.levelIndex + 1, score: this.state.score });
-      saveProfile(recordResult(loadProfile(), this.levelIndex + 1, this.state.score, false));
+      // 실패 시 하트 1개 차감(진입 시엔 소모하지 않음). 실패 기록도 함께 저장.
+      const failed = recordResult(loadProfile(), this.levelIndex + 1, this.state.score, false);
+      saveProfile(consumeLife(failed, Date.now()) ?? failed);
       sfx(this, 'sfx_level_fail');
-      this.showOverlay('시간 초과', COLORS.stateWarn, '');
+      this.showLosePopup();
     }
   }
 
@@ -218,33 +391,33 @@ export class StoreScene extends Phaser.Scene {
     const tex = this.textures.exists(shelfKey)
       ? (this.textures.get(shelfKey).getSourceImage() as { width: number; height: number })
       : null;
-    const layout = computeShelfLayout(this.level, GAME_WIDTH, tex);
+    const layout = computeShelfLayout(this.level, this.scale.width, tex);
 
     if (tex) {
-      this.add.image(layout.shelfCx, layout.shelfCy, shelfKey).setDisplaySize(layout.shelfW, layout.shelfH);
+      this.add.image(layout.shelfCx, layout.shelfCy, shelfKey).setDisplaySize(layout.shelfW, layout.shelfH).setDepth(SHELF_DEPTH);
     } else {
-      this.add.rectangle(layout.shelfCx, layout.shelfCy, layout.shelfW, layout.shelfH, hex(COLORS.surfaceWood), 0.9);
+      this.add.rectangle(layout.shelfCx, layout.shelfCy, layout.shelfW, layout.shelfH, hex(COLORS.surfaceWood), 0.9).setDepth(SHELF_DEPTH);
     }
     this.cellGeom = layout.cells;
     this.drawDebugCells();
   }
 
-  // ─── 조립식 진열장(9-slice 부품, shelfAssembly) — 레벨1 ───
+  // ─── 조립식 진열장(9-slice 부품, shelfAssembly) — 에디터 플레이 화면 중앙 밴드에 네이티브 배치 ───
   private buildShelfFromParts(): void {
     const cols = this.level.cols ?? 3;
     const rows = this.level.rows ?? 3; // 연결 베이스 play 행
     const displayRows = this.level.displayRows ?? 0; // 전시행(필요 레벨만)
     const bumps = this.level.bumps ?? []; // 열별 상단 돌출(요철)
-    // 하단(sBottom) 정렬 + 세로 밴드 맞춤 → 행수 2→6 이 하단부터 위로 성장(6행도 밴드 초과 안 함).
-    const targetH = GRID.sBottom - GRID.sTop;
-    const asm = assembleShelf(cols, rows, GAME_WIDTH * 0.95 - 10, GAME_WIDTH / 2, GRID.sBottom, displayRows, bumps, targetH);
+    // 하단(BOARD_BOTTOM_Y) 정렬 + 세로 밴드(BOARD_TARGET_H) 맞춤 → 행수 2→6 이 하단부터 위로 성장.
+    // 폭·세로 중 작은 스케일을 assembleShelf 가 고르므로 6행도 밴드 초과 안 함(1080 폭 네이티브).
+    const asm = assembleShelf(cols, rows, this.scale.width * 0.95 - 10, this.scale.width / 2, BOARD_BOTTOM_Y, displayRows, bumps, BOARD_TARGET_H);
 
     for (const p of asm.parts) {
       if (this.textures.exists(p.key)) {
         // +2px 블리드(겹침): 고해상도 스케일업 시 부품 사이 헤어라인 seam 방지.
-        this.add.image(p.cx, p.cy, p.key).setDisplaySize(p.w + 2, p.h + 2);
+        this.add.image(p.cx, p.cy, p.key).setDisplaySize(p.w + 2, p.h + 2).setDepth(SHELF_DEPTH);
       } else {
-        this.add.rectangle(p.cx, p.cy, p.w, p.h, hex(COLORS.surfaceWood), 0.9).setStrokeStyle(2, 0x000000, 0.15);
+        this.add.rectangle(p.cx, p.cy, p.w, p.h, hex(COLORS.surfaceWood), 0.9).setStrokeStyle(2, 0x000000, 0.15).setDepth(SHELF_DEPTH);
       }
     }
     this.cellGeom = asm.cells; // 게임 칸 = 돌출 칸 + 베이스 play 칸(전시행 제외)
@@ -263,7 +436,7 @@ export class StoreScene extends Phaser.Scene {
     cells.forEach((cell, i) => {
       const key = keys[i % keys.length]!;
       if (!this.textures.exists(key)) return;
-      const img = this.add.image(cell.cx, cell.cy + cell.h / 2, key).setOrigin(0.5, 1);
+      const img = this.add.image(cell.cx, cell.cy + cell.h / 2, key).setOrigin(0.5, 1).setDepth(SHELF_DEPTH);
       const tex = img.texture.getSourceImage() as { width: number; height: number };
       img.setScale(Math.min((cell.w * widthFrac) / tex.width, (cell.h * 0.92) / tex.height));
     });
@@ -362,63 +535,7 @@ export class StoreScene extends Phaser.Scene {
     return result;
   }
 
-  // ─── 하단 파워업 바 ───
-  private buildPowerups(): void {
-    const y = GAME_HEIGHT - 80;
-    if (this.textures.exists('bar')) {
-      const bar = this.add.image(GAME_WIDTH / 2, y, 'bar').setOrigin(0.5);
-      const tex = bar.texture.getSourceImage() as { width: number; height: number };
-      bar.setScale((GAME_WIDTH - 24) / tex.width);
-    } else {
-      capsule(this, 12, y - 60, GAME_WIDTH - 24, 120, '#fdeccf', { radius: 28 });
-    }
-    const slotXs = [110, 290, 450, 610];
-    const profile = loadProfile();
-    slotXs.forEach((sx, i) => {
-      if (this.textures.exists('ui_reward_box')) {
-        this.imgH('ui_reward_box', sx, y, 108);
-      } else {
-        capsule(this, sx - 64, y - 60, 128, 120, '#fff4df', { radius: 20, outline: 3, outlineColor: '#e7c79a' });
-      }
-      if (i === 0) {
-        // 힌트 부스터(💡) — 탭 시 다음에 둘 아이템을 표시(제거 없음).
-        strokeText(this, sx, y - 6, '💡', 56, { strokeWidth: 0 }).setOrigin(0.5);
-        this.add.circle(sx + 36, y + 36, 18, hex(COLORS.brandGreen));
-        this.hintText = strokeText(this, sx + 36, y + 36, String(profile.powerups.hint), 18, { strokeWidth: 0 }).setOrigin(0.5);
-        this.add
-          .zone(sx, y, 128, 120)
-          .setInteractive({ useHandCursor: true })
-          .on('pointerdown', () => this.useHint());
-      } else if (i === 1) {
-        // 🔄 다시 시작 — 현재 레벨 재시작(시드 고정이라 같은 문제).
-        strokeText(this, sx, y - 6, '🔄', 52, { strokeWidth: 0 }).setOrigin(0.5);
-        this.add
-          .zone(sx, y, 128, 120)
-          .setInteractive({ useHandCursor: true })
-          .on('pointerdown', () => {
-            sfx(this, 'sfx_button_tap');
-            this.scene.start('StoreScene', { levelIndex: this.levelIndex });
-          });
-      } else if (i === 2) {
-        // 🧪 테스트 힌트 — 5수 연속 실행
-        strokeText(this, sx, y - 6, '🧪', 52, { strokeWidth: 0 }).setOrigin(0.5);
-        strokeText(this, sx, y + 36, '테스트 5수', 16, { color: '#5a3a1a', strokeWidth: 0 }).setOrigin(0.5);
-        this.add
-          .zone(sx, y, 128, 120)
-          .setInteractive({ useHandCursor: true })
-          .on('pointerdown', () => this.useTestHint());
-      } else if (i === 3) {
-        // 🔙 되돌리기(Undo) 부스터 — 직전 상태로 복원
-        strokeText(this, sx, y - 6, '🔙', 52, { strokeWidth: 0 }).setOrigin(0.5);
-        this.add.circle(sx + 36, y + 36, 18, hex(COLORS.brandGreen));
-        this.undoText = strokeText(this, sx + 36, y + 36, String(profile.powerups.undo ?? 0), 18, { strokeWidth: 0 }).setOrigin(0.5);
-        this.add
-          .zone(sx, y, 128, 120)
-          .setInteractive({ useHandCursor: true })
-          .on('pointerdown', () => this.useUndo());
-      }
-    });
-  }
+  // (하단 파워업/HUD는 에디터 "플레이 화면" 크롬으로 대체됨 — bindChrome 참고.)
 
   // ─── 진열장 셀에 아이템 렌더 (suppress: 이동 애니 중 숨길 'ci:slot') ───
   private render(suppress?: Set<string>): void {
@@ -573,12 +690,12 @@ export class StoreScene extends Phaser.Scene {
     const currentUndo = p.powerups.undo ?? 0;
     if (currentUndo <= 0) {
       sfx(this, 'sfx_item_invalid');
-      this.toast('되돌리기 아이템이 부족합니다.');
+      this.toast('되돌리기 아이템을 모두 사용했어요');
       return;
     }
     if (this.historyStateStack.length === 0) {
       sfx(this, 'sfx_item_invalid');
-      this.toast('되돌릴 기록이 없습니다.');
+      this.toast('되돌릴 이동이 없어요');
       return;
     }
     const prevState = this.historyStateStack.pop();
@@ -604,7 +721,7 @@ export class StoreScene extends Phaser.Scene {
       const moves = solveFullPath(board, this.level.capacity);
       if (!moves || moves.length === 0) {
         sfx(this, 'sfx_item_invalid');
-        this.toast('풀 수 있는 해법이 없습니다.');
+        this.toast('지금은 추천할 이동이 없어요');
         return;
       }
       sfx(this, 'sfx_hammer_select'); // 힌트 작동음
@@ -733,13 +850,13 @@ export class StoreScene extends Phaser.Scene {
       saveProfile(addCoins(recordResult(loadProfile(), this.levelIndex + 1, this.state.score, true), earned));
       sfx(this, 'sfx_level_clear');
       this.time.delayedCall(450, () => sfx(this, 'sfx_star')); // 별 획득 연출
-      this.showOverlay('정리 완료!', COLORS.stateWin, `+🪙 ${earned}`);
+      this.showWinPopup(earned);
       // 오버레이 뒤 배경 매칭 리플레이(무음). tween 지연 사용(게임루프 밖 호출에도 확실히 발화).
       this.tweens.addCounter({ from: 0, to: 1, duration: 700, onComplete: () => this.startWinReplay() });
     } else if (!this.deadlockShowing && this.isStuck()) {
-      this.deadlockShowing = true;
+      // 데드락 = 자동 셔플(풀이가능 보드로 재배치) — 새 팝업 세트는 승/패 2종뿐이라 팝업 대신 무중단 처리.
       track('deadlock', { level: this.levelIndex + 1 });
-      this.showDeadlock();
+      this.autoShuffle();
     }
   }
 
@@ -843,24 +960,42 @@ export class StoreScene extends Phaser.Scene {
     step(0);
   }
 
-  // ─── 승리 후 배경 리플레이: 초기 상태부터 해법 자동 재생(반복·무음·입력차단), 오버레이 뒤에서 ───
+  // ─── 승리 후 배경 리플레이: **마지막 마감 장면(마지막 N수)만** 반복 재생(무음·입력차단), 오버레이 뒤 ───
   private startWinReplay(): void {
     if (this.replaying) return;
     this.replaying = true;
-    this.beginReplayCycle();
-  }
-
-  /** 한 사이클: 초기 상태로 리셋 → 전체 해법 수순 생성 → 순차 재생. */
-  private beginReplayCycle(): void {
-    if (!this.replaying) return;
-    this.state = createState(this.level); // 처음부터
-    this.render();
-    const moves = this.buildReplayMoves();
-    if (moves.length === 0) {
+    this.replayMoves = this.buildReplayMoves(); // 전체 해법 1회 계산 → 사이클마다 재사용(마지막 N수만 재생)
+    if (this.replayMoves.length === 0) {
       this.replaying = false; // 해법 못 만들면 리플레이 생략
       return;
     }
-    this.replayStep(moves, 0);
+    this.beginReplayCycle();
+  }
+
+  /** 한 사이클: 마지막 N수 직전 상태까지 즉시 진행(무애니) → 마지막 N수만 애니메이션 재생. */
+  private beginReplayCycle(): void {
+    if (!this.replaying) return;
+    const all = this.replayMoves;
+    const tail = Math.min(WIN_REPLAY_TAIL, all.length);
+    const head = all.length - tail;
+    // 초기 상태에서 head 수를 즉시 적용 → 마감 직전(마지막 N수 시작) 상태로 세팅.
+    let s = createState(this.level);
+    for (let i = 0; i < head; i++) s = this.applyMoveInstant(s, all[i]!);
+    this.state = s;
+    this.render();
+    this.replayStep(all.slice(head), 0);
+  }
+
+  /** 이동 하나를 즉시(무애니) 상태에 적용 — 리플레이 마감 직전 상태로 빠르게 감기. 어긋나면 원상태 유지. */
+  private applyMoveInstant(state: StoreState, mv: SolveMove): StoreState {
+    const fromCell = state.cells[mv.from];
+    let r = -1;
+    if (fromCell) for (let s = fromCell.slots.length - 1; s >= 0; s--) if (fromCell.slots[s] !== null) { r = s; break; }
+    if (r === -1) return state;
+    const sel: SlotRef = { cell: mv.from, slot: r };
+    const withSel = { ...state, selected: sel };
+    if (!canPlace(withSel, sel, mv.to)) return state;
+    return tap(withSel, mv.to, 0, this.level);
   }
 
   /** 초기 상태부터 전체 해법 수순 생성(휴리스틱 DFS 풀경로). 못 풀면 빈 배열 → 리플레이 생략. */
@@ -903,7 +1038,7 @@ export class StoreScene extends Phaser.Scene {
   // ─── 로딩 스피너 UI ───
   private showLoadingSpinner(): void {
     if (this.loadingSpinner) return;
-    const spinner = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2).setDepth(100);
+    const spinner = this.add.container(this.scale.width / 2, this.scale.height / 2).setDepth(260);
     const circle = this.add.graphics();
     circle.lineStyle(6, 0xffffff, 0.8);
     circle.strokeCircle(0, 0, 30);
@@ -923,15 +1058,24 @@ export class StoreScene extends Phaser.Scene {
     this.loadingSpinner = undefined;
   }
 
-  /** 하단 토스트 메시지(1.8s 후 페이드 아웃). */
+  /** 메시지 토스트 — 에디터 "빈 화면"(blank_4) SSOT 로 표시. 레이아웃 미로드 시 코드 폴백. */
   private toast(msg: string): void {
-    const c = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT - 260).setDepth(300);
+    if (showMessagePopup(this, UI_MSG_LAYOUT_KEY, msg)) return;
+    this.toastFallback(msg);
+  }
+
+  /** 코드 폴백 토스트(레이아웃 미로드 방어) — 상단 배치, 폰트·배경폭 메시지 적응, ~3s 후 페이드. */
+  private toastFallback(msg: string): void {
+    const label = strokeText(this, 0, 0, msg, 30, { color: COLORS.textWhite, strokeWidth: 0 }).setOrigin(0.5);
+    const halfW = Math.max(300, Math.ceil(label.width / 2) + 44);
+    const y = this.timerText ? this.timerText.getBounds().bottom + 72 : 460;
+    const c = this.add.container(this.scale.width / 2, y).setDepth(300);
     const bg = this.add.graphics();
     bg.fillStyle(hex(COLORS.hudText), 1);
-    bg.fillRoundedRect(-290, -34, 580, 68, 18);
+    bg.fillRoundedRect(-halfW, -40, halfW * 2, 80, 20);
     c.add(bg);
-    c.add(strokeText(this, 0, -10, msg, 20, { color: COLORS.textWhite, strokeWidth: 0 }).setOrigin(0.5));
-    this.tweens.add({ targets: c, alpha: 0, delay: 1800, duration: 600, onComplete: () => c.destroy() });
+    c.add(label);
+    this.tweens.add({ targets: c, alpha: 0, delay: 2400, duration: 600, onComplete: () => c.destroy() });
   }
 
   /**
@@ -944,16 +1088,18 @@ export class StoreScene extends Phaser.Scene {
     return !hasLegalMove(this.state) || this.loopRepeats >= LOOP_REPEAT_LIMIT;
   }
 
-  // ─── 데드락: 셔플 유도(오버레이는 storeOverlays) ───
-  private showDeadlock(): void {
-    showDeadlockOverlay(this, {
-      onShuffle: () => this.shuffle(),
-      onRetry: () => this.scene.start('StoreScene', { levelIndex: this.levelIndex }),
+  // ─── 데드락: 확인(OK) 후 셔플(풀이가능 보드로 재배치) — 즉시 정리하지 않고 플레이어 확인을 받는다 ───
+  private autoShuffle(): void {
+    this.deadlockShowing = true; // 확인 대기·셔플 중 재진입 방지
+    if (this.timerEvent) this.timerEvent.paused = true; // 확인 대기 중 타이머 정지(무이동 데드락 상태)
+    showConfirmPopup(this, UI_MSG_LAYOUT_KEY, '옮길 곳이 없어 진열대를 다시 정리해요', 'UI_btn_01', () => {
+      if (this.timerEvent && this.state.status === 'playing') this.timerEvent.paused = false;
+      this.shuffle();
     });
   }
 
   private shuffle(): void {
-    this.deadlockShowing = false; // 팝업 닫혔으니 플래그 해제
+    this.deadlockShowing = false; // 셔플 완료 → 가드 해제
     track('shuffle', { level: this.levelIndex + 1 });
     const positions: Array<{ c: number; s: number }> = [];
     const flat: string[] = [];
@@ -996,17 +1142,29 @@ export class StoreScene extends Phaser.Scene {
     this.updateHud();
   }
 
-  // ─── 승/패 오버레이(오버레이는 storeOverlays) ───
-  private showOverlay(title: string, color: string, subtitle: string): void {
-    showResultOverlay(this, {
-      title,
-      color,
-      subtitle,
-      score: this.state.score,
-      isWin: title === '정리 완료!',
-      onRetry: () => this.scene.start('StoreScene', { levelIndex: this.levelIndex }),
-      onHome: () => this.scene.start('HomeScene'),
-      onNext: () => this.scene.start('StoreScene', { levelIndex: this.levelIndex + 1 }),
+  // ─── 결과 팝업(에디터 SSOT: 성공=blank_3 / 실패=blank_3_copy) ───
+  /** 승리 팝업 — RETRY/HOME/NEXT. 점수·획득 코인 바인딩. 배경 딤 옅게(뒤 리플레이 노출). */
+  private showWinPopup(earned: number): void {
+    showResultPopup(this, UI_WIN_LAYOUT_KEY, {
+      backdropAlpha: 0.35,
+      binds: { layer_4: `점수 ${this.state.score}`, layer_4_copy: `+${earned}` },
+      buttons: {
+        layer_2_copy: () => this.scene.start('StoreScene', { levelIndex: this.levelIndex }), // RETRY
+        layer_2: () => this.scene.start('HomeScene'), // HOME
+        layer_2_copy2: () => this.scene.start('StoreScene', { levelIndex: this.levelIndex + 1 }), // NEXT
+      },
+    });
+  }
+
+  /** 실패 팝업 — RETRY/HOME. 점수 바인딩. */
+  private showLosePopup(): void {
+    showResultPopup(this, UI_LOSE_LAYOUT_KEY, {
+      backdropAlpha: 0.55,
+      binds: { layer_4: `점수 ${this.state.score}` },
+      buttons: {
+        layer_2_copy: () => this.scene.start('StoreScene', { levelIndex: this.levelIndex }), // RETRY
+        layer_2: () => this.scene.start('HomeScene'), // HOME
+      },
     });
   }
 }

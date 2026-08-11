@@ -2,7 +2,7 @@
   "screens": [
     {
       "id": "blank",
-      "name": "진입화면",
+      "name": "게임로비",
       "file": "ui/layouts/blank.json",
       "category": "custom"
     },
@@ -10,6 +10,42 @@
       "id": "blank_copy",
       "name": "팝업화면",
       "file": "ui/layouts/blank_copy.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_2",
+      "name": "로딩화면",
+      "file": "ui/layouts/blank_2.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_copy2",
+      "name": "플레이 화면",
+      "file": "ui/layouts/blank_copy2.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_3",
+      "name": "팝업 성공",
+      "file": "ui/layouts/blank_3.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_3_copy",
+      "name": "팝업 실패",
+      "file": "ui/layouts/blank_3_copy.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_3_copy_copy",
+      "name": "팝업 메뉴표시",
+      "file": "ui/layouts/blank_3_copy_copy.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank_4",
+      "name": "빈 화면",
+      "file": "ui/layouts/blank_4.json",
       "category": "custom"
     }
   ]
