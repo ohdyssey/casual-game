@@ -225,7 +225,7 @@ export class GameScene extends Phaser.Scene {
       const openX = this.bulletSprite.x;
       const openY = this.bulletSprite.y;
 
-      // 좌우 벽 거울 반사 — 조준선 예측(traceTrajectory)과 동일 함수 사용.
+      // 좌우 벽 거울 반사 — 입사각=반사각, 경로 길이 보존(reflect.ts).
       const r = advanceWithReflection(
         openX, openY,
         this.bvx / SHOOT_SPEED, this.bvy / SHOOT_SPEED,
@@ -299,7 +299,16 @@ export class GameScene extends Phaser.Scene {
     this.shoot(ptr.x, ptr.y);
   }
 
-  // ── 조준선 ─────────────────────────────────────────────────────────────────
+  // ── 조준 가이드 (벽 반사 경로) ───────────────────────────────────────────────
+  /**
+   * 발사 가이드 — 실제 비행(update)과 '동일한' advanceWithReflection 스텝으로
+   * 경로를 추적해 화면 양 끝(공 표면이 x=0 / x=720 에 닿는 지점)에서의 거울
+   * 반사를 정확히 그린다. 벽 반사 지점을 마커로 강조한다.
+   *
+   * 단, 착지 셀 타겟 원(레티클)은 그리지 않는다 → 반사 경로는 정확히 보여주되
+   * 최종 도착 칸은 미리 지정하지 않는다. 그리드 버블에 접촉하거나 천장에 닿는
+   * 순간 추적을 멈춘다(버블을 관통해 그리지 않음).
+   */
   private drawAimLine(tx: number, ty: number): void {
     this.aimGfx.clear();
     const dx = tx - LAUNCH_X;
@@ -307,24 +316,36 @@ export class GameScene extends Phaser.Scene {
     const len = Math.hypot(dx, dy);
     if (len < 10) return;
 
-    // 실제 발사 물리와 동일한 궤적 추적 (그리드 충돌·천장에서 정지)
-    const trace = this.traceTrajectory(dx / len, dy / len);
-
-    // 특수 버블 조준선 색상
+    // 특수 버블 조준 색상
     const dotColor = this.currentColor === BOMB_COLOR    ? 0xff6633
                    : this.currentColor === RAINBOW_COLOR ? 0xffee55
                    : tintForColor(this.currentColor);
 
-    const pts = trace.points;
-    for (let i = 0; i < pts.length; i++) {
-      const { x, y, bounce } = pts[i];
-      const t = i / pts.length;
-      if (bounce) {
-        // 벽 반사 지점 마커
-        this.aimGfx.fillStyle(dotColor, 0.9);
-        this.aimGfx.fillCircle(x, y, 9);
-      }
-      // 거리에 따라 점감하는 글로우 점
+    // 표시용 점을 먼저 수집(거리 기반 페이드를 위해 총 개수 필요).
+    const dots: { x: number; y: number }[] = [];
+    const bounces: { x: number; y: number }[] = [];
+    let vx = dx / len;
+    let vy = dy / len;
+    let px = LAUNCH_X;
+    let py = LAUNCH_Y;
+
+    for (let i = 0; i < 600; i++) {
+      // 실시간 비행과 완전히 동일한 거울 반사 스텝(화면 끝 반사 = 실제와 일치).
+      const r = advanceWithReflection(px, py, vx, vy, MOVE_STEP, WALL_BOUNDS);
+      px = r.x; py = r.y; vx = r.ux; vy = r.uy;
+
+      // 천장 또는 그리드 버블 접촉 → 반사 경로만 그리고 종료(도착 칸 미표시).
+      if (py <= GRID_TOP_Y) break;
+      if (this.collisionAt(px, py)) break;
+
+      if (r.bounced) bounces.push({ x: r.contactX, y: r.contactY });
+      if (i % 3 === 0) dots.push({ x: px, y: py }); // 24px 간격 샘플
+    }
+
+    // 경로 점 — 발사구에서 멀수록 점점 흐려지는 글로우 점.
+    for (let i = 0; i < dots.length; i++) {
+      const { x, y } = dots[i];
+      const t = i / Math.max(1, dots.length);
       const fade = 0.7 * (1 - t * 0.6);
       const radius = 6 * (1 - t * 0.4);
       this.aimGfx.fillStyle(dotColor, fade * 0.4);
@@ -333,65 +354,13 @@ export class GameScene extends Phaser.Scene {
       this.aimGfx.fillCircle(x, y, radius);
     }
 
-    // 실제 착지 예상 셀에 타겟 레티클 (없으면 궤적 끝점)
-    let rx: number;
-    let ry: number;
-    if (trace.land) {
-      const w = cellToWorld(trace.land[0], trace.land[1]);
-      rx = w.x; ry = w.y;
-    } else if (pts.length > 0) {
-      const last = pts[pts.length - 1];
-      rx = last.x; ry = last.y;
-    } else {
-      return;
+    // 벽 반사 지점 강조 마커(화면 끝에서 튕기는 지점을 명확히).
+    for (const b of bounces) {
+      this.aimGfx.fillStyle(dotColor, 0.9);
+      this.aimGfx.fillCircle(b.x, b.y, 8);
+      this.aimGfx.lineStyle(2, 0xffffff, 0.85);
+      this.aimGfx.strokeCircle(b.x, b.y, 8);
     }
-    this.aimGfx.lineStyle(3, dotColor, 0.95);
-    this.aimGfx.strokeCircle(rx, ry, BUBBLE_R);
-    this.aimGfx.lineStyle(2, 0xffffff, 0.75);
-    this.aimGfx.strokeCircle(rx, ry, BUBBLE_R - 6);
-  }
-
-  /**
-   * 발사 궤적 시뮬레이션 — 실시간 물리(update)와 완전히 동일한
-   * MOVE_STEP 서브스텝·연산 순서로 진행하므로 예측 착지 = 실제 착지.
-   * @returns 표시용 점 목록(샘플링)과 예상 착지 셀
-   */
-  private traceTrajectory(
-    ux: number, uy: number,
-  ): { points: { x: number; y: number; bounce: boolean }[]; land: [number, number] | null } {
-    const points: { x: number; y: number; bounce: boolean }[] = [];
-    let vx = ux;
-    let vy = uy;
-    let px = LAUNCH_X;
-    let py = LAUNCH_Y;
-
-    for (let i = 0; i < 500; i++) {
-      const openX = px;
-      const openY = py;
-
-      // 실시간 비행(update)과 완전히 동일한 거울 반사 스텝.
-      const r = advanceWithReflection(px, py, vx, vy, MOVE_STEP, WALL_BOUNDS);
-      px = r.x;
-      py = r.y;
-      vx = r.ux;
-      vy = r.uy;
-      const bounce = r.bounced;
-
-      // 천장 도달 — update와 동일한 기준점·동일 착지 해석기
-      if (py <= GRID_TOP_Y) {
-        return { points, land: this.resolveLanding(px, GRID_TOP_Y, -1, -1) };
-      }
-
-      // 그리드 충돌 — update와 동일하게 스텝 시작점(열린 공간)·충돌 버블 기준
-      const hit = this.collisionAt(px, py);
-      if (hit) {
-        return { points, land: this.resolveLanding(openX, openY, hit.row, hit.col) };
-      }
-
-      // 표시용 점: 24px 간격 샘플 + 벽 반사 지점
-      if (bounce || i % 3 === 0) points.push({ x: px, y: py, bounce });
-    }
-    return { points, land: null };
   }
 
   // ── 발사 ───────────────────────────────────────────────────────────────────
@@ -558,15 +527,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * 착지 셀 해석 — 보이는 궤적의 끝점과 실제 착지를 일치시키는 핵심 로직.
+   * 착지 셀 해석 — 물리적 접촉 지점을 그리드 칸으로 스냅하는 핵심 로직.
    *
    * 버블 충돌 시: 충돌 버블(hitRow,hitCol)의 '빈 이웃 칸' 중 접근 지점
    * (refX,refY = 정지 직전 열린 공간)에 가장 가까운 칸에 붙인다. 그러면
    * 착지가 항상 공이 닿은 버블 바로 옆·날아온 방향 쪽이 되어, 벽 반사 후에도
-   * 조준선이 가리킨 지점에 그대로 박힌다.
+   * 실제로 접촉한 지점 그대로 박힌다.
    *
    * 천장 착지(hitRow<0)나 이웃이 모두 찬 예외는 전역 최근접 빈칸으로 폴백.
-   * 실시간 비행(update)·예측(traceTrajectory) 모두 이 함수만 사용한다.
+   * 발사 후 실시간 비행(update)에서만 호출된다(조준 시 예측 없음).
    */
   private resolveLanding(
     refX: number, refY: number, hitRow: number, hitCol: number,

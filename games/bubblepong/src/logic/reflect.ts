@@ -37,8 +37,8 @@ export interface StepResult {
 
 /**
  * 단위속도 (ux, uy) 로 step(px) 만큼 전진시키고 좌/우 벽 거울 반사를 적용한다.
- * 실시간 비행(update)과 조준선 예측(traceTrajectory)이 반드시 동일한 결과를
- * 내도록, 두 경로 모두 이 함수 하나만 사용한다.
+ * 실시간 비행(update)과 조준 가이드(drawAimLine)가 동일한 이 함수·스텝을
+ * 사용하므로, 가이드가 보여주는 화면 끝 반사 = 실제 발사 반사가 정확히 일치한다.
  */
 export function advanceWithReflection(
   x: number,

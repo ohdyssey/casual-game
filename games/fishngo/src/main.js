@@ -161,9 +161,61 @@ let game;
 
   game = new Phaser.Game(config);
 
-  // ─── PWA: 서비스워커 등록 + 브라우저 실행 시 첫 탭에서 풀스크린 진입 ───
+  // ─── PWA: 서비스워커 등록 + (운영에서만) 첫 탭 풀스크린 진입 ───
   setupServiceWorker();
-  enableFullscreenOnFirstTap();
+  if (!import.meta.env?.DEV) enableFullscreenOnFirstTap(); // dev 는 풀스크린 전환 안 함(브라우저 UI 유지). 운영(모바일)은 풀스크린 유지.
+
+  // ─── 공통 상단 메뉴바(··· / ✕) — 코어 미사용 게임(fishngo)이라 인라인. 코어 hubButton.ts 와 동작 동일.
+  //   화면 최상단 가운데. ✕=메인(허브) 복귀(팝업이면 창닫기·같은오리진 ../hub/·다른오리진 ?portal= 허브),
+  //   ···=공유하기/문의하기/내 게임 관리.
+  if (typeof document !== 'undefined' && !document.getElementById('hub-topbar')) {
+    const goHub = () => {
+      try { if (window.opener && !window.opener.closed) { window.close(); return; } } catch (_) { /* opener 차단 */ }
+      let o = null;
+      try { const v = new URLSearchParams(location.search).get('portal'); o = v ? new URL(v).origin : null; } catch (_) { /* */ }
+      window.location.href = o && o !== location.origin ? o + '/' : '../hub/';
+    };
+    const toast = (m) => {
+      const t = document.createElement('div');
+      t.textContent = m;
+      t.style.cssText = 'position:fixed;left:50%;bottom:40px;transform:translateX(-50%);z-index:2147483001;background:rgba(10,14,26,.92);color:#fff;padding:11px 20px;border-radius:12px;font-size:14px;font-family:system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.4);max-width:80vw;text-align:center';
+      document.body.appendChild(t); setTimeout(() => t.remove(), 2000);
+    };
+    const share = () => {
+      const url = location.origin + '/';
+      if (navigator.share) { navigator.share({ title: 'PlayPOP', url }).catch(() => {}); }
+      else if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(url).then(() => toast('링크를 복사했어요'), () => window.prompt('링크를 복사하세요', url)); }
+      else { window.prompt('링크를 복사하세요', url); }
+    };
+    const wrap = document.createElement('div');
+    wrap.id = 'hub-topbar';
+    wrap.style.cssText = "position:fixed;top:calc(env(safe-area-inset-top,0px) + 6px);left:50%;transform:translateX(-50%);z-index:2147483000;display:flex;align-items:flex-start;gap:8px;font-family:system-ui,-apple-system,'Segoe UI',sans-serif";
+    const circle = (svg, label) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.setAttribute('aria-label', label);
+      b.style.cssText = 'width:40px;height:40px;border-radius:50%;border:0;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;background:rgba(70,74,84,0.92);box-shadow:0 3px 10px rgba(0,0,0,0.35);-webkit-tap-highlight-color:transparent';
+      b.innerHTML = svg; return b;
+    };
+    const DOTS = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
+    const XICO = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+    const menuBtn = circle(DOTS, '메뉴');
+    const closeBtn = circle(XICO, '메인화면으로');
+    const menu = document.createElement('div');
+    menu.style.cssText = 'position:absolute;top:48px;left:0;min-width:150px;background:#fff;border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,0.28);overflow:hidden;display:none';
+    let open = false;
+    const hide = () => { open = false; menu.style.display = 'none'; };
+    [['공유하기', () => { hide(); share(); }], ['문의하기', () => { hide(); toast('문의는 준비 중이에요'); }], ['내 게임 관리', () => { hide(); goHub(); }]].forEach((pair, i) => {
+      const it = document.createElement('button');
+      it.type = 'button'; it.textContent = pair[0];
+      it.style.cssText = 'display:block;width:100%;text-align:center;background:none;border:0;cursor:pointer;padding:15px 18px;font-size:16px;color:#333;font-family:inherit' + (i > 0 ? ';border-top:1px solid #eef0f3' : '');
+      it.addEventListener('click', pair[1]); menu.appendChild(it);
+    });
+    menuBtn.addEventListener('click', (e) => { e.stopPropagation(); open = !open; menu.style.display = open ? 'block' : 'none'; });
+    closeBtn.addEventListener('click', goHub);
+    document.addEventListener('click', (e) => { if (open && !wrap.contains(e.target)) hide(); });
+    wrap.appendChild(menuBtn); wrap.appendChild(closeBtn); wrap.appendChild(menu);
+    document.body.appendChild(wrap);
+  }
 
   // ─── 윈도우/도큐먼트 리스너 — 명명된 핸들러로 보관해 teardown(HMR/beforeunload) 시 제거 가능하게 ───
   //   단일 게임 인스턴스라 페이지 수명 동안 살아있지만, dev HMR 재실행/게임 재생성 시

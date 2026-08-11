@@ -8,6 +8,10 @@ const coreSrc = fileURLToPath(new URL('../../packages/core/src', import.meta.url
 export default defineConfig({
   base: './',
   resolve: {
+    // ⚠ Phaser 4 파일럿(이 게임 한정): DuckhuntRush 만 nested phaser@4.1, 형제 게임은 루트 phaser@3.90.
+    //   @casual/core 를 소스(alias)로 소비하므로 core 의 `import Phaser` 가 루트 3.90 으로 새면 한 번들에
+    //   phaser 2벌이 섞인다. dedupe 로 게임의 단일 phaser(=nested 4.1) 인스턴스로 강제한다(eco01/fishngo 동일 패턴).
+    dedupe: ['phaser'],
     // RegExp 로 '@casual/core'(배럴)와 '@casual/core/...'(서브패스, 예: /liveops)를 구분.
     //   (객체형 prefix 매칭은 '@casual/core/liveops' 를 'index.ts/liveops' 로 잘못 치환함.)
     alias: [
