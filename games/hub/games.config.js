@@ -73,6 +73,12 @@ const GAMES = [
   { id: 'pawlinkroom',  title: '포링크룸',        tagline: '같은 펫 아이템을 이어 짝 맞추는 라인 퍼즐', genre: 'puzzle', art: 'art/PawlinkRoom_Game.webp', logo: 'art/PawlinkRoom_logo_t.webp', accent: '#F2A33C', live: false, devPort: 6205, prodUrl: '../pawlink/' }, // PO 2026-07-30: 준비중으로 전환.
   // 스모클래시: 레인 디펜스 본편 구현(2026-07-23) — dev 플레이 가능. prod 는 PLAY_OPEN_GAMES 미등록이라 잠금 유지.
   { id: 'sumoclash',    title: '스모클래시',      tagline: '스모 부대 라인 배틀',                 genre: 'battle',   art: 'art/SumoClash_Game.webp',     logo: 'art/SumoClash_logo_t.webp',    accent: '#E8553A', live: true,  devPort: 6196, prodUrl: '../sumoclash/' },
+  // 틱택토 네온: 3말 순환이동 변형 vs컴퓨터 구현(2026-08-04) — dev 플레이 가능. prod 는 PLAY_OPEN_GAMES 미등록이라 잠금 유지. 키아트 = 게임 배경 상단 크롭.
+  { id: 'tictactoe',    title: '틱택토 네온',     tagline: '가장 오래된 말이 움직이는 3목 두뇌 대결', genre: 'puzzle', art: 'art/TicTacToe_Game.webp',    accent: '#27C4FF', live: true,  devPort: 6211, prodUrl: '../tictactoe/' },
+
+  // 김밥 롤 마스터: 메뉴 선택→재료 조합→말기·썰기→종·채점 완결(2026-08-07). prod 는 **추가 비밀번호 5656**
+  //   (scripts/deploy-gate.mjs GAME_GATES.kimbaproll) 뒤에서 열린다.
+  { id: 'kimbabroll',   title: '김밥롤 마스터',   tagline: '재료를 올려 김밥을 말아 완성',         genre: 'puzzle',   art: 'art/KimbabRoll_Game.webp',    accent: '#3E9B6B', live: true,  devPort: 6212, prodUrl: '../kimbaproll/' },
 
   // ───────── ③ 준비중 — 퍼즐·캐주얼 ─────────
   //   솔리테어 하이츠: 허브 그리드 노출·플레이 오픈(PLAY_OPEN_GAMES 에 등록). 정식 키아트 WebP 적용(2026-07-11).
@@ -80,7 +86,6 @@ const GAMES = [
   { id: 'omakase',      title: '오마카세매치',    tagline: '초밥 매치 퍼즐',                      genre: 'puzzle',   art: 'art/omakase_game.webp',       logo: 'art/omakase_logo_t.webp',      accent: '#F2994A', live: false },
   { id: 'aquaslot',     title: '아쿠아슬롯',      tagline: '수중 테마 슬롯',                      genre: 'puzzle',   art: 'art/AquaSlot_Game.webp',      logo: 'art/AquaSlot_logo_t.webp',     accent: '#7C5CFF', live: false },
   { id: 'colorsplash',  title: '컬러스플래시',    tagline: '색을 채우는 캐주얼 퍼즐',              genre: 'puzzle',   art: 'art/ColorSplash_Game.webp',   logo: 'art/ColorSplash_logo_t.webp',  accent: '#FF7AB6', live: false },
-  { id: 'kimbabroll',   title: '김밥롤 마스터',   tagline: '재료를 올려 김밥을 말아 완성',         genre: 'puzzle',   art: 'art/KimbabRoll_Game.webp',    accent: '#3E9B6B', live: false },
   { id: 'samgyeop',     title: '삼겹살 마스터',   tagline: '지글지글 노릇하게 타이밍 맞춰 굽기',    genre: 'puzzle',   art: 'art/Samgyeop_Game.webp',      accent: '#C0612E', live: false },
   { id: 'tteokbokki',   title: '떡볶이 마스터',   tagline: '매콤 양념에 쫄깃한 떡을 볶아 완성',     genre: 'puzzle',   art: 'art/Tteokbokki_Game.webp',    accent: '#E2452F', live: false },
   { id: 'pickmeup',     title: '픽미업',          tagline: '승객을 색 맞춰 버스에 태우는 정렬 퍼즐', genre: 'puzzle',  art: 'art/PickmeUp_Game.webp',      logo: 'art/PickmeUp_logo_t.webp', accent: '#E5703A', live: false, devPort: 6206, prodUrl: '../pickmeup/' },
@@ -89,7 +94,7 @@ const GAMES = [
   { id: 'shootingarena',title: '슈팅아레나',      tagline: '조준·줌·부스트로 표적 명중',           genre: 'shooting', art: 'art/ShootingArena_Game.webp', accent: '#3FA9C4', live: false },
 
   // ───────── ③ 준비중 — 스포츠 ─────────
-  { id: 'soccergo',     title: 'SoccerGO',        tagline: '프리킥 슛 대결',                      genre: 'sports',   art: 'art/SoccerGO_Game.webp',      logo: 'art/SoccerGO_logo_t.webp',     accent: '#2EA84F', live: false },
+  { id: 'soccergo',     title: 'SoccerGO',        tagline: '프리킥 슛 대결',                      genre: 'sports',   art: 'art/SoccerGO_Game.webp',      logo: 'art/SoccerGO_logo_t.webp',     accent: '#2EA84F', live: false, devPort: 6210, prodUrl: '../soccergo/' },
 
   // ───────── ③ 준비중 — 배틀·디펜스 ─────────
   { id: 'zombieroad',   title: '좀비로드',        tagline: '좀비 길목 디펜스',                    genre: 'battle',   art: 'art/ZombieRoad_Game.webp',    logo: 'art/ZombieRoad_logo_t.webp',   accent: '#6BBF2F', live: false },

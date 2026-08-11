@@ -9,6 +9,12 @@ import { mountFeatured, type FeaturedHandle } from './featured.js';
 import { mountRails } from './rails.js';
 import { mountInstall } from './install.js';
 import { openMenu } from './modals.js';
+import { bootstrapDeferredLink } from './deferredLink/bootstrap.js';
+
+// 디퍼드 딥링크 — 최초 실행이면 설치 유입 광고의 game_id 를 조회해 그 게임으로 바로 보낸다.
+// 1단계는 목 구현(항상 없음)이라 실동작 변화가 없다. 허브 크롬 마운트를 기다리지 않는다 —
+// 딥링크 진입이면 어차피 게임으로 이동하고, 아니면 아래 크롬이 평소대로 뜬다.
+void bootstrapDeferredLink();
 
 const walletEl = document.getElementById('wallet');
 const actionsEl = document.getElementById('acc-actions');

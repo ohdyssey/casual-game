@@ -42,10 +42,11 @@ const PLAY_OPEN = __PLAY_OPEN__;
  *   홈런팝(homerunpop)·아처리스타즈(archerystars)·Ocean Puzzle(eco01)·
  *   배송대작전(parcelpoprush)·Fish & Go(fishing)·좀비애로우(zombiearrow)·사커플릭(soccerflick)·
  *   베가스호텔타이쿤(socialcasino)·솔리테어(solitaire)·스모클래시(sumoclash, 2026-07-26 추가).
+ *   틱택토 네온(tictactoe, 2026-08-05 추가) · 김밥롤 마스터(kimbabroll, 2026-08-07 추가 — prod 는 추가 비번 5656).
  *   양떼고(flockgo)·버블퐁(bubblepong) 은 2026-07-30 준비중으로 전환되어 제외.
  *   추가 오픈은 id 를 더하고, 완전 오픈 시엔 isPlayable 을 true 고정(또는 PLAY_OPEN=true 빌드).
  */
-export const PLAY_OPEN_GAMES = new Set<string>(['store', 'skewer', 'homerunpop', 'archerystars', 'eco01', 'parcelpoprush', 'fishing', 'zombiearrow', 'soccerflick', 'socialcasino', 'solitaire', 'sumoclash']);
+export const PLAY_OPEN_GAMES = new Set<string>(['store', 'skewer', 'homerunpop', 'archerystars', 'eco01', 'parcelpoprush', 'fishing', 'zombiearrow', 'soccerflick', 'socialcasino', 'solitaire', 'sumoclash', 'tictactoe', 'kimbabroll']);
 
 /** 이 게임을 현재 환경에서 실행할 수 있는가.
  *   · '플레이 사이트' 빌드(PLAY_OPEN) 또는 dev → 전체 허용

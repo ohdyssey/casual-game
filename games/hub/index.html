@@ -74,14 +74,35 @@
         scrollbar-width: none; -ms-overflow-style: none; /* 스크롤바 숨김(스크롤 기능은 유지) */
         font-family: 'Do Hyeon', system-ui, sans-serif;
         color: var(--txt);
-        background:
-          radial-gradient(1100px 520px at 12% -8%, #1E2A55 0%, transparent 55%),
-          radial-gradient(900px 480px at 100% 0%, #3A1E55 0%, transparent 50%),
-          linear-gradient(180deg, var(--bg1) 0%, var(--bg0) 60%);
-        background-attachment: fixed;
+        background: var(--bg0); /* 하늘 이미지 로드 전/실패 시 폴백 */
       }
+      /* body 를 자체 스태킹 컨텍스트로 승격 — 그래야 .sky-bg(z-index:-1) 가 body 자체 배경보다는
+         위, 콘텐츠(자식) 전부보다는 아래에 확실히 위치한다(승격 없으면 body 배경에 가려짐). */
+      body { position: relative; z-index: 0; }
       /* 스크롤바 숨김 — WebKit(모바일 Safari/Chrome). 스크롤 자체는 유지. */
       html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+      /* ─────────── 하늘 배경 실험(2026-07-30, 롤백 가능) ───────────
+         화면 전체 고정 레이어에 하늘 이미지 + 흘러가는 구름을 얹는다. z-index:-1 로 모든
+         콘텐츠(카드/모달 등, 별도 z-index 없는 요소는 auto=0 레벨) 뒤에 위치. */
+      .sky-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+      .sky-bg::before {
+        content: ''; position: absolute; inset: 0;
+        background: url('/art/bg/sky.webp') center top / cover no-repeat;
+      }
+      .cloud { position: absolute; left: 0; background: no-repeat center / contain; will-change: transform; }
+      .cloud-a { top: 6%;  width: 170px; height: 115px; background-image: url('/art/bg/cloud01.webp'); opacity: .92; animation: cloud-drift 64s linear infinite; }
+      .cloud-b { top: 16%; width: 210px; height: 106px; background-image: url('/art/bg/cloud03.webp'); opacity: .8;  animation: cloud-drift 82s linear infinite; animation-delay: -22s; }
+      .cloud-c { top: 32%; width: 140px; height: 91px;  background-image: url('/art/bg/cloud02.webp'); opacity: .95; animation: cloud-drift 55s linear infinite; animation-delay: -9s; }
+      .cloud-d { top: 4%;  width: 190px; height: 79px;  background-image: url('/art/bg/cloud04.webp'); opacity: .7;  animation: cloud-drift 74s linear infinite reverse; animation-delay: -38s; }
+      .cloud-e { top: 24%; width: 165px; height: 97px;  background-image: url('/art/bg/cloud05.webp'); opacity: .65; animation: cloud-drift 96s linear infinite; animation-delay: -52s; }
+      @keyframes cloud-drift {
+        from { transform: translateX(-32vw); }
+        to   { transform: translateX(132vw); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .cloud { animation: none; left: 50%; }
+      }
       .sr-only {
         position: absolute; width: 1px; height: 1px;
         padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0);
@@ -223,7 +244,7 @@
         flex: 1 1 auto; min-width: 0; max-width: 288px;
         position: relative; display: flex; flex-direction: column; justify-content: flex-end;
         aspect-ratio: 9 / 16; overflow: hidden; border-radius: 30px; background: #000;
-        box-shadow: 0 26px 60px rgba(0,0,0,0.6), 0 0 0 5px rgba(0,0,0,0.55), 0 0 0 6px rgba(255,255,255,0.06);
+        box-shadow: 0 26px 60px rgba(0,0,0,0.6), 0 0 0 5px rgba(0,0,0,0.55), 0 0 0 8px #fff;
       }
       /* 게임 아트 = 홈 화면 캡처, 프레임을 꽉 채우는 배경(상단 정렬). 클릭 시 게임 실행. */
       .phone-screen { position: absolute; inset: 0; z-index: 0; display: block; text-decoration: none; }
@@ -347,10 +368,21 @@
         outline: none;
       }
       .card:hover .art { transform: scale(1.06); }
-      .card.soon { cursor: default; }
-      .card.soon .pill { background: rgba(255,255,255,0.1); color: var(--txt-dim); box-shadow: none; }
+      /* 준비중 카드 — 아트·로고·텍스트·배지 전체를 옅은 그레이스케일로 톤다운(무채색 + 밝기↑·대비↓ = 워시드 그레이) */
+      .card.soon {
+        cursor: default;
+        filter: grayscale(1) brightness(1.12) contrast(0.8);
+        opacity: 0.35;
+      }
+      .card.soon .pill { background: rgba(255,255,255,0.14); color: var(--txt-dim); box-shadow: none; }
       .card.soon .badge { color: var(--txt-dim); }
       .card.soon .badge .dot { background: #6B7691; box-shadow: none; }
+      /* 클릭 불가 카드는 호버 강조(들어올림/액센트 테두리/아트 확대)도 비활성 */
+      .card.soon:hover {
+        transform: none; border-color: var(--line);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+      }
+      .card.soon:hover .art { transform: none; }
 
       /* 고정 1번 앱(리워드앱=CashPOP) 카드 — 캐시카드 영역을 배경으로(화면 자체 로고는 크롭) + 로고 오버레이 + '리워드' 배지 */
       .card.pinned .art { object-position: center 42%; }
@@ -468,6 +500,13 @@
     </style>
   </head>
   <body>
+    <div class="sky-bg" aria-hidden="true">
+      <div class="cloud cloud-a"></div>
+      <div class="cloud cloud-b"></div>
+      <div class="cloud cloud-c"></div>
+      <div class="cloud cloud-d"></div>
+      <div class="cloud cloud-e"></div>
+    </div>
     <div class="portal">
       <header class="top-hud">
         <img class="brand-mini" src="art/playpop_logo.webp" alt="PlayPOP Hub" />

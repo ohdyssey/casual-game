@@ -47,6 +47,9 @@ const GAME_DIR: Record<string, string> = {
   socialcasino: 'SocialCasino',
   solitaire: 'Solitare',
   sumoclash: 'SumoClash',
+  soccergo: 'SoccerGO',
+  tictactoe: 'TICTACTOE',
+  kimbabroll: 'kimbapRollMaster',
 };
 
 /** 포트는 games.config(SSOT)에서 가져온다 — 중복 정의로 인한 드리프트 방지. */
