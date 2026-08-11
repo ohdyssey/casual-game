@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 2,
+  "frame": {
+    "designW": 1080,
+    "designH": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_SoccerGo_BG_01",
+      "x": 540,
+      "y": 1200,
+      "w": 2409,
+      "h": 2409,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true,
+      "depth": 1,
+      "locked": true
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_SoccerGo_BG_01-1",
+      "x": 540,
+      "y": 1212,
+      "w": 543,
+      "h": 236,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true,
+      "depth": 2
+    },
+    {
+      "id": "layer_3",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_Chr_01",
+      "x": 317,
+      "y": 1808,
+      "w": 392,
+      "h": 915,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true,
+      "depth": 3
+    },
+    {
+      "id": "layer_4",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_Ball01",
+      "x": 741,
+      "y": 1865,
+      "w": 104,
+      "h": 101,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true,
+      "depth": 4
+    }
+  ]
+}

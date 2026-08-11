@@ -1,0 +1,41 @@
+{
+  "harnessVersion": 1,
+  "domain": "ui",
+  "project": null,
+  "generatedAt": "2026-08-01T03:29:41.208Z",
+  "units": [
+    {
+      "unit": "main",
+      "rev": "a626387c",
+      "label": "플레이화면1",
+      "nodes": 4,
+      "refs": [
+        "asset:up_Ball01",
+        "asset:up_Chr_01",
+        "asset:up_SoccerGo_BG_01",
+        "asset:up_SoccerGo_BG_01-1"
+      ]
+    },
+    {
+      "unit": "main_copy",
+      "rev": "2916d64f",
+      "label": "플레이화면2",
+      "nodes": 1,
+      "refs": [
+        "asset:up_ChatGPT_Image_2026__8__1_____12_25_32"
+      ]
+    },
+    {
+      "unit": "main_copy2",
+      "rev": "22de900a",
+      "label": "페널티킥",
+      "nodes": 4,
+      "refs": [
+        "asset:up_Ball01",
+        "asset:up_Chr_01",
+        "asset:up_SoccerGo_BG_01",
+        "asset:up_SoccerGo_BG_01-1"
+      ]
+    }
+  ]
+}

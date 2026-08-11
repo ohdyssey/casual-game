@@ -1,0 +1,110 @@
+{
+  "domain": "ui",
+  "unit": "main",
+  "frame": {
+    "w": 1080,
+    "h": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        -664,
+        -4,
+        2409,
+        2409
+      ],
+      "center": [
+        540,
+        1200
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SoccerGo_BG_01",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        269,
+        1094,
+        543,
+        236
+      ],
+      "center": [
+        540,
+        1212
+      ],
+      "z": 2,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SoccerGo_BG_01-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        121,
+        1351,
+        392,
+        915
+      ],
+      "center": [
+        317,
+        1808
+      ],
+      "z": 3,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Chr_01",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        689,
+        1815,
+        104,
+        101
+      ],
+      "center": [
+        741,
+        1865
+      ],
+      "z": 4,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Ball01",
+      "style": {
+        "tintable": true
+      }
+    }
+  ],
+  "refs": [
+    "asset:up_Ball01",
+    "asset:up_Chr_01",
+    "asset:up_SoccerGo_BG_01",
+    "asset:up_SoccerGo_BG_01-1"
+  ],
+  "label": "플레이화면1",
+  "rev": "a626387c"
+}

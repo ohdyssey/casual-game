@@ -1,0 +1,16 @@
+{
+  "screens": [
+    {
+      "id": "main_copy",
+      "name": "플레이화면2",
+      "file": "ui/layouts/main_copy.json",
+      "category": "custom"
+    },
+    {
+      "id": "main_copy2",
+      "name": "페널티킥",
+      "file": "ui/layouts/main_copy2.json",
+      "category": "custom"
+    }
+  ]
+}

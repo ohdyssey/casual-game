@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 2,
+  "frame": {
+    "designW": 1080,
+    "designH": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_ChatGPT_Image_2026__8__1_____12_25_32",
+      "x": 274,
+      "y": 1200,
+      "w": 2409,
+      "h": 2409,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true,
+      "depth": 1
+    }
+  ]
+}

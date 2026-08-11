@@ -1,0 +1,41 @@
+{
+  "domain": "ui",
+  "unit": "main_copy",
+  "frame": {
+    "w": 1080,
+    "h": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        -930,
+        -4,
+        2409,
+        2409
+      ],
+      "center": [
+        274,
+        1200
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_ChatGPT_Image_2026__8__1_____12_25_32",
+      "style": {
+        "tintable": true
+      }
+    }
+  ],
+  "refs": [
+    "asset:up_ChatGPT_Image_2026__8__1_____12_25_32"
+  ],
+  "label": "플레이화면2",
+  "rev": "2916d64f"
+}
