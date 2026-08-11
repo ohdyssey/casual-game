@@ -162,3 +162,106 @@ export async function dietGameUploads(deployGameDir) {
 
   return { files: pngs.length, before, after, resized, photos, backgrounds };
 }
+
+// ── 스프라이트 시트 다이어트 ──────────────────────────────────────────────
+
+/**
+ * 스프라이트 시트 WebP 품질. 시트는 화면에 프레임 단위로 **축소돼** 그려지므로(예: 홈런팝 전광판
+ * 957×720 프레임 → 441×332 표시) 손실 압축이 육안에 드러나지 않는다. 실제 표시 크기로 원본과
+ * 나란히 비교해 차이가 안 보이는 선에서 잡았다(2026-08-03 실측).
+ */
+const SHEET_QUALITY = 80;
+
+/**
+ * deploy/<game>/ui/sprites/sheets/* 를 WebP(SHEET_QUALITY)로 재인코딩한다.
+ *
+ * 왜 uploads 다이어트와 따로 두는가 — uploads 쪽은 ui-assets.json 경로를 .png→.webp 로 재작성하는데,
+ * 게임이 그 매니페스트를 안 거치고 파일을 직접 참조하는 곳이 있으면(예: 홈런팝 index.html 의
+ * NO ADS 버튼 `<img src="/ui/uploads/....png">`) 그대로 깨진다. 그래서 게임별 배선 확인이 끝난
+ * 곳만 켜는 allowlist 를 쓴다. 반면 시트는 **스프라이트 문서(source.path)만** 가리키고, 그 문서도
+ * 배포본에 같이 복사되므로 여기서 경로까지 한꺼번에 고쳐 주면 자기완결적이다.
+ *
+ * ⚠️ **리사이즈는 하지 않는다** — 시트는 문서의 rects(절대 픽셀)로 프레임을 잘라내므로 크기를
+ *    바꾸면 슬라이싱이 통째로 어긋난다. 압축률만 조정한다.
+ * ⚠️ 비파괴 — deploy 복사본만 건드린다(원본 public/ 은 그대로).
+ *
+ * @param {string} deployGameDir 예: <out>/homerun
+ * @returns {Promise<{files:number,before:number,after:number,converted:number}|null>}
+ */
+export async function dietGameSheets(deployGameDir) {
+  const sheetsDir = join(deployGameDir, 'ui/sprites/sheets');
+  if (!(await exists(sheetsDir))) return null;
+
+  const names = (await readdir(sheetsDir)).filter((f) => /\.(png|webp|jpe?g)$/i.test(f));
+  let before = 0;
+  let after = 0;
+  let converted = 0;
+  /** 확장자가 바뀐 파일: 원래 이름 → 새 이름(스프라이트 문서 경로 재작성용). */
+  const renamed = new Map();
+
+  for (const file of names) {
+    const src = join(sheetsDir, file);
+    const srcSize = (await stat(src)).size;
+    let buf;
+    try {
+      // ⚠️ 파일 경로를 sharp 에 그대로 주면 안 된다 — 입력이 이미 .webp 인 시트는 같은 이름으로
+      //    덮어쓰는데, 윈도우에서 sharp 가 원본 핸들을 쥔 채라 쓰기가 EPERM/UNKNOWN 으로 죽는다.
+      //    먼저 버퍼로 읽어 파일을 닫고 변환한다.
+      buf = await sharp(await readFile(src)).webp({ quality: SHEET_QUALITY, effort: 4 }).toBuffer();
+    } catch {
+      before += srcSize;
+      after += srcSize;
+      continue; // 한 장 실패가 배포를 막지 않게 — 원본 그대로 둔다.
+    }
+    // 이미 잘 압축된 시트라면 커질 수도 있다 — 그럴 땐 원본을 유지한다(fail-safe).
+    if (buf.length >= srcSize) {
+      before += srcSize;
+      after += srcSize;
+      continue;
+    }
+    const outName = file.replace(/\.(png|jpe?g)$/i, '.webp');
+    await writeFile(join(sheetsDir, outName), buf);
+    if (outName !== file) {
+      await unlink(src);
+      renamed.set(file, outName);
+    }
+    before += srcSize;
+    after += buf.length;
+    converted++;
+  }
+
+  if (renamed.size) await rewriteSheetPaths(join(deployGameDir, 'ui/sprites'), renamed);
+  return { files: names.length, before, after, converted };
+}
+
+/** 스프라이트 문서(ui/sprites/**\/*.json)의 source.path 를 새 파일명으로 고친다(배포본 한정). */
+async function rewriteSheetPaths(spritesDir, renamed) {
+  let entries;
+  try {
+    entries = await readdir(spritesDir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const e of entries) {
+    const p = join(spritesDir, e.name);
+    if (e.isDirectory()) {
+      await rewriteSheetPaths(p, renamed);
+      continue;
+    }
+    if (!e.name.toLowerCase().endsWith('.json')) continue;
+    let text;
+    try {
+      text = await readFile(p, 'utf8');
+    } catch {
+      continue;
+    }
+    let changed = false;
+    for (const [from, to] of renamed) {
+      if (text.includes(from)) {
+        text = text.split(from).join(to);
+        changed = true;
+      }
+    }
+    if (changed) await writeFile(p, text, 'utf8');
+  }
+}

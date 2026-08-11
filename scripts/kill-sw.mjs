@@ -8,13 +8,24 @@
  *  · registerSW 를 주입하지 않는다 → 새 방문자는 SW 를 아예 등록하지 않음(항상 네트워크 최신).
  *  · dev(serve): /sw.js 요청에도 동일 클리너 응답(좀비 SW 제거), /registerSW.js 는 빈 응답.
  */
-const CLEANER_SW = `// no-reload cleaner: clears caches + self-unregisters (NEVER reloads the page)
+const CLEANER_SW = `// one-shot cleaner: clears caches + reloads ONCE (heals stale PWA) + self-unregisters.
+//   기존 캐싱 SW 를 교체할 때만 1회 새로고침(?swc=1 플래그 가드 + self-unregister 로 더블로딩 루프 없음).
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     try {
       const keys = await caches.keys();
       await Promise.all(keys.map((k) => caches.delete(k)));
+    } catch (e) {}
+    try {
+      await self.clients.claim();
+      const cls = await self.clients.matchAll({ type: 'window' });
+      for (const c of cls) {
+        const u = new URL(c.url);
+        if (u.searchParams.get('swc') === '1') continue; // 이미 정리됨 → 루프 방지.
+        u.searchParams.set('swc', '1');
+        try { await c.navigate(u.href); } catch (e) {}
+      }
     } catch (e) {}
     try { await self.registration.unregister(); } catch (e) {}
   })());
