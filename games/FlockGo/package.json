@@ -1,0 +1,20 @@
+{
+  "name": "@casual/game-flockgo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "양떼고! — 빽빽이 들어찬 양떼를 탭해 바라보는 방향으로 탈출시키는 언블록 퍼즐(돼지 탈출류).",
+  "type": "module",
+  "scripts": {
+    "dev": "npx vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4208"
+  },
+  "dependencies": {
+    "@casual/core": "*",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.10",
+    "vite-plugin-pwa": "0.21.1"
+  }
+}

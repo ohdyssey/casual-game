@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 2,
+  "frame": {
+    "designW": 720,
+    "designH": 1600
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_FlockGo_Loading",
+      "x": 360,
+      "y": 800,
+      "w": 720,
+      "h": 1600,
+      "depth": 1,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_FlockGo_Logo_v2",
+      "x": 360,
+      "y": 304,
+      "w": 466,
+      "h": 291,
+      "depth": 2,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true
+    }
+  ]
+}

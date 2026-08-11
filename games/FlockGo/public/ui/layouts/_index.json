@@ -1,0 +1,12 @@
+{
+  "screens": [
+    {
+      "id": "blank",
+      "name": "로딩",
+      "file": "ui/layouts/blank.json",
+      "category": "hub",
+      "roles": [],
+      "template": "blank"
+    }
+  ]
+}
