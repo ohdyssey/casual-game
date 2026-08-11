@@ -80,6 +80,12 @@ const RIGHT_OPEN_X = 1370;
 const CURTAIN_W = 552; // 폴백 표시 크기(노드 없을 때)
 const CURTAIN_H = 2440;
 
+// ⭐공격 망치는 **액션(타겟 탭 → 스윙)까지 계속 표시**해야 한다(요청) — 예전 15s 자동종료는 어떤 오브젝트를 칠지 고민하는
+//   사용자에게 망치가 먼저 사라져 버려, 이후 탭해도 스윙 이벤트를 받을 씬이 없어 결과 다이얼로그가 안 뜨고 게임이 멈췄다.
+//   정상 정리 = 스윙 완료(swingToTarget self-stop) / 스테이지 복귀(PlayScene.returnFromStage 가 scene.stop('hammerfx')).
+//   이 타이머는 **고아 방지 백스톱**일 뿐 — Stage1 스테이지 워치독(~90s)보다 넉넉히 뒤라 정상 플레이 중엔 절대 안 터진다.
+const ATTACK_ORPHAN_STOP_MS = 120000;
+
 export class HammerFxScene extends Phaser.Scene {
   private root?: Phaser.GameObjects.Container; // 망치 묶음(배경+망치) — 등장/소멸 트랜스폼 단위
   private text?: Phaser.GameObjects.Container; // 발동 텍스트(ATTACK!/RAID!) — root 와 분리(망치보다 먼저 소멸)
@@ -228,9 +234,9 @@ export class HammerFxScene extends Phaser.Scene {
   private revealAndStop(): void {
     this.game.events.emit(STAGE_REVEALED_EVENT);
     if (this.pendingType === 'attack') {
-      // 공격: ATTACK_SWING_EVENT 수신 → swingToTarget 에서 임팩트 후 씬 자동 종료.
-      // 폴백: 15초 후 강제 종료(타겟 미탭 시 대비).
-      this.time.delayedCall(15000, () => {
+      // 공격: 망치는 **타겟 탭(액션)까지 계속 대기 표시** → ATTACK_SWING_EVENT 수신 시 swingToTarget 에서 임팩트 후 자동 종료.
+      //   정상 정리는 스윙 완료 or 스테이지 복귀(returnFromStage 가 stop). 여기 타이머는 고아 방지 백스톱일 뿐(≫ 스테이지 워치독).
+      this.time.delayedCall(ATTACK_ORPHAN_STOP_MS, () => {
         if (this.scene.isActive()) this.scene.stop();
       });
       return;

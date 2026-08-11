@@ -16,7 +16,7 @@ export interface PlayerState {
   jackpotPool: number;
 }
 
-export const PLAYER_STATE_KEY = 'socialcasino_player_v7'; // ⚠️v7(2026-06-30)=**1레벨 재설정**(스핀200·베팅10) — 스핀 200·베팅10(idx3)·잭팟0 기본. 구 v6 폐기
+export const PLAYER_STATE_KEY = 'socialcasino_player_v9'; // ⚠️v9(2026-07-07)=**보상구조 시뮬 리셋** — 스핀 300·베팅10(idx3)·잭팟0 기본. 구 v8(스핀500) 폐기
 
 const validNum = (v: unknown): number | undefined =>
   typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined;
@@ -38,8 +38,8 @@ export function loadPlayerState(): Partial<PlayerState> {
   }
 }
 
-/** 기본 보유 스핀(저장 없을 때) — PlayScene START_SPINS 와 동일해야 함. ⚠️2026-06-30: 300→**200**(요청). */
-export const DEFAULT_SPINS = 200;
+/** 기본 보유 스핀(저장 없을 때) — playParams.START_SPINS 와 동일해야 함. ⚠️2026-07-07(2차): **300**(보상구조 시뮬 기준). */
+export const DEFAULT_SPINS = 300;
 /** 기본 베팅 인덱스(저장 없을 때) — BET_START(=10) 의 BET_LADDER 인덱스에서 파생(드리프트 방지). idx 3. */
 const DEFAULT_BET_INDEX = Math.max(0, BET_LADDER.indexOf(BET_START));
 

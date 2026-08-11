@@ -1152,6 +1152,24 @@
       "tintable": true,
       "lockAspect": true,
       "group": "grp_2"
+    },
+    {
+      "id": "layer_8",
+      "type": "text",
+      "name": "텍스트",
+      "text": "텍스트",
+      "x": 653,
+      "y": 1306,
+      "fontSize": 62,
+      "fontFamily": "Jua",
+      "color": "#0aadff",
+      "stroke": "#5a3210",
+      "strokeW": 0,
+      "align": "center",
+      "depth": 60,
+      "visible": true,
+      "wrapW": 310,
+      "wrapH": 251
     }
   ],
   "groups": [

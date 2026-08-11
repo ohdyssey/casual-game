@@ -44,10 +44,15 @@ import {
   stageReward,
   facilityInstallCost,
   nextFacilityName,
+  cityLevel,
   type StageReward,
 } from '../logic/hotelUpgrade.js';
 import { addSpins, loadSpins } from '../logic/playerState.js';
 import { addGems } from '../logic/gems.js';
+import { facilityMilestoneSpins } from '../logic/progression.js';
+import { recordEvent, clearLedger } from '../econ/telemetry.js';
+import { resetSimulationData, SIM_RESET_SUMMARY } from '../logic/resetSim.js';
+import { createAttackEnvelope, type AttackEnvelope } from '../ui/attackEnvelope.js';
 
 // ⭐스테이지 배치 레이아웃은 **현재 스테이지에 따라** HOTEL_STAGES(hotelUpgrade) 에서 결정한다(Stage1=blank_3, Stage2=blank_3_copy3).
 //   preload 에서 호텔 상태를 읽어 그 스테이지 레이아웃을 적재 → create 에서 this.stageLayoutKey 로 참조.
@@ -108,7 +113,11 @@ export class HotelScene extends Phaser.Scene {
     levelObjs: Array<Phaser.GameObjects.GameObject | undefined>;
     arrow?: Phaser.GameObjects.Image;
     stars?: Phaser.GameObjects.Image[];  // ⭐SC_UI_59 별 이미지, 최대 5개, 레벨만큼만 표시
+    envelope?: AttackEnvelope; // ⭐공격받음 봉투 라벨(있으면 업그레이드 버튼 대신 표시)
   }> = [];
+  /** ⭐공격받은 슬롯 상태(목업) — index → 공격자 이름. **미확인**(봉투 표시)이면 화살표 숨김. 확인(봉투 클릭) 시 revealed 로.
+   *  업그레이드하면 제거. 미업그레이드면 유지(재진입 때 봉투 재표시). ⚠️영속은 나중(실제 공격 연동 시) — 지금은 세션 메모리. */
+  private attacks = new Map<number, { attacker: string; revealed: boolean }>();
 
   constructor() {
     super('hotel');
@@ -250,6 +259,34 @@ export class HotelScene extends Phaser.Scene {
         if (!this.leaving && this.scene.isActive()) this.onStageComplete();
       });
     }
+
+    // ⭐공격받음 봉투 연출(목업) — 실제 공격 데이터 연동 전, 진입 시 **적당한 수(1~2 시설)** 를 공격 상태로 배치해 연출 확인.
+    //   전역 __scAttack(index?, name?) / 설정 '공격 연출 시뮬' 버튼으로도 수동 트리거. 실제 규칙(상대·보상)은 추후 구현.
+    this.setupAttackDemo();
+  }
+
+  /** ⭐공격 연출 데모(목업) — 전역 헬퍼 노출 + 진입 시 기본 배치. 실제 공격 시스템으로 대체 예정. */
+  private setupAttackDemo(): void {
+    (globalThis as Record<string, unknown>).__scAttack = (index?: number, name?: string): void => {
+      const names = ['David', 'Mina', 'Leo', 'Sora', 'Max'];
+      const pick = typeof index === 'number' ? index : this.firstAttackableSlot();
+      if (pick < 0) return;
+      this.markAttacked(pick, name ?? names[pick % names.length]);
+    };
+    // 진입 시 기본 연출: 업그레이드 가능한 첫 시설을 공격받은 상태로(적당한 배치). 이미 공격/최대면 스킵.
+    this.time.delayedCall(650, () => {
+      if (this.leaving || !this.scene.isActive()) return;
+      const s0 = this.firstAttackableSlot();
+      if (s0 >= 0) this.markAttacked(s0, 'David');
+    });
+  }
+
+  /** 공격 표시 가능한(업그레이드 여지 있고 아직 공격 안 된) 첫 슬롯 인덱스. 없으면 -1. */
+  private firstAttackableSlot(): number {
+    for (let i = 0; i < HOTEL_OBJECTS.length; i++) {
+      if (!this.attacks.has(i) && nextCostFor(this.hotel, i) != null) return i;
+    }
+    return -1;
   }
 
   /** 슬롯의 현재 레벨 노드만 표시 + 별 이미지·화살표 상태 갱신(최대면 더 흐림). */
@@ -288,6 +325,49 @@ export class HotelScene extends Phaser.Scene {
       if (maxed) v.arrow.disableInteractive();
       else v.arrow.setInteractive({ useHandCursor: true });
     }
+    this.applyAttackDisplay(index); // ⭐공격받음(봉투) 상태면 화살표 숨김/봉투 표시
+  }
+
+  /** ⭐공격 상태 표시 갱신 — **미확인 공격**이면 업그레이드 화살표를 숨기고 봉투 라벨을 띄운다.
+   *  확인(봉투 클릭 후 revealed) 또는 미공격이면 화살표 정상 표시 + 봉투 제거. maxed 슬롯은 봉투 미표시. */
+  private applyAttackDisplay(index: number): void {
+    const v = this.views[index];
+    if (!v || !v.arrow) return;
+    const atk = this.attacks.get(index);
+    const maxed = nextCostFor(this.hotel, index) == null;
+    const showEnvelope = !!atk && !atk.revealed && !maxed;
+    if (showEnvelope) {
+      v.arrow.setVisible(false).disableInteractive();
+      if (!v.envelope) {
+        v.envelope = createAttackEnvelope(this, v.arrow.x, v.arrow.y, atk!.attacker, () => this.onEnvelopeClicked(index), 70);
+      }
+    } else {
+      v.arrow.setVisible(true);
+      if (!maxed) v.arrow.setInteractive({ useHandCursor: true });
+      if (v.envelope) {
+        v.envelope.destroy();
+        v.envelope = undefined;
+      }
+    }
+  }
+
+  /** ⭐봉투 클릭(공격 확인) — 그 슬롯의 공격을 revealed 로 바꿔 업그레이드 버튼을 노출한다. */
+  private onEnvelopeClicked(index: number): void {
+    const atk = this.attacks.get(index);
+    if (!atk) return;
+    this.attacks.set(index, { ...atk, revealed: true });
+    this.refreshSlot(index);
+    showToast(this, `${atk.attacker} 님이 시설을 공격했습니다`, { color: '#ffd7a0' });
+  }
+
+  /** ⭐시설 공격받음 표시(목업) — 슬롯을 공격 상태로 만들고 봉투 등장 연출. 실제 공격 데이터 연동 전 연출용. */
+  private markAttacked(index: number, attacker: string): void {
+    const v = this.views[index];
+    if (!v || !v.arrow) return;
+    if (nextCostFor(this.hotel, index) == null) return; // maxed 시설은 공격 표시 안 함(업그레이드 불가)
+    this.attacks.set(index, { attacker, revealed: false });
+    this.refreshSlot(index); // applyAttackDisplay 가 봉투 생성
+    v.envelope?.playArrival();
   }
 
   private refreshAll(): void {
@@ -310,11 +390,33 @@ export class HotelScene extends Phaser.Scene {
     }
     const spinGrant = upgradeSpinGrant(this.hotel);
     const unlocked = upgradeUnlocks(this.hotel);
+    const prevCityLevel = cityLevel(this.hotel); // ⭐마일스톤 판정용(업그레이드 전 누적 레벨)
+    // ⭐공격받았던 시설을 업그레이드하면 공격 표시(봉투) 해제(요청: 업그레이드하면 봉투 사라짐).
+    if (this.attacks.has(index)) {
+      this.attacks.delete(index);
+      v.envelope?.destroy();
+      v.envelope = undefined;
+    }
     this.coins -= cost;
     this.hotel = upgradeObject(this.hotel, index);
     if (spinGrant > 0) addSpins(spinGrant);
     saveCoins(this.coins);
     this.saveHotel();
+    const newCityLevel = cityLevel(this.hotel);
+    // ⭐텔레메트리 v2 — 업그레이드 원장(비용·레벨). 시설 진행 속도(코인 싱크) 실측 = 지급구조 재설계 입력.
+    try {
+      recordEvent({ t: Date.now(), e: 'upgrade', n: cost, co: this.coins, sp: loadSpins(), L: newCityLevel });
+    } catch { /* 텔레메트리 실패 무시 */ }
+    // ⭐시설 마일스톤(2026-07-07 시뮬 베이스라인) — 누적 업그레이드 10 경계마다 +100스핀("시설 10레벨 = 100스핀" 관점).
+    const milestoneSpins = facilityMilestoneSpins(prevCityLevel, newCityLevel);
+    if (milestoneSpins > 0) {
+      const total = addSpins(milestoneSpins);
+      try {
+        recordEvent({ t: Date.now(), e: 'spin_in', src: 'facility', n: milestoneSpins, sp: total, L: newCityLevel });
+      } catch { /* 텔레메트리 실패 무시 */ }
+      this.header?.setSpins(total);
+      showToast(this, `🏨 시설 마일스톤!  +${milestoneSpins} 스핀`, { color: '#9bff7a' });
+    }
     this.refreshSlot(index); // 새 레벨 노드 표시(가구 이미지 변화)
     this.refreshAll();
     this.header?.setCoins(this.coins);
@@ -336,6 +438,18 @@ export class HotelScene extends Phaser.Scene {
     if (isStageComplete(this.hotel)) this.time.delayedCall(750, () => this.onStageComplete());
   }
 
+  /** ⭐텔레메트리 v2 — 스테이지 완성 보상 원장(코인/스핀 stage_clear + 설치비는 upgrade 지출로). 실패 무시. */
+  private recordStageClear(reward: StageReward, installCost = 0): void {
+    const L = cityLevel(this.hotel);
+    try {
+      if (reward.coins > 0) recordEvent({ t: Date.now(), e: 'coin_in', src: 'stage_clear', n: reward.coins, co: this.coins, L });
+      if (reward.spins > 0) recordEvent({ t: Date.now(), e: 'spin_in', src: 'stage_clear', n: reward.spins, sp: loadSpins(), L });
+      if (installCost > 0) recordEvent({ t: Date.now(), e: 'upgrade', n: installCost, co: this.coins, L });
+    } catch {
+      /* 텔레메트리 실패 무시 */
+    }
+  }
+
   /** ⭐스테이지 완성 — 마지막 스테이지면 기존 보상 팝업, 아니면 NEW FACILITY 설치 확인 팝업으로 분기. */
   private onStageComplete(): void {
     if (this.leaving) return;
@@ -350,6 +464,7 @@ export class HotelScene extends Phaser.Scene {
         saveCoins(this.coins);
         if (reward.spins > 0) addSpins(reward.spins);
         if (reward.gems > 0) addGems(reward.gems);
+        this.recordStageClear(reward);
         this.header?.setCoins(this.coins);
         this.header?.setSpins(loadSpins());
         showToast(this, '모든 스테이지 완성! 🎉', { color: '#ffe27a' });
@@ -371,6 +486,7 @@ export class HotelScene extends Phaser.Scene {
       saveCoins(this.coins);
       if (reward.spins > 0) addSpins(reward.spins);
       if (reward.gems > 0) addGems(reward.gems);
+      this.recordStageClear(reward, installCost);
       this.header?.setCoins(this.coins);
       this.header?.setSpins(loadSpins());
       // 다음 스테이지 진입.
@@ -689,6 +805,40 @@ export class HotelScene extends Phaser.Scene {
         this.refreshAll();
       },
       onHotelReset: () => this.resetHotelStages(), // ⭐설정 → 시설 업그레이드 리셋 → 스테이지1 로 재시작
+      onSimReset: () => this.fullSimReset(), // ⭐설정 → 전체 시뮬 리셋(보상미션 포함) → 새로고침
+      // ⭐테스트 버튼 — 공격받음 봉투 연출 트리거(목업). 업그레이드 가능한 첫 시설을 공격 상태로.
+      devButtons: [
+        {
+          label: '🗡 공격 연출',
+          color: 0x8a4a2a,
+          onTap: () => {
+            const s = this.firstAttackableSlot();
+            if (s >= 0) this.markAttacked(s, 'David');
+            else showToast(this, '공격 가능한 시설이 없습니다', { color: '#ff9a9a' });
+          },
+        },
+      ],
+    });
+  }
+
+  /** ⭐전체 시뮬 리셋(데이터 패널) — 모든 socialcasino_* 저장 제거(보상미션·스핀·코인·시설·텔레메트리) 후 새로고침.
+   *  PlayScene.resetAllSaves 와 동일 SSOT(resetSim). 호텔 화면에서도 초기 상태부터 시뮬을 반복할 수 있게. */
+  private fullSimReset(): void {
+    this.leaving = true; // ⭐이후 업그레이드/스테이지 정산이 코인·호텔을 재저장하지 못하게(리셋 씹힘 방지)
+    this.time.removeAllEvents();
+    resetSimulationData();
+    try {
+      clearLedger();
+    } catch {
+      /* 텔레메트리 실패 무시 */
+    }
+    showToast(this, `초기화 — ${SIM_RESET_SUMMARY}`, { color: '#ff9a9a' });
+    this.time.delayedCall(400, () => {
+      try {
+        window.location.reload();
+      } catch {
+        this.scene.start('lobby');
+      }
     });
   }
 

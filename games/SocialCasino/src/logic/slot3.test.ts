@@ -151,8 +151,10 @@ describe('distribution sanity (weights)', () => {
     // ⭐요청: 최소 30% 매칭. MATCH_RATE=0.34 목표 ± 표본오차.
     expect(matchRate).toBeGreaterThan(0.3);
     expect(matchRate).toBeLessThan(0.4);
-    // 어택/레이드가 자주(각 스핀당 ≈5.7%) 발생하는지.
-    expect(attack / N).toBeGreaterThan(0.03);
+    // ⭐어택은 요청으로 하향(망치 18→8) → 스핀당 ≈2.8%. 레이드(금화 심볼) 판정은 slot3 순수로직엔 남아 있음
+    //   (실게임은 PlayScene 라우팅이 슬롯 레이드를 코인으로 대체). 여기선 심볼 분포만 검증.
+    expect(attack / N).toBeGreaterThan(0.015);
+    expect(attack / N).toBeLessThan(0.045); // 하향 확인(과거 ~5.7% 아님)
     expect(raid / N).toBeGreaterThan(0.03);
     expect(coin / N).toBeGreaterThan(0.1);
     // 합산 정합.

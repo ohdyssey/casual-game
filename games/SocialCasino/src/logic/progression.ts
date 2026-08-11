@@ -54,6 +54,23 @@ export function hotelSpinGrant(_level: number): number {
   return 0;
 }
 
+// ── ③-b ⭐시설 마일스톤 스핀(2026-07-07, 보상구조 시뮬 베이스라인) ────────────────
+//   요청 관점: "시설은 10레벨 업그레이드(가령 한 개 시설 완료 = 로비 업그레이드 완료) 시 100스핀 제공".
+//   → **누적 업그레이드(시티레벨) 10 경계를 넘을 때마다 100스핀** = 업그레이드당 10스핀 밀도의 뭉치 지급.
+//   per-upgrade 기하 환급(폐지)·스테이지 클리어 스핀(hotelUpgrade — 이 마일스톤으로 대체)과 달리
+//   **선형·예측 가능**해 시뮬 데이터 해석과 확률 재설계의 단일 레버가 된다. 값은 시뮬 실측 후 재조정.
+/** 마일스톤 주기(누적 업그레이드 수). */
+export const FACILITY_MILESTONE_EVERY = 10;
+/** 마일스톤당 지급 스핀. */
+export const FACILITY_MILESTONE_SPINS = 100;
+
+/** 시티레벨 prev→next 상승이 지나는 마일스톤 지급 스핀 합(경계 여러 개 통과 시 합산). 하강/동일이면 0. */
+export function facilityMilestoneSpins(prevLevel: number, nextLevel: number): number {
+  const a = Math.floor(Math.max(0, prevLevel) / FACILITY_MILESTONE_EVERY);
+  const b = Math.floor(Math.max(0, nextLevel) / FACILITY_MILESTONE_EVERY);
+  return Math.max(0, b - a) * FACILITY_MILESTONE_SPINS;
+}
+
 // ── 해금 (K레벨마다 신규 테마/스테이지/베팅 해금) ──────────────────────────────
 /** 해금 주기(매 K번째 업그레이드에서 해금 이벤트). */
 export const UNLOCK_EVERY = 5;

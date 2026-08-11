@@ -33,11 +33,12 @@ export class CoinBurst {
    * 배수(amount/bet) → 쏟아지는 **길이(duration)** + **굵기(quantity, 방출당 코인 수)**.
    * 배수↑ → 더 길게·더 굵게(과도하게 많게). 순수 함수(검증 용이).
    */
-  static streamPlan(amount: number, bet: number): { duration: number; quantity: number } {
+  static streamPlan(amount: number, bet: number, sizeScale = 1): { duration: number; quantity: number } {
     const mult = amount / Math.max(1, bet);
     // ⭐2026-07-02 요청: 코인드랍 연출 규모를 기존 대비 **70%** 로 축소(길이·굵기 동시 하향).
-    const duration = Phaser.Math.Clamp(Math.round((450 + mult * 100) * 0.7), 400, 1820); // ~0.4s ~ 1.82s
-    const quantity = Phaser.Math.Clamp(Math.round((1.5 + mult * 0.14) * 0.7), 1, 5); // 방출당 1~5개
+    // ⭐2026-07-06 sizeScale: 일반 당첨(대박 아님)은 더 작게(길이·굵기 동시 축소, 요청 "연출 크기 줄이기·흐름 유지").
+    const duration = Phaser.Math.Clamp(Math.round((450 + mult * 100) * 0.7 * sizeScale), 300, 1820);
+    const quantity = Phaser.Math.Clamp(Math.round((1.5 + mult * 0.14) * 0.7 * sizeScale), 1, 5); // 방출당 1~5개
     return { duration, quantity };
   }
 
@@ -45,9 +46,9 @@ export class CoinBurst {
    * 슬롯 당첨 — [xLeft,xRight] 폭에서 코인이 **연속으로 콸콸 쏟아지는** 분수 스트림.
    * 배수가 높을수록 더 길게·더 굵게 흐른다. onChime 은 흐름 중 코인음을 일정 간격으로 겹쳐준다.
    */
-  burstRowScaled(xLeft: number, xRight: number, y: number, amount: number, bet: number, onChime?: () => void): void {
+  burstRowScaled(xLeft: number, xRight: number, y: number, amount: number, bet: number, onChime?: () => void, sizeScale = 1): void {
     if (!this.scene.textures.exists(COIN_SHEET_KEY)) return;
-    const { duration, quantity } = CoinBurst.streamPlan(amount, bet);
+    const { duration, quantity } = CoinBurst.streamPlan(amount, bet, sizeScale);
 
     const emitter = this.scene.add.particles(0, 0, COIN_SHEET_KEY, {
       x: { min: xLeft, max: xRight }, // 한 줄 폭 전체에서 흘러나옴

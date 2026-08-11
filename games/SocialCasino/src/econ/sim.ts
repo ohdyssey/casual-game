@@ -8,7 +8,7 @@
  *
  * defaultEconParams() = 현재 SSOT 값(progression·economy·playParams) → 시뮬 기본 = 라이브 게임.
  */
-import { createGrid, findRuns, groupMatches, cloneGrid, resolveSwap, SPECIAL_SPIN, SPECIAL_ATTACK, SPECIAL_RAID, type Grid, type Coord, type SpecialSpawn } from '../logic/board.js';
+import { createGrid, findRuns, groupMatches, cloneGrid, resolveSwap, SPECIAL_SPIN, SPECIAL_ATTACK, SPECIAL_RAID, type Grid, type Coord } from '../logic/board.js';
 import { ROULETTE_SEGMENTS, pickSegment, rouletteWin } from '../logic/roulette.js';
 import { spinReels, evaluateReels, LINES } from '../logic/slot.js';
 import { nextFortune, weightsFor, FORTUNE_START, puzzleMultiplierFromRuns, SLOT_RTP_SCALE, LUCK_TABLE, JACKPOT_RAKE, JACKPOT_HIT_PROB, type Fortune } from '../logic/economy.js';
@@ -19,7 +19,10 @@ import { makeRng, type Rng } from '../logic/rng.js';
 import { type LeagueParams, DEFAULT_LEAGUE, expectedSpinPerPeriod, expectedCoinPerPeriod, leaguePerDaySpins, leaguePerDayCoins } from './league.js';
 
 const ROWS = 6, COLS = 6, TYPES = 5, COLLECT = 0;
-const SPAWN: SpecialSpawn = { chance: 0.13, cap: 8 }; // 구조적(boardView 와 동일)
+// ⭐2026-07-06 #12/#13: 라이브 boardView 와 동일 — 특수젬을 **위에서 안 떨어뜨리고**(spawn 미사용) **4+ 매치 origin 에 생성**.
+//   생성 종류 = 레이드:스핀 = **7:3** 가중풀(레이드 우세). cap=8. 어택 젬 미스폰(어택=슬롯, sim 미모델=보수적).
+const SPECIAL_POOL = [SPECIAL_RAID, SPECIAL_RAID, SPECIAL_RAID, SPECIAL_RAID, SPECIAL_RAID, SPECIAL_RAID, SPECIAL_RAID, SPECIAL_SPIN, SPECIAL_SPIN, SPECIAL_SPIN];
+const SPECIAL_ON_MATCH = { pool: SPECIAL_POOL, minSize: 4, cap: 8 } as const;
 
 /** 미션 한 칸(시뮬용 평탄화). */
 export interface SimMission {
@@ -142,7 +145,7 @@ export function estimateRtp(p: EconParams, spins = 40000, boardMoves = 4000, see
   for (let i = 0; i < boardMoves; i++) {
     const mv = findBestMove(grid);
     if (!mv) { grid = createGrid(ROWS, COLS, TYPES, rng); continue; }
-    const res = resolveSwap(grid, mv.a, mv.b, TYPES, rng, SPAWN);
+    const res = resolveSwap(grid, mv.a, mv.b, TYPES, rng, undefined, 0, false, SPECIAL_ON_MATCH);
     const runs: number[] = []; for (const st of res.steps) for (const len of st.runs) runs.push(len);
     pmSum += puzzleMultiplierFromRuns(runs, res.cleared); grid = res.finalGrid; moves++;
   }
@@ -214,7 +217,7 @@ export function simulate(p: EconParams, opts: SimOptions): SimResult {
     spins -= p.bet;
     const mv = findBestMove(grid);
     if (!mv) { grid = createGrid(ROWS, COLS, TYPES, rng); continue; }
-    const res = resolveSwap(grid, mv.a, mv.b, TYPES, rng, SPAWN);
+    const res = resolveSwap(grid, mv.a, mv.b, TYPES, rng, undefined, 0, false, SPECIAL_ON_MATCH);
     grid = res.finalGrid;
     rounds++;
 
@@ -249,9 +252,9 @@ export function simulate(p: EconParams, opts: SimOptions): SimResult {
       coins += rw; coinSrc.raid += rw; raidEvents++;
     }
 
-    // 스핀 환급(젬) — **매치(스텝)당 spinRefundMult**(1~2=×1·3+=배수). 게임 onCollectSpecials 와 동일.
+    // 스핀 환급(젬) — ⭐**그룹 단위**(2026-07-06 #7, onCollectSpecials 와 동일): 한 그룹 스핀젬 **3+** 만 환급(spinRefundMult<3=0).
     let refund = 0;
-    for (const st of res.steps) { const sg = st.collected[SPECIAL_SPIN] ?? 0; if (sg > 0) refund += p.bet * spinRefundMult(sg); }
+    for (const st of res.steps) for (const g of st.specialGroups) { const sg = g[SPECIAL_SPIN] ?? 0; if (sg >= 3) refund += p.bet * spinRefundMult(sg); }
     if (refund > 0) { spins += refund; src.gem += refund; }
     // 대박 주입
     const bw = win >= betCoin * p.bigWinMegaX ? p.bigWinMega : win >= betCoin * p.bigWinBigX ? p.bigWinBig : 0;

@@ -175,8 +175,10 @@ export function computeGeom(doc: LayoutDoc, boardCols = PANEL_GRID.cols, boardRo
     reel: reelGrid(doc),
     board: boardGeom(doc, boardCols, boardRows),
     anchors: {
-      // 스핀(GO) 버튼: 신 GO 패널(up_SC_GO_02) → 구 재디자인(스핀 버튼 오프/버튼온) → 구 디자인(up_SC_UI_11) 순.
+      // 스핀(GO) 버튼: ⭐main_copy 하단 SPIN(고 패널 up_NewUI_06-1, 2026-07-07 — 미배선으로 "눌러도 퍼즐 매칭 안 됨" 버그 수정)
+      //   → 신 GO 패널(up_SC_GO_02) → 구 재디자인(스핀 버튼 오프/버튼온) → 구 디자인(up_SC_UI_11) 순.
       spin:
+        pick('고 패널', 'up_NewUI_06-1') ??
         pick('GO', 'up_SC_GO_02') ??
         pick('스핀', 'up_SC_UI_11') ??
         pick('스핀 버튼 오프', 'up_SC_UI_btn_off_v2') ??

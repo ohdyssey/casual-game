@@ -25,6 +25,9 @@ import {
   cityOfUpgrade,
   levelOfUpgrade,
   stageOfUpgrade,
+  facilityMilestoneSpins,
+  FACILITY_MILESTONE_SPINS,
+  MISSION_GROWTH_PER_LEVEL,
 } from './progression.js';
 
 describe('progression — 코인 비용 곡선', () => {
@@ -65,6 +68,27 @@ describe('progression — per-upgrade 스핀 환급 폐지(2026-06-30)', () => {
   });
 });
 
+describe('progression — ⭐시설 마일스톤 스핀(2026-07-07 시뮬 베이스라인: 10업그레이드 = 100스핀)', () => {
+  it('경계(10의 배수) 통과 시에만 100스핀 — 9→10 지급·10→11 미지급', () => {
+    expect(facilityMilestoneSpins(9, 10)).toBe(FACILITY_MILESTONE_SPINS);
+    expect(facilityMilestoneSpins(10, 11)).toBe(0);
+    expect(facilityMilestoneSpins(0, 1)).toBe(0);
+    expect(facilityMilestoneSpins(19, 20)).toBe(FACILITY_MILESTONE_SPINS);
+  });
+  it('여러 경계를 한 번에 넘으면 합산·하강/동일은 0·음수 방어', () => {
+    expect(facilityMilestoneSpins(0, 20)).toBe(2 * FACILITY_MILESTONE_SPINS);
+    expect(facilityMilestoneSpins(5, 35)).toBe(3 * FACILITY_MILESTONE_SPINS);
+    expect(facilityMilestoneSpins(10, 10)).toBe(0);
+    expect(facilityMilestoneSpins(20, 10)).toBe(0);
+    expect(facilityMilestoneSpins(-5, 5)).toBe(0);
+  });
+  it('스테이지1 완주(업그레이드 20회) 누적 = 200스핀 = 업그레이드당 10스핀 밀도', () => {
+    let sum = 0;
+    for (let L = 0; L < 20; L++) sum += facilityMilestoneSpins(L, L + 1);
+    expect(sum).toBe(200);
+  });
+});
+
 describe('progression — 해금/테마', () => {
   it('unlocksAt 은 K의 배수에서만(L>0)', () => {
     expect(unlocksAt(0)).toBe(false);
@@ -81,10 +105,10 @@ describe('progression — 해금/테마', () => {
 });
 
 describe('progression — 미션 목표 스케일', () => {
-  it('레벨↑ → 목표↑(단조), L0 은 기준 그대로', () => {
+  it('⭐배수 비활성화(MISSION_GROWTH_PER_LEVEL=0) — 레벨 무관 베이스값 그대로(재적용 시 단조증가 검증 복원)', () => {
     expect(missionTarget(250, 0)).toBe(250);
-    expect(missionTarget(250, 10)).toBeGreaterThan(250);
-    expect(missionTarget(250, 20)).toBeGreaterThan(missionTarget(250, 10));
+    expect(missionTarget(250, 10)).toBe(Math.round(250 * (1 + MISSION_GROWTH_PER_LEVEL * 10)));
+    expect(missionTarget(250, 20)).toBeGreaterThanOrEqual(missionTarget(250, 10)); // 단조 비감소(계수 0/양수 모두 성립)
   });
 });
 

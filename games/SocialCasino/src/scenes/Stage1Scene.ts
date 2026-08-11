@@ -110,13 +110,22 @@ const COUNT_MS = 800; // 당첨금 카운트업
 // ⭐**대기 상태에서만** 회전중심 기준 아주 미세한 각도 wobble("회전할까 말까").
 const WHEEL_WOBBLE_DEG = 0.7;
 const WHEEL_WOBBLE_MS = 470;
+// 🛡️ 어택 스윙 완료(hammerfx 크로스씬 이벤트) 대기 폴백 — 이벤트가 이 시간 내 안 오면(hammerfx 15s 자동종료 후 탭·이벤트 유실
+//   ·조기 씬종료) **강제로 다운그레이드 진행** → 결과 다이얼로그 보장(멱등). 실제 스윙(~0.55s)보다 넉넉히 뒤.
+const SWING_FALLBACK_MS = 1400;
+// 🛡️ 스테이지 하드 최대시간 — 어떤 링크(크로스씬 이벤트/per-object 입력/트윈 콜백)가 끊겨도 게임이 영구 프리즈되지
+//   않게 최종 강제 복귀. 정상 스테이지는 훨씬 짧아 오발동 없음(느린 사용자도 여유).
+const STAGE_WATCHDOG_MS = 90000;
 
 export class Stage1Scene extends Phaser.Scene {
   private resumeKey = 'play';
   private done = false;
   private started = false; // 흐름 시작 중복 방지
   private spun = false; // 스핀 중복 방지
+  private spinRequested = false; // ⭐SPIN 입력 접수(멱등) — 버튼 핸들러/씬레벨 폴백/오토가 중복돼도 1회만 발동
   private landed = false; // 착지(onLand) 중복 방지
+  private attackHit = false; // ⭐어택 타겟 접수(멱등) — 멀티터치/연타로 두 번 처리되지 않게
+  private downgraded = false; // ⭐다운그레이드 실행(멱등) — 스윙완료 이벤트 + 타임아웃 폴백 이중 트리거를 1회로
   private auto = false; // ⭐오토스핀 — 룰렛 자동(자동 SPIN + 자동 OK)
 
   private type: 'attack' | 'raid' = 'attack';
@@ -172,7 +181,10 @@ export class Stage1Scene extends Phaser.Scene {
     this.done = false;
     this.started = false;
     this.spun = false;
+    this.spinRequested = false;
     this.landed = false;
+    this.attackHit = false;
+    this.downgraded = false;
     this.auto = data?.auto ?? false;
     this.lastWin = 0;
     this.lastSeg = undefined;
@@ -434,6 +446,7 @@ export class Stage1Scene extends Phaser.Scene {
   private beginStage(): void {
     if (this.started) return;
     this.started = true;
+    this.armStageWatchdog(); // 🛡️ 스테이지 시작과 함께 프리즈 방지 타이머 무장(정상 완료 시 finish 로 무효화)
     cameraEnterZoom(this, this.stageContentObjs, { centerX: DESIGN_W / 2, centerY: DESIGN_H / 2 });
     if (this.type === 'attack') {
       // 공격: 룰렛 없음 — 타겟 아이콘·별 표시.
@@ -530,14 +543,25 @@ export class Stage1Scene extends Phaser.Scene {
 
   /** 타겟 탭됨 — 모든 타겟 비활성화 → ATTACK_SWING_EVENT 발행(망치 스윙) → 임팩트 콜백 → executeDowngrade. */
   private onTargetHit(slotIndex: number): void {
+    if (this.attackHit) return; // 멀티터치/연타 방지(두 타겟 동시 처리 → 스윙 꼬임 차단)
+    this.attackHit = true;
     for (const icon of this.attackTargetIcons) {
       icon.disableInteractive();
       this.tweens.add({ targets: icon, alpha: 0, duration: 200 });
     }
-    // 망치 스윙 완료 시 다운그레이드 실행
-    const { x: tx, y: ty } = this.attackSlotCenters[slotIndex];
-    this.game.events.once(ATTACK_SWING_DONE_EVENT, () => this.executeDowngrade(slotIndex));
-    this.game.events.emit(ATTACK_SWING_EVENT, tx, ty);
+    // 망치 스윙 완료 시 다운그레이드 실행. 좌표 누락 방어(중앙 폴백).
+    const center = this.attackSlotCenters[slotIndex] ?? { x: DESIGN_W / 2, y: DESIGN_H / 2 };
+    // ⚠️ executeDowngrade 로 이어지는 이 링크가 **크로스씬 이벤트**(hammerfx 발행) 의존 → hammerfx 가 죽었거나(커튼오픈 15s 후
+    //   자동종료 뒤 뒤늦게 탭), 스윙 트윈이 끊기면 이벤트가 영영 안 와 **다이얼로그가 안 뜨고 게임이 멈춘다**(사용자 보고).
+    //   → 정상 경로(이벤트) + 타임아웃 폴백(강제 진행) 이중화. executeDowngrade 는 downgraded 가드로 멱등.
+    const done = (): void => this.executeDowngrade(slotIndex);
+    this.game.events.once(ATTACK_SWING_DONE_EVENT, done);
+    this.game.events.emit(ATTACK_SWING_EVENT, center.x, center.y);
+    // 🛡️ 폴백: 스윙완료 이벤트가 SWING_FALLBACK_MS 내 안 오면 리스너 해제 후 강제 진행 → 결과 다이얼로그 보장.
+    this.afterDelay(SWING_FALLBACK_MS, () => {
+      this.game.events.off(ATTACK_SWING_DONE_EVENT, done);
+      this.executeDowngrade(slotIndex);
+    });
   }
 
   /** 오브젝트를 좌우로 흔드는 연출. */
@@ -554,8 +578,11 @@ export class Stage1Scene extends Phaser.Scene {
     });
   }
 
-  /** 다운그레이드 실행 — 임팩트 이펙트 → 별 사라짐 → 이미지 전환 + 흔들림 → 결과 다이얼로그. */
+  /** 다운그레이드 실행 — 임팩트 이펙트 → 별 사라짐 → 이미지 전환 + 흔들림 → 결과 다이얼로그. **멱등**(스윙완료 이벤트 +
+   *  타임아웃 폴백 이중 트리거 → 1회만) + 씬 비활성 방어(조기 종료 후 stale 이벤트가 죽은 씬에서 실행 방지). */
   private executeDowngrade(slotIndex: number): void {
+    if (this.downgraded || this.done || !this.scene.isActive()) return;
+    this.downgraded = true;
     const prevLevel = objectLevel(this.hotelState, slotIndex);
     const newState = downgradeObject(this.hotelState, slotIndex);
     this.hotelState = newState;
@@ -666,7 +693,9 @@ export class Stage1Scene extends Phaser.Scene {
         o.setAlpha(0);
         this.tweens.add({ targets: e.obj, alpha: 1, duration: 320, ease: 'Quad.easeOut' });
       }
-      for (const btn of this.okButtons) this.wireClose(btn);
+      this.armResultClose();
+      // ⭐어택도 오토스핀 중이면 결과를 잠깐 보여준 뒤 **자동 OK**(복귀) — 누락 시 오토 플레이가 어택 결과에서 멈춘다.
+      if (this.auto) this.afterDelay(1300, () => this.finish());
     });
   }
 
@@ -702,11 +731,40 @@ export class Stage1Scene extends Phaser.Scene {
     if (btn) {
       this.spinBtnBase = { sx: btn.scaleX, sy: btn.scaleY };
       btn.setInteractive({ useHandCursor: true });
-      btn.once('pointerdown', () => this.pressSpin());
+      // ⭐once→on: **재무장 가능**하게(단발성이면 팬텀/유실 pointerdown 이 버튼을 영구 비활성화시킴). requestSpin 이 멱등이라 중복 안전.
+      btn.on('pointerdown', () => this.requestSpin());
       this.tweens.add({ targets: btn, scaleX: this.spinBtnBase.sx * 1.06, scaleY: this.spinBtnBase.sy * 1.06, duration: 560, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     }
+    // 🛡️ 씬 레벨 pointerdown 폴백 — **오브젝트 히트테스트가 유실돼도 SPIN 이 반드시 동작**하게(버그: 룰렛 발생 후 가끔
+    //   버튼이 안 먹힘). 룰렛은 PlayScene pause + stage1 launch + hammerfx bringToTop 종료가 겹치는 전환 직후 떠서,
+    //   per-object InputPlugin 이 특정 프레임의 pointerdown 을 놓칠 수 있다. 씬 레벨 입력 + on-demand 바운즈 판정은
+    //   그 리스트/정렬/topOnly 경로를 우회한다. 버튼/휠 영역 탭이면 스핀(대기 상태 한정 · requestSpin 멱등).
+    this.input.on('pointerdown', this.onWaitingPointer, this);
     // ⭐오토스핀 중이면 잠깐 보여준 뒤 **자동으로 SPIN** 누름(요청).
-    if (this.auto) this.afterDelay(900, () => this.pressSpin());
+    if (this.auto) this.afterDelay(900, () => this.requestSpin());
+  }
+
+  /** 대기 상태의 씬 레벨 탭 폴백 — SPIN 버튼(관대 패딩)/휠 영역 안이면 스핀. 좌표·바운즈 모두 월드 기준(카메라 줌 무관). */
+  private onWaitingPointer(pointer: Phaser.Input.Pointer): void {
+    if (this.spinRequested) return;
+    const px = pointer.worldX;
+    const py = pointer.worldY;
+    let hit = false;
+    if (this.spinBtn) {
+      const b = this.spinBtn.getBounds();
+      Phaser.Geom.Rectangle.Inflate(b, b.width * 0.3 + 30, b.height * 0.6 + 30); // 손가락 오차 관대하게
+      if (b.contains(px, py)) hit = true;
+    }
+    if (!hit && this.wheelGroup && this.wheelGroup.getBounds().contains(px, py)) hit = true; // 프라이즈 휠은 통째로 탭 대상
+    if (hit) this.requestSpin();
+  }
+
+  /** SPIN 요청 접수 — **멱등**(버튼/씬폴백/오토 어느 경로로 와도 1회만). 폴백 리스너 해제 후 눌림 연출 시작. */
+  private requestSpin(): void {
+    if (this.spinRequested) return;
+    this.spinRequested = true;
+    this.input.off('pointerdown', this.onWaitingPointer, this); // 폴백 해제(중복 진입 차단)
+    this.pressSpin();
   }
 
   /** ⭐SPIN 버튼 눌림 표현 — 깊게 축소 + 어둡게 → 탁 복귀(오버슈트) → 회전 시작. */
@@ -838,7 +896,7 @@ export class Stage1Scene extends Phaser.Scene {
         o.setAlpha(0);
         this.tweens.add({ targets: e.obj, alpha: 1, duration: 320, ease: 'Quad.easeOut' });
       }
-      for (const btn of this.okButtons) this.wireClose(btn);
+      this.armResultClose();
       // ⭐오토스핀 중이면 결과를 잠깐 보여준 뒤 **자동으로 OK**(게임 복귀, 요청).
       if (this.auto) this.afterDelay(1300, () => this.finish());
     });
@@ -877,6 +935,31 @@ export class Stage1Scene extends Phaser.Scene {
     });
   }
 
+  /** 결과 다이얼로그의 닫기를 **견고하게** — OK/FB 버튼 배선 + 씬 레벨 탭 폴백(per-object pointerdown 유실 대비).
+   *  finish 는 done 가드로 멱등이라 어느 경로로 와도 1회만. 오탭 방지로 씬 폴백은 살짝 뒤 무장. */
+  private armResultClose(): void {
+    for (const btn of this.okButtons) this.wireClose(btn);
+    // 🛡️ 씬 레벨 폴백 — OK pointerdown 이 (씬 전환 입력 레이스로) 유실돼도 **어디든 탭하면 복귀**. 결과 상태의 유일 액션이 복귀라 안전.
+    this.afterDelay(500, () => {
+      if (this.done) return;
+      this.input.on('pointerdown', this.onResultPointer, this);
+    });
+  }
+
+  /** 결과 상태 씬 레벨 탭 → 복귀(finish 멱등). */
+  private onResultPointer(): void {
+    this.finish();
+  }
+
+  /** 🛡️ 최종 안전망 — 어떤 링크(크로스씬 이벤트/입력/트윈 콜백)가 끊겨도 게임이 영구 멈추지 않게 하드 최대시간 후 강제 복귀. */
+  private armStageWatchdog(): void {
+    this.afterDelay(STAGE_WATCHDOG_MS, () => {
+      if (this.done) return;
+      if (import.meta.env?.DEV) console.warn('[stage1] watchdog forced return — stage stalled');
+      this.finish();
+    });
+  }
+
   /** 버튼(OK/페이스북) → 누름 피드백 후 닫고 게임 재개. */
   private wireClose(btn: Phaser.GameObjects.Image): void {
     btn.setInteractive({ useHandCursor: true });
@@ -892,6 +975,7 @@ export class Stage1Scene extends Phaser.Scene {
   finish(): void {
     if (this.done) return;
     this.done = true;
+    this.input.off('pointerdown', this.onResultPointer, this); // 결과 씬폴백 해제(멱등 정리)
     // ⭐핸드오프(복귀)를 가장 먼저 — 이후 사운드 정리에서 예외가 나도 복귀가 막히지 않게. RESUME/레지스트리 의존 제거.
     try {
       const play = this.game.scene.getScene(this.resumeKey) as unknown as {

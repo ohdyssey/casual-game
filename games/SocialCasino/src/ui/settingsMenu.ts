@@ -49,10 +49,14 @@ export interface SettingsMenuOpts {
   onDataChanged?: () => void;
   /** ⭐시설(호텔) 업그레이드 리셋 후 호출 — 호텔 화면이면 스테이지1 로 씬 재시작. 없으면 onDataChanged 로 폴백. */
   onHotelReset?: () => void;
+  /** ⭐전체 시뮬 리셋(스핀300·보상미션1·시설·텔레메트리) — 호스트가 전체 초기화+새로고침을 수행. 없으면 데이터 패널 버튼 숨김. */
+  onSimReset?: () => void;
   /** 상점 열기(로비). 없으면 상세에서 "로비에서 이용" 안내. */
   onShop?: () => void;
   /** 메뉴 레이어 depth(기본 9800). */
   depth?: number;
+  /** ⭐호스트가 제공하는 **테스트/디버그 버튼**(요청 2026-07-07: 메뉴 **제일 하단**). getOn 있으면 ON/OFF 토글 표시. */
+  devButtons?: ReadonlyArray<{ label: string; color?: number; onTap: () => void; getOn?: () => boolean }>;
 }
 
 type SceneWithMenu = Phaser.Scene & { __settingsMenu?: Phaser.GameObjects.Container };
@@ -343,9 +347,18 @@ export function openSettingsMenu(scene: Phaser.Scene, opts: SettingsMenuOpts = {
       if (opts.onHotelReset) opts.onHotelReset();
       else onChange();
     });
+    // ⭐전체 시뮬 리셋(2026-07-07) — 스핀300·**보상미션1**·시설Lv1·코인·텔레메트리까지 한 번에 초기화 + 새로고침.
+    //   ('시설 업그레이드 리셋'은 시설만 → 보상미션 시뮬 반복에 부족했음. 테스터가 데이터 패널에서 완전 초기화 가능.)
+    label(scene, content, cx, contentTop + 1060, '시뮬레이션 (초기 상태부터 재시작)', 32, '#3a2456', 0.5);
+    if (opts.onSimReset) {
+      button(scene, content, cx, contentTop + 1160, 580, 120, 0x8a3a3a, '⟲ 전체 시뮬 리셋 (스핀300·미션1)', 34, () => {
+        closeMenu(s);
+        opts.onSimReset?.();
+      });
+    }
     // ⭐보상 밸런스 상세 편집(슬롯·미션·레이드) — DOM 오버레이. 저장 시 라이브 게임 즉시 반영 + HUD/미션 재동기화.
-    label(scene, content, cx, contentTop + 1060, '보상 밸런스 (슬롯 · 미션 · 레이드)', 32, '#3a2456', 0.5);
-    button(scene, content, cx, contentTop + 1160, 580, 120, 0x2e7d6b, '⚙ 보상 상세 설정', 40, () => {
+    label(scene, content, cx, contentTop + 1320, '보상 밸런스 (슬롯 · 미션 · 레이드)', 32, '#3a2456', 0.5);
+    button(scene, content, cx, contentTop + 1420, 580, 120, 0x2e7d6b, '⚙ 보상 상세 설정', 40, () => {
       openRewardEditor(() => onChange());
     });
   };
@@ -394,6 +407,25 @@ export function openSettingsMenu(scene: Phaser.Scene, opts: SettingsMenuOpts = {
       button(scene, content, cx + 200, footY, 360, 110, 0x6b5a8a, '닫기', 44, () => closeMenu(s));
     } else {
       button(scene, content, cx, footY, 420, 110, 0x6b5a8a, '닫기', 44, () => closeMenu(s));
+    }
+    // ⭐테스트/디버그 버튼(요청: 메뉴 제일 하단) — 최대 2개 한 줄. getOn 있으면 ON/OFF 토글(탭 시 허브 재렌더).
+    const devs = opts.devButtons ?? [];
+    if (devs.length) {
+      const dy = footY + 128;
+      label(scene, content, cx, dy - 66, '— 테스트 —', 30, '#a07b4a', 0.5);
+      const dw = devs.length > 1 ? 360 : 480;
+      const gap = 40;
+      let dx = cx - (devs.length * dw + (devs.length - 1) * gap) / 2 + dw / 2;
+      for (const d of devs) {
+        const on = d.getOn?.() ?? false;
+        const col = d.getOn ? (on ? 0x2e7d32 : 0x5a4a3a) : (d.color ?? 0x8a3a3a);
+        const lab = d.getOn ? `${d.label}: ${on ? 'ON' : 'OFF'}` : d.label;
+        button(scene, content, dx, dy, dw, 104, col, lab, 34, () => {
+          d.onTap();
+          if (d.getOn) showHub(); // 토글 상태 갱신 위해 재렌더
+        });
+        dx += dw + gap;
+      }
     }
   };
 

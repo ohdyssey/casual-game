@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "kind": "uiFlow",
+  "id": "main",
+  "name": "메인 플로우",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "trigger",
+      "x": 80,
+      "y": 80,
+      "name": "시작",
+      "config": {
+        "event": "gameStart"
+      }
+    },
+    {
+      "id": "screen_mr34d7laap05",
+      "type": "screen",
+      "x": 467,
+      "y": 91,
+      "name": "화면",
+      "config": {
+        "screenDocId": "main"
+      }
+    }
+  ],
+  "edges": [],
+  "vars": {}
+}

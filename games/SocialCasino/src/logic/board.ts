@@ -51,6 +51,9 @@ export interface ResolveStep {
   readonly impacts: Impact[]; // 이 단계 발동한 임팩트(라인/십자/폭탄) — 뷰 연출용(tier=0 이면 빈 배열).
   readonly gridAfter: Grid; // 제거+중력+리필 후 격자
   readonly collected: number[]; // 이 단계에서 제거된 특수 젬 종류별 수 [공격,약탈,스핀] (콤보 순서대로)
+  // ⭐그룹 단위 특수 구성 — **각 특수 그룹**(연결 특수젬 묶음, 크기≥3)의 종류별 수 [공격,약탈,스핀].
+  //   스테이지 발동을 **단일 그룹 기준**(예: 한 그룹 안에서 레이드 ≥2)으로 정밀 판정하는 데 쓴다(스텝 합산 아님).
+  readonly specialGroups: number[][];
 }
 
 export interface ResolveResult {
@@ -95,6 +98,13 @@ export const encodePower = (kind: number, color: number): number => POWER_BASE +
 export interface SpecialSpawn {
   readonly chance: number; // 리필 칸이 특수 젬일 확률(보드 특수 수 < cap 일 때)
   readonly cap: number; // 보드 위 동시 특수 젬 최대 수
+  readonly kinds?: readonly number[]; // 스폰 허용 특수 종류(미지정=전체). 예: 퍼즐=레이드 전용 시 [RAID, SPIN] (어택 젬 미스폰).
+}
+
+/** 스폰할 특수 종류 선택 — kinds 지정 시 그 안에서 균등, 아니면 전체(SPECIAL_KINDS)에서 균등. */
+export function pickSpecialKind(rng: Rng, kinds?: readonly number[]): number {
+  if (kinds && kinds.length > 0) return kinds[randInt(rng, kinds.length)];
+  return randInt(rng, SPECIAL_KINDS);
 }
 
 export function cloneGrid(g: Grid): Grid {
@@ -294,7 +304,7 @@ export function collapse(g: Grid, matched: Coord[], types: number, rng: Rng, spa
       const hLeft = c >= 2 && isSpecial(next[r][c - 1]) && isSpecial(next[r][c - 2]);
       if (!vDown && !hLeft) {
         specials++;
-        return SPECIAL_BASE + randInt(rng, SPECIAL_KINDS);
+        return SPECIAL_BASE + pickSpecialKind(rng, spawn.kinds);
       }
     }
     return randInt(rng, types);
@@ -495,6 +505,9 @@ export function resolveSwap(
   spawn?: SpecialSpawn,
   tier = 0, // ⭐스테이지 임팩트 티어(0=임팩트 없음, 하위호환). tierForStage 로 산출.
   persistent = false, // ⭐Phase 2: true 면 큰 매치가 파워 타일을 생성(지속형). false 면 즉시 발동(Phase 1).
+  // ⭐2026-07-06 #12: 특수젬을 **위에서 떨어뜨리지 않고**(spawn=undefined) **일반 매치 minSize 이상 시 origin 에 생성**(요청).
+  //   생성된 특수젬은 보드에 남는다(finalClear 제외). pool=생성 종류 가중풀(레이드/스핀), cap=보드 위 특수 상한(누적 방지).
+  specialOnMatch?: { readonly pool: readonly number[]; readonly minSize: number; readonly cap: number },
 ): ResolveResult {
   const cols = grid[0]?.length ?? 0;
   const swapped = cloneGrid(grid);
@@ -568,12 +581,29 @@ export function resolveSwap(
     const powerAt = new Set(newPowers.map((p) => p.at.r * cols + p.at.c));
     for (const np of newPowers) cur[np.at.r][np.at.c] = np.val;
 
-    // 제거 대상 카운트(일반=점수/게이지·특수=수집·파워=소비). 새 파워 자리는 제외.
+    // ⭐특수젬 생성(요청 #12): **일반 색 매치 minSize(4) 이상** 그룹의 origin 에 특수젬(레이드/스핀) 생성 — 위에서 안 떨어뜨림.
+    //   생성 특수는 보드에 남는다(아래 finalClear 제외). 특수끼리 매치(gr.special)·파워 자리는 대상 아님.
+    const newSpecials: { at: Coord; val: number }[] = [];
+    if (specialOnMatch && specialOnMatch.pool.length > 0) {
+      let onBoard = 0; // 현재 보드 위 특수 수(상한 체크 — 매치될 특수 포함이라 보수적).
+      for (const row of cur) for (const v of row) if (isSpecial(v)) onBoard++;
+      for (const gr of groups) {
+        if (gr.special || gr.size < specialOnMatch.minSize) continue;
+        if (onBoard + newSpecials.length >= specialOnMatch.cap) break; // 상한 도달 → 생성 중단
+        const at = originOf(gr);
+        if (powerAt.has(at.r * cols + at.c)) continue; // 파워 자리 겹침 방지(파워 비활성 시 무의미)
+        newSpecials.push({ at, val: SPECIAL_BASE + pickSpecialKind(rng, specialOnMatch.pool) });
+      }
+    }
+    const specialAt = new Set(newSpecials.map((p) => p.at.r * cols + p.at.c));
+    for (const ns of newSpecials) cur[ns.at.r][ns.at.c] = ns.val;
+
+    // 제거 대상 카운트(일반=점수/게이지·특수=수집·파워=소비). 새 파워/생성 특수 자리는 제외(보드에 남김).
     const stepCollected: number[] = new Array(SPECIAL_KINDS).fill(0);
     let regular = 0;
     const finalClear: Coord[] = [];
     for (const m of allCells) {
-      if (powerAt.has(m.r * cols + m.c)) continue;
+      if (powerAt.has(m.r * cols + m.c) || specialAt.has(m.r * cols + m.c)) continue;
       const v = cur[m.r][m.c];
       if (isSpecial(v)) {
         stepCollected[specialKind(v)]++;
@@ -585,8 +615,20 @@ export function resolveSwap(
       finalClear.push(m); // 파워 타일은 발동 후 제거(소비)
     }
     cleared += regular;
+    // ⭐그룹 단위 특수 구성 — 각 **특수 그룹**(gr.special)의 종류별 수 [공격,약탈,스핀]. cur(리필 전 격자)에서 셀 값을 읽는다.
+    //   스테이지 발동을 단일 그룹 기준으로 정밀 판정(예: 한 그룹 안 레이드 ≥2 + 그룹 특수 ≥3)하기 위함.
+    const specialGroups: number[][] = [];
+    for (const gr of groups) {
+      if (!gr.special) continue;
+      const kc = new Array(SPECIAL_KINDS).fill(0);
+      for (const cell of gr.cells) {
+        const v = cur[cell.r][cell.c];
+        if (isSpecial(v)) kc[specialKind(v)]++;
+      }
+      specialGroups.push(kc);
+    }
     const gridAfter = collapse(cur, finalClear, types, rng, spawn);
-    steps.push({ matched: finalClear, runs: sizes, groups, impacts, gridAfter, collected: stepCollected });
+    steps.push({ matched: finalClear, runs: sizes, groups, impacts, gridAfter, collected: stepCollected, specialGroups });
     cur = gridAfter;
   }
 

@@ -165,7 +165,9 @@ export interface StageReward {
  *  드문 마일스톤이라 한 방 보상. ⛔per-upgrade 기하 스핀 환급 폐지의 대체 = 여기 **정해진 코인+스핀+젬**만 지급(누적 폭주 없음).
  *  배열 인덱스 = 완성한 스테이지(1-based). 마지막 값 이후 스테이지는 마지막 값 유지(추후 스테이지 추가 시 배열만 연장). */
 const STAGE_CLEAR_COINS: readonly number[] = [300_000, 800_000]; // ⭐2026-06-30: ÷10 리데노미네이션(3M/8M→300K/800K)
-const STAGE_CLEAR_SPINS: readonly number[] = [300, 500];
+/** ⭐2026-07-07 시뮬 베이스라인: 스테이지 클리어 **스핀 폐지(0)** — 시설 스핀은 progression.facilityMilestoneSpins
+ *  (10업그레이드=100스핀, HotelScene 지급)로 **단일화**. 지급원이 겹치면 시뮬 데이터 소스 분해가 흐려진다. 코인/젬은 유지. */
+const STAGE_CLEAR_SPINS: readonly number[] = [0, 0];
 const STAGE_CLEAR_GEMS: readonly number[] = [100, 200];
 export function stageReward(stage: number): StageReward {
   const s = Math.max(1, Math.floor(stage));

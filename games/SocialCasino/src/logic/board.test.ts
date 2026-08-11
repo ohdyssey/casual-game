@@ -18,10 +18,14 @@ import {
   powerKind,
   powerColor,
   isSpecial,
+  specialKind,
+  pickSpecialKind,
   POWER_LINE_H,
   POWER_LINE_V,
   POWER_BOMB,
   SPECIAL_BASE,
+  SPECIAL_ATTACK,
+  SPECIAL_RAID,
   SPECIAL_SPIN,
   type Grid,
   type MatchGroup,
@@ -468,10 +472,92 @@ describe('special gems', () => {
     expect(res.steps[0].collected).toEqual([1, 1, 1]);
   });
 
+  it('specialGroups = 그룹 단위 특수 구성 [공격,약탈,스핀] (스테이지 발동 판정용)', () => {
+    // row0 = [RAID, RAID, 0] 에 (1,2)의 RAID 를 스왑해 올리면 [RAID,RAID,RAID] 특수 그룹(크기3) 매치.
+    const g: Grid = [
+      [RAID, RAID, 0],
+      [0, 1, RAID],
+    ];
+    const res = resolveSwap(g, { r: 0, c: 2 }, { r: 1, c: 2 }, 2, makeRng(3));
+    expect(res.valid).toBe(true);
+    // 첫 스텝에 특수 그룹 1개 = 레이드 3개(합3).
+    expect(res.steps[0].specialGroups).toEqual([[0, 3, 0]]);
+  });
+
   it('default resolveSwap (no spawn) never introduces specials', () => {
     const g = createGrid(6, 6, 5, makeRng(5));
     const res = resolveSwap(g, { r: 0, c: 0 }, { r: 0, c: 1 }, 5, makeRng(5));
     const anySpecial = res.finalGrid.some((row) => row.some((v) => v >= SPECIAL_BASE));
     expect(anySpecial).toBe(false);
+  });
+
+  it('specialOnMatch: 4+ 일반 매치 → 매칭 지점에 특수젬 생성(위에서 안 떨어뜨림), 3매치는 미생성', () => {
+    // row0 = [_,0,0,0] 에 (1,0)의 0 을 (0,0)로 올려 [0,0,0,0] 4매치 생성.
+    const g4: Grid = [
+      [1, 0, 0, 0],
+      [0, 2, 3, 4],
+    ];
+    const res4 = resolveSwap(g4, { r: 0, c: 0 }, { r: 1, c: 0 }, 5, makeRng(2), undefined, 0, false, { pool: [SPECIAL_RAID], minSize: 4, cap: 8 });
+    expect(res4.valid).toBe(true);
+    // 생성된 특수(레이드)가 보드에 남아 있어야 한다.
+    const specials = res4.finalGrid.flat().filter((v) => v >= SPECIAL_BASE);
+    expect(specials.length).toBeGreaterThanOrEqual(1);
+    expect(specials.every((v) => specialKind(v) === SPECIAL_RAID)).toBe(true);
+
+    // 3매치는 minSize=4 미만 → 특수 미생성.
+    const g3: Grid = [
+      [1, 0, 0],
+      [0, 2, 3],
+    ];
+    const res3 = resolveSwap(g3, { r: 0, c: 0 }, { r: 1, c: 0 }, 5, makeRng(2), undefined, 0, false, { pool: [SPECIAL_RAID], minSize: 4, cap: 8 });
+    expect(res3.finalGrid.flat().some((v) => v >= SPECIAL_BASE)).toBe(false);
+  });
+
+  it('specialOnMatch cap 0: 상한 0 이면 4매치여도 생성 안 함', () => {
+    const g4: Grid = [
+      [1, 0, 0, 0],
+      [0, 2, 3, 4],
+    ];
+    const res = resolveSwap(g4, { r: 0, c: 0 }, { r: 1, c: 0 }, 5, makeRng(2), undefined, 0, false, { pool: [SPECIAL_RAID], minSize: 4, cap: 0 });
+    expect(res.finalGrid.flat().some((v) => v >= SPECIAL_BASE)).toBe(false);
+  });
+});
+
+describe('pickSpecialKind (스폰 종류 화이트리스트)', () => {
+  it('defaults to any of the 3 kinds when no allowlist is given', () => {
+    const rng = makeRng(7);
+    const seen = new Set<number>();
+    for (let i = 0; i < 500; i++) seen.add(pickSpecialKind(rng));
+    expect(seen).toEqual(new Set([SPECIAL_ATTACK, SPECIAL_RAID, SPECIAL_SPIN]));
+  });
+
+  it('only ever returns kinds inside the allowlist (퍼즐=레이드: [RAID, SPIN], 어택 미스폰)', () => {
+    const rng = makeRng(13);
+    const allow = [SPECIAL_RAID, SPECIAL_SPIN] as const;
+    for (let i = 0; i < 500; i++) {
+      const k = pickSpecialKind(rng, allow);
+      expect(allow).toContain(k);
+      expect(k).not.toBe(SPECIAL_ATTACK);
+    }
+  });
+
+  it('collapse with a kinds allowlist never spawns disallowed specials', () => {
+    // 리필이 확정 특수를 뽑도록 chance=1·cap 넉넉 — 그래도 attack(0) 은 절대 나오지 않아야 한다.
+    const g: Grid = [
+      [0, 1, 2, 3],
+      [0, 1, 2, 3],
+      [0, 1, 2, 3],
+    ];
+    const matched = [
+      { r: 0, c: 0 },
+      { r: 1, c: 0 },
+      { r: 2, c: 0 },
+    ];
+    const next = collapse(g, matched, 5, makeRng(21), { chance: 1, cap: 99, kinds: [SPECIAL_RAID, SPECIAL_SPIN] });
+    for (const row of next) {
+      for (const v of row) {
+        if (isSpecial(v)) expect(specialKind(v)).not.toBe(SPECIAL_ATTACK);
+      }
+    }
   });
 });

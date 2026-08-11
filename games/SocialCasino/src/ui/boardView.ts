@@ -17,6 +17,7 @@ import {
   isAdjacent,
   countAvailableMoves,
   findRuns,
+  groupMatches,
   isSpecial,
   specialKind,
   isPower,
@@ -25,15 +26,11 @@ import {
   POWER_LINE_H,
   POWER_LINE_V,
   POWER_COLOR,
-  SPECIAL_BASE,
-  SPECIAL_KINDS,
   SPECIAL_SPIN,
-  SPECIAL_ATTACK,
   SPECIAL_RAID,
   type Grid,
   type Coord,
   type ResolveStep,
-  type SpecialSpawn,
 } from '../logic/board.js';
 import type { Rng } from '../logic/rng.js';
 import { puzzleMultiplierFromRuns } from '../logic/economy.js';
@@ -88,19 +85,31 @@ const BOARD_GEN_TRIES = 12;
  *   (어떤 특수든 인접 3개면 매치)이라 8개로 충분. 36칸 중 특수 ~8칸 → 일반 5색 가독성 유지.
  *   ⚠️특수 빈도가 원본의 ~⅔ 이므로 **PlayScene.specialMatchMult 를 ~1.5배로 보정**(3→8·4→15·5→30·6+→150)해
  *     스핀/공격/약탈 경제 throughput 평탄 유지(슬롯/퍼즐 RTP 는 특수 수와 무관 — 불변). */
-// ⭐2026-07-02 요청 **원복**: 이전 퍼즐 특수젬(공격/약탈/스핀) + 매치 FX 복귀. 36칸 중 특수 ~8칸.
-const SPECIAL_SPAWN: SpecialSpawn = { chance: 0.13, cap: 8 };
-/** 시작/셔플 시 즉시 심는 특수 젬 수 — 캡(8)의 ~¾ 로 시작. */
-const SPECIAL_SEED = 6;
+// ⭐2026-07-02 요청 **원복**: 이전 퍼즐 특수젬 + 매치 FX 복귀. 36칸 중 특수 ~8칸.
+// ⭐라우팅: 어택/레이드 발동 소스 1:1 분리 — **슬롯=어택 / 퍼즐=레이드**. 보드(퍼즐)는 어택 젬 미스폰(레이드+스핀만).
+// ⭐2026-07-06 #12 요청: 특수젬을 **위에서 안 떨어뜨림**(top-drop 폐지) → **4개 이상 일반 매치 시 매칭 지점에 생성**. 초기 시드도 없음.
+// ⭐#13 요청 "레이드젬을 스핀보다 더 많이 생성": 가중 풀 레이드:스핀 = **7:3**(레이드 70%). ⚠️비율은 향후 조절 지점.
+const PUZZLE_SPECIAL_KINDS: readonly number[] = [
+  SPECIAL_RAID, SPECIAL_RAID, SPECIAL_RAID, SPECIAL_RAID, SPECIAL_RAID, SPECIAL_RAID, SPECIAL_RAID, // 레이드 ×7
+  SPECIAL_SPIN, SPECIAL_SPIN, SPECIAL_SPIN, // 스핀 ×3
+];
+/** 보드 위 특수젬 상한(누적 방지) — 매치 생성 cap + 특수 배경 이펙트(halo) 풀 크기. */
+const SPECIAL_CAP = 8;
+/** ⭐4개 이상 일반 매치 시 origin 에 특수젬 생성(요청 #12). minSize=4·pool=가중풀·cap=상한. */
+const SPECIAL_ON_MATCH = { pool: PUZZLE_SPECIAL_KINDS, minSize: 4, cap: SPECIAL_CAP } as const;
 
 /**
- * AI 자동매치 우선순위 가중치(요청) — **특수젬 먼저, 그 중 스핀젬 최우선**(유저에게 가장 유리).
- * 스핀 ≫ 기타 특수(공격/약탈) ≫ 일반 퍼즐 점수. 일반 점수는 최대 ~수백이라 가중치를 그보다 크게 둔다.
+ * ⭐AI 자동매치 우선순위(2026-07-07 요청) — **엄격한 3단계**:
+ *   ① **특수젬 매칭**(보드의 레이드/스핀 특수젬을 매치 → 레이드 발동/스핀 환급) — 최우선.
+ *   ② **4개 이상 퍼즐 매칭**(일반 색 4+ 매치 → 매칭 지점에 특수젬 생성) — 차선.
+ *   ③ **미션보상 매칭**(현재 수집 대상 젬 collectType 매치 → 미션 게이지 진행) — 세번째.
+ *   그 외(일반 제거·연쇄)는 동점 타이브레이커. 각 단계 가중치는 하위 단계 합을 항상 압도하게 둔다.
  */
-const AI_SPIN_PRIORITY = 100000;
-const AI_SPECIAL_PRIORITY = 1000;
-/** 연쇄(2·3차) 깊이 1단계당 보너스 — 캐스케이드를 유발하는 수를 선호(특수 우선은 유지). */
-const AI_CASCADE_BONUS = 150;
+const AI_P_SPECIAL = 1_000_000; // ① 특수젬 1개당
+const AI_P_FOURPLUS = 10_000; // ② 4+ 매치(있으면) 기본 보너스
+const AI_P_FOURPLUS_SIZE = 2_000; // ② 4 초과 크기 1당 추가(큰 4+ 선호)
+const AI_P_MISSION = 100; // ③ 미션 수집젬 1개당
+const AI_CASCADE_BONUS = 20; // 연쇄 깊이 타이브레이커(작게)
 
 /** 매치 칸을 비우고 **중력만**(리필 없이) 적용 — 빈 칸은 -1. 결정론적 캐스케이드 미리보기(AI 룩어헤드)용. */
 function collapseNoRefill(g: Grid, matched: Coord[]): Grid {
@@ -228,7 +237,8 @@ export class BoardView {
     this.collectType = type;
   }
 
-  /** ⭐스테이지 임팩트 티어 설정(PlayScene 이 tierForStage 로 산출 → 전달). 0=임팩트 없음. */
+  /** ⭐스테이지 임팩트 티어 설정. ⚠️2026-07-06 파워/임팩트 매치 제거 후 **무효**(trySwap 이 tier=0 고정) —
+   *   값은 저장하지만 매치 해소엔 미적용. PlayScene API 호환용으로 메서드만 유지(추후 재도입 대비). */
   setImpactTier(tier: number): void {
     this.impactTier = Math.max(0, Math.floor(tier));
   }
@@ -319,7 +329,7 @@ export class BoardView {
     let bestMoves = -1;
     for (let i = 0; i < BOARD_GEN_TRIES; i++) {
       this.grid = createGrid(this.geom.rows, this.geom.cols, TYPES, this.rng);
-      this.seedSpecials(); // 특수젬 배치까지 끝낸 뒤 카운트(특수가 가용 매치 수에 영향)
+      // ⭐2026-07-06 #12: 초기 특수젬 시드 없음 — 특수는 오직 **4+ 매치**로만 등장(seedSpecials 폐지).
       const moves = countAvailableMoves(this.grid, MIN_MOVES_START);
       if (moves >= MIN_MOVES_START) return; // 충분 → 확정
       if (moves > bestMoves) {
@@ -328,40 +338,6 @@ export class BoardView {
       }
     }
     if (best) this.grid = best; // 폴백: 가장 매치 많던 보드
-  }
-
-  /**
-   * 시작/셔플 시 특수 젬을 보드에 심어 **즉시 등장**시킨다(종류별 1개씩: 공격·약탈·스핀).
-   * 특수 젬은 색 매칭을 안 하므로 매치 가능성을 막지 않는다(인접 매치로 수집). 기능 연결은 추후.
-   */
-  private seedSpecials(): void {
-    const cells: Coord[] = [];
-    for (let r = 0; r < this.geom.rows; r++) for (let c = 0; c < this.geom.cols; c++) cells.push({ r, c });
-    for (let i = cells.length - 1; i > 0; i--) {
-      const j = Math.floor(this.rng() * (i + 1));
-      [cells[i], cells[j]] = [cells[j], cells[i]];
-    }
-    const target = Math.min(SPECIAL_SEED, SPECIAL_SPAWN.cap);
-    let placed = 0;
-    for (const { r, c } of cells) {
-      if (placed >= target) break;
-      if (this.wouldFormSpecialRun(r, c)) continue; // 시작부터 3매치(특수 run)로 보이지 않게 회피
-      this.grid[r][c] = SPECIAL_BASE + (placed % SPECIAL_KINDS); // 종류 순환(0 공격·1 약탈·2 스핀)
-      placed++;
-    }
-  }
-
-  /** (r,c)를 특수 젬으로 두면 가로/세로 3+ 특수 run(즉시 매치)이 생기는가 — 현재 grid 의 인접 특수 카운트. */
-  private wouldFormSpecialRun(r: number, c: number): boolean {
-    const sp = (rr: number, cc: number): boolean =>
-      rr >= 0 && rr < this.geom.rows && cc >= 0 && cc < this.geom.cols && isSpecial(this.grid[rr][cc]);
-    let h = 1;
-    for (let cc = c - 1; sp(r, cc); cc--) h++;
-    for (let cc = c + 1; sp(r, cc); cc++) h++;
-    let v = 1;
-    for (let rr = r - 1; sp(rr, c); rr--) v++;
-    for (let rr = r + 1; sp(rr, c); rr++) v++;
-    return h >= 3 || v >= 3;
   }
 
   /**
@@ -565,7 +541,7 @@ export class BoardView {
     }
     // ⭐특수젬 뒤 배경 이펙트 링(T01_11) 풀 — 보드 최대 특수 수만큼. 젬 뒤(depth-1)·ADD·마스크. 매 프레임 회전+맥동 동기.
     //   디자이너가 **뒷부분 이펙트(T01_11)와 특수젬을 분리**(2026-06-29) → 분리된 진짜 링을 직접 써서 더 강하게 연출.
-    for (let i = 0; i < SPECIAL_SPAWN.cap; i++) {
+    for (let i = 0; i < SPECIAL_CAP; i++) {
       const halo = this.scene.add
         .image(0, 0, SPECIAL_FX_KEY)
         .setDepth(this.depth - 1)
@@ -637,38 +613,44 @@ export class BoardView {
 
   /**
    * 결정론적 캐스케이드 미리보기 — 스왑 후 매치 제거 + **중력만(리필 없이)** 으로 **2·3차 매치까지** 따라가
-   * 보이는 퍼즐 구조를 파악한다(요청: 지능적 퍼즐매칭). 연쇄 전체의 종류별 특수 수집·일반 제거·연쇄 깊이를 합산.
+   * 보이는 퍼즐 구조를 파악한다. 3단계 우선순위 판정을 위해:
+   *   - special = 매치된 특수젬(레이드+스핀+공격) 총수(①)
+   *   - maxGroup = 매치된 **일반(비특수) 그룹**의 최대 크기(② 4+ 판정 — 특수 그룹은 특수젬을 생성하지 않으므로 제외)
+   *   - collect = 매치된 **현재 미션 수집젬(collectType)** 수(③)
    */
-  private previewCascades(a: Coord, b: Coord): { spin: number; attack: number; raid: number; cleared: number; depth: number } {
+  private previewCascades(a: Coord, b: Coord): { special: number; maxGroup: number; collect: number; cleared: number; depth: number } {
     let g = this.swapGrid(this.grid, a, b);
-    let spin = 0;
-    let attack = 0;
-    let raid = 0;
+    let special = 0;
+    let maxGroup = 0;
+    let collect = 0;
     let cleared = 0;
     let depth = 0;
     for (let guard = 0; guard < 16; guard++) {
       const { matched } = findRuns(g);
       if (matched.length === 0) break;
       depth++;
+      // 일반(비특수) 매치 그룹의 최대 크기 — 4+ 면 특수젬 생성(specialOnMatch) 유발.
+      for (const gr of groupMatches(matched, g)) {
+        if (!gr.special && gr.size > maxGroup) maxGroup = gr.size;
+      }
       for (const m of matched) {
         const v = g[m.r][m.c];
-        if (!isSpecial(v)) {
+        if (isSpecial(v)) {
+          special++;
+        } else {
           cleared++;
-          continue;
+          if (v === this.collectType) collect++; // 미션 수집젬
         }
-        const k = specialKind(v);
-        if (k === SPECIAL_SPIN) spin++;
-        else if (k === SPECIAL_ATTACK) attack++;
-        else if (k === SPECIAL_RAID) raid++;
       }
       g = collapseNoRefill(g, matched);
     }
-    return { spin, attack, raid, cleared, depth };
+    return { special, maxGroup, collect, cleared, depth };
   }
 
   /**
-   * AI 최적수 — 모든 인접 스왑을 **2·3차 연쇄까지 미리 보고**(previewCascades) 가장 점수 높은 매치를 고른다(요청).
-   * **우선순위: ① 스핀젬 최우선 → ② 같은 종류 특수(3개 동일 문양) → ③ 일반 + 연쇄 보너스.** 동점이면 첫 발견.
+   * AI 최적수 — 모든 인접 스왑을 **2·3차 연쇄까지 미리 보고**(previewCascades) 점수 최고 매치를 고른다.
+   * ⭐우선순위(2026-07-07 요청, 엄격 3단계): ① 특수젬 매칭 → ② 4개 이상 매칭 → ③ 미션보상 매칭 → (그외 일반·연쇄).
+   * 각 항의 가중치가 하위 항 최댓값 합을 압도하므로 상위 조건이 하나라도 있으면 무조건 우선. 동점이면 첫 발견.
    */
   private findBestMove(): { a: Coord; b: Coord } | null {
     let best: { a: Coord; b: Coord } | null = null;
@@ -676,10 +658,13 @@ export class BoardView {
     const evalPair = (a: Coord, b: Coord): void => {
       const pv = this.previewCascades(a, b);
       if (pv.depth === 0) return; // 매치 없음
-      // ⭐3개 동일 문양 우선: 비스핀 특수는 **같은 종류 묶음(큰 쪽)** 만 가중. 연쇄(2·3차)는 수집 합산 + 깊이 보너스로 반영.
-      const sameTypeSpecial = Math.max(pv.attack, pv.raid);
+      const fourPlus = pv.maxGroup >= 4 ? AI_P_FOURPLUS + (pv.maxGroup - 4) * AI_P_FOURPLUS_SIZE : 0;
       const score =
-        pv.spin * AI_SPIN_PRIORITY + sameTypeSpecial * AI_SPECIAL_PRIORITY + pv.cleared + (pv.depth - 1) * AI_CASCADE_BONUS;
+        pv.special * AI_P_SPECIAL + // ① 특수젬 매칭
+        fourPlus + // ② 4개 이상 매칭(특수젬 생성)
+        pv.collect * AI_P_MISSION + // ③ 미션 수집젬 매칭
+        pv.cleared + // 타이브레이커: 일반 제거 수
+        (pv.depth - 1) * AI_CASCADE_BONUS; // 타이브레이커: 연쇄 깊이
       if (score > bestScore) {
         bestScore = score;
         best = { a, b };
@@ -930,10 +915,10 @@ export class BoardView {
   private async trySwap(a: Coord, b: Coord, notify = true): Promise<number> {
     this.noteActivity(); // 수동/탭/오토 스왑 공통 진입점 — 유휴 리셋 + 힌트 제거
     this.busy = true;
-    // ⚠️임시: Phase 2 지속형 파워타일(오버레이 생성)을 끔 → 4매치가 **즉시 가로/세로 한 줄 삭제**(Phase 1)로 복원.
-    //   재활성화하려면 `false` 를 `this.impactTier >= 3` 로 되돌리면 됨.
-    const persistent = false;
-    const res = resolveSwap(this.grid, a, b, TYPES, this.rng, SPECIAL_SPAWN, this.impactTier, persistent);
+    // ⭐파워/임팩트 매치 제거(tier=0·persistent=false) — 4+ 매치도 매치칸만 정상 제거.
+    // ⭐2026-07-06 #12 요청: 특수젬을 **위에서 안 떨어뜨림**(spawn=undefined) → **4개 이상 일반 매치 시 매칭 지점(origin)에
+    //   특수젬(레이드/스핀) 생성**(SPECIAL_ON_MATCH). 생성 특수는 보드에 남고, 3+ 특수 그룹으로 매치해야 레이드/스핀 발동.
+    const res = resolveSwap(this.grid, a, b, TYPES, this.rng, undefined, 0, false, SPECIAL_ON_MATCH);
     const sa = this.sprites[a.r][a.c];
     const sb = this.sprites[b.r][b.c];
 
@@ -977,11 +962,11 @@ export class BoardView {
     const coinsCleared = res.clearedByType[this.collectType] ?? 0; // ⭐**현재 수집 대상 코인만** 게이지에 적립(미션별 타입)
     if (coinsCleared > 0) this.onGems?.(coinsCleared);
 
-    // 특수 젬 수집 데이터(종류별 수) — 콤보 깊이(res.steps.length)와 함께 통지에 쓴다.
-    const stepCollected = res.steps.map((s) => s.collected).filter((c) => c.some((n) => n > 0));
-    // ⭐공격/약탈 발동 배너는 **젬이 커지는 순간(아래 popCells 의 stageSpecial 확대)과 동시**에 떠야 한다(요청 2026-06-28)
-    //   → 연쇄 애니 루프 **직전**에 onStage 로 조기 통지(배너 등장 + pendingStage 예약). 망치 등장까지 떠 있는다.
-    if (stepCollected.length > 0) this.onStage?.(stepCollected, res.steps.length);
+    // ⭐공격/약탈 발동 판정은 **그룹 단위**(요청 #6): 연쇄 전체의 **특수 그룹별 구성**을 모아 onStage 로 통지 →
+    //   PlayScene.decideStageTrigger 가 "한 그룹에 3+ 특수 & 담당종류 2+" 를 검사(스텝/그룹 합산 오발동 제거).
+    //   배너는 연쇄 애니 루프 **직전**에 조기 통지(등장 + pendingStage 예약). 망치 등장까지 떠 있는다.
+    const specialGroups = res.steps.flatMap((s) => s.specialGroups);
+    if (specialGroups.length > 0) this.onStage?.(specialGroups, res.steps.length);
 
     // 연쇄 애니메이션.
     let step = 0;
@@ -1001,8 +986,8 @@ export class BoardView {
       if (step < res.steps.length) await this.waitMs(CASCADE_STEP_GAP_MS);
     }
 
-    // 스핀 보상 통지(연쇄 종료 후 — 스핀젬 회수 비행 도착에 맞춤). 발동 배너는 위 onStage 가 이미 처리.
-    if (stepCollected.length > 0) this.onCollect?.(stepCollected, res.steps.length);
+    // 스핀 보상 통지(연쇄 종료 후) — ⭐**그룹 단위**(요청 #7): onCollectSpecials 가 그룹당 스핀젬 3+ 만 환급.
+    if (specialGroups.length > 0) this.onCollect?.(specialGroups, res.steps.length);
 
     // 셔플은 여기서 하지 않는다 — 라운드(결과 표시)가 끝난 뒤 reshuffleIfNeeded 에서.
     this.busy = false;

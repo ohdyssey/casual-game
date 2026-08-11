@@ -40,7 +40,8 @@ import { BigNumber } from '../ui/bigNumber.js';
 import { Confetti } from '../ui/confetti.js';
 import { CoinBurst } from '../ui/coinBurst.js';
 import type { SpinOutcome } from '../logic/slot3.js';
-import { SPECIAL_SPIN, SPECIAL_ATTACK, SPECIAL_RAID, tierForStage } from '../logic/board.js';
+import { SPECIAL_SPIN, tierForStage } from '../logic/board.js';
+import { decideStageTrigger } from '../logic/stageTrigger.js';
 import { deserializeHotel, totalLevel, cityLevel, currentStage, createHotelState, HOTEL_SAVE_KEY, formatCompact, type HotelState } from '../logic/hotelUpgrade.js';
 import { incomeMultiplier, missionTarget, cityCost } from '../logic/progression.js';
 import {
@@ -60,10 +61,12 @@ import { HAMMER_IMAGE_KEY, CURTAIN_LEFT_KEY, CURTAIN_RIGHT_KEY } from './HammerF
 import { loadCoins, saveCoins } from '../logic/wallet.js';
 import { loadPlayerState, savePlayerState, loadSpins } from '../logic/playerState.js';
 import { SHOP_CATALOG, applyPurchase, type ShopItem } from '../logic/shop.js';
-import { recordSnapshot } from '../econ/telemetry.js';
+import { resetSimulationData, purgeCachesAndReload, SIM_RESET_SUMMARY } from '../logic/resetSim.js';
+import { claimRegen, loadRegenLast, msToNextRegen, SPIN_REGEN_CEILING } from '../logic/spinRegen.js';
+import { recordSnapshot, recordEvent, loadTotals, loadEvents, ledgerSummary, clearLedger, type SpinSource, type CoinSource } from '../econ/telemetry.js';
 import {
   START_COINS, START_SPINS, BET_LADDER, BET_START, COIN_DENOM,
-  spinRefundMult, BIGWIN_SPIN_BIG_X, BIGWIN_SPIN_BIG, BIGWIN_SPIN_MEGA_X, BIGWIN_SPIN_MEGA,
+  spinRefundMult,
   DAILY_SPINS, specialMatchMult,
 } from '../logic/playParams.js';
 import { slotRtpScaleNow, luckTableNow, raidStakeScaleNow, attackSpinStakeScaleNow, missionsNow } from '../logic/econOverrides.js';
@@ -82,6 +85,29 @@ const DAILY_SPIN_KEY = 'socialcasino_daily_v2'; // 마지막 일일 지급 날�
 const SPIN_LEVEL_BASE = 50;
 /** 망치 등장 후 — **닫힌 커튼 뒤에서** Stage1 을 띄우기까지(ms). HammerFxScene 의 [CURTAIN_CLOSE_MS(300), CURTAIN_OPEN_AT(1300)] 사이여야 커튼이 가린다(열림이 곧 등장). */
 const STAGE_BEHIND_CURTAIN_MS = 280; // 스피드업: 380→280(여전히 닫힌 커튼 구간 내)
+
+// ⭐2026-07-06 요청: 어택/레이드 발동 소스를 **1:1 분리**(헷갈림 방지) — **슬롯=어택 / 퍼즐=레이드**.
+//   • 슬롯(showSlotResult): 망치 3매치 → 어택 발동. 금화(레이드 심볼) 3매치는 **코인 보상으로 대체**(데드 심볼 방지).
+//   • 퍼즐(onStageTrigger): 레이드 특수젬만 발동. 보드는 어택 젬을 스폰하지 않음(boardView PUZZLE_SPECIAL_KINDS).
+//   방향을 바꾸려면 두 상수만 교체(null=해당 소스는 스테이지 미발동).
+const SLOT_STAGE_KIND: 'attack' | 'raid' | null = 'attack';
+const PUZZLE_STAGE_KIND: 'attack' | 'raid' | null = 'raid';
+// 슬롯이 담당하지 않는 특수 심볼(현 설정=금화/레이드) 3매치 시 대체 지급할 코인 배수(× 코인베팅).
+//   ⭐2026-07-06 40→6: 40 은 win=베팅×40+ 라 **매 금화매치마다 대박 팡파레(win≥베팅×10)**가 터졌다(요청 "팡파레 너무 잦음").
+//   6 = 소액 위로용(대박 임계 아래). 데드 심볼 방지 최소치. ⚠️econ 콘솔 튜닝 대상.
+const SLOT_ORPHAN_COIN_BASE = 6;
+// ⭐2026-07-07 요청 "슬롯 대박 스핀 과보상 → **2단계 분리**": 대박은 자주 유지하되 스핀만 줄인다.
+//   • **보통 대박**(win ≥ 베팅×SLOT_BIG_WIN_MULT=30, ~17판에 1번): 스핀 = spinBet × 2 (소량). 축포·코인·Epic 사운드.
+//   • **초대박**(win ≥ 베팅×SLOT_MEGA_WIN_MULT=100, ~50판에 1번): 스핀 = spinBet × 10 (잭팟). +화면번쩍·MEGA 배너·Modern 사운드.
+//   → 대박 유입 6.4→2.8스핀/라운드(과보상 억제), '자주 터지는 재미 + 가끔 오는 진짜 잭팟' 유지. 되돌리려면 false.
+const SLOT_BIGWIN_SPINS = true;
+const SLOT_BIGWIN_SPIN_MULT = 2; // 보통 대박 스핀 = spinBet × 2 (소량)
+const SLOT_MEGA_SPIN_MULT = 10; // 초대박 스핀 = spinBet × 10 (잭팟)
+// 대박(팡파레·축포·큰 코인 카운트업) 기준 = 베팅 배수. 이 미만은 **가벼운 연출·소액 코인음만**(팡파레 없음, 흐름 유지).
+//   ⭐2026-07-06 10→30: 평균 코인당첨이 심볼4≈18×·심볼5≈28×·심볼6≈55× 라 10× 는 코인매치 절반이 대박 취급 → 팡파레 남발.
+//   30× = 상위 심볼/행운·콤보 스파이크만 대박(요청 "대박 아닌데 팡파레 잦음"). 더 드물게 하려면 값을 올린다.
+const SLOT_BIG_WIN_MULT = 30;
+const SLOT_MEGA_WIN_MULT = 100; // ⭐초대박(잭팟 스핀) 기준 = 베팅 100배 이상 당첨(~50판에 1번). 이 이상만 MEGA 연출 + 스핀 10×.
 // ⭐라운드 페이싱은 pace.ts(SSOT)로 이관 — 퍼즐 매치 속도에 따라 슬롯/라운드 텀이 적응(따라잡기).
 //   여유(slow) 끝값은 ROUND_GAP_SLOW_MS(220) / PUZZLE_TO_SLOT_SLOW_MS(50). 오토·단발은 이 여유값 사용.
 
@@ -93,7 +119,7 @@ function missionConfig(missionIndex: number): RewardGaugeConfig {
   return { target: m.target, durationMs: m.minutes * 60_000, milestones: [], finalReward: m.reward };
 }
 const GAUGE_CONFIG: RewardGaugeConfig = missionConfig(0); // 첫 미션(12·2분·스핀40)
-const GAUGE_SAVE_KEY = 'socialcasino_reward_gauge_v20'; // localStorage 영속 키. ⚠️v20=배수제거·베이스값 고정(130~330) → 게이지 초기화. 구 v19 폐기
+const GAUGE_SAVE_KEY = 'socialcasino_reward_gauge_v21'; // localStorage 영속 키. ⚠️v21(2026-07-07)=미션커브 개편(300~2800) → 게이지·미션 초기화(미션1부터). 구 v20 폐기
 const GAUGE_MISSION_KEY = `${GAUGE_SAVE_KEY}_mi`; // 미션 인덱스(별도 영속) — 플랜/젬 파생
 /** ⭐미션 완료 → 다음 미션까지 **간격 15초**(요청 — 목표 시간/아이템 지운 상태로 15초 유지 후 재시작). 성공 음악(~4.65s) 여운 + 휴식. */
 const MISSION_GAP_MS = 15_000;
@@ -116,6 +142,12 @@ export class PlayScene extends Phaser.Scene {
   private spinBtnBase?: Phaser.GameObjects.Image; // 하부 = 패널(항상 표시)
   private spinBtnCap?: Phaser.GameObjects.Image; // 상부 = 안 눌린 GO(평상시 표시, 누르면 숨김)
   private autoOffOverlay?: Phaser.GameObjects.Image; // AUTO OFF 오버레이(오토 꺼짐 표시). 오토 작동 시 숨김 → 패널 AUTO ON 노출
+  // ⭐2026-07-07 명시적 AUTO 토글 버튼(코드 드로잉) — main_copy 레이아웃엔 GO 패널/AUTO 오버레이가 없어 오토스핀이
+  //   "레버 2초 홀드" 숨은 제스처로만 남았던 것을 복원(요청 "오토스핀 구현"). 탭 = 켜기/끄기.
+  private autoBtnBg?: Phaser.GameObjects.Graphics;
+  private autoBtnLabel?: Phaser.GameObjects.Text;
+  private spinPanelImg?: Phaser.GameObjects.Image; // 하단 SPIN(고 패널 up_NewUI_06-1) — 눌림 스케일 피드백용
+  private spinPanelScale?: { x: number; y: number }; // 고 패널 기준 스케일(눌림 복원용)
   private coinBurst!: CoinBurst; // 코인 드랍/버스트 연출(슬롯 당첨 시 한 줄 터짐)
   private sfx!: Sfx;
   private spinLoop: Phaser.Sound.BaseSound | null = null; // 현재 회전음 — 마지막 릴 정지(뒷부분) 시 페이드
@@ -128,6 +160,11 @@ export class PlayScene extends Phaser.Scene {
   private betIndex = Math.max(0, BET_LADDER.indexOf(BET_START)); // 현재 베팅 사다리 인덱스
   private spinBet = BET_START; // 스핀 베팅 숫자(하단 "10" ×N) = 사다리 값 — 1회 플레이 소모 스핀 + 스핀젬/공격·약탈 보상 배수
   private rechargeText?: Phaser.GameObjects.Text; // 일일 지급 안내 텍스트
+  // ⭐시간당 스핀 재생 게이지(하단 스핀 버튼 위) — 50/시간, 상한 50. spinRegen SSOT.
+  private regenBarBg?: Phaser.GameObjects.Graphics;
+  private regenBarFill?: Phaser.GameObjects.Graphics;
+  private regenLabel?: Phaser.GameObjects.Text;
+  private regenGeom?: { x: number; y: number; w: number; h: number };
   private spinBarX = 533; // 보유 스핀 표시 위치 — up_SC_UI_btn_off-1(GO 하단 바) 노드에서 갱신
   private spinBarY = 2315;
   private fortune: Fortune = FORTUNE_START; // 운 상태(Cold/Neutral/Hot) — 스핀마다 확률적 유동. ⚠️숨김(절대 화면 표시 안 함)
@@ -150,6 +187,8 @@ export class PlayScene extends Phaser.Scene {
   // ⭐발동 정보 **보류**(banner 는 젬과 동시에 일찍 띄우되, pendingStage 예약은 **슬롯 회전·결과 표시 후**(finalizeWin)에
   //   해야 슬롯이 확실히 돌고 결과가 보인 뒤 스테이지로 넘어간다 — 요청 2026-06-28: "텍스트 연출 시 슬롯이 돌지 않음" 수정).
   private stageHold?: { type: 'attack' | 'raid'; power: number };
+  private lastSlotOutcome?: SpinOutcome; // ⭐텔레메트리 v2 — 라운드 이벤트에 슬롯결과(kind/symbol) 태깅용(showSlotResult 가 기록)
+  private resetting = false; // ⭐리셋 진행 중 플래그 — 리로드 전 재저장(savePlayer/saveGauge/saveCoins) 차단해 리셋 씹힘 방지
   private activationBanner?: Phaser.GameObjects.Container; // 공격/약탈 발동 배너(자동소멸 없이 전환까지 유지)
   private noSpinsToastAt = 0; // '스핀 부족' 토스트 쓰로틀(연타 스팸 방지)
   private noSpinsDialogAt = 0; // '스핀 부족' 결정 다이얼로그 쓰로틀(더 길게 — 자주 안 뜨게)
@@ -162,7 +201,7 @@ export class PlayScene extends Phaser.Scene {
   private holdTimer?: Phaser.Time.TimerEvent; // 2초 잠금 타이머
   // 연출 검증 토글 — ON 이면 슬롯 당첨을 항상 높은 배수(5/10/20/40배 순환)로 강제해 멀티 웨이브 코인 연출 확인. ⚠️출시 전 제거
   private forceBigWin = false;
-  private readonly forcedMults = [5, 10, 20, 40];
+  private readonly forcedMults = [10, 40, 150]; // ⭐FX TEST 강제 배수 순환: 일반~보통대박(40×)~초대박(150×≥100 → MEGA 연출 테스트)
   private forcedIdx = 0;
 
   // HUD
@@ -318,6 +357,9 @@ export class PlayScene extends Phaser.Scene {
       // ⭐하단 베팅 "10" 텍스트(task 4) — +/- 버튼으로 조절.
       this.betText = findObj((n) => n.name === '250/50 복사') as Phaser.GameObjects.Text | undefined;
       this.betText?.setText(String(this.spinBet));
+      // ⭐하단 SPIN 버튼(고 패널) 이미지 참조 — 눌림 스케일 피드백(setSpinPressed 폴백)용. 재진입 대비 기준 스케일 리셋.
+      this.spinPanelImg = findObj((n) => (n.key ?? '') === 'up_NewUI_06-1') as Phaser.GameObjects.Image | undefined;
+      this.spinPanelScale = undefined;
       // ⭐하단 스핀 보유량 = 250/50 노드에 바인딩(요청: 정확 표시) + 스핀젬 회수 비행 목표.
       const spinNode = findObj((n) => n.name === '250/50') as Phaser.GameObjects.Text | undefined;
       if (spinNode) {
@@ -374,6 +416,7 @@ export class PlayScene extends Phaser.Scene {
     this.setupSpinRecharge(); // 스핀 시간 충전(코인마스터식) + 카운트다운
     this.setupRewardGauge(); // ⭐단계별 보상 게이지(퍼즐젬 → 중간단계/최종 보상 + 제한시간)
     this.setupInteraction();
+    this.buildAutoButton(); // ⭐명시적 AUTO 토글 버튼(레버 아래) — 2026-07-07 요청 "오토스핀 구현"
     this.setupVerifyToggle();
     this.setupColorGrade();
 
@@ -456,25 +499,60 @@ export class PlayScene extends Phaser.Scene {
   }
 
   /**
-   * 연출 검증 토글 — 설정(메뉴) 아이콘 바로 아래. ON 이면 슬롯 당첨을 항상 높은 배수(5/10/20/40배 순환)로
-   * 강제해 배수별 멀티 웨이브 코인 연출을 매 스핀 확인할 수 있다. ⚠️ 출시 전 제거(클라이언트 강제 당첨).
+   * ⭐테스트 버튼 배선(2026-07-07 요청: 화면에 안 띄우고 **메뉴 제일 하단**으로 이동).
+   *   - FX TEST: forceBigWin 토글(당첨을 강제 고배수로 순환 — 대박/초대박 연출 확인). ⚠️출시 전 제거.
+   *   - RESET (300): 시뮬레이션 리셋 — 전 저장+텔레메트리 초기화 → 스핀 300·시설 Lv1·미션1부터.
+   *   화면에 떠있던 버튼은 제거. 콘솔 window.__scReset() 은 유지. 실제 버튼은 openMenu(devButtons) 가 렌더.
    */
   private setupVerifyToggle(): void {
-    const w = 168;
-    const h = 58;
-    const x = 1080 - w / 2 - 18; // 우측 정렬(설정 아이콘 열)
-    const y = 100 + 87 / 2 + 12 + h / 2; // 설정 아이콘 아래
-    const bg = this.add.rectangle(0, 0, w, h, 0x241a3a, 0.92).setStrokeStyle(3, 0xffd34d).setOrigin(0.5);
-    const label = this.add
-      .text(0, 0, 'FX TEST OFF', { fontFamily: '"Do Hyeon", "Jua", sans-serif', fontSize: '24px', color: '#ffd34d' })
-      .setOrigin(0.5);
-    const btn = this.add.container(x, y, [bg, label]).setDepth(420).setSize(w, h).setInteractive({ useHandCursor: true });
-    btn.on('pointerdown', () => {
-      this.forceBigWin = !this.forceBigWin;
-      this.forcedIdx = 0;
-      bg.setFillStyle(this.forceBigWin ? 0x2e7d32 : 0x241a3a, 0.92).setStrokeStyle(3, this.forceBigWin ? 0x9bffb0 : 0xffd34d);
-      label.setText(this.forceBigWin ? 'FX TEST ON' : 'FX TEST OFF').setColor(this.forceBigWin ? '#d6ffd6' : '#ffd34d');
-      this.sfx.play('click');
+    (globalThis as Record<string, unknown>).__scReset = (): void => this.resetAllSaves();
+    // ⭐텔레메트리 v2 덤프 — 헤드리스 오토플레이 감시가 JSON 으로 수거(totals=누적 집계·summary=KPI·events=최근 원장).
+    (globalThis as Record<string, unknown>).__scEconDump = (tail = 300): string => {
+      const totals = loadTotals();
+      return JSON.stringify({
+        now: Date.now(),
+        spins: this.spins,
+        coins: this.coins,
+        cityLevel: this.cityLevelNow(),
+        // ⭐보상미션 상태(시뮬 리셋 검증 + 미션 진행 시뮬레이션): 인덱스(0=미션1)·목표·현재 진행.
+        mission: { index: this.missionIndex, target: this.gaugeCfg?.target ?? 0, progress: this.gaugeState?.progress ?? 0 },
+        // ⭐구매(shop) 스핀은 별도 표기 — 무료플레이 밸런스(earned/net/share)에서 분리(summary.purchasedSpins/earnedSpinTotal).
+        purchasedSpins: totals.spinIn['shop'] ?? 0,
+        totals,
+        summary: ledgerSummary(totals, COIN_DENOM),
+        events: loadEvents().slice(-Math.max(0, Math.floor(tail))),
+      });
+    };
+  }
+
+  /** FX TEST 토글 — 슬롯 당첨을 강제 고배수 순환(forcedMults). 메뉴 하단 버튼에서 호출. */
+  private toggleForceBigWin(): void {
+    this.forceBigWin = !this.forceBigWin;
+    this.forcedIdx = 0;
+    this.sfx.play('click');
+  }
+
+  /** ⭐SocialCasino 저장 전체 초기화 후 새로고침 — **시뮬레이션 리셋**(스핀 300·미션1·코인/호텔(시설)/게이지/텔레메트리 전부).
+   *  단일 SSOT(resetSim.resetSimulationData)로 모든 `socialcasino_*` 키 제거 → **보상미션 포함 전 상태 초기화**.
+   *  텔레메트리 v2 원장·집계 모듈 캐시까지 비우고 reset 마커를 남긴다(→ 새 시뮬 구간의 t0). 새로고침으로 인메모리도 초기화. */
+  private resetAllSaves(): void {
+    // ⭐리셋 씹힘 방지 — 저장을 먼저 봉인하고(이후 refreshHud/saveGauge/자동스핀 정산이 리셋을 덮어쓰지 못하게) 진행 중지.
+    this.resetting = true;
+    this.autoLock = false;
+    this.holdSpin = false;
+    this.scoreQueue.length = 0;
+    this.time.removeAllEvents(); // 게이지/재생 1초 타이머 등 정지(리로드 전 재저장 원천 차단)
+    resetSimulationData(); // 모든 socialcasino_* 키 제거(보상미션 게이지·미션인덱스·스핀·코인·시설·일일·잭팟·오버라이드)
+    try {
+      clearLedger(); // 모듈 캐시까지 리셋(reload 전 스테일 캐시 재기록 방지)
+      recordEvent({ t: Date.now(), e: 'reset', n: START_SPINS, sp: START_SPINS, co: START_COINS, L: 0 });
+    } catch {
+      /* 텔레메트리 실패 무시 */
+    }
+    showToast(this, `초기화 — ${SIM_RESET_SUMMARY}`, { color: '#ff9a9a', y: DESIGN_H * 0.4 });
+    // ⭐짧은 지연(토스트 노출) 후 **SW/캐시 퍼지 + 하드 리로드**(낡은 번들 자가치유). 지연 중 저장은 resetting 가드가 전부 차단.
+    this.time.delayedCall(400, () => {
+      void purgeCachesAndReload();
     });
   }
 
@@ -621,6 +699,7 @@ export class PlayScene extends Phaser.Scene {
     this.coinText.setText(this.fmt(this.coins));
     this.fitCoinText(); // ⭐자릿수 많아지면 코인 폰트 축소(요청)
     this.refreshSpinHolding(); // 하단 스핀 보유량(현재/레벨기본) 갱신
+    if (this.resetting) return; // ⭐리셋 진행 중엔 영속 금지(리로드 전 재저장으로 리셋이 씹히는 버그 방지)
     saveCoins(this.coins); // ⭐공유 지갑 영속 — My Hotel(HotelScene) 업그레이드가 같은 잔액을 본다
     this.savePlayer(); // ⭐스핀·베팅·잭팟 영속(재시작 시 리셋 방지, 요청) — refreshHud 가 공통 상태변경 길목
     // (잭팟 배너 폐기 — 최종 당첨금은 finalScoreText 가 상단 배너에 표시. 코인은 헤더에 표시.)
@@ -628,6 +707,7 @@ export class PlayScene extends Phaser.Scene {
 
   /** 진행 상태(스핀·베팅·잭팟) 영속 — refreshHud 에서 호출(상태변경 공통 길목). coins/XP/미션은 각자 영속. */
   private savePlayer(): void {
+    if (this.resetting) return; // 리셋 중 재저장 금지
     savePlayerState({ spins: this.spins, betIndex: this.betIndex, jackpotPool: this.jackpotPool });
   }
 
@@ -654,6 +734,13 @@ export class PlayScene extends Phaser.Scene {
         this.spins = loadSpins();
         this.refreshHud();
       },
+      // ⭐데이터 패널 '전체 시뮬 리셋' = dev RESET 과 동일 경로(보상미션 포함 완전 초기화 + 새로고침).
+      onSimReset: () => this.resetAllSaves(),
+      // ⭐테스트 버튼(요청 2026-07-07: 메뉴 제일 하단) — FX TEST 토글 + 시뮬 리셋(스핀 300·시설·텔레메트리).
+      devButtons: [
+        { label: 'FX TEST', onTap: () => this.toggleForceBigWin(), getOn: () => this.forceBigWin },
+        { label: `RESET (${START_SPINS})`, color: 0x8a3a3a, onTap: () => this.resetAllSaves() },
+      ],
     });
   }
 
@@ -673,10 +760,16 @@ export class PlayScene extends Phaser.Scene {
   }
 
   // ── 입력 ───────────────────────────────────────────────
-  /** SPIN 버튼 누름 표시 — 누르면 상부 cap(안 눌린 모양) 제거 → 하부 base(눌린 모양) 노출. 떼면 cap 복귀. */
+  /** SPIN 버튼 누름 표시 — 누르면 상부 cap(안 눌린 모양) 제거 → 하부 base(눌린 모양) 노출. 떼면 cap 복귀.
+   *  ⭐main_copy(2026-07-07): 눌린 상태 아트(cap/base)가 없어 **고 패널(up_NewUI_06-1) 스케일 축소**로 폴백 표현. */
   private setSpinPressed(pressed: boolean): void {
     this.spinBtnCap?.setVisible(!pressed); // 누름=상부 제거, 뗌=다시 덮음
     this.spinBtnBase?.setVisible(true); // 하부(눌린 모양)는 항상 표시
+    if (!this.spinBtnCap && this.spinPanelImg) {
+      if (!this.spinPanelScale) this.spinPanelScale = { x: this.spinPanelImg.scaleX, y: this.spinPanelImg.scaleY };
+      const s = this.spinPanelScale;
+      this.spinPanelImg.setScale(s.x * (pressed ? 0.93 : 1), s.y * (pressed ? 0.93 : 1));
+    }
   }
 
   /** 하단 아이템 버튼(아이템1~4) — 누름 피드백(축소 바운스 + 클릭음). 아이템 효과 로직은 추후. */
@@ -797,54 +890,34 @@ export class PlayScene extends Phaser.Scene {
    * ⭐공격/약탈 발동 **조기 통지**(boardView 가 연쇄 애니 **직전** = 젬이 커지기 시작하는 순간 호출) — [공격, 약탈, 스핀].
    *   발동 배너("ATTACK!/RAID!")를 **젬 확대와 동시에** 띄우고 pendingStage 를 예약한다. 배너는 자동소멸 없이
    *   슬롯 회전 완결까지 떠 있다가 → maybeEnterStage(망치 등장)에서 정리(망치 연출이 텍스트를 이어받음).
-   *   조건: 해당 종류 **2개 이상** 매칭(동률이면 공격). 위력 = 베팅 × 매치크기 배수 × 콤보.
+   *   ⭐조건(2026-07-06 #6 정밀화): **단일 특수 그룹**(연결 특수젬, 크기 3 이상) 안에서 담당 종류 **2개 이상**이라야 발동.
+   *     즉 레이드 = "한 매치에서 3+ 특수젬 그룹 + 그 안 레이드 2+". 스텝/그룹 합산 오발동 제거. 위력 = 베팅 × 매치배수 × 콤보.
    */
-  private onStageTrigger(steps: number[][], combo: number): void {
-    // ⭐2026-07-02 **원복**: 이전 퍼즐 특수젬(공격/약탈)으로 스테이지 발동 복귀(스핀 젬은 onCollectSpecials).
-    //   ⚠️슬롯(망치/금화)도 어택/레이드를 발동하므로 현재 **보드+슬롯 양쪽**에서 발동됨(범위 조정 원하면 지시).
-    let attackPower = 0;
-    let raidPower = 0;
-    let totalAttack = 0;
-    let totalRaid = 0;
-    for (const step of steps) {
-      const a = step[SPECIAL_ATTACK] ?? 0;
-      const r = step[SPECIAL_RAID] ?? 0;
-      if (a > 0) {
-        attackPower += this.spinBet * specialMatchMult(a);
-        totalAttack += a;
-      }
-      if (r > 0) {
-        raidPower += this.spinBet * specialMatchMult(r);
-        totalRaid += r;
-      }
-    }
-    const cmb = Math.max(1, combo);
-    attackPower *= cmb;
-    raidPower *= cmb;
-    if (totalAttack >= 2 && totalAttack >= totalRaid) {
-      this.stageHold = { type: 'attack', power: attackPower };
-      this.showActivationBanner('attack', attackPower);
-    } else if (totalRaid >= 2) {
-      this.stageHold = { type: 'raid', power: raidPower };
-      this.showActivationBanner('raid', raidPower);
-    }
-    if (this.stageHold && this.gaugeStageStartedMs == null) this.gaugeStageStartedMs = Date.now();
+  private onStageTrigger(specialGroups: number[][], combo: number): void {
+    // ⭐라우팅: 어택/레이드 발동은 퍼즐 전용(슬롯=어택 / 퍼즐=레이드). 퍼즐은 PUZZLE_STAGE_KIND(=레이드)만.
+    //   판정은 순수 함수 decideStageTrigger 로 위임(**그룹 단위** 3+특수·담당종류 2+, stageTrigger.test 로 검증).
+    const decision = decideStageTrigger(specialGroups, PUZZLE_STAGE_KIND);
+    if (!decision.kind) return;
+    const power = this.spinBet * specialMatchMult(decision.count) * Math.max(1, combo);
+    this.stageHold = { type: decision.kind, power };
+    this.showActivationBanner(decision.kind, power);
+    if (this.gaugeStageStartedMs == null) this.gaugeStageStartedMs = Date.now();
   }
 
   /**
    * 스핀 젬 보상 처리(boardView 가 연쇄 **종료 후** 호출 — 스핀젬 GO 회수 비행 도착에 맞춤).
-   *   ⭐스핀 환급 = spinBet × spinRefundMult(매칭수): 1~2 = ×1(베팅숫자), 3+ = 배수. 콤보 미적용 — 소모<지급 = 순감소.
-   *   (공격/약탈 발동·배너는 onStageTrigger 가 연쇄 직전에 이미 처리.)
+   *   ⭐2026-07-06 #7 **그룹 단위 + 3개 이상**(요청): 회수는 **한 그룹에 스핀젬 3개 이상**일 때만(spinRefundMult<3=0).
+   *     스핀 2개만(또는 스핀2+다른특수1 처럼 스핀이 2개인) 매칭은 회수 발동 X. 스텝/그룹 합산 오발동도 제거.
+   *   입력 groups = 각 특수 그룹의 [공격,약탈,스핀] 벡터. 회수 = Σ_group spinBet × spinRefundMult(그룹 스핀수).
    */
-  private onCollectSpecials(steps: number[][], _combo: number): void {
+  private onCollectSpecials(specialGroups: number[][], _combo: number): void {
     let spinReward = 0;
-    for (const step of steps) {
-      const s = step[SPECIAL_SPIN] ?? 0;
-      // ⭐회수 = spinBet(N) × spinRefundMult(s) = N×s×max(1,s-1). 1→N·2→2N·3→6N·4→12N·5→20N(6+ 상한).
-      if (s > 0) spinReward += this.spinBet * spinRefundMult(s);
+    for (const g of specialGroups) {
+      const s = g[SPECIAL_SPIN] ?? 0; // 이 그룹의 스핀젬 수 — 3개 이상만 환급(2개 이하=0).
+      if (s >= 3) spinReward += this.spinBet * spinRefundMult(s);
     }
     if (spinReward > 0) {
-      this.grantSpins(spinReward);
+      this.grantSpins(spinReward, 'gem');
       this.sfx?.play('coin', 0.5);
       // 베팅·매치 반영 보상액(+N)을 스핀젬 비행 도착 즈음 카운터 위에 팝.
       this.time.delayedCall(300, () => this.spinGainPopup(spinReward));
@@ -888,6 +961,10 @@ export class PlayScene extends Phaser.Scene {
         stage.type === 'attack'
           ? Math.round(this.spinBet * attackSpinStakeScaleNow())
           : Math.round(this.bet * this.incomeMultNow() * raidStakeScaleNow());
+      // ⭐v2 원장 — 스테이지 진입(종류·스테이크). 당첨은 awardRaidWin(coin_in raid)/awardAttackSpins(spin_in attack)가 기록.
+      try {
+        recordEvent({ t: Date.now(), e: 'stage', k: stage.type, n: stake, sp: this.spins, co: this.coins, L: this.cityLevelNow() });
+      } catch { /* 텔레메트리 실패 무시 */ }
       this.scene.launch('stage1', { type: stage.type, power: stage.power, bet: stake, resumeKey: this.scene.key, skipReveal: true, auto: stage.auto }); // ⭐예약 시 고정한 auto 사용(중간 정지에도 자동 복귀 보장)
       // 커튼이 열리는 동안 보드는 가려져 있으니 잠시 뒤 일시정지(망치는 스테이지 위에서 스스로 소멸 → 여기서 stop 안 함).
       this.time.delayedCall(260, () => {
@@ -911,7 +988,7 @@ export class PlayScene extends Phaser.Scene {
       // ⭐첫 실행(기록 없음)은 **초기 스핀(START_SPINS=200)이 곧 시작 지급분** → 일일 보너스 중복 지급 금지(요청: 초기 200 유지).
       //   날짜만 기록해 **다음날부터** 일일 보너스가 들어오게 한다. 복귀 플레이어(이전 날짜 기록 있음)는 새 날에 정상 지급.
       if (last !== '') {
-        this.grantSpins(DAILY_SPINS);
+        this.grantSpins(DAILY_SPINS, 'daily');
         showToast(this, `DAILY BONUS!  +${DAILY_SPINS} SPINS`, { color: '#9bff7a', y: DESIGN_H * 0.26 });
       }
       try {
@@ -921,11 +998,83 @@ export class PlayScene extends Phaser.Scene {
       }
     }
     this.updateRechargeText();
+    this.setupSpinRegen(); // ⭐시간당 스핀 재생(50/시간, 상한 50) + 하단 게이지
   }
 
   private updateRechargeText(): void {
     if (!this.rechargeText) return;
     this.rechargeText.setText(`일일 +${DAILY_SPINS}`); // 연속 카운트다운 폐지 → 일일 지급 안내
+  }
+
+  /** ⭐시간당 스핀 재생(요청 2026-07-07) — 50/시간, **상한 50**(차면 정지). 진입 시 오프라인 누적 청구 + 하단 게이지 생성 + 1초 갱신 타이머. */
+  private setupSpinRegen(): void {
+    // 진입(오프라인 복귀) 누적 청구 — 상한 50까지.
+    const g0 = claimRegen(Date.now(), this.spins);
+    if (g0 > 0) {
+      this.grantSpins(g0, 'regen');
+      this.refreshHud();
+    }
+    this.buildSpinRegenGauge();
+    // 1초마다: 재생 청구(초당 미세 누적, 정수 스핀 도달 시 지급) + 게이지/카운트다운 갱신.
+    this.time.addEvent({
+      delay: 1000,
+      loop: true,
+      callback: () => {
+        const g = claimRegen(Date.now(), this.spins);
+        if (g > 0) {
+          this.grantSpins(g, 'regen');
+          this.refreshHud();
+          this.spinGainPopup(g); // 소량 +N 팝업(재생 도착)
+        }
+        this.refreshSpinRegenGauge();
+      },
+    });
+    this.refreshSpinRegenGauge();
+  }
+
+  /** 하단 스핀 버튼 **위**(카운터 위쪽 여백)의 시간당 재생 게이지 — 채움(스핀/50) + '⚡ +1 in mm:ss' 카운트다운.
+   *  ⚠️기존 '250/50' 카운터(spinText, y=spinBarY)와 **세로로 분리**해 겹치지 않게 그 위쪽에 배치(요청: UI 구조에 맞게). */
+  private buildSpinRegenGauge(): void {
+    const w = 300, h = 20;
+    const x = this.spinBarX - w / 2;
+    const y = this.spinBarY - 118; // 카운터 pill 위 여백(레드 스트립). 숫자 카운터와 충분히 분리.
+    this.regenGeom = { x, y, w, h };
+    this.regenBarBg = this.add.graphics().setDepth(205);
+    this.regenBarFill = this.add.graphics().setDepth(206);
+    // 라벨은 바 **중앙**(숫자 중복 없이 카운트다운만) — 카운터의 '현재/50' 과 역할 분리.
+    this.regenLabel = this.add
+      .text(this.spinBarX, y + h / 2, '', { fontFamily: '"Russo One", "Jua", sans-serif', fontSize: '16px', color: '#eaf4ff', stroke: '#12203a', strokeThickness: 3 })
+      .setOrigin(0.5, 0.5)
+      .setDepth(207);
+  }
+
+  /** 재생 게이지 갱신 — 채움 = min(스핀,50)/50(에너지색), 라벨 = '⚡ 만충' 또는 '⚡ +1 in mm:ss'(숫자 중복 없음). */
+  private refreshSpinRegenGauge(): void {
+    const geom = this.regenGeom;
+    if (!geom || !this.regenBarBg || !this.regenBarFill) return;
+    const { x, y, w, h } = geom;
+    const ratio = Math.max(0, Math.min(1, this.spins / SPIN_REGEN_CEILING));
+    const full = this.spins >= SPIN_REGEN_CEILING;
+    this.regenBarBg.clear();
+    this.regenBarBg.fillStyle(0x0e1730, 0.9).fillRoundedRect(x, y, w, h, h / 2);
+    this.regenBarBg.lineStyle(2, 0x3a5a8a, 0.95).strokeRoundedRect(x, y, w, h, h / 2);
+    this.regenBarFill.clear();
+    if (ratio > 0) {
+      const fw = Math.max(h, w * ratio);
+      this.regenBarFill.fillStyle(full ? 0x2ea043 : 0x36c3ff, 0.95).fillRoundedRect(x, y, fw, h, h / 2);
+    }
+    if (this.regenLabel) {
+      if (full) {
+        this.regenLabel.setText(`⚡ 재생 만충 (${SPIN_REGEN_CEILING})`).setColor('#bfffa8');
+      } else {
+        const last = loadRegenLast() ?? Date.now();
+        const ms = msToNextRegen(last, Date.now(), this.spins);
+        const s = Math.max(0, Math.ceil(ms / 1000));
+        const mm = Math.floor(s / 60);
+        const ss = s % 60;
+        this.regenLabel.setText(`⚡ +1 스핀  ${mm}:${String(ss).padStart(2, '0')}`).setColor('#eaf4ff');
+      }
+    }
   }
 
   // ── 보상 미션 게이지(DAKA 아래 가로 바) ──────────────────────────────
@@ -1027,16 +1176,20 @@ export class PlayScene extends Phaser.Scene {
   }
 
   /** 매 매치 → 수집 코인 가산 → 도달 보상 지급(중간단계/최종) → 표시/영속. **최종 도달 = 미션 완료 → 다음 젬**. */
+  /** 현재 미션의 추가보상(timeBonus) 스핀량 — 보너스 창 내 완료 시 지급. 오버라이드/플랜(missionsNow)에서 조회. */
+  private currentMissionTimeBonus(): number {
+    const plan = missionsNow();
+    if (!plan.length) return 0;
+    const m = plan[((this.missionIndex % plan.length) + plan.length) % plan.length];
+    return m.timeBonus?.kind === 'spins' ? Math.max(0, Math.round(m.timeBonus.amount)) : 0;
+  }
+
   private addGaugeProgress(delta: number): void {
     if (!this.gaugeView) return;
-    // ⭐마감 직후~다음 1초 틱 사이에 들어온 매치는 **이미 만료된 사이클** → 보상 지급 X(요청: 시간 내 미달성 = 보상 소멸).
-    //   단, 마감 직전 완료(최종 보상 이미 수령)였다면 몰수하지 않는다(완료는 시각과 무관하게 유효).
+    // ⭐2026-07-06 #5: **기본보상은 타임어택 없음** — 만료돼도 몰수하지 않는다(퍼즐을 모으면 목표 달성 시 지급).
+    //   타임어택은 **추가보상(timeBonus)** 에만 적용 = minutes(보너스 창) 내 완료 시에만 별도 지급.
     const now = Date.now();
-    const finalClaimed = this.gaugeState.claimed.includes(this.gaugeCfg.milestones.length);
-    if (!finalClaimed && isExpired(this.gaugeCfg, this.gaugeState, now)) {
-      this.forfeitGauge(now);
-      return;
-    }
+    const withinBonus = this.gaugeTimerArmed && !isExpired(this.gaugeCfg, this.gaugeState, now); // 완료 시점 보너스 창 안?
     this.gaugeState = addProgress(this.gaugeState, delta);
     const due = dueRewards(this.gaugeCfg, this.gaugeState);
     let completed = false;
@@ -1050,11 +1203,17 @@ export class PlayScene extends Phaser.Scene {
     this.gaugeView.setCounts(this.gaugeState.progress, this.gaugeCfg.target);
     this.saveGauge();
     if (completed) {
-      this.sfx?.play('missionSuccess', 0.95); // ⭐미션 성공 음악(요청 — 폭탄 실패와 대비되는 밝은 상승 멜로디). 카운트다운 비프는 최종 수령 후 tickGauge 가 멈춤.
-      // ⭐배너에 **순차 표시**(요청): ① 미션 완료 → ② 받은 보상. 별도 토스트 없음(grantGaugeReward 의 토스트 제거).
+      this.sfx?.play('missionSuccess', 0.95); // ⭐미션 성공 음악(요청 — 밝은 상승 멜로디). 카운트다운 비프는 최종 수령 후 tickGauge 가 멈춤.
+      // ⭐배너에 **순차 표시**(요청): ① 미션 완료 → ② 기본 보상 → ③ (시간내면) 타임 보너스.
       const rw = this.gaugeCfg.finalReward;
       this.showMissionBanner('MISSION COMPLETE!', '#ffe27a');
       this.showMissionBanner(`+${this.fmt(rw.amount)} ${rw.kind === 'coins' ? 'COINS' : 'SPINS'}`, '#9bff7a');
+      // ⭐추가 보상(타임어택) — 보너스 창 내 완료 시에만 지급(요청 #5). 스핀 즉시 가산 + 배너.
+      const bonus = this.currentMissionTimeBonus();
+      if (withinBonus && bonus > 0) {
+        this.grantSpins(bonus, 'mission_bonus');
+        this.showMissionBanner(`⏱ TIME BONUS +${this.fmt(bonus)} SPINS`, '#7ad4ff');
+      }
       this.gaugeView.setTargetCleared(true); // ⭐목표 시간·카운트·타겟 퍼즐 아이콘 지움(요청) — 휴면 간격 동안 유지
       this.board.setCollectGem(-1); // ⭐휴면 중 보드 수집 타겟 해제 — 활성 미션 없으니 어떤 타일도 타겟 아님(코인 비행/적립 정지). advanceGaugeMission 가 복원.
       this.time.delayedCall(MISSION_GAP_MS, () => this.advanceGaugeMission()); // ⭐완료 후 **15초 간격**(요청 — 바로 이어가지 않음) 뒤 다음(더 어려운) 미션
@@ -1163,7 +1322,7 @@ export class PlayScene extends Phaser.Scene {
    *  아래쪽 스핀 저장고(우측하단 카운터)로 **주루룩 빨려 들어간다**. 큰 아이콘·최상단 depth(900)로 또렷이.
    *  보상은 **즉시 확정**(비행 중 이탈해도 유실 없음). 금액 텍스트는 별도 토스트 없이 타이틀 배너에 "+N SPINS"(요청). */
   private flySpinReward(fromX: number, fromY: number, amount: number, onAllArrived?: () => void): void {
-    this.grantSpins(amount); // 보상 즉시 확정(연출과 무관)
+    this.grantSpins(amount, 'mission'); // 보상 즉시 확정(연출과 무관)
     const key = 'up_SC_UI_54_v3'; // 스핀(번개) 아이콘
     if (!this.textures.exists(key)) {
       onAllArrived?.();
@@ -1224,6 +1383,7 @@ export class PlayScene extends Phaser.Scene {
     const toY = this.coinText?.y ?? 75;
     if (!this.textures.exists(REWARD_COIN_ICON)) {
       this.coins += amount;
+      this.recordCoinIn('mission', amount);
       this.refreshHud();
       this.floatLabel(`+${this.fmt(amount)} 🪙`, '#ffe27a');
       return;
@@ -1249,6 +1409,7 @@ export class PlayScene extends Phaser.Scene {
           onComplete: () => {
             icon.destroy();
             this.coins += amount;
+            this.recordCoinIn('mission', amount);
             this.refreshHud();
             this.floatLabel(`+${this.fmt(amount)} 🪙`, '#ffe27a');
             this.sfx.play('coin', 0.6);
@@ -1257,22 +1418,6 @@ export class PlayScene extends Phaser.Scene {
         });
       },
     });
-  }
-
-  /** 1초 틱 — 만료면 사이클 리셋(새 1시간), 아니면 카운트다운 갱신. */
-  /** ⭐게이지 시간 초과 = **보상 소멸 + 같은 미션 새 2분 재도전**(진행 0 리셋). 시도 흔적(progress>0) 있을 때만 실패 피드백(유휴 반복 토스트 방지).
-   *  tickGauge(1초 틱)·addGaugeProgress(마감 직후 매치) 공용. */
-  private forfeitGauge(now: number): void {
-    const hadProgress = this.gaugeState.progress > 0;
-    this.gaugeState = createGaugeState(now);
-    this.lastGaugeWarnSec = undefined; // 새 사이클 — 경고 카운터 리셋
-    this.saveGauge();
-    this.renderGauge(now, false);
-    if (hadProgress) {
-      this.sfx?.play('missionFail', 0.7); // ⭐미완료 실패 사운드(요청)
-      // ⭐실패 메시지 = 별도 토스트 대신 **상단 타이틀 배너(419 자리)에 순차 표시**(요청 "별도 창 말고 민트색 정보창에").
-      this.showMissionBanner('⏱ TIME UP! REWARD LOST', '#ff7a7a');
-    }
   }
 
   private tickGauge(): void {
@@ -1289,12 +1434,13 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     if (isExpired(this.gaugeCfg, this.gaugeState, now)) {
-      this.forfeitGauge(now);
+      // ⭐2026-07-06 #5: 만료 = **몰수 아님** — 추가보상(타임보너스) 창만 닫힘. 진행·기본보상은 유지(퍼즐 모으면 완료 가능).
+      this.gaugeView.setTimer(0);
       return;
     }
     const remMs = remainingMs(this.gaugeCfg, this.gaugeState, now);
     this.gaugeView.setTimer(remMs);
-    this.warnGaugeTime(Math.floor(remMs / 1000)); // ⭐30/20초 경고 + 10초~1초 초침 카운트다운 사운드
+    this.warnGaugeTime(Math.floor(remMs / 1000)); // ⭐보너스 창 카운트다운(10초~1초 초침) — 시간내 완료 독려
   }
 
   /** ⭐첫 퍼즐 조작(유효 스왑) 시 미션 타이머 시작(요청) — 그 전까진 tickGauge 가 풀타임 정지. 시작 시점부터 풀타임 카운트다운. */
@@ -1309,7 +1455,8 @@ export class PlayScene extends Phaser.Scene {
   }
 
   /** ⭐타임어택 사운드 경고(bomb_countdown_sfx_pack, 요청) — 시도 중(progress>0)일 때만:
-   *  30초=부드러운 챔 → 20초=긴급 트리플 → **10~1초 초별 비프 카운트다운**(촉박). 실제 미완료 폭발음은 forfeitGauge.
+   *  30초=부드러운 챔 → 20초=긴급 트리플 → **10~1초 초별 비프 카운트다운**(촉박). ⭐2026-07-06 #5: 이 카운트다운은
+   *  **추가보상(타임보너스) 창** 종료 임박 신호(몰수 아님) — 시간내 완료 독려용. 만료돼도 기본보상은 유지.
    *  경계 통과(prev>th && cur<=th) 판정으로 틱 지터에도 누락/중복 없음. 카운트다운은 초별 분리 비프라 표시 타이머에 정확 동기(레이드로 멈추면 비프도 멈춤). */
   private warnGaugeTime(sec: number): void {
     const prev = this.lastGaugeWarnSec;
@@ -1341,6 +1488,7 @@ export class PlayScene extends Phaser.Scene {
     }
   }
   private saveGauge(): void {
+    if (this.resetting) return; // ⭐리셋 중 미션 재저장 금지(리셋이 씹히는 버그 방지)
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(GAUGE_SAVE_KEY, serializeGauge(this.gaugeState));
@@ -1390,25 +1538,27 @@ export class PlayScene extends Phaser.Scene {
   /**
    * 베팅 반영 스핀 보상액을 카운터 위에 "+N" 으로 팝(스핀젬이 GO 스핀 카운터로 빨려든 시점). 펑 등장 후 떠오르며 사라짐.
    */
-  private spinGainPopup(amount: number): void {
+  private spinGainPopup(amount: number, mega = false): void {
     const x = this.spinBarX;
     const y = this.spinBarY - 70;
+    // ⭐초대박(mega): 더 크게·금색·"SPINS!" 강조로 보통 대박(초록 +N)과 확실히 구분(요청 2026-07-07).
     const t = this.add
-      .text(x, y, `+${this.fmt(amount)}`, {
+      .text(x, y, mega ? `+${this.fmt(amount)} SPINS!` : `+${this.fmt(amount)}`, {
         fontFamily: '"Kanit", "Do Hyeon", sans-serif',
         fontStyle: 'italic 800',
-        fontSize: '76px',
-        color: '#9bff7a',
-        stroke: '#16400a',
-        strokeThickness: 9,
+        fontSize: mega ? '92px' : '76px',
+        color: mega ? '#ffd23d' : '#9bff7a',
+        stroke: mega ? '#7a3b00' : '#16400a',
+        strokeThickness: mega ? 11 : 9,
       })
       .setOrigin(0.5)
       .setDepth(560)
       .setScale(0.3)
       .setAlpha(0);
-    this.tweens.add({ targets: t, scale: 1, alpha: 1, duration: 180, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: t, scale: mega ? 1.12 : 1, alpha: 1, duration: 200, ease: 'Back.easeOut' });
+    if (mega) this.tweens.add({ targets: t, scale: 1, duration: 160, delay: 200 }); // 살짝 큰 등장 후 안착
     // 표시를 0.5초 더 길게(요청) — 페이드아웃 시작 지연 360 → 860ms.
-    this.tweens.add({ targets: t, y: y - 96, alpha: 0, delay: 860, duration: 560, ease: 'Quad.easeOut', onComplete: () => t.destroy() });
+    this.tweens.add({ targets: t, y: y - 96, alpha: 0, delay: mega ? 1100 : 860, duration: 560, ease: 'Quad.easeOut', onComplete: () => t.destroy() });
   }
 
   /** 스핀 부족으로 매칭이 막혔을 때 안내(쓰로틀: 1.2초). 보드가 onBlocked 로 호출 — GO 부족 안내와 동일 메시지. */
@@ -1416,6 +1566,10 @@ export class PlayScene extends Phaser.Scene {
     const now = this.time.now;
     if (now - this.noSpinsToastAt < 1200) return;
     this.noSpinsToastAt = now;
+    // ⭐v2 원장 — 스핀 부족 막힘(생존 지표). "아슬아슬하게 통과" 판정 = minSpins 는 낮되 block 은 드물어야 함.
+    try {
+      recordEvent({ t: Date.now(), e: 'block', sp: this.spins, bet: this.spinBet, L: this.cityLevelNow() });
+    } catch { /* 텔레메트리 실패 무시 */ }
     showToast(this, 'NOT ENOUGH SPINS!', { color: '#ff9a9a' });
     // ⭐P1 에너지 월(구매 포인트) — 스핀 소진 = 가장 강한 전환점. 즉시 충전(목업) 또는 상점. 자주 안 뜨게 throttle.
     if (now - this.noSpinsDialogAt > 6000 && !isDialogOpen(this)) {
@@ -1437,6 +1591,11 @@ export class PlayScene extends Phaser.Scene {
     applyPurchase(item); // 목업 — 영속 +재화
     this.coins = loadCoins();
     this.spins = loadSpins();
+    // ⭐v2 원장 — 상점 유입도 소스 태깅(스핀 경제에 IAP 가 섞이는 양을 시뮬 데이터에서 분리).
+    try {
+      if (item.kind === 'spins') recordEvent({ t: Date.now(), e: 'spin_in', src: 'shop', n: item.amount, sp: this.spins, L: this.cityLevelNow() });
+      else if (item.kind === 'coins') recordEvent({ t: Date.now(), e: 'coin_in', src: 'shop', n: item.amount, co: this.coins, L: this.cityLevelNow() });
+    } catch { /* 텔레메트리 실패 무시 */ }
     this.refreshHud();
     const unit = item.kind === 'coins' ? '🪙' : item.kind === 'spins' ? '🎰' : '💎';
     const amt = item.amount.toLocaleString('en-US');
@@ -1525,6 +1684,9 @@ export class PlayScene extends Phaser.Scene {
   awardRaidWin(amount: number): void {
     if (!(amount > 0)) return;
     this.coins += amount;
+    try {
+      recordEvent({ t: Date.now(), e: 'coin_in', src: 'raid', n: Math.round(amount), co: this.coins, L: this.cityLevelNow() });
+    } catch { /* 텔레메트리 실패 무시 */ }
     this.refreshHud();
     this.sfx?.play('coin', 0.5);
     this.floatLabel(`+${this.fmt(amount)}`, '#ffd34d'); // 복귀 시 떠오르며 사라짐(트윈은 재개 후 진행)
@@ -1535,25 +1697,52 @@ export class PlayScene extends Phaser.Scene {
   awardAttackSpins(amount: number): void {
     const n = Math.round(amount);
     if (!(n > 0)) return;
-    this.grantSpins(n);
+    this.grantSpins(n, 'attack');
     this.sfx?.play('coin', 0.5);
     this.spinGainPopup(n);
   }
 
-  /** ⭐실측 텔레메트리 — 라운드 종료 시 스냅샷 기록(경제 콘솔이 같은 origin localStorage 로 읽어 모델과 비교). 실패 무시. */
-  private recordTelemetry(win: number): void {
+  /** ⭐실측 텔레메트리 — 라운드 종료 시 v1 스냅샷 + **v2 라운드 이벤트**(슬롯결과·퍼즐멀티·잔고 — 확률 재설계 원장) 기록. 실패 무시. */
+  private recordTelemetry(win: number, puzzleMult = 0): void {
     try {
       recordSnapshot({ t: Date.now(), spins: this.spins, coins: this.coins, cityLevel: this.cityLevelNow(), bet: this.bet, winCoins: Math.max(0, Math.round(win)) });
+      const o = this.lastSlotOutcome;
+      recordEvent({
+        t: Date.now(),
+        e: 'round',
+        bet: this.spinBet,
+        k: o?.kind ?? 'none',
+        sym: o?.symbol ?? -1,
+        m: Math.round(puzzleMult * 100) / 100,
+        win: Math.max(0, Math.round(win)),
+        sp: this.spins,
+        co: this.coins,
+        L: this.cityLevelNow(),
+      });
     } catch {
       /* 텔레메트리 실패는 게임에 영향 없음 */
     }
   }
 
-  /** 스핀 적립(스핀 젬 보상·시간 충전 공용) — 카운터 갱신 + 표시. */
-  private grantSpins(n: number): void {
+  /** ⭐코인 유입 원장 기록(라운드 승리 외 — 미션/상점 등). 잔고는 호출부가 이미 가산한 뒤 호출. 실패 무시. */
+  private recordCoinIn(src: CoinSource, amount: number): void {
+    try {
+      recordEvent({ t: Date.now(), e: 'coin_in', src, n: Math.round(amount), co: this.coins, L: this.cityLevelNow() });
+    } catch {
+      /* 텔레메트리 실패 무시 */
+    }
+  }
+
+  /** 스핀 적립(모든 스핀 유입의 단일 길목) — 카운터 갱신 + 표시 + ⭐v2 원장 기록(**소스 태깅** — 지급구조 재설계 근거). */
+  private grantSpins(n: number, src: SpinSource): void {
     if (n <= 0) return;
     this.spins += n;
     this.refreshSpinHolding();
+    try {
+      recordEvent({ t: Date.now(), e: 'spin_in', src, n: Math.round(n), sp: this.spins, L: this.cityLevelNow() });
+    } catch {
+      /* 텔레메트리 실패 무시 */
+    }
   }
 
   /** ⭐하단 스핀 보유량 표시 = **현재/레벨기본**(요청 "250/50" 포맷, 정확 반영). 레벨기본은 재생상한(추후 코인마스터 재생 연동). */
@@ -1561,20 +1750,70 @@ export class PlayScene extends Phaser.Scene {
     this.spinText?.setText(`${this.fmt(this.spins)}/${SPIN_LEVEL_BASE}`);
   }
 
-  /** ⭐대박 시 스핀 소량 환급(작은 상승니) — win/베팅 티어로 spinBet × g. 보조 레버(주 균형은 ρ_gem·마일스톤). */
+  /** ⭐슬롯 대박 스핀 = **2단계**(요청 2026-07-07): 보통 대박(≥30×)=spinBet×2, 초대박(≥100×)=spinBet×10.
+   *   초대박 팝업은 크게 강조(mega=true). 되돌리거나 배수 조절은 SLOT_BIGWIN_SPINS / SLOT_(BIGWIN|MEGA)_SPIN_MULT. */
   private grantBigWinSpins(win: number): void {
-    if (win <= 0) return;
-    const g = win >= this.bet * BIGWIN_SPIN_MEGA_X ? BIGWIN_SPIN_MEGA : win >= this.bet * BIGWIN_SPIN_BIG_X ? BIGWIN_SPIN_BIG : 0;
-    if (g <= 0) return;
-    const spins = this.spinBet * g;
-    this.grantSpins(spins);
-    this.time.delayedCall(250, () => this.spinGainPopup(spins));
+    if (!SLOT_BIGWIN_SPINS) return;
+    if (win < this.bet * SLOT_BIG_WIN_MULT) return; // 보통 대박 미만이면 스핀 없음
+    const mega = win >= this.bet * SLOT_MEGA_WIN_MULT;
+    const spins = this.spinBet * (mega ? SLOT_MEGA_SPIN_MULT : SLOT_BIGWIN_SPIN_MULT);
+    this.grantSpins(spins, 'bigwin');
+    this.time.delayedCall(250, () => this.spinGainPopup(spins, mega));
   }
 
-  /** 자동 스핀 잠금 표시 토글 — 신 GO 패널의 AUTO OFF 오버레이로 표현. */
+  /** 자동 스핀 잠금 표시 토글 — 구 GO 패널 AUTO OFF 오버레이(있으면) + 신 AUTO 버튼(코드 드로잉) 동기화. */
   private updateAutoIndicator(): void {
     // ⭐오토 작동(잠금) 시 AUTO OFF 오버레이 숨김 → 패널의 AUTO ON(초록) 노출. 꺼지면 다시 AUTO OFF 표시(요청).
     this.autoOffOverlay?.setVisible(!this.autoLock);
+    this.redrawAutoButton();
+  }
+
+  /** ⭐AUTO 토글 버튼(2026-07-07, 요청 "오토스핀 구현") — 레버 아래 코드 드로잉 알약 버튼. 탭 = 오토 온/오프.
+   *  (기존 "레버/GO 2초 홀드 잠금"은 그대로 유지 — 이 버튼은 그 상태(autoLock)를 명시적으로 켜고 끄는 스위치.) */
+  private buildAutoButton(): void {
+    const lev = this.geom.anchors.lever;
+    const x = lev?.x ?? 961;
+    const y = (lev?.y ?? 725) + 240; // 레버 아래(슬롯 프레임 우측, 보드 패널 위 여백)
+    const W = 168;
+    const H = 62;
+    this.autoBtnBg = this.add.graphics().setDepth(211);
+    this.autoBtnLabel = this.text(x, y, 'AUTO', 30, '#cfc2ff').setDepth(212).setFontStyle('bold');
+    const zone = this.add.rectangle(x, y, W + 24, H + 20, 0x000000, 0).setDepth(213); // 히트존(여유 패딩)
+    zone.setInteractive({ useHandCursor: true });
+    zone.on('pointerdown', () => this.toggleAuto());
+    (this.autoBtnBg as Phaser.GameObjects.Graphics & { __xywh?: number[] }).__xywh = [x, y, W, H];
+    this.redrawAutoButton();
+  }
+
+  /** AUTO 버튼 시각 갱신 — ON=초록 채움+흰 글씨(작동 중), OFF=어두운 보라+연보라 글씨. */
+  private redrawAutoButton(): void {
+    const bg = this.autoBtnBg as (Phaser.GameObjects.Graphics & { __xywh?: number[] }) | undefined;
+    if (!bg || !bg.__xywh || !this.autoBtnLabel) return;
+    const [x, y, W, H] = bg.__xywh;
+    const on = this.autoLock;
+    bg.clear();
+    bg.fillStyle(on ? 0x2ea043 : 0x241a3f, on ? 0.95 : 0.82);
+    bg.fillRoundedRect(x - W / 2, y - H / 2, W, H, H / 2);
+    bg.lineStyle(3, on ? 0x9bff7a : 0x8a76c9, 1);
+    bg.strokeRoundedRect(x - W / 2, y - H / 2, W, H, H / 2);
+    this.autoBtnLabel.setText(on ? 'AUTO ON' : 'AUTO').setColor(on ? '#ffffff' : '#cfc2ff');
+  }
+
+  /** AUTO 토글 — 켜면 autoLock(떼도 지속) 상태로 자동 라운드 루프 시작, 끄면 현재 라운드 후 정지. */
+  private toggleAuto(): void {
+    if (this.autoLock) {
+      this.autoLock = false;
+      this.holdSpin = false;
+      this.setSpinPressed(false);
+    } else {
+      if (!this.canSpin()) { this.showNoSpins(); return; } // 스핀 없으면 켜지 않음
+      this.sfx.play('spinButton', 0.6);
+      this.autoLock = true;
+      this.holdSpin = true;
+      this.setSpinPressed(true);
+      void this.autoSpinLoop();
+    }
+    this.updateAutoIndicator();
   }
 
   /** 홀드 앤 스핀 루프 — 누르는 동안(또는 2초↑ 잠금 시) **퍼즐-우선** 자동 라운드를 반복. */
@@ -1603,7 +1842,17 @@ export class PlayScene extends Phaser.Scene {
   private async autoRound(): Promise<void> {
     if (this.busyRound || this.slot.isBusy || this.board.isBusy) return;
     if (this.stageActive) return; // 스테이지 전환 중엔 새 라운드 금지
-    if (!this.canSpin()) { this.showNoSpins(); return; } // ⭐소진 = 막힘(자동충진 폐지)
+    if (!this.canSpin()) {
+      this.showNoSpins();
+      // ⭐스핀 소진 시 오토 **자동 해제**(2026-07-07) — 안 끄면 autoSpinLoop 가 안내 토스트를 무한 반복.
+      if (this.autoLock || this.holdSpin) {
+        this.autoLock = false;
+        this.holdSpin = false;
+        this.setSpinPressed(false);
+        this.updateAutoIndicator();
+      }
+      return;
+    }
     this.busyRound = true;
     this.spins -= this.spinBet; // 플레이 = 스핀 소모(코인 아님)
     this.refreshHud();
@@ -1643,17 +1892,28 @@ export class PlayScene extends Phaser.Scene {
    *   stageHold 는 finalizeWin 이 **슬롯 회전 후** pendingStage 로 승격 → maybeEnterStage(망치/커튼).
    */
   private showSlotResult(outcome: SpinOutcome): number {
+    this.lastSlotOutcome = outcome; // ⭐텔레메트리 v2 — recordTelemetry(라운드 이벤트)가 슬롯결과(kind/symbol)를 태깅
     this.hidePlaying();
     this.matchImg?.setVisible(false);
     this.infoLeft.setAlpha(1);
-    // 어택/레이드: 배너는 즉시(릴 정지 직후), 스테이지 예약은 stageHold 로 보류(슬롯 회전 후 승격).
+    // 어택/레이드 심볼 3매치.
     if (outcome.kind === 'attack' || outcome.kind === 'raid') {
-      const power = this.spinBet; // 배너 ×N + Stage1 레거시 power(스테이크는 maybeEnterStage 가 통화별 산출)
-      this.stageHold = { type: outcome.kind, power };
-      this.showActivationBanner(outcome.kind, power);
-      if (this.gaugeStageStartedMs == null) this.gaugeStageStartedMs = Date.now();
-      this.popScore(this.infoLeft, outcome.kind === 'attack' ? 'ATTACK!' : 'RAID!', outcome.kind === 'attack' ? '#ff6a6a' : '#ffd23d');
-      return 0; // 코인은 스테이지(어택=다운그레이드/레이드=룰렛)에서 지급
+      // ⭐슬롯이 담당하는 스테이지(현 설정=어택)면 발동 예약(배너는 즉시, stageHold 는 슬롯 회전 후 승격).
+      if (outcome.kind === SLOT_STAGE_KIND) {
+        const power = this.spinBet; // 배너 ×N + Stage1 레거시 power(스테이크는 maybeEnterStage 가 통화별 산출)
+        this.stageHold = { type: outcome.kind, power };
+        this.showActivationBanner(outcome.kind, power);
+        if (this.gaugeStageStartedMs == null) this.gaugeStageStartedMs = Date.now();
+        this.popScore(this.infoLeft, outcome.kind === 'attack' ? 'ATTACK!' : 'RAID!', outcome.kind === 'attack' ? '#ff6a6a' : '#ffd23d');
+        return 0; // 코인은 스테이지(어택=다운그레이드/레이드=룰렛)에서 지급
+      }
+      // ⭐슬롯이 담당하지 않는 특수 심볼(현 설정=금화/레이드) → **코인 보상으로 대체**(데드 심볼 방지).
+      //   금화 3매치는 시각적으로도 코인이라 코인 지급이 자연스럽다. slot3 coinBase 는 0 이므로 fallback 배수 사용.
+      let orphanPay = Math.round(SLOT_ORPHAN_COIN_BASE * this.bet * luckMultiplier(this.rng, luckTableNow()) * slotRtpScaleNow());
+      if (this.forceBigWin) orphanPay = this.bet * this.nextForcedMult();
+      if (orphanPay > 0) orphanPay = Math.max(this.bet, orphanPay);
+      this.popScore(this.infoLeft, `SLOT ×${SLOT_ORPHAN_COIN_BASE}`, '#9be1ff');
+      return orphanPay;
     }
     // 코인 3매치: coinBase × 코인베팅 × 럭 × RTP스케일(오버라이드 반영). ⚠️정확한 밸런스는 econ 콘솔 튜닝.
     let slotPayout = 0;
@@ -1708,8 +1968,8 @@ export class PlayScene extends Phaser.Scene {
       await this.showSlotWinBanner(win, 550); // ⭐당첨 롤링(미션 메시지 중이면 스킵 — 중첩 금지)
       this.coins += win;
       this.grantBigWinSpins(win); // ⭐대박이면 스핀도 소량 환급(작은 상승니)
-      this.recordTelemetry(win); // 실측 스냅샷(스테이지 진입 라운드)
-      if (win > 0) this.sfx.play(win >= this.bet * 8 ? 'winMedium' : 'winSmall', 0.8); // 결과 사운드 피드백
+      this.recordTelemetry(win, bonus); // 실측 스냅샷(스테이지 진입 라운드)
+      if (win > 0) this.sfx.play(win >= this.bet * SLOT_BIG_WIN_MULT ? 'winMedium' : 'winSmall', win >= this.bet * SLOT_BIG_WIN_MULT ? 0.8 : 0.5); // 결과 사운드(팡파레는 대박만)
       this.jackpotPool += jackpotContribution(this.bet); // 잭팟 적립은 유지(추첨은 생략 — 스테이지 전환 우선)
       this.fortune = nextFortune(this.fortune, this.rng);
       this.refreshHud();
@@ -1726,21 +1986,37 @@ export class PlayScene extends Phaser.Scene {
     await this.showSlotWinBanner(win, quick(550, 180)); // ⭐획득 롤링(미션 메시지 중이면 스킵 — 중첩 금지)
     this.coins += win;
     this.grantBigWinSpins(win); // ⭐대박이면 스핀도 소량 환급(작은 상승니 = "쌓이는 느낌")
-    this.recordTelemetry(win); // 실측 스냅샷(일반 라운드)
+    this.recordTelemetry(win, bonus); // 실측 스냅샷(일반 라운드)
     if (win > 0) {
-      // ⭐**모든 슬롯 보상**을 대박과 동일하게 **이미지폰트 코인드랍 카운트업**으로 표시(요청 2026-06-27). 축포만 대박(10배+) 한정.
-      this.playBigWinCountUp(win);
-      if (win >= this.bet * 10) this.confetti.burst(); // 화면 가득 축포(색종이)는 대박만
-      this.burstSlotCoins(win); // 최종 획득(퍼즐 멀티 반영) 기준 코인 분수 — 고배당이면 더 크게/길게
-      // 승리 사운드(티어 = 베팅 배수 기준, 단위 무관): 소액=Cascading 골드코인, 큰 건=Epic, 메가=Modern.
-      const winSound = win >= this.bet * 50 ? 'winBig' : win >= this.bet * 8 ? 'winMedium' : 'winSmall';
-      this.sfx.play(winSound, 0.8);
+      // ⭐2026-07-06 요청(연출 과다·흐름 끊김 완화): 큰 코인드랍 카운트업·축포·풀사이즈 코인분수는 **대박(≥베팅×10)만**.
+      //   일반 당첨은 **작은 코인 분수**만(금액은 이미 showSlotWinBanner 롤링으로 표시됨) → 흐름 유지.
+      const isBig = win >= this.bet * SLOT_BIG_WIN_MULT;
+      const isMega = win >= this.bet * SLOT_MEGA_WIN_MULT;
+      if (isBig) {
+        this.playBigWinCountUp(win); // 대박: 이미지폰트 코인드랍 카운트업
+        this.confetti.burst(); // 대박: 화면 가득 축포(색종이)
+        this.burstSlotCoins(win); // 대박: 풀사이즈 코인 분수
+        if (isMega) {
+          // ⭐초대박: 화면 번쩍 + MEGA WIN! 배너 + Modern 사운드 — 보통 대박과 확실히 구분(요청 2026-07-07).
+          this.cameras.main.flash(220, 255, 236, 150, false);
+          this.megaWinBanner();
+          this.sfx.play('winBig', 0.9);
+        } else {
+          this.sfx.play('winMedium', 0.8); // 보통 대박: Epic 팡파레
+        }
+      } else {
+        this.burstSlotCoins(win, 0.4); // 일반: 축소 코인 분수만(카운트업·축포 생략)
+        this.sfx.play('winSmall', 0.5); // 일반: 소액 코인음만(팡파레 없음, 요청 2026-07-06)
+      }
     }
     // 잭팟: 매 베팅의 레이크를 풀에 적립 → 희귀확률로 풀 전액 지급(EV 중립).
     this.jackpotPool += jackpotContribution(this.bet);
     const jbonus = rollJackpot(this.rng, this.jackpotPool);
     if (jbonus > 0) {
       this.coins += jbonus;
+      try {
+        recordEvent({ t: Date.now(), e: 'coin_in', src: 'jackpot', n: Math.round(jbonus), co: this.coins, L: this.cityLevelNow() });
+      } catch { /* 텔레메트리 실패 무시 */ }
       this.jackpotPool = JACKPOT_SEED;
       this.bigWin(jbonus, '🎉 JACKPOT!');
       this.sfx.play('jackpot', 0.9);
@@ -1861,16 +2137,25 @@ export class PlayScene extends Phaser.Scene {
     this.tweens.add({ targets: t, y: 620, alpha: 0, duration: 750, ease: 'Quad.easeOut', onComplete: () => t.destroy() }); // 스피드업: 1200→750
   }
 
-  /** 슬롯 릴 가운데 행을 따라 코인이 한 줄 터지듯 솟구쳐 떨어지는 연출. 베팅 대비 배수↑ → 웨이브↑(더 길게·여러 번). */
-  private burstSlotCoins(amount: number): void {
+  /** ⭐초대박 전용 배너 — "MEGA WIN!" 큰 금색 텍스트가 팝(Back.easeOut)한 뒤 위로 떠오르며 사라짐(요청 2026-07-07, 보통 대박과 구분). */
+  private megaWinBanner(): void {
+    const t = this.text(540, 700, 'MEGA WIN!', 84, '#ffd23d').setDepth(330).setStroke('#7a3b00', 11).setScale(0.3).setAlpha(0);
+    this.tweens.add({ targets: t, scale: 1.08, alpha: 1, duration: 260, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: t, scale: 1, duration: 180, delay: 260 });
+    this.tweens.add({ targets: t, y: 600, alpha: 0, duration: 620, delay: 760, ease: 'Quad.easeIn', onComplete: () => t.destroy() });
+  }
+
+  /** 슬롯 릴 가운데 행을 따라 코인이 한 줄 터지듯 솟구쳐 떨어지는 연출. 베팅 대비 배수↑ → 웨이브↑(더 길게·여러 번).
+   *   sizeScale<1 = 일반 당첨용 **축소 연출**(대박은 1). */
+  private burstSlotCoins(amount: number, sizeScale = 1): void {
     const r = this.geom.reel;
     if (!r.xs.length || !r.ys.length) return;
     const xL = r.xs[0];
     const xR = r.xs[r.xs.length - 1];
     const y = r.ys[Math.floor(r.ys.length / 2)] ?? r.ys[0];
-    this.coinBurst.burstRowScaled(xL, xR, y, amount, this.bet); // 코인 비주얼(사운드는 아래서 길이 매칭으로 1회)
+    this.coinBurst.burstRowScaled(xL, xR, y, amount, this.bet, undefined, sizeScale); // 코인 비주얼(사운드는 아래서 길이 매칭으로 1회)
     // 코인 드랍 사운드(v4, 작게): 코인 스트림 애니 길이만큼 깔고, 끝나면 볼륨↓ 페이드아웃(끊김 없이).
-    const { duration } = CoinBurst.streamPlan(amount, this.bet);
+    const { duration } = CoinBurst.streamPlan(amount, this.bet, sizeScale);
     const coin = this.sfx.playTracked('coin', 0.3);
     if (coin) this.time.delayedCall(duration, () => this.sfx.fadeStop(coin, 220));
   }

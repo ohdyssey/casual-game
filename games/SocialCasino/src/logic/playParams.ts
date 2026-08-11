@@ -25,19 +25,20 @@ export const BET_START = 10;
 export const COIN_DENOM = 100;
 
 // ── 스핀 경제(코인마스터식): 스핀=플레이 화폐(슬롯/매치에 소모), 코인=보상(시티 건설용) ──
-/** 초기 스핀. playerState.DEFAULT_SPINS 와 동일해야 함. ⭐2026-06-30: 300→**200**(요청 — 200스핀·베팅5 기준 경제 설계). */
-export const START_SPINS = 200;
+/** 초기 스핀. playerState.DEFAULT_SPINS 와 동일해야 함.
+ *  ⭐2026-07-07(2차): 500→**300** — **보상구조 재설계 시뮬레이션 기준**(요청: 초기 300스핀 지급 → 오토플레이 전량 소진
+ *  시뮬로 지급 데이터 확보). 스핀보상은 "아슬아슬하게 통과" 목표 — 시뮬 데이터(econ/telemetry v2)로 재조정 예정. */
+export const START_SPINS = 300;
 /**
- * ⭐스핀 회수 배수 — **매칭된 스핀젬 수 s 에 따른 총 회수 배수**(요청 2026-06-30 개정). 회수 = spinBet(N) × spinRefundMult(s).
- *   매칭수 s 자체 × (3개+ 추가 배수)를 함께 반영해, 많이 맞출수록 가파르게 보상:
- *     1 → ×1 (=N) · 2 → ×2 (=2N) · 3 → ×6 · 4 → ×12 · 5 → ×20.  (6개+ 는 5 취급 = ×20, 런어웨이 방지)
- *   공식: s × max(1, s-1)  — s≤2 는 s×1, s≥3 은 s×(s-1).
- *   (이전엔 1·2개가 모두 ×1 로 같아 1·2 매칭 회수가 동일하던 문제 해소 — 이제 s 에 비례해 또렷이 달라짐.)
+ * ⭐스핀 회수 배수 — **한 그룹에서 매칭된 스핀젬 수 s** 에 따른 회수 배수. 회수 = spinBet(N) × spinRefundMult(s).
+ *   ⭐2026-07-06 #11 요청 지정 곡선: s<3 → 0 (2개 이하 회수 없음) · **3 → ×3 · 4 → ×6 · 5+ → ×12** (베팅 N배 기준).
+ *   ※ 판정은 **그룹 단위**(onCollectSpecials/sim) — 서로 다른 그룹의 1~2개 스텝 합산 회수도 제거.
  */
 export function spinRefundMult(count: number): number {
-  if (count <= 0) return 0;
-  const s = Math.min(count, 5); // 6개+ 는 5 취급(런어웨이 방지)
-  return s * Math.max(1, s - 1); // 1→1, 2→2, 3→6, 4→12, 5→20
+  if (count < 3) return 0; // 1~2개 = 회수 없음(실제 콤보만)
+  if (count === 3) return 3; // 3매치 → ×3 (=3N)
+  if (count === 4) return 6; // 4매치 → ×6 (=6N)
+  return 12; // 5개 이상 → ×12 (=12N)
 }
 /** 대박 스핀 주입 — win ≥ 베팅×BIG_X 면 spinBet×BIG 스핀(작은 상승니). */
 export const BIGWIN_SPIN_BIG_X = 10;
@@ -52,8 +53,10 @@ export const DAILY_SPINS = 300;
  * ⭐**레이드 코인** 스테이크 배수(요청 2026-07-01 개정) — 레이드 룰렛 스테이크 = betCoin × M(L) × **RAID_STAKE_SCALE**.
  *   레이드 = **코인 보상**(어택은 스핀으로 분리 → ATTACK_SPIN_STAKE_SCALE). 어택이 코인 경쟁에서 빠지므로 레이드 코인을
  *   키워도 인플레 안전 → **1.3 → 2.5**(약 2배, 요청 "레이드 코인 더 많이"). 순수 배수 스케일(베팅·레벨 비례, 인플레 안전).
+ *   ⭐2026-07-07 시뮬 베이스라인: 2.5→**4.0** — 요청 "레이드 = 상대 카지노를 털어오는 구조이므로 보상을 더 높게".
+ *     슬롯 일반당첨(coinBase 12~120×)·업그레이드 비용 대비 레이드가 뚜렷한 코인 스파이크가 되도록. 시뮬 실측 후 재조정.
  */
-export const RAID_STAKE_SCALE = 2.5;
+export const RAID_STAKE_SCALE = 4.0;
 
 /**
  * ⭐**어택 스핀** 스테이크 배수(요청 2026-07-01 신설) — 어택 룰렛 베이스(스핀) = **spinBet × ATTACK_SPIN_STAKE_SCALE**.
@@ -75,11 +78,12 @@ export function specialMatchMult(count: number): number {
   return Math.max(1, count) * 2; // 1~2(부분 수집, 드묾)도 보정(소량)
 }
 
-/** 미션 플랜 한 칸 — target(수집 목표 = 젬수×베팅) + 분(제한시간) + 보상(스핀↔코인 교대). */
+/** 미션 플랜 한 칸 — target(수집 목표=젬수×베팅) + minutes(**보너스 창**) + reward(기본보상·시간무관) + timeBonus(시간내 완료 추가보상). */
 export interface MissionEntry {
   readonly target: number;
-  readonly minutes: number;
-  readonly reward: GaugeReward;
+  readonly minutes: number; // ⚠️2026-07-06 #5: 몰수 시간 아님 → **추가보상(timeBonus) 획득 제한시간**. 초과해도 기본보상은 목표 달성 시 지급.
+  readonly reward: GaugeReward; // 기본 보상(시간 무관·목표 달성 시). = 순 스핀투입 대비 **약간의 손실**(0.78×target).
+  readonly timeBonus: GaugeReward; // ⭐추가 보상 — **minutes 내 완료 시에만** 지급(타임어택). 기본+보너스면 약 이득.
 }
 
 /**
@@ -89,20 +93,35 @@ export interface MissionEntry {
  * ⭐**요청 지정 데이터 테이블**(2026-07-01) — 미션마다 목표 퍼즐수·제한시간(초)·스핀보상을 직접 지정(이전 "목표=초수·50~65%" 규칙 대체).
  *   minutes = 초/60 (durationMs = minutes×60000 = 지정 초). 진행 = 수집 타겟퍼즐수 × 베팅. ⚠️목표퍼즐 출현(스폰) 갯수는 **무수정**.
  *   값/보상/시간은 설정→데이터편집(rewardEditor)로 라이브 튜닝 가능. 시티레벨↑ 시 progression.missionTarget 가 목표를 추가 스케일.
- *   ⭐2026-07-01 #2: 목표 **×1.3 난이도 업** + 10단위 반올림(요청). 시간·보상 유지.
- *     미션  퍼즐   제한    보상
- *      1    130   60초    80
- *      2    160   80초   110
- *      3    200  110초   130
- *      4    230  130초   140
- *      5    260  140초   180
- *      6    330  180초   210
+ *   ⭐2026-07-01 #2: 목표 ×1.3 난이도 업 + 10단위 반올림. 시간·보상 유지.
+ *   ⭐2026-07-06 #3 "**투입 스핀 ≈ 보상 스핀 균형**": econ 시뮬(7×7·라이브 스폰·스킬플레이·tier0) 실측 =
+ *     완료 순(net) 스핀비용 ≈ **0.856 × target**(젬 환급 23.5% 반영) → **보상 = round10(0.856×target)**(완료 시 스핀 중립).
+ *   구조(2026-07-06 #5): ① **기본보상(reward)** = 목표 달성 시 지급(**시간 무관·몰수 없음**). ② **추가보상(timeBonus)** =
+ *     minutes(보너스 창) 내 완료 시에만(**타임어택**).
+ *   ⭐#14(2026-07-06) "코인마스터식 곡선 + **3시간 사이클** 테스트(향후 일일 미션)": 풀루프 실측(_fullFlow, 7×7·
+ *     specialOnMatch 레이드7:스핀3·환급3/6/12·슬롯어택 2.09/r·대박10× 6.45/r) = **수동 순소모 1.41스핀/라운드** ·
+ *     **미션 순비용 ≈ 0.151×target** · 진행 9.3/라운드. 가정 라운드≈5초(오토) → 6미션 합 목표 20,000 ≈ **3시간 플레이**.
+ *     곡선: 누적 스핀잔고가 **미션3까지 상승(정점) → 이후 하강(사이클 끝 약손실)** — 코인마스터식.
+ *   ⭐#15 요청 "보상은 100부터 시작해 **상승**(후기 보상이 작으면 욕심이 발동하지 않음)": 보상 = **단조 증가**.
+ *   ⭐#16 요청 "**보너스는 설계에서 제외**(달성 어려움 — 덤일 뿐)·목표는 **달성 난이도 기준**·직전 목표 과도": 곡선은
+ *     **기본보상만**으로 성립(timeBonus 무관). 목표 = 미션당 ~3분(쉬움)→~25분(어려움) 달성가능 밴드로 하향(직전 최대
+ *     7,700≈48분 폐기). 보상 상승폭을 완만(100→260)하게 잡아 낮은 목표에서도 후반 소모 곡선 유지.
+ *     손익(기본만) = 보상 − 0.151×target: [+55, +49, +19, −27, −87, −163] → 누적 미션3 정점(+123)·사이클 끝 −153 약손실.
+ *     사이클 합 목표 8,300 ≈ 75분 플레이(3시간 창 안에서 휴식 포함 자연 소화). 보너스창 ≈ 자연페이스의 70%(순수 덤).
+ *     ⚠️라운드 5초 가정·계수 0.151 은 경제 변경 시 재실측(_fullFlow 패턴). 향후 일일(24h) 미션으로 확장 예정.
+ *     미션  퍼즐    보너스창    기본보상  추가보상   순비용≈0.151T   손익     누적
+ *      1    300    110초     100     20       45       +55     +55↗
+ *      2    600    230초     140     30       91       +49    +104↗
+ *      3   1000    380초     170     40      151       +19    +123⛰
+ *      4   1500    560초     200     50      227       −27     +97↘
+ *      5   2100    790초     230     60      317       −87     +10↘
+ *      6   2800   1050초     260     70      423      −163    −153↘
  */
 export const MISSION_PLAN: ReadonlyArray<MissionEntry> = [
-  { target: 130, minutes: 60 / 60, reward: { kind: 'spins', amount: 80 } },  // 60초
-  { target: 160, minutes: 80 / 60, reward: { kind: 'spins', amount: 110 } }, // 80초
-  { target: 200, minutes: 110 / 60, reward: { kind: 'spins', amount: 130 } }, // 110초
-  { target: 230, minutes: 130 / 60, reward: { kind: 'spins', amount: 140 } }, // 130초
-  { target: 260, minutes: 140 / 60, reward: { kind: 'spins', amount: 180 } }, // 140초
-  { target: 330, minutes: 180 / 60, reward: { kind: 'spins', amount: 210 } }, // 180초
+  { target: 300, minutes: 110 / 60, reward: { kind: 'spins', amount: 100 }, timeBonus: { kind: 'spins', amount: 20 } },   // ~3분 미션
+  { target: 600, minutes: 230 / 60, reward: { kind: 'spins', amount: 140 }, timeBonus: { kind: 'spins', amount: 30 } },   // ~5분
+  { target: 1000, minutes: 380 / 60, reward: { kind: 'spins', amount: 170 }, timeBonus: { kind: 'spins', amount: 40 } },  // ~9분
+  { target: 1500, minutes: 560 / 60, reward: { kind: 'spins', amount: 200 }, timeBonus: { kind: 'spins', amount: 50 } },  // ~13분
+  { target: 2100, minutes: 790 / 60, reward: { kind: 'spins', amount: 230 }, timeBonus: { kind: 'spins', amount: 60 } },  // ~19분
+  { target: 2800, minutes: 1050 / 60, reward: { kind: 'spins', amount: 260 }, timeBonus: { kind: 'spins', amount: 70 } }, // ~25분
 ];

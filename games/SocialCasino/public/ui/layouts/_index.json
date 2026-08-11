@@ -1,12 +1,6 @@
 {
   "screens": [
     {
-      "id": "blank",
-      "name": "진입화면",
-      "file": "ui/layouts/blank.json",
-      "category": "custom"
-    },
-    {
       "id": "blank_copy",
       "name": "팝업화면",
       "file": "ui/layouts/blank_copy.json",
