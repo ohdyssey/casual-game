@@ -1,0 +1,1981 @@
+{
+  "domain": "ui",
+  "unit": "main",
+  "frame": {
+    "w": 1080,
+    "h": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "label": "배경",
+      "rect": [
+        -132,
+        1,
+        1213,
+        2401
+      ],
+      "center": [
+        474,
+        1201
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SUMO_BG_01-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3",
+      "type": "image",
+      "label": "캐릭터",
+      "rect": [
+        158,
+        1517,
+        146,
+        214
+      ],
+      "center": [
+        231,
+        1624
+      ],
+      "z": 2,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_Chr_me_01",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7",
+      "type": "image",
+      "label": "엠블럼1",
+      "rect": [
+        246,
+        1595,
+        56,
+        60
+      ],
+      "center": [
+        274,
+        1625
+      ],
+      "z": 3,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_Chr_Stl_01",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy",
+      "type": "image",
+      "label": "캐릭터",
+      "rect": [
+        414,
+        486,
+        120,
+        153
+      ],
+      "center": [
+        474,
+        562
+      ],
+      "z": 4,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_Chr_em_02",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy2",
+      "type": "image",
+      "label": "캐릭터",
+      "rect": [
+        542,
+        478,
+        120,
+        169
+      ],
+      "center": [
+        602,
+        562
+      ],
+      "z": 5,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_Chr_em_03",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy3",
+      "type": "image",
+      "label": "캐릭터",
+      "rect": [
+        667,
+        475,
+        120,
+        175
+      ],
+      "center": [
+        727,
+        562
+      ],
+      "z": 6,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_Chr_em_04",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy4",
+      "type": "image",
+      "label": "캐릭터",
+      "rect": [
+        792,
+        481,
+        120,
+        162
+      ],
+      "center": [
+        852,
+        562
+      ],
+      "z": 7,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_Chr_em_06",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy5",
+      "type": "image",
+      "label": "캐릭터",
+      "rect": [
+        347,
+        1535,
+        146,
+        196
+      ],
+      "center": [
+        420,
+        1633
+      ],
+      "z": 8,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_Chr_me_02",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7_copy",
+      "type": "image",
+      "label": "엠블럼2",
+      "rect": [
+        442,
+        1593,
+        56,
+        62
+      ],
+      "center": [
+        470,
+        1624
+      ],
+      "z": 9,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_Chr_Stl_02",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy6",
+      "type": "image",
+      "label": "캐릭터",
+      "rect": [
+        543,
+        1527,
+        146,
+        204
+      ],
+      "center": [
+        616,
+        1629
+      ],
+      "z": 10,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_Chr_me_03",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7_copy2",
+      "type": "image",
+      "label": "엠블럼3",
+      "rect": [
+        635,
+        1594,
+        56,
+        61
+      ],
+      "center": [
+        663,
+        1624
+      ],
+      "z": 11,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_Chr_Stl_05",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy7",
+      "type": "image",
+      "label": "캐릭터",
+      "rect": [
+        730,
+        1497,
+        146,
+        234
+      ],
+      "center": [
+        803,
+        1614
+      ],
+      "z": 12,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_Chr_me_04",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7_copy3",
+      "type": "image",
+      "label": "엠블럼4",
+      "rect": [
+        829,
+        1580,
+        56,
+        60
+      ],
+      "center": [
+        857,
+        1610
+      ],
+      "z": 13,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_Chr_Stl_03_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy8",
+      "type": "image",
+      "label": "캐릭터",
+      "rect": [
+        913,
+        1511,
+        146,
+        220
+      ],
+      "center": [
+        986,
+        1621
+      ],
+      "z": 14,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_Chr_me_05",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7_copy4",
+      "type": "image",
+      "label": "엠블럼5",
+      "rect": [
+        1009,
+        1579,
+        56,
+        62
+      ],
+      "center": [
+        1037,
+        1610
+      ],
+      "z": 15,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_Chr_Stl_04",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy9",
+      "type": "image",
+      "label": "캐릭터",
+      "rect": [
+        282,
+        475,
+        120,
+        174
+      ],
+      "center": [
+        342,
+        562
+      ],
+      "z": 16,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_Chr_em_01_v3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy36",
+      "type": "image",
+      "label": "캐릭터 복사",
+      "rect": [
+        547,
+        930,
+        120,
+        147
+      ],
+      "center": [
+        607,
+        1003
+      ],
+      "z": 17,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_020",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy10",
+      "type": "image",
+      "label": "패널",
+      "rect": [
+        20,
+        613,
+        173,
+        892
+      ],
+      "center": [
+        106,
+        1059
+      ],
+      "z": 18,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_06",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy26",
+      "type": "image",
+      "label": "스킬정보패널",
+      "rect": [
+        17,
+        466,
+        217,
+        145
+      ],
+      "center": [
+        125,
+        538
+      ],
+      "z": 19,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_05",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2",
+      "type": "text",
+      "label": "스킬넘버",
+      "rect": [
+        100,
+        485,
+        25,
+        60
+      ],
+      "center": [
+        112,
+        515
+      ],
+      "rectApprox": true,
+      "z": 20,
+      "space": "auto",
+      "pin": "none",
+      "text": "6",
+      "at": [
+        112,
+        515
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 50,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_2_copy",
+      "type": "text",
+      "label": "스킬넘버 복사",
+      "rect": [
+        133,
+        498,
+        54,
+        43
+      ],
+      "center": [
+        160,
+        519
+      ],
+      "rectApprox": true,
+      "z": 21,
+      "space": "auto",
+      "pin": "none",
+      "text": "/10",
+      "at": [
+        160,
+        519
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 36,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_3_copy11",
+      "type": "image",
+      "label": "캐릭터카드",
+      "rect": [
+        41,
+        642,
+        129,
+        195
+      ],
+      "center": [
+        105,
+        739
+      ],
+      "z": 22,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_015-01",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy10",
+      "type": "text",
+      "label": "스킬넘버 복사",
+      "rect": [
+        307,
+        2226,
+        75,
+        36
+      ],
+      "center": [
+        344,
+        2244
+      ],
+      "rectApprox": true,
+      "z": 23,
+      "space": "auto",
+      "pin": "none",
+      "text": "Rally",
+      "at": [
+        344,
+        2244
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 30,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_3_copy12",
+      "type": "image",
+      "label": "캐릭터카드",
+      "rect": [
+        41,
+        849,
+        129,
+        204
+      ],
+      "center": [
+        105,
+        951
+      ],
+      "z": 24,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_015-02",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy13",
+      "type": "image",
+      "label": "캐릭터카드",
+      "rect": [
+        41,
+        1061,
+        129,
+        206
+      ],
+      "center": [
+        105,
+        1164
+      ],
+      "z": 25,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_015-03",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy14",
+      "type": "image",
+      "label": "캐릭터카드",
+      "rect": [
+        41,
+        1274,
+        129,
+        205
+      ],
+      "center": [
+        105,
+        1376
+      ],
+      "z": 26,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_015-05",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy15",
+      "type": "image",
+      "label": "출발점",
+      "rect": [
+        144,
+        1735,
+        129,
+        106
+      ],
+      "center": [
+        208,
+        1788
+      ],
+      "z": 27,
+      "space": "auto",
+      "pin": "none",
+      "angle": 9,
+      "asset": "up_SC_UI_016",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy16",
+      "type": "image",
+      "label": "출발점",
+      "rect": [
+        354,
+        1744,
+        129,
+        106
+      ],
+      "center": [
+        418,
+        1797
+      ],
+      "z": 28,
+      "space": "auto",
+      "pin": "none",
+      "angle": 3,
+      "asset": "up_SC_UI_016",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy17",
+      "type": "image",
+      "label": "출발점",
+      "rect": [
+        553,
+        1749,
+        129,
+        106
+      ],
+      "center": [
+        617,
+        1802
+      ],
+      "z": 29,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_016",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy18",
+      "type": "image",
+      "label": "출발점",
+      "rect": [
+        759,
+        1738,
+        129,
+        106
+      ],
+      "center": [
+        823,
+        1791
+      ],
+      "z": 30,
+      "space": "auto",
+      "pin": "none",
+      "angle": -4,
+      "asset": "up_SC_UI_016",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy19",
+      "type": "image",
+      "label": "출발점",
+      "rect": [
+        959,
+        1718,
+        129,
+        106
+      ],
+      "center": [
+        1023,
+        1771
+      ],
+      "z": 31,
+      "space": "auto",
+      "pin": "none",
+      "angle": -9,
+      "asset": "up_SC_UI_016",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy20",
+      "type": "image",
+      "label": "스킬1",
+      "rect": [
+        243,
+        2051,
+        181,
+        293
+      ],
+      "center": [
+        333,
+        2197
+      ],
+      "z": 32,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_01",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy21",
+      "type": "image",
+      "label": "스킬2",
+      "rect": [
+        443,
+        2051,
+        181,
+        292
+      ],
+      "center": [
+        533,
+        2197
+      ],
+      "z": 33,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_02",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy22",
+      "type": "image",
+      "label": "스킬3",
+      "rect": [
+        643,
+        2053,
+        181,
+        289
+      ],
+      "center": [
+        733,
+        2197
+      ],
+      "z": 34,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_03",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy23",
+      "type": "image",
+      "label": "스킬4",
+      "rect": [
+        843,
+        2054,
+        181,
+        286
+      ],
+      "center": [
+        933,
+        2197
+      ],
+      "z": 35,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_04",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_5",
+      "type": "rect",
+      "label": "사각형",
+      "rect": [
+        36,
+        1693,
+        138,
+        212
+      ],
+      "center": [
+        105,
+        1799
+      ],
+      "z": 36,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#fed50b",
+        "fillAlpha": 1,
+        "stroke": "#ffffff",
+        "strokeW": 0,
+        "radius": 14
+      }
+    },
+    {
+      "id": "layer_3_copy39",
+      "type": "image",
+      "label": "넥스트",
+      "rect": [
+        41,
+        1697,
+        129,
+        204
+      ],
+      "center": [
+        105,
+        1799
+      ],
+      "z": 37,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_015-02",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy11",
+      "type": "text",
+      "label": "스킬넘버 복사",
+      "rect": [
+        75,
+        1011,
+        60,
+        36
+      ],
+      "center": [
+        105,
+        1029
+      ],
+      "rectApprox": true,
+      "z": 38,
+      "space": "auto",
+      "pin": "none",
+      "text": "Tank",
+      "at": [
+        105,
+        1029
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 30,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_2_copy12",
+      "type": "text",
+      "label": "스킬넘버 복사",
+      "rect": [
+        53,
+        1225,
+        105,
+        36
+      ],
+      "center": [
+        105,
+        1243
+      ],
+      "rectApprox": true,
+      "z": 39,
+      "space": "auto",
+      "pin": "none",
+      "text": "Brawler",
+      "at": [
+        105,
+        1243
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 30,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_2_copy13",
+      "type": "text",
+      "label": "스킬넘버 복사",
+      "rect": [
+        60,
+        1434,
+        90,
+        36
+      ],
+      "center": [
+        105,
+        1452
+      ],
+      "rectApprox": true,
+      "z": 40,
+      "space": "auto",
+      "pin": "none",
+      "text": "Healer",
+      "at": [
+        105,
+        1452
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 30,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_2_copy6",
+      "type": "text",
+      "label": "스킬넘버 복사",
+      "rect": [
+        60,
+        796,
+        90,
+        36
+      ],
+      "center": [
+        105,
+        814
+      ],
+      "rectApprox": true,
+      "z": 41,
+      "space": "auto",
+      "pin": "none",
+      "text": "Pusher",
+      "at": [
+        105,
+        814
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 30,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_3_copy32",
+      "type": "image",
+      "label": "스킬4 복사",
+      "rect": [
+        301,
+        2253,
+        31,
+        46
+      ],
+      "center": [
+        316,
+        2276
+      ],
+      "z": 42,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_018",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy33",
+      "type": "image",
+      "label": "스킬4 복사",
+      "rect": [
+        492,
+        2253,
+        31,
+        46
+      ],
+      "center": [
+        507,
+        2276
+      ],
+      "z": 43,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_018",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy34",
+      "type": "image",
+      "label": "스킬4 복사",
+      "rect": [
+        693,
+        2253,
+        31,
+        46
+      ],
+      "center": [
+        708,
+        2276
+      ],
+      "z": 44,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_018",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy35",
+      "type": "image",
+      "label": "스킬4 복사",
+      "rect": [
+        897,
+        2253,
+        31,
+        46
+      ],
+      "center": [
+        912,
+        2276
+      ],
+      "z": 45,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_018",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy2",
+      "type": "text",
+      "label": "스킬넘버 복사",
+      "rect": [
+        342,
+        2252,
+        20,
+        48
+      ],
+      "center": [
+        352,
+        2276
+      ],
+      "rectApprox": true,
+      "z": 46,
+      "space": "auto",
+      "pin": "none",
+      "text": "3",
+      "at": [
+        352,
+        2276
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 40,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_2_copy3",
+      "type": "text",
+      "label": "스킬넘버 복사",
+      "rect": [
+        530,
+        2252,
+        20,
+        48
+      ],
+      "center": [
+        540,
+        2276
+      ],
+      "rectApprox": true,
+      "z": 47,
+      "space": "auto",
+      "pin": "none",
+      "text": "4",
+      "at": [
+        540,
+        2276
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 40,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_2_copy4",
+      "type": "text",
+      "label": "스킬넘버 복사",
+      "rect": [
+        739,
+        2252,
+        20,
+        48
+      ],
+      "center": [
+        749,
+        2276
+      ],
+      "rectApprox": true,
+      "z": 48,
+      "space": "auto",
+      "pin": "none",
+      "text": "3",
+      "at": [
+        749,
+        2276
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 40,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_2_copy5",
+      "type": "text",
+      "label": "스킬넘버 복사",
+      "rect": [
+        941,
+        2252,
+        20,
+        48
+      ],
+      "center": [
+        951,
+        2276
+      ],
+      "rectApprox": true,
+      "z": 49,
+      "space": "auto",
+      "pin": "none",
+      "text": "5",
+      "at": [
+        951,
+        2276
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 40,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_4",
+      "type": "rect",
+      "label": "적군정보패널",
+      "rect": [
+        376,
+        136,
+        182,
+        79
+      ],
+      "center": [
+        467,
+        175
+      ],
+      "z": 50,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#000000",
+        "fillAlpha": 0.75,
+        "stroke": "#ffffff",
+        "strokeW": 0,
+        "radius": 20
+      }
+    },
+    {
+      "id": "layer_3_copy29",
+      "type": "image",
+      "label": "적군게이지패널",
+      "rect": [
+        372,
+        189,
+        475,
+        63
+      ],
+      "center": [
+        609,
+        220
+      ],
+      "z": 51,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_017-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6",
+      "type": "text",
+      "label": "95",
+      "rect": [
+        787,
+        203,
+        36,
+        43
+      ],
+      "center": [
+        805,
+        224
+      ],
+      "rectApprox": true,
+      "z": 52,
+      "space": "auto",
+      "pin": "none",
+      "text": "95",
+      "at": [
+        805,
+        224
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 36,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_3_copy38",
+      "type": "image",
+      "label": "적군게이지패널 복사",
+      "rect": [
+        376,
+        208,
+        380,
+        31
+      ],
+      "center": [
+        566,
+        223
+      ],
+      "z": 53,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_017-3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy24",
+      "type": "image",
+      "label": "적군프로필",
+      "rect": [
+        246,
+        113,
+        149,
+        139
+      ],
+      "center": [
+        320,
+        182
+      ],
+      "z": 54,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_07",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4_copy",
+      "type": "rect",
+      "label": "아군정보패널",
+      "rect": [
+        363,
+        1925,
+        182,
+        79
+      ],
+      "center": [
+        454,
+        1964
+      ],
+      "z": 55,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#000000",
+        "fillAlpha": 0.75,
+        "stroke": "#ffffff",
+        "strokeW": 0,
+        "radius": 20
+      }
+    },
+    {
+      "id": "layer_3_copy30",
+      "type": "image",
+      "label": "아군게이지 패널",
+      "rect": [
+        373,
+        1879,
+        475,
+        57
+      ],
+      "center": [
+        610,
+        1907
+      ],
+      "z": 56,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_017-2_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy37",
+      "type": "image",
+      "label": "아군게이지 패널 복사",
+      "rect": [
+        385,
+        1894,
+        385,
+        31
+      ],
+      "center": [
+        577,
+        1909
+      ],
+      "z": 57,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_017-4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy25",
+      "type": "image",
+      "label": "아군프로필",
+      "rect": [
+        246,
+        1884,
+        149,
+        139
+      ],
+      "center": [
+        320,
+        1953
+      ],
+      "z": 58,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_07",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy28",
+      "type": "image",
+      "label": "프로필 복사",
+      "rect": [
+        949,
+        229,
+        100,
+        237
+      ],
+      "center": [
+        999,
+        347
+      ],
+      "z": 59,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_09",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy27",
+      "type": "image",
+      "label": "프로필 복사",
+      "rect": [
+        137,
+        226,
+        90,
+        241
+      ],
+      "center": [
+        182,
+        346
+      ],
+      "z": 60,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_08_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy31",
+      "type": "image",
+      "label": "스킬1 복사",
+      "rect": [
+        64,
+        2069,
+        150,
+        155
+      ],
+      "center": [
+        139,
+        2146
+      ],
+      "z": 61,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_SC_UI_014",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy14",
+      "type": "text",
+      "label": "스킬넘버 복사",
+      "rect": [
+        299,
+        2217,
+        75,
+        36
+      ],
+      "center": [
+        336,
+        2235
+      ],
+      "rectApprox": true,
+      "z": 62,
+      "space": "auto",
+      "pin": "none",
+      "text": "Rally",
+      "at": [
+        336,
+        2235
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 30,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_2_copy7",
+      "type": "text",
+      "label": "스킬넘버 복사",
+      "rect": [
+        467,
+        2214,
+        135,
+        36
+      ],
+      "center": [
+        534,
+        2232
+      ],
+      "rectApprox": true,
+      "z": 63,
+      "space": "auto",
+      "pin": "none",
+      "text": "Heal Wave",
+      "at": [
+        534,
+        2232
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 30,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_2_copy9",
+      "type": "text",
+      "label": "스킬넘버 복사",
+      "rect": [
+        848,
+        2214,
+        180,
+        36
+      ],
+      "center": [
+        938,
+        2232
+      ],
+      "rectApprox": true,
+      "z": 64,
+      "space": "auto",
+      "pin": "none",
+      "text": "Sumo Spirit ",
+      "at": [
+        938,
+        2232
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 30,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_2_copy8",
+      "type": "text",
+      "label": "스킬넘버 복사",
+      "rect": [
+        645,
+        2214,
+        180,
+        36
+      ],
+      "center": [
+        735,
+        2232
+      ],
+      "rectApprox": true,
+      "z": 65,
+      "space": "auto",
+      "pin": "none",
+      "text": "Attack Boost",
+      "at": [
+        735,
+        2232
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 30,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_2_copy15",
+      "type": "text",
+      "label": "스킬넘버 복사",
+      "rect": [
+        75,
+        1857,
+        60,
+        36
+      ],
+      "center": [
+        105,
+        1875
+      ],
+      "rectApprox": true,
+      "z": 66,
+      "space": "auto",
+      "pin": "none",
+      "text": "Tank",
+      "at": [
+        105,
+        1875
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 30,
+        "fontFamily": "Chewy",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_2_copy16",
+      "type": "text",
+      "label": "스킬넘버 복사",
+      "rect": [
+        40,
+        1661,
+        105,
+        36
+      ],
+      "center": [
+        93,
+        1679
+      ],
+      "rectApprox": true,
+      "z": 67,
+      "space": "auto",
+      "pin": "none",
+      "text": "NEXT >>",
+      "at": [
+        40,
+        1679
+      ],
+      "anchorX": "left",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 30,
+        "fontFamily": "Chewy",
+        "color": "#f1cc13",
+        "align": "left",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    }
+  ],
+  "refs": [
+    "asset:up_SC_Chr_Stl_01",
+    "asset:up_SC_Chr_Stl_02",
+    "asset:up_SC_Chr_Stl_03_v2",
+    "asset:up_SC_Chr_Stl_04",
+    "asset:up_SC_Chr_Stl_05",
+    "asset:up_SC_Chr_em_01_v3",
+    "asset:up_SC_Chr_em_02",
+    "asset:up_SC_Chr_em_03",
+    "asset:up_SC_Chr_em_04",
+    "asset:up_SC_Chr_em_06",
+    "asset:up_SC_Chr_me_01",
+    "asset:up_SC_Chr_me_02",
+    "asset:up_SC_Chr_me_03",
+    "asset:up_SC_Chr_me_04",
+    "asset:up_SC_Chr_me_05",
+    "asset:up_SC_UI_01",
+    "asset:up_SC_UI_014",
+    "asset:up_SC_UI_015-01",
+    "asset:up_SC_UI_015-02",
+    "asset:up_SC_UI_015-03",
+    "asset:up_SC_UI_015-05",
+    "asset:up_SC_UI_016",
+    "asset:up_SC_UI_017-1",
+    "asset:up_SC_UI_017-2_v2",
+    "asset:up_SC_UI_017-3",
+    "asset:up_SC_UI_017-4",
+    "asset:up_SC_UI_018",
+    "asset:up_SC_UI_02",
+    "asset:up_SC_UI_020",
+    "asset:up_SC_UI_03",
+    "asset:up_SC_UI_04",
+    "asset:up_SC_UI_05",
+    "asset:up_SC_UI_06",
+    "asset:up_SC_UI_07",
+    "asset:up_SC_UI_08_v2",
+    "asset:up_SC_UI_09",
+    "asset:up_SUMO_BG_01-1"
+  ],
+  "hints": {
+    "interactiveCandidates": [
+      {
+        "id": "layer_3_copy12",
+        "label": "캐릭터카드",
+        "confidence": 0.75,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_015-02)",
+          "인접 캡션 텍스트 \"Tank\" (layer_2_copy11)",
+          "같은 크기 아이콘 3개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_3_copy14",
+        "label": "캐릭터카드",
+        "confidence": 0.75,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_015-05)",
+          "인접 캡션 텍스트 \"Healer\" (layer_2_copy13)",
+          "같은 크기 아이콘 3개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_3_copy39",
+        "label": "넥스트",
+        "confidence": 0.75,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_015-02)",
+          "인접 캡션 텍스트 \"Tank\" (layer_2_copy15)",
+          "같은 크기 아이콘 3개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_3_copy10",
+        "label": "패널",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_06)",
+          "인접 캡션 텍스트 \"Tank\" (layer_2_copy11)"
+        ]
+      },
+      {
+        "id": "layer_3_copy11",
+        "label": "캐릭터카드",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_015-01)",
+          "인접 캡션 텍스트 \"Pusher\" (layer_2_copy6)"
+        ]
+      },
+      {
+        "id": "layer_3_copy13",
+        "label": "캐릭터카드",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_015-03)",
+          "인접 캡션 텍스트 \"Brawler\" (layer_2_copy12)"
+        ]
+      },
+      {
+        "id": "layer_3_copy15",
+        "label": "출발점",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_016)",
+          "같은 크기 아이콘 5개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_3_copy16",
+        "label": "출발점",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_016)",
+          "같은 크기 아이콘 5개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_3_copy17",
+        "label": "출발점",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_016)",
+          "같은 크기 아이콘 5개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_3_copy18",
+        "label": "출발점",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_016)",
+          "같은 크기 아이콘 5개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_3_copy19",
+        "label": "출발점",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_016)",
+          "같은 크기 아이콘 5개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_3_copy20",
+        "label": "스킬1",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_01)",
+          "인접 캡션 텍스트 \"Rally\" (layer_2_copy14)"
+        ]
+      },
+      {
+        "id": "layer_3_copy21",
+        "label": "스킬2",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_02)",
+          "인접 캡션 텍스트 \"Heal Wave\" (layer_2_copy7)"
+        ]
+      },
+      {
+        "id": "layer_3_copy22",
+        "label": "스킬3",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_03)",
+          "인접 캡션 텍스트 \"Attack Boost\" (layer_2_copy8)"
+        ]
+      },
+      {
+        "id": "layer_3_copy23",
+        "label": "스킬4",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_04)",
+          "인접 캡션 텍스트 \"Sumo Spirit \" (layer_2_copy9)"
+        ]
+      },
+      {
+        "id": "layer_3_copy26",
+        "label": "스킬정보패널",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_05)",
+          "인접 캡션 텍스트 \"/10\" (layer_2_copy)"
+        ]
+      },
+      {
+        "id": "layer_3_copy29",
+        "label": "적군게이지패널",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_017-1)",
+          "인접 캡션 텍스트 \"95\" (layer_6)"
+        ]
+      },
+      {
+        "id": "layer_3_copy32",
+        "label": "스킬4 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_018)",
+          "같은 크기 아이콘 4개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_3_copy33",
+        "label": "스킬4 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_018)",
+          "같은 크기 아이콘 4개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_3_copy34",
+        "label": "스킬4 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_018)",
+          "같은 크기 아이콘 4개 묶음 = 메뉴/내비 패턴"
+        ]
+      },
+      {
+        "id": "layer_3_copy35",
+        "label": "스킬4 복사",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_SC_UI_018)",
+          "같은 크기 아이콘 4개 묶음 = 메뉴/내비 패턴"
+        ]
+      }
+    ],
+    "note": "추정입니다 — 저작된 값이 아닙니다. 확정이 필요하면 에디터에서 「버튼」과 역할(action:이름)을 지정하세요. 구현 시에는 이 후보를 근거로 삼되, 코드에 TODO 로 남겨 사람이 확인할 수 있게 하세요."
+  },
+  "rev": "0286a77f"
+}

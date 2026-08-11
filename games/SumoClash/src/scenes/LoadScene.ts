@@ -4,6 +4,7 @@
  */
 import Phaser from 'phaser';
 import { loadGameAssets, preloadKoreanFonts } from '../assets.js';
+import { loadAudio } from '../audio.js';
 
 export class LoadScene extends Phaser.Scene {
   private percentText!: Phaser.GameObjects.Text;
@@ -29,6 +30,7 @@ export class LoadScene extends Phaser.Scene {
     });
 
     loadGameAssets(this);
+    loadAudio(this);
   }
 
   create(): void {

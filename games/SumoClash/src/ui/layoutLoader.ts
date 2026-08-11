@@ -33,6 +33,8 @@ export interface LayoutNode {
   readonly color?: string;
   readonly stroke?: string;
   readonly strokeW?: number;
+  /** 텍스트 앵커 — left/right 는 x 가 좌/우 기준점(미지정·center 는 중앙). */
+  readonly align?: string;
   readonly binding?: string;
 }
 
@@ -41,7 +43,11 @@ export interface LayoutDoc {
   readonly nodes: ReadonlyArray<LayoutNode>;
 }
 
-export type LayoutObject = Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle | Phaser.GameObjects.Text;
+export type LayoutObject =
+  | Phaser.GameObjects.Image
+  | Phaser.GameObjects.Rectangle
+  | Phaser.GameObjects.Text
+  | Phaser.GameObjects.Graphics; // radius 렉트(둥근 모서리)는 Graphics 로 그린다
 
 export interface LayoutEntry {
   readonly node: LayoutNode;
@@ -116,12 +122,27 @@ export function buildLayout(scene: Phaser.Scene, doc: LayoutDoc): LayoutIndex {
       }
     } else if (n.type === 'rect') {
       const fill = Phaser.Display.Color.HexStringToColor(n.fill ?? '#ffffff').color;
-      obj = scene.add.rectangle(n.x, n.y, n.w ?? 10, n.h ?? 10, fill, n.fillAlpha ?? 1);
+      const w = n.w ?? 10;
+      const h = n.h ?? 10;
+      if ((n.radius ?? 0) > 0) {
+        // 둥근 모서리 — add.rectangle 미지원이라 Graphics.fillRoundedRect 로(중심 좌표 기준).
+        const g = scene.add.graphics();
+        g.fillStyle(fill, n.fillAlpha ?? 1);
+        g.fillRoundedRect(n.x - w / 2, n.y - h / 2, w, h, Math.min(n.radius ?? 0, w / 2, h / 2));
+        obj = g;
+      } else {
+        obj = scene.add.rectangle(n.x, n.y, w, h, fill, n.fillAlpha ?? 1);
+      }
     } else if (n.type === 'text') {
       obj = makeText(scene, n);
     }
     if (!obj) continue;
-    obj.setOrigin(0.5, 0.5);
+    // 텍스트는 align 이 곧 가로 앵커(left → x 가 왼쪽 기준). 이미지/렉트는 중앙 앵커.
+    // Graphics(라운드 렉트)는 절대좌표로 그려 origin 개념이 없다.
+    if ('setOrigin' in obj) {
+      const ox = n.type === 'text' && n.align === 'left' ? 0 : n.type === 'text' && n.align === 'right' ? 1 : 0.5;
+      obj.setOrigin(ox, 0.5);
+    }
     obj.setDepth(n.depth ?? 0);
     if (n.angle) obj.setAngle(n.angle);
     if (n.alpha !== undefined) obj.setAlpha(n.alpha);

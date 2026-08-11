@@ -1,0 +1,53 @@
+{
+  "harnessVersion": 1,
+  "domain": "ui",
+  "project": "SumoClash",
+  "generatedAt": "2026-07-23T16:33:45.508Z",
+  "units": [
+    {
+      "unit": "main",
+      "rev": "0286a77f",
+      "label": null,
+      "nodes": 67,
+      "refs": [
+        "asset:up_SC_Chr_Stl_01",
+        "asset:up_SC_Chr_Stl_02",
+        "asset:up_SC_Chr_Stl_03_v2",
+        "asset:up_SC_Chr_Stl_04",
+        "asset:up_SC_Chr_Stl_05",
+        "asset:up_SC_Chr_em_01_v3",
+        "asset:up_SC_Chr_em_02",
+        "asset:up_SC_Chr_em_03",
+        "asset:up_SC_Chr_em_04",
+        "asset:up_SC_Chr_em_06",
+        "asset:up_SC_Chr_me_01",
+        "asset:up_SC_Chr_me_02",
+        "asset:up_SC_Chr_me_03",
+        "asset:up_SC_Chr_me_04",
+        "asset:up_SC_Chr_me_05",
+        "asset:up_SC_UI_01",
+        "asset:up_SC_UI_014",
+        "asset:up_SC_UI_015-01",
+        "asset:up_SC_UI_015-02",
+        "asset:up_SC_UI_015-03",
+        "asset:up_SC_UI_015-05",
+        "asset:up_SC_UI_016",
+        "asset:up_SC_UI_017-1",
+        "asset:up_SC_UI_017-2_v2",
+        "asset:up_SC_UI_017-3",
+        "asset:up_SC_UI_017-4",
+        "asset:up_SC_UI_018",
+        "asset:up_SC_UI_02",
+        "asset:up_SC_UI_020",
+        "asset:up_SC_UI_03",
+        "asset:up_SC_UI_04",
+        "asset:up_SC_UI_05",
+        "asset:up_SC_UI_06",
+        "asset:up_SC_UI_07",
+        "asset:up_SC_UI_08_v2",
+        "asset:up_SC_UI_09",
+        "asset:up_SUMO_BG_01-1"
+      ]
+    }
+  ]
+}

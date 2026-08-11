@@ -1,0 +1,269 @@
+{
+  "source": "public/ui-assets.json",
+  "used": [
+    "asset:up_SC_Chr_Stl_01",
+    "asset:up_SC_Chr_Stl_02",
+    "asset:up_SC_Chr_Stl_03_v2",
+    "asset:up_SC_Chr_Stl_04",
+    "asset:up_SC_Chr_Stl_05",
+    "asset:up_SC_Chr_em_01_v3",
+    "asset:up_SC_Chr_em_02",
+    "asset:up_SC_Chr_em_03",
+    "asset:up_SC_Chr_em_04",
+    "asset:up_SC_Chr_em_06",
+    "asset:up_SC_Chr_me_01",
+    "asset:up_SC_Chr_me_02",
+    "asset:up_SC_Chr_me_03",
+    "asset:up_SC_Chr_me_04",
+    "asset:up_SC_Chr_me_05",
+    "asset:up_SC_UI_01",
+    "asset:up_SC_UI_014",
+    "asset:up_SC_UI_015-01",
+    "asset:up_SC_UI_015-02",
+    "asset:up_SC_UI_015-03",
+    "asset:up_SC_UI_015-05",
+    "asset:up_SC_UI_016",
+    "asset:up_SC_UI_017-1",
+    "asset:up_SC_UI_017-2_v2",
+    "asset:up_SC_UI_017-3",
+    "asset:up_SC_UI_017-4",
+    "asset:up_SC_UI_018",
+    "asset:up_SC_UI_02",
+    "asset:up_SC_UI_020",
+    "asset:up_SC_UI_03",
+    "asset:up_SC_UI_04",
+    "asset:up_SC_UI_05",
+    "asset:up_SC_UI_06",
+    "asset:up_SC_UI_07",
+    "asset:up_SC_UI_08_v2",
+    "asset:up_SC_UI_09",
+    "asset:up_SUMO_BG_01-1"
+  ],
+  "assets": {
+    "up_SUMO_BG_01": {
+      "path": "ui/uploads/up_SUMO_BG_01.png",
+      "w": null,
+      "h": null
+    },
+    "up_SUMO_BG_01_v2": {
+      "path": "ui/uploads/up_SUMO_BG_01_v2.png",
+      "w": null,
+      "h": null
+    },
+    "up_SUMO_BG_01-1": {
+      "path": "ui/uploads/up_SUMO_BG_01-1.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_em_01": {
+      "path": "ui/uploads/up_SC_Chr_em_01.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_em_01_v2": {
+      "path": "ui/uploads/up_SC_Chr_em_01_v2.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_em_02": {
+      "path": "ui/uploads/up_SC_Chr_em_02.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_em_03": {
+      "path": "ui/uploads/up_SC_Chr_em_03.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_em_04": {
+      "path": "ui/uploads/up_SC_Chr_em_04.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_em_06": {
+      "path": "ui/uploads/up_SC_Chr_em_06.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_me_01": {
+      "path": "ui/uploads/up_SC_Chr_me_01.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_me_02": {
+      "path": "ui/uploads/up_SC_Chr_me_02.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_me_03": {
+      "path": "ui/uploads/up_SC_Chr_me_03.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_me_04": {
+      "path": "ui/uploads/up_SC_Chr_me_04.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_me_05": {
+      "path": "ui/uploads/up_SC_Chr_me_05.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_em_01_v3": {
+      "path": "ui/uploads/up_SC_Chr_em_01_v3.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_06": {
+      "path": "ui/uploads/up_SC_UI_06.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_015-01": {
+      "path": "ui/uploads/up_SC_UI_015-01.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_016": {
+      "path": "ui/uploads/up_SC_UI_016.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_01": {
+      "path": "ui/uploads/up_SC_UI_01.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_02": {
+      "path": "ui/uploads/up_SC_UI_02.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_03": {
+      "path": "ui/uploads/up_SC_UI_03.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_04": {
+      "path": "ui/uploads/up_SC_UI_04.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_07": {
+      "path": "ui/uploads/up_SC_UI_07.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_05": {
+      "path": "ui/uploads/up_SC_UI_05.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_08": {
+      "path": "ui/uploads/up_SC_UI_08.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_09": {
+      "path": "ui/uploads/up_SC_UI_09.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_08_v2": {
+      "path": "ui/uploads/up_SC_UI_08_v2.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_015-02": {
+      "path": "ui/uploads/up_SC_UI_015-02.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_015-03": {
+      "path": "ui/uploads/up_SC_UI_015-03.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_015-05": {
+      "path": "ui/uploads/up_SC_UI_015-05.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_017-1": {
+      "path": "ui/uploads/up_SC_UI_017-1.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_017-2": {
+      "path": "ui/uploads/up_SC_UI_017-2.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_017-2_v2": {
+      "path": "ui/uploads/up_SC_UI_017-2_v2.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_014": {
+      "path": "ui/uploads/up_SC_UI_014.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_018": {
+      "path": "ui/uploads/up_SC_UI_018.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_020": {
+      "path": "ui/uploads/up_SC_UI_020.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_017-4": {
+      "path": "ui/uploads/up_SC_UI_017-4.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_UI_017-3": {
+      "path": "ui/uploads/up_SC_UI_017-3.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_Stl_01": {
+      "path": "ui/uploads/up_SC_Chr_Stl_01.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_Stl_02": {
+      "path": "ui/uploads/up_SC_Chr_Stl_02.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_Stl_03": {
+      "path": "ui/uploads/up_SC_Chr_Stl_03.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_Stl_05": {
+      "path": "ui/uploads/up_SC_Chr_Stl_05.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_Stl_06": {
+      "path": "ui/uploads/up_SC_Chr_Stl_06.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_Stl_04": {
+      "path": "ui/uploads/up_SC_Chr_Stl_04.png",
+      "w": null,
+      "h": null
+    },
+    "up_SC_Chr_Stl_03_v2": {
+      "path": "ui/uploads/up_SC_Chr_Stl_03_v2.png",
+      "w": null,
+      "h": null
+    }
+  }
+}

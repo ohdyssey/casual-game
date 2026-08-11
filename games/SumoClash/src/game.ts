@@ -11,6 +11,9 @@ export const SumoClashGame: GameModule = {
   id: 'sumoclash',
   title: '스모대전',
   scenes: [BootScene, LoadScene, BattleScene],
+  // 에디터 디자인(1080×2400 세로HD)을 캔버스 좌표계와 1:1 로 맞춘다(좀비애로우 패턴).
+  designWidth: 1080,
+  designHeight: 2400,
   backgroundColor: '#3D2419',
   theme: { brand: '#C0392B' },
   hud: { coins: true, lives: true },
