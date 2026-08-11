@@ -11,7 +11,7 @@
     "services/*"
   ],
   "scripts": {
-    "postinstall": "patch-package --patch-dir games/fishngo/patches",
+    "postinstall": "patch-package --patch-dir games/fishngo/patches || echo '[postinstall] patch-package 없음 — 패치를 건너뜁니다(서버 전용 배포 등 게임 빌드가 없는 환경)'",
     "dev": "npm run dev:hub",
     "dev:all": "concurrently -n hub,store,eco01,bubble,fish,grill,sumo,homerun,dragon,archery,zombie,duck,logi,soccer,path,paw -c green,magenta,cyan,yellow,blue,red,redBright,blueBright,cyanBright,yellowBright,greenBright,magentaBright,white,blueBright,magentaBright,yellowBright \"npm:dev:hub\" \"npm:dev:store\" \"npm:dev:eco01\" \"npm:dev:bubblepong\" \"npm:dev:fishing\" \"npm:dev:grillking\" \"npm:dev:sumoclash\" \"npm:dev:homerun\" \"npm:dev:dragonbeat\" \"npm:dev:archery\" \"npm:dev:zombiearrow\" \"npm:dev:duckhuntrush\" \"npm:dev:logistics\" \"npm:dev:soccerflick\" \"npm:dev:pathrush\" \"npm:dev:pawlink\"",
     "dev:fishing": "npm run dev --workspace games/fishngo -- --host",
@@ -70,6 +70,7 @@
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.8",
     "concurrently": "^9.1.0",
+    "patch-package": "^8.0.1",
     "playwright-core": "^1.60.0",
     "typescript": "5.6.3",
     "vite": "5.4.10",
