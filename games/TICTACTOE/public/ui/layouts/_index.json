@@ -1,0 +1,10 @@
+{
+  "screens": [
+    {
+      "id": "main_copy",
+      "name": "플레이화면",
+      "file": "ui/layouts/main_copy.json",
+      "category": "custom"
+    }
+  ]
+}

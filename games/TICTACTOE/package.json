@@ -1,0 +1,31 @@
+{
+  "name": "@casual/game-tictactoe",
+  "version": "0.1.0",
+  "private": true,
+  "description": "틱택토 네온 — 3개 말 순환 이동 변형 틱택토. 가장 오래된 말이 움직인다.",
+  "type": "module",
+  "scripts": {
+    "dev": "npx vite",
+    "dev:toss": "npx vite --mode toss",
+    "build": "vite build",
+    "build:web": "vite build",
+    "build:msstore": "npm run icons && vite build --mode msstore",
+    "build:android": "vite build --mode android",
+    "build:ios": "vite build --mode ios",
+    "preview": "vite preview --port 4211",
+    "icons": "node scripts/make-icons.mjs",
+    "fonts": "node ../../scripts/fonts-build.mjs .",
+    "build:toss": "node ../../scripts/fonts-check.mjs . && vite build --mode toss && node ../../scripts/build-toss.mjs dist"
+  },
+  "dependencies": {
+    "@apps-in-toss/web-framework": "^2.10.8",
+    "@casual/core": "*",
+    "@casual/ttt-rules": "*",
+    "@supabase/supabase-js": "^2.48.1",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.10",
+    "vite-plugin-pwa": "0.21.1"
+  }
+}

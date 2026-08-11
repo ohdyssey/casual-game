@@ -1,0 +1,306 @@
+{
+  "domain": "ui",
+  "unit": "main_copy",
+  "frame": {
+    "w": 1080,
+    "h": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "label": "배경",
+      "rect": [
+        0,
+        0,
+        1080,
+        2400
+      ],
+      "center": [
+        540,
+        1200
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_TTT_BG_01-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6",
+      "type": "image",
+      "label": "청색조명",
+      "rect": [
+        605,
+        95,
+        255,
+        954
+      ],
+      "center": [
+        732,
+        572
+      ],
+      "z": 2,
+      "space": "auto",
+      "pin": "none",
+      "angle": -150,
+      "asset": "up_Homerun_BG_Loby_01-2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy",
+      "type": "image",
+      "label": "적색조명",
+      "rect": [
+        205,
+        105,
+        255,
+        882
+      ],
+      "center": [
+        332,
+        546
+      ],
+      "z": 3,
+      "space": "auto",
+      "pin": "none",
+      "angle": 150,
+      "asset": "up_Homerun_BG_Loby_01-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4",
+      "type": "image",
+      "label": "플레이보드",
+      "rect": [
+        92,
+        525,
+        897,
+        897
+      ],
+      "center": [
+        540,
+        973
+      ],
+      "z": 4,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_TTT_BG_01-3",
+      "style": {
+        "alpha": 0.9,
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_5",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        105,
+        259,
+        870,
+        333
+      ],
+      "center": [
+        540,
+        425
+      ],
+      "z": 5,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_TTT_BG_01-2",
+      "style": {
+        "alpha": 0.9,
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7",
+      "type": "text",
+      "label": "Lv2 연습생-승급 3/6승",
+      "rect": [
+        330,
+        197,
+        420,
+        48
+      ],
+      "center": [
+        540,
+        221
+      ],
+      "rectApprox": true,
+      "z": 6,
+      "space": "auto",
+      "pin": "none",
+      "text": "Lv2 연습생-승급 3/6승",
+      "at": [
+        540,
+        221
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 1,
+        "fontSize": 40,
+        "fontFamily": "Noto Sans KR",
+        "color": "#ffffff",
+        "fontStyle": "900",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_7_copy",
+      "type": "text",
+      "label": "Lv2 연습생-승급 3/6승 복사",
+      "rect": [
+        380,
+        1978,
+        320,
+        48
+      ],
+      "center": [
+        540,
+        2002
+      ],
+      "rectApprox": true,
+      "z": 7,
+      "space": "auto",
+      "pin": "none",
+      "text": "통산 104승 125패",
+      "at": [
+        540,
+        2002
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 1,
+        "fontSize": 40,
+        "fontFamily": "Noto Sans KR",
+        "color": "#86c0fe",
+        "fontStyle": "500",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_7_copy2",
+      "type": "text",
+      "label": "Lv2 연습생-승급 3/6승 복사",
+      "rect": [
+        240,
+        2041,
+        600,
+        36
+      ],
+      "center": [
+        540,
+        2059
+      ],
+      "rectApprox": true,
+      "z": 8,
+      "space": "auto",
+      "pin": "none",
+      "text": "3종목을 만들면 승리 / 20초를 넘기면 패배",
+      "at": [
+        540,
+        2059
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 1,
+        "fontSize": 30,
+        "fontFamily": "Noto Sans KR",
+        "color": "#ffffff",
+        "fontStyle": "500",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_3",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        131,
+        1430,
+        243,
+        258
+      ],
+      "center": [
+        252,
+        1559
+      ],
+      "z": 9,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_TTT_Chr_01",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        678,
+        1430,
+        243,
+        253
+      ],
+      "center": [
+        799,
+        1556
+      ],
+      "z": 10,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_TTT_Chr_02",
+      "style": {
+        "tintable": true
+      }
+    }
+  ],
+  "refs": [
+    "asset:up_Homerun_BG_Loby_01-1",
+    "asset:up_Homerun_BG_Loby_01-2",
+    "asset:up_TTT_BG_01-1",
+    "asset:up_TTT_BG_01-2",
+    "asset:up_TTT_BG_01-3",
+    "asset:up_TTT_Chr_01",
+    "asset:up_TTT_Chr_02"
+  ],
+  "label": "플레이화면",
+  "rev": "b064849b"
+}

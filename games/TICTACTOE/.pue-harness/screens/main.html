@@ -1,0 +1,50 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>main — 하네스 미리보기</title>
+<!--
+  이 파일은 생성물이며 **보조 뷰**입니다. 수치의 진실은 같은 폴더의 main.json 입니다.
+  화면은 실제로 Phaser 캔버스로 그려지므로, 여기서는 9-slice·마스크·스프라이트 애니·곡선 텍스트가
+  재현되지 않습니다. 배치·크기·색·글꼴을 눈으로 확인하는 용도로만 쓰세요.
+  rev: 478d4a72
+-->
+<style>
+  body { margin:0; background:#20242c; color:#cfd6e4; font-family:system-ui,sans-serif; }
+  .wrap { padding:16px; }
+  .meta { font-size:13px; margin-bottom:10px; line-height:1.6; }
+  .meta b { color:#fff; }
+  .stage { position:relative; width:1080px; height:2400px; overflow:hidden;
+           background:#11141a; outline:1px solid #3a4150; transform-origin:top left; }
+  .n { position:absolute; }
+  .ph { background:repeating-linear-gradient(45deg,#2a3140,#2a3140 6px,#333b4c 6px,#333b4c 12px);
+        border:1px dashed #5a6478; color:#8fa0bb; font-size:11px; display:flex;
+        align-items:center; justify-content:center; text-align:center; overflow:hidden; }
+  .sh { border:1px dashed #6f7a8f; color:#93a2b8; font-size:11px; display:flex;
+        align-items:center; justify-content:center; }
+  /* 노드 경계 보기 — 주소창에 #outline 붙이면 켜집니다. */
+  :target ~ .wrap .n, body.outline .n { outline:1px solid rgba(120,200,255,.5); }
+</style>
+<div class="wrap">
+  <div class="meta">
+    <b>main</b> — 메인 화면 ·
+    1080×2400 · 노드 14개 · rev <code>478d4a72</code><br>
+    ⚠ <b>보조 뷰입니다.</b> 정확한 수치는 <code>main.json</code> 을 보세요.
+    실제 렌더는 Phaser 캔버스이므로 일부 효과는 여기서 재현되지 않습니다.
+    <br>· 경로를 모르는 에셋 10개는 빗금 상자로 표시됩니다.
+  </div>
+  <div class="stage">
+    <div class="n ph" data-id="layer_1" style="position:absolute;left:0px;top:0px;width:1080px;height:2400px;z-index:1;" title="배경 · layer_1">up_TTT_BG_01-1</div>
+    <div class="n ph" data-id="layer_6" style="position:absolute;left:605px;top:95px;width:255px;height:954px;z-index:2;transform:rotate(-150deg);" title="청색조명 · layer_6">up_Homerun_BG_Loby_01-2</div>
+    <div class="n ph" data-id="layer_6_copy" style="position:absolute;left:205px;top:105px;width:255px;height:882px;z-index:3;transform:rotate(150deg);" title="적색조명 · layer_6_copy">up_Homerun_BG_Loby_01-1</div>
+    <div class="n ph" data-id="layer_4" style="position:absolute;left:92px;top:525px;width:897px;height:897px;z-index:4;" title="플레이보드 · layer_4">up_TTT_BG_01-3</div>
+    <div class="n ph" data-id="layer_5" style="position:absolute;left:105px;top:259px;width:870px;height:333px;z-index:5;" title="새 레이어 · layer_5">up_TTT_BG_01-2</div>
+    <div class="n t" data-id="layer_7" style="position:absolute;left:330px;top:197px;width:420px;z-index:6;font-size:40px;font-family:'Noto Sans KR',sans-serif;color:#ffffff;text-align:center;-webkit-text-stroke:1px #5a3210;font-weight:700;line-height:1.2;white-space:pre-wrap;" title="Lv2 연습생-승급 3/6승 · layer_7">Lv2 연습생-승급 3/6승</div>
+    <div class="n ph" data-id="layer_3" style="position:absolute;left:131px;top:1430px;width:243px;height:258px;z-index:7;" title="새 레이어 · layer_3">up_TTT_Chr_01</div>
+    <div class="n ph" data-id="layer_3_copy" style="position:absolute;left:678px;top:1430px;width:243px;height:253px;z-index:8;" title="새 레이어 복사 · layer_3_copy">up_TTT_Chr_02</div>
+    <div class="n ph" data-id="layer_2" style="position:absolute;left:202px;top:1616px;width:677px;height:177px;z-index:9;" title="버튼1 · layer_2">up_TTT_Btn_01_v2</div>
+    <div class="n t" data-id="layer_8" data-interactive="1" style="position:absolute;left:451px;top:1672px;width:300px;z-index:10;font-size:60px;font-family:'Jua',sans-serif;color:#ffffff;text-align:center;line-height:1.2;white-space:pre-wrap;" title="AI튜토리얼 · layer_8">AI튜토리얼</div>
+    <div class="n ph" data-id="layer_2_copy" style="position:absolute;left:201px;top:1807px;width:678px;height:181px;z-index:11;" title="버튼2 · layer_2_copy">up_TTT_Btn_02_v2</div>
+    <div class="n t" data-id="layer_8_copy" data-interactive="1" style="position:absolute;left:425px;top:1859px;width:330px;z-index:12;font-size:60px;font-family:'Jua',sans-serif;color:#ffffff;text-align:center;line-height:1.2;white-space:pre-wrap;" title="싱글 플레이 · layer_8_copy">싱글 플레이</div>
+    <div class="n ph" data-id="layer_2_copy2" style="position:absolute;left:202px;top:1985px;width:677px;height:183px;z-index:13;" title="버튼3 · layer_2_copy2">up_TTT_Btn_03_v2</div>
+    <div class="n t" data-id="layer_8_copy2" data-interactive="1" style="position:absolute;left:426px;top:2041px;width:330px;z-index:14;font-size:60px;font-family:'Jua',sans-serif;color:#ffffff;text-align:center;line-height:1.2;white-space:pre-wrap;" title="대전 플레이 · layer_8_copy2">대전 플레이</div>
+  </div>
+</div>

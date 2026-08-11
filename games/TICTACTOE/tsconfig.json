@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["vite/client"],
+    "noEmit": true,
+    // `paths` 는 병합이 아니라 **치환**이라 base 의 @casual/core 매핑도 함께 다시 적어야 한다.
+    // baseUrl 을 레포 루트로 고정해 base 와 같은 상대경로 표기를 그대로 쓴다.
+    "baseUrl": "../..",
+    "paths": {
+      "@casual/core": ["packages/core/src/index.ts"],
+      "@casual/core/*": ["packages/core/src/*"],
+      // 게임 규칙 본체 — 대전 서버(services/ttt-api)와 공유한다.
+      "@casual/ttt-rules": ["packages/ttt-rules/src/index.ts"],
+      "@casual/ttt-rules/*": ["packages/ttt-rules/src/*"],
+      // 실제 어댑터는 빌드 시 vite alias 가 타겟별 파일로 스왑한다(src/store/<target>.ts).
+      // 타입체크 기준은 web — 모든 어댑터가 같은 StoreAdapter 계약을 구현하고,
+      // 나머지 어댑터 파일도 include 대상이라 각각 따로 검사된다.
+      "@store": ["games/TICTACTOE/src/store/web.ts"]
+    }
+  },
+  "include": ["src"]
+}

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover, orientation=portrait" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#0A0714" />
+    <!-- 상대경로다(base 가 './'(허브 하위)와 '/'(설치형 PWA)로 갈리므로 절대경로를 쓰면 한쪽이 깨진다) -->
+    <link rel="icon" type="image/png" href="icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <title>틱택토 네온</title>
+    <style>
+      /* 폰트는 **로컬 자체 호스팅**이다 — src/fonts/fonts.css 를 src/main.ts 가 import 한다.
+         (여기서 CDN 을 @import 하면 웹뷰에서 늦게 도착해 캔버스가 폴백 폰트로 굳는다) */
+      html, body {
+        margin: 0; padding: 0;
+        background: #0A0714;
+        color: #E8E6FF;
+        font-family: 'Jua', system-ui, sans-serif;
+        overflow: hidden;
+        width: 100vw; height: 100dvh;
+        touch-action: none; user-select: none;
+        -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+        overscroll-behavior: none;
+      }
+      #game-container { background: #0A0714;
+        position: fixed; inset: 0;
+        width: 100vw; height: 100dvh;
+        overflow: hidden;
+        padding: 0 env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
+        box-sizing: border-box;
+      }
+      #game-container canvas { display: block; }
+      /* 하단 배너 광고 컨테이너 — 토스 SDK(TossAds.attachBanner)가 이 안에 직접 렌더링한다
+         (src/ads.ts 참조). 광고 콘텐츠 높이는 고정형 권장값 96px.
+         ⚠️ 바닥(bottom:0)까지 내리고 세이프에어리어는 안쪽 패딩으로 돌린다 — 홈바 "위에" 띄우면
+         배너 아래에 검은 띠가 남아 공중에 뜬 것처럼 보인다(홈런팝에서 확인된 문제). */
+      /* ⚠️ 기본은 숨김이다. 광고가 실제로 붙는 타겟에서만 src/ads.ts 가 켠다.
+         (기본을 보이게 두면 광고 없는 빌드에서 하단에 흰 띠가 한 프레임 번쩍인다) */
+      #ad-banner-container {
+        display: none;
+        position: fixed; left: 0; right: 0;
+        bottom: 0;
+        width: 100%;
+        height: calc(96px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        box-sizing: border-box;
+        background: #ffffff;
+        z-index: 20;
+      }
+      /* 광고 제거(NO ADS) 인앱결제 버튼 — 이미지 자체가 버튼(배경 없음).
+         배너 바로 위, 하단 HUD(전적·규칙 줄은 가운데 정렬)와 겹치지 않는 오른쪽 여백에 둔다. */
+      #no-ads-btn {
+        position: fixed;
+        right: 10px;
+        --no-ads-bottom-clearance: 110px;
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 96px + var(--no-ads-bottom-clearance));
+        width: 64px; height: 64px;
+        padding: 0; border: 0; background: transparent;
+        z-index: 21;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #no-ads-btn img { width: 100%; height: 100%; display: block; }
+      #no-ads-btn[hidden] { display: none; }
+      .loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); opacity: 0.7; }
+      .rotate-hint { display: none; }
+      /* 회전 안내는 **터치 기기에만**. `pointer: coarse` 가 없으면 데스크톱(MS Store 등)에서
+         창을 좁히는 순간 게임이 사라지고 "세로로 돌려주세요"가 뜬다 — 심사 반려 사유. */
+      @media (orientation: landscape) and (max-width: 1000px) and (pointer: coarse) {
+        #game-container { display: none; }
+        .rotate-hint {
+          display: flex; position: fixed; inset: 0;
+          align-items: center; justify-content: center; flex-direction: column; gap: 12px;
+          background: #1A1030; color: #fff; font-size: 18px; text-align: center; padding: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container"><div class="loading">틱택토 네온 로딩 중...</div></div>
+    <div id="ad-banner-container"></div>
+    <button id="no-ads-btn" type="button" hidden aria-label="광고 제거">
+      <img src="img/no-ads.png" alt="" />
+    </button>
+    <div class="rotate-hint"><div style="font-size:48px">📱↻</div><strong>세로로 돌려주세요</strong></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
