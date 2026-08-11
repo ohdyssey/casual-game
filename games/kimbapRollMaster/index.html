@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#F08A2C" />
+    <title>김밥 롤 마스터</title>
+    <!--
+      Jua/Do Hyeon — OFL 한글+라틴 둥근 게임체 (P0 CDN, P1 셀프호스팅 전환).
+      ⚠️ `@import` 가 아니라 `<link>` 로 건다 — @import 는 스타일시트를 다 받은 **뒤에야**
+         @font-face 를 등록해서, 그전에 실행된 스크립트의 `document.fonts.load('"Jua"')` 가
+         「그런 글꼴 없음」으로 즉시 성공해 버린다(그러면 캔버스 텍스트가 시스템 고딕으로 굳는다).
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Jua&family=Do+Hyeon&display=block"
+    />
+    <style>
+      html, body {
+        margin: 0; padding: 0;
+        background: #000;
+        color: #FFF6F0;
+        font-family: 'Jua', system-ui, sans-serif;
+        overflow: hidden;
+        width: 100vw; height: 100dvh;
+        touch-action: none; user-select: none;
+        -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+        overscroll-behavior: none;
+      }
+      #game-container { background: #000;
+        position: fixed; inset: 0;
+        width: 100vw; height: 100dvh;
+        overflow: hidden;
+        padding: env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
+        box-sizing: border-box;
+      }
+      #game-container canvas { display: block; }
+      .loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); opacity: 0.7; }
+      .rotate-hint { display: none; }
+      @media (orientation: landscape) and (max-width: 1000px) {
+        #game-container { display: none; }
+        .rotate-hint {
+          display: flex; position: fixed; inset: 0;
+          align-items: center; justify-content: center; flex-direction: column; gap: 12px;
+          background: #241610; color: #fff; font-size: 18px; text-align: center; padding: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container"><div class="loading">김밥 롤 마스터 로딩 중...</div></div>
+    <div class="rotate-hint"><div style="font-size:48px">📱↻</div><strong>세로로 돌려주세요</strong></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

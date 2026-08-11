@@ -1,0 +1,588 @@
+{
+  "domain": "ui",
+  "unit": "main_copy",
+  "frame": {
+    "w": 1080,
+    "h": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "label": "배경",
+      "rect": [
+        1,
+        1,
+        1078,
+        2398
+      ],
+      "center": [
+        540,
+        1200
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_KBRM_BG_01_v3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_15",
+      "type": "image",
+      "label": "손님2",
+      "rect": [
+        190,
+        487,
+        373,
+        833
+      ],
+      "center": [
+        376,
+        903
+      ],
+      "z": 2,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Chr_02",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_14",
+      "type": "image",
+      "label": "손님1",
+      "rect": [
+        3,
+        381,
+        383,
+        1126
+      ],
+      "center": [
+        194,
+        944
+      ],
+      "z": 3,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Chr_01",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "label": "조리대",
+      "rect": [
+        -66,
+        859,
+        1229,
+        1454
+      ],
+      "center": [
+        548,
+        1586
+      ],
+      "z": 4,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_KBRM_BG_02",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7",
+      "type": "image",
+      "label": "밥통",
+      "rect": [
+        -27,
+        900,
+        303,
+        497
+      ],
+      "center": [
+        124,
+        1148
+      ],
+      "z": 6,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_06",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_8",
+      "type": "image",
+      "label": "준비_발",
+      "rect": [
+        19,
+        1399,
+        193,
+        195
+      ],
+      "center": [
+        115,
+        1496
+      ],
+      "z": 7,
+      "space": "auto",
+      "pin": "none",
+      "angle": 4,
+      "asset": "up_Item_01_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_9",
+      "type": "image",
+      "label": "준비_김",
+      "rect": [
+        872,
+        1380,
+        213,
+        222
+      ],
+      "center": [
+        978,
+        1491
+      ],
+      "z": 8,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_07",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_10",
+      "type": "image",
+      "label": "참기름",
+      "rect": [
+        870,
+        970,
+        189,
+        202
+      ],
+      "center": [
+        964,
+        1071
+      ],
+      "z": 9,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_08",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_10_copy",
+      "type": "image",
+      "label": "깨소금",
+      "rect": [
+        879,
+        1171,
+        182,
+        174
+      ],
+      "center": [
+        970,
+        1258
+      ],
+      "z": 10,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_09",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_11",
+      "type": "image",
+      "label": "기본재료",
+      "rect": [
+        25,
+        1640,
+        436,
+        356
+      ],
+      "center": [
+        243,
+        1818
+      ],
+      "z": 11,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_10-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_12",
+      "type": "image",
+      "label": "스팸",
+      "rect": [
+        455,
+        1632,
+        169,
+        481
+      ],
+      "center": [
+        539,
+        1872
+      ],
+      "z": 12,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_10-2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_12_copy",
+      "type": "image",
+      "label": "게맛살",
+      "rect": [
+        602,
+        1630,
+        165,
+        483
+      ],
+      "center": [
+        684,
+        1871
+      ],
+      "z": 13,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_10-3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_12_copy2",
+      "type": "image",
+      "label": "참치",
+      "rect": [
+        746,
+        1631,
+        167,
+        484
+      ],
+      "center": [
+        829,
+        1873
+      ],
+      "z": 14,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_10-4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_12_copy3",
+      "type": "image",
+      "label": "치즈",
+      "rect": [
+        899,
+        1629,
+        157,
+        480
+      ],
+      "center": [
+        977,
+        1869
+      ],
+      "z": 15,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_10-5",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_16",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        313,
+        467,
+        695,
+        363
+      ],
+      "center": [
+        660,
+        648
+      ],
+      "z": 16,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_UI_03",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3",
+      "type": "image",
+      "label": "김밥",
+      "rect": [
+        291,
+        1235,
+        499,
+        117
+      ],
+      "center": [
+        540,
+        1293
+      ],
+      "z": 17,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_11",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        679,
+        1248,
+        22,
+        95
+      ],
+      "center": [
+        690,
+        1295
+      ],
+      "z": 18,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_11-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4_copy",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        636,
+        1248,
+        22,
+        95
+      ],
+      "center": [
+        647,
+        1295
+      ],
+      "z": 19,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_11-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4_copy2",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        593,
+        1248,
+        22,
+        95
+      ],
+      "center": [
+        604,
+        1295
+      ],
+      "z": 20,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_11-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4_copy3",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        550,
+        1248,
+        22,
+        95
+      ],
+      "center": [
+        561,
+        1295
+      ],
+      "z": 21,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_11-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4_copy4",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        507,
+        1248,
+        22,
+        95
+      ],
+      "center": [
+        518,
+        1295
+      ],
+      "z": 22,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_11-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4_copy5",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        464,
+        1248,
+        22,
+        95
+      ],
+      "center": [
+        475,
+        1295
+      ],
+      "z": 23,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_11-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4_copy6",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        421,
+        1248,
+        22,
+        95
+      ],
+      "center": [
+        432,
+        1295
+      ],
+      "z": 24,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_11-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4_copy7",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        378,
+        1248,
+        22,
+        95
+      ],
+      "center": [
+        389,
+        1295
+      ],
+      "z": 25,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Item_11-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_17_copy",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        613,
+        1185,
+        276,
+        360
+      ],
+      "center": [
+        751,
+        1365
+      ],
+      "z": 26,
+      "space": "auto",
+      "pin": "none",
+      "angle": 15,
+      "asset": "up_Item_05-1_v2",
+      "style": {
+        "tintable": true
+      }
+    }
+  ],
+  "refs": [
+    "asset:up_Chr_01",
+    "asset:up_Chr_02",
+    "asset:up_Item_01_v4",
+    "asset:up_Item_05-1_v2",
+    "asset:up_Item_06",
+    "asset:up_Item_07",
+    "asset:up_Item_08",
+    "asset:up_Item_09",
+    "asset:up_Item_10-1",
+    "asset:up_Item_10-2",
+    "asset:up_Item_10-3",
+    "asset:up_Item_10-4",
+    "asset:up_Item_10-5",
+    "asset:up_Item_11",
+    "asset:up_Item_11-1",
+    "asset:up_KBRM_BG_01_v3",
+    "asset:up_KBRM_BG_02",
+    "asset:up_UI_03"
+  ],
+  "label": "김밥썰기",
+  "rev": "31cc06bf"
+}

@@ -1,0 +1,41 @@
+{
+  "domain": "ui",
+  "unit": "blank",
+  "frame": {
+    "w": 1080,
+    "h": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        -62,
+        -5,
+        1205,
+        2410
+      ],
+      "center": [
+        540,
+        1200
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_KBRM_BG_Stage_01-1_v2",
+      "style": {
+        "tintable": true
+      }
+    }
+  ],
+  "refs": [
+    "asset:up_KBRM_BG_Stage_01-1_v2"
+  ],
+  "label": "로비화면",
+  "rev": "78bc3f96"
+}

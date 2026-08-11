@@ -1,0 +1,105 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>main — 하네스 미리보기</title>
+<!--
+  이 파일은 생성물이며 **보조 뷰**입니다. 수치의 진실은 같은 폴더의 main.json 입니다.
+  화면은 실제로 Phaser 캔버스로 그려지므로, 여기서는 9-slice·마스크·스프라이트 애니·곡선 텍스트가
+  재현되지 않습니다. 배치·크기·색·글꼴을 눈으로 확인하는 용도로만 쓰세요.
+  rev: 8e29b8de
+-->
+<style>
+  body { margin:0; background:#20242c; color:#cfd6e4; font-family:system-ui,sans-serif; }
+  .wrap { padding:16px; }
+  .meta { font-size:13px; margin-bottom:10px; line-height:1.6; }
+  .meta b { color:#fff; }
+  .stage { position:relative; width:1080px; height:2400px; overflow:hidden;
+           background:#11141a; outline:1px solid #3a4150; transform-origin:top left; }
+  .n { position:absolute; }
+  .ph { background:repeating-linear-gradient(45deg,#2a3140,#2a3140 6px,#333b4c 6px,#333b4c 12px);
+        border:1px dashed #5a6478; color:#8fa0bb; font-size:11px; display:flex;
+        align-items:center; justify-content:center; text-align:center; overflow:hidden; }
+  .sh { border:1px dashed #6f7a8f; color:#93a2b8; font-size:11px; display:flex;
+        align-items:center; justify-content:center; }
+  /* 노드 경계 보기 — 주소창에 #outline 붙이면 켜집니다. */
+  :target ~ .wrap .n, body.outline .n { outline:1px solid rgba(120,200,255,.5); }
+</style>
+<div class="wrap">
+  <div class="meta">
+    <b>main</b> — 조리 화면 ·
+    1080×2400 · 노드 69개 · rev <code>8e29b8de</code><br>
+    ⚠ <b>보조 뷰입니다.</b> 정확한 수치는 <code>main.json</code> 을 보세요.
+    실제 렌더는 Phaser 캔버스이므로 일부 효과는 여기서 재현되지 않습니다.
+    <br>· 경로를 모르는 에셋 50개는 빗금 상자로 표시됩니다.
+  </div>
+  <div class="stage">
+    <div class="n ph" data-id="layer_25" style="position:absolute;left:0px;top:0px;width:1080px;height:2400px;z-index:1;" title="배경 · layer_25">up_KBRM_BG_01</div>
+    <div class="n ph" data-id="layer_26" style="position:absolute;left:480px;top:1067px;width:120px;height:267px;z-index:2;" title="새 레이어 · layer_26">up_KBRM_BG_01</div>
+    <div class="n ph" data-id="layer_1" style="position:absolute;left:1px;top:-364px;width:1078px;height:2398px;z-index:3;" title="배경 · layer_1">up_ChatGPT_Image_2026__8__8_____04_25_22</div>
+    <div class="n ph" data-id="layer_15" style="position:absolute;left:700px;top:433px;width:395px;height:883px;z-index:4;" title="손님2 · layer_15">up_Chr_02</div>
+    <div class="n ph" data-id="layer_14" style="position:absolute;left:8px;top:429px;width:352px;height:1036px;z-index:5;" title="손님1 · layer_14">up_Chr_01</div>
+    <div class="n ph" data-id="layer_2" style="position:absolute;left:-66px;top:859px;width:1229px;height:1454px;z-index:6;" title="조리대 · layer_2">up_KBRM_BG_02</div>
+    <div class="n ph" data-id="layer_3" style="position:absolute;left:274px;top:1079px;width:532px;height:541px;z-index:7;" title="김밥발 · layer_3">up_Item_01_v3</div>
+    <div class="n ph" data-id="layer_4" style="position:absolute;left:310px;top:1114px;width:461px;height:473px;z-index:8;" title="김 · layer_4">up_Item_03</div>
+    <div class="n ph" data-id="layer_5" style="position:absolute;left:335px;top:1146px;width:411px;height:417px;z-index:9;" title="펴진 밥 · layer_5">up_Item_04</div>
+    <div class="n ph" data-id="layer_7" style="position:absolute;left:20px;top:1033px;width:203px;height:372px;z-index:10;" title="밥통 · layer_7">up_Item_06-2</div>
+    <div class="n ph" data-id="layer_6" style="position:absolute;left:48px;top:1140px;width:194px;height:156px;z-index:11;" title="밥주걱 · layer_6">up_Item_06-2-1</div>
+    <div class="n ph" data-id="layer_8" style="position:absolute;left:19px;top:1414px;width:193px;height:195px;z-index:12;transform:rotate(4deg);" title="준비_발 · layer_8">up_Item_01_v4</div>
+    <div class="n ph" data-id="layer_9" style="position:absolute;left:31px;top:1424px;width:185px;height:193px;z-index:13;" title="준비_김 · layer_9">up_Item_07</div>
+    <div class="n ph" data-id="layer_10" style="position:absolute;left:869px;top:865px;width:195px;height:207px;z-index:14;" title="참기름 · layer_10">up_Item_08</div>
+    <div class="n ph" data-id="layer_10_copy" style="position:absolute;left:645px;top:860px;width:175px;height:167px;z-index:15;" title="깨소금 · layer_10_copy">up_Item_09</div>
+    <div class="n ph" data-id="layer_11" style="position:absolute;left:33px;top:1621px;width:152px;height:409px;z-index:16;" title="용기1 · layer_11">up_Item_10</div>
+    <div class="n ph" data-id="layer_11_copy" style="position:absolute;left:177px;top:1621px;width:152px;height:409px;z-index:17;" title="용기2 · layer_11_copy">up_Item_10</div>
+    <div class="n ph" data-id="layer_11_copy2" style="position:absolute;left:320px;top:1621px;width:152px;height:409px;z-index:18;" title="용기3 · layer_11_copy2">up_Item_10</div>
+    <div class="n ph" data-id="layer_11_copy3" style="position:absolute;left:463px;top:1621px;width:152px;height:409px;z-index:19;" title="용기4 · layer_11_copy3">up_Item_10</div>
+    <div class="n ph" data-id="layer_11_copy4" style="position:absolute;left:607px;top:1621px;width:152px;height:409px;z-index:20;" title="용기5 · layer_11_copy4">up_Item_10</div>
+    <div class="n ph" data-id="layer_11_copy5" style="position:absolute;left:750px;top:1621px;width:152px;height:409px;z-index:21;" title="용기6 · layer_11_copy5">up_Item_10</div>
+    <div class="n ph" data-id="layer_11_copy6" style="position:absolute;left:893px;top:1621px;width:152px;height:409px;z-index:22;" title="용기7 · layer_11_copy6">up_Item_10</div>
+    <div class="n ph" data-id="layer_11_copy7" style="position:absolute;left:0px;top:1988px;width:1081px;height:245px;z-index:23;" title="사각용기 · layer_11_copy7">up_Item_10-01</div>
+    <div class="n ph" data-id="layer_18" style="position:absolute;left:273px;top:2029px;width:153px;height:136px;z-index:24;" title="시금치 · layer_18">up_Item_Menu_02-1-1</div>
+    <div class="n ph" data-id="layer_18_copy3" style="position:absolute;left:660px;top:2027px;width:153px;height:140px;z-index:25;" title="시금치 복사 · layer_18_copy3">up_Item_Menu_02-4-1_v2</div>
+    <div class="n ph" data-id="layer_18_copy4" style="position:absolute;left:860px;top:2026px;width:153px;height:142px;z-index:26;" title="시금치 복사 · layer_18_copy4">up_Item_Menu_04-1_v3</div>
+    <div class="n ph" data-id="layer_18_copy" style="position:absolute;left:66px;top:2023px;width:162px;height:149px;z-index:27;" title="당근 · layer_18_copy">up_Item_Menu_02-2-1</div>
+    <div class="n ph" data-id="layer_18_copy2" style="position:absolute;left:459px;top:2025px;width:162px;height:144px;z-index:28;" title="꺳잎 · layer_18_copy2">up_Item_Menu_02-3-1_v2</div>
+    <div class="n ph" data-id="layer_13" style="position:absolute;left:96px;top:1679px;width:24px;height:306px;z-index:29;" title="단무지 · layer_13">up_Item_Menu_01-1</div>
+    <div class="n ph" data-id="layer_13_copy" style="position:absolute;left:112px;top:1681px;width:24px;height:306px;z-index:30;" title="단무지 복사 · layer_13_copy">up_Item_Menu_01-1</div>
+    <div class="n ph" data-id="layer_13_copy2" style="position:absolute;left:79px;top:1682px;width:24px;height:306px;z-index:31;" title="단무지 복사 · layer_13_copy2">up_Item_Menu_01-1</div>
+    <div class="n ph" data-id="layer_13_copy3" style="position:absolute;left:134px;top:1679px;width:24px;height:306px;z-index:32;" title="단무지 복사 · layer_13_copy3">up_Item_Menu_01-1</div>
+    <div class="n ph" data-id="layer_13_copy4" style="position:absolute;left:63px;top:1680px;width:24px;height:306px;z-index:33;" title="단무지 복사 · layer_13_copy4">up_Item_Menu_01-1</div>
+    <div class="n ph" data-id="layer_13_copy5" style="position:absolute;left:99px;top:1682px;width:24px;height:306px;z-index:34;" title="단무지 복사 · layer_13_copy5">up_Item_Menu_01-1</div>
+    <div class="n ph" data-id="layer_13_copy7" style="position:absolute;left:240px;top:1680px;width:22px;height:307px;z-index:35;" title="단무지 복사 · layer_13_copy7">up_Item_Menu_01-2</div>
+    <div class="n ph" data-id="layer_13_copy8" style="position:absolute;left:382px;top:1681px;width:27px;height:304px;z-index:36;" title="단무지 복사 · layer_13_copy8">up_Item_Menu_01-3</div>
+    <div class="n ph" data-id="layer_13_copy9" style="position:absolute;left:528px;top:1672px;width:28px;height:309px;z-index:37;" title="단무지 복사 · layer_13_copy9">up_Item_Menu_01-4</div>
+    <div class="n ph" data-id="layer_13_copy10" style="position:absolute;left:669px;top:1681px;width:24px;height:303px;z-index:38;" title="단무지 복사 · layer_13_copy10">up_Item_Menu_01-5</div>
+    <div class="n ph" data-id="layer_13_copy11" style="position:absolute;left:810px;top:1686px;width:25px;height:299px;z-index:39;" title="단무지 복사 · layer_13_copy11">up_Item_Menu_03-1</div>
+    <div class="n ph" data-id="layer_13_copy12" style="position:absolute;left:960px;top:1686px;width:26px;height:287px;z-index:40;" title="단무지 복사 · layer_13_copy12">up_Item_Menu_02-6</div>
+    <div class="n ph" data-id="layer_13_copy6" style="position:absolute;left:526px;top:1316px;width:29px;height:372px;z-index:41;transform:rotate(90deg);" title="단무지 복사 · layer_13_copy6">up_Item_Menu_01-1</div>
+    <div class="n t" data-id="layer_19" style="position:absolute;left:59px;top:1945px;width:90px;z-index:42;font-size:30px;font-family:'Roboto',sans-serif;color:#ffffff;text-align:center;-webkit-text-stroke:2px #000000;font-weight:700;line-height:1.2;white-space:pre-wrap;" title="단무지 제목 · layer_19">단무지</div>
+    <div class="n t" data-id="layer_19_copy4" style="position:absolute;left:205px;top:1945px;width:90px;z-index:43;font-size:30px;font-family:'Roboto',sans-serif;color:#ffffff;text-align:center;-webkit-text-stroke:2px #000000;font-weight:700;line-height:1.2;white-space:pre-wrap;" title="단무지 제목 복사 · layer_19_copy4">게맛살</div>
+    <div class="n t" data-id="layer_19_copy5" style="position:absolute;left:334px;top:1945px;width:120px;z-index:44;font-size:30px;font-family:'Roboto',sans-serif;color:#ffffff;text-align:center;-webkit-text-stroke:2px #000000;font-weight:700;line-height:1.2;white-space:pre-wrap;" title="단무지 제목 복사 · layer_19_copy5">계란말이</div>
+    <div class="n t" data-id="layer_19_copy6" style="position:absolute;left:510px;top:1945px;width:60px;z-index:45;font-size:30px;font-family:'Roboto',sans-serif;color:#ffffff;text-align:center;-webkit-text-stroke:2px #000000;font-weight:700;line-height:1.2;white-space:pre-wrap;" title="단무지 제목 복사 · layer_19_copy6">오이</div>
+    <div class="n t" data-id="layer_19_copy7" style="position:absolute;left:651px;top:1945px;width:60px;z-index:46;font-size:30px;font-family:'Roboto',sans-serif;color:#ffffff;text-align:center;-webkit-text-stroke:2px #000000;font-weight:700;line-height:1.2;white-space:pre-wrap;" title="단무지 제목 복사 · layer_19_copy7">우엉</div>
+    <div class="n t" data-id="layer_19_copy8" style="position:absolute;left:795px;top:1945px;width:60px;z-index:47;font-size:30px;font-family:'Roboto',sans-serif;color:#ffffff;text-align:center;-webkit-text-stroke:2px #000000;font-weight:700;line-height:1.2;white-space:pre-wrap;" title="단무지 제목 복사 · layer_19_copy8">스팸</div>
+    <div class="n t" data-id="layer_19_copy9" style="position:absolute;left:940px;top:1945px;width:60px;z-index:48;font-size:30px;font-family:'Roboto',sans-serif;color:#ffffff;text-align:center;-webkit-text-stroke:2px #000000;font-weight:700;line-height:1.2;white-space:pre-wrap;" title="치즈 제목 · layer_19_copy9">치즈</div>
+    <div class="n t" data-id="layer_19_copy" style="position:absolute;left:121px;top:2140px;width:60px;z-index:49;font-size:30px;font-family:'Roboto',sans-serif;color:#ffffff;text-align:center;-webkit-text-stroke:2px #000000;font-weight:700;line-height:1.2;white-space:pre-wrap;" title="당근 제목 · layer_19_copy">당근</div>
+    <div class="n t" data-id="layer_19_copy3" style="position:absolute;left:512px;top:2140px;width:60px;z-index:50;font-size:30px;font-family:'Roboto',sans-serif;color:#ffffff;text-align:center;-webkit-text-stroke:2px #000000;font-weight:700;line-height:1.2;white-space:pre-wrap;" title="꺳잎 제목 · layer_19_copy3">깻잎</div>
+    <div class="n t" data-id="layer_19_copy2" style="position:absolute;left:304px;top:2140px;width:90px;z-index:51;font-size:30px;font-family:'Roboto',sans-serif;color:#ffffff;text-align:center;-webkit-text-stroke:2px #000000;font-weight:700;line-height:1.2;white-space:pre-wrap;" title="시금치 제목 · layer_19_copy2">시금치</div>
+    <div class="n t" data-id="layer_19_copy10" style="position:absolute;left:708px;top:2140px;width:60px;z-index:52;font-size:30px;font-family:'Roboto',sans-serif;color:#ffffff;text-align:center;-webkit-text-stroke:2px #000000;font-weight:700;line-height:1.2;white-space:pre-wrap;" title="참치 제목 · layer_19_copy10">참치</div>
+    <div class="n t" data-id="layer_19_copy11" style="position:absolute;left:877px;top:2140px;width:120px;z-index:53;font-size:30px;font-family:'Roboto',sans-serif;color:#ffffff;text-align:center;-webkit-text-stroke:2px #000000;font-weight:700;line-height:1.2;white-space:pre-wrap;" title="제육볶음 제목 · layer_19_copy11">제육볶음</div>
+    <div class="n ph" data-id="layer_17" style="position:absolute;left:286px;top:1486px;width:168px;height:130px;z-index:54;" title="김밥마는 손 · layer_17">up_UI_04-1</div>
+    <div class="n ph" data-id="layer_17_copy" style="position:absolute;left:629px;top:1489px;width:168px;height:127px;z-index:55;" title="김밥마는 손 · layer_17_copy">up_UI_04-2</div>
+    <div class="n ph" data-id="layer_16" style="position:absolute;left:247px;top:377px;width:336px;height:462px;z-index:56;" title="메뉴 패널 · layer_16">up_UI_06</div>
+    <div class="n ph" data-id="layer_21" style="position:absolute;left:356px;top:506px;width:120px;height:122px;z-index:57;" title="새 레이어 · layer_21">up_Item_12-3_v2</div>
+    <div class="n t" data-id="layer_20" style="position:absolute;left:366px;top:453px;width:100px;z-index:58;font-size:40px;font-family:'Roboto',sans-serif;color:#110c09;text-align:center;font-weight:700;line-height:1.2;white-space:pre-wrap;" title="시간 · layer_20">01:30</div>
+    <div class="n t" data-id="layer_20_copy2" style="position:absolute;left:318px;top:700px;width:40px;z-index:59;font-size:20px;font-family:'Jua',sans-serif;color:#ffffff;text-align:center;-webkit-text-stroke:1px #5a3210;line-height:1.2;white-space:pre-wrap;" title="시간 복사 · layer_20_copy2">필수</div>
+    <div class="n t" data-id="layer_20_copy3" style="position:absolute;left:455px;top:700px;width:40px;z-index:60;font-size:20px;font-family:'Jua',sans-serif;color:#ffffff;text-align:center;-webkit-text-stroke:1px #5a3210;line-height:1.2;white-space:pre-wrap;" title="시간 복사 · layer_20_copy3">금지</div>
+    <div class="n t" data-id="layer_20_copy4" style="position:absolute;left:460px;top:780px;width:52px;z-index:61;font-size:26px;font-family:'Jua',sans-serif;color:#030202;text-align:center;line-height:1.2;white-space:pre-wrap;" title="시간 복사 · layer_20_copy4">깻잎</div>
+    <div class="n t" data-id="layer_20_copy5" style="position:absolute;left:320px;top:780px;width:52px;z-index:62;font-size:26px;font-family:'Jua',sans-serif;color:#000000;text-align:center;line-height:1.2;white-space:pre-wrap;" title="시간 복사 · layer_20_copy5">오이</div>
+    <div class="n t" data-id="layer_20_copy" style="position:absolute;left:329px;top:628px;width:180px;z-index:63;font-size:40px;font-family:'Roboto',sans-serif;color:#030202;text-align:center;font-weight:700;line-height:1.2;white-space:pre-wrap;" title="시간 복사 · layer_20_copy">참치 김밥</div>
+    <div class="n ph" data-id="layer_16_copy" style="position:absolute;left:584px;top:482px;width:258px;height:355px;z-index:64;" title="메뉴패널1 · layer_16_copy">up_UI_06</div>
+    <div class="n ph" data-id="layer_12" style="position:absolute;left:268px;top:856px;width:174px;height:152px;z-index:65;" title="알림종 · layer_12">up_UI_05</div>
+    <div class="n ph" data-id="layer_22" style="position:absolute;left:452px;top:816px;width:176px;height:193px;z-index:66;" title="시계 · layer_22">up_UI_07</div>
+    <div class="n ph" data-id="layer_23" style="position:absolute;left:535px;top:847px;width:11px;height:36px;z-index:67;" title="분침 · layer_23">up_UI_07-1</div>
+    <div class="n t" data-id="layer_24" style="position:absolute;left:470px;top:943px;width:140px;z-index:68;font-size:36px;font-family:'Roboto',sans-serif;color:#ffffff;text-align:center;font-weight:700;line-height:1.2;white-space:pre-wrap;" title="0 / 10 · layer_24">0 / 10</div>
+    <div class="n ph" data-id="layer_27" style="position:absolute;left:833px;top:1068px;width:238px;height:535px;z-index:69;" title="메뉴판 · layer_27">up_UI_08</div>
+  </div>
+</div>

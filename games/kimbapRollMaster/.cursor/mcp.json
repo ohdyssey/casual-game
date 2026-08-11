@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "pue-harness": {
+      "command": "node",
+      "args": [
+        "D:/Dev/phaser-ui-editor/scripts/pue-mcp.js"
+      ]
+    }
+  }
+}

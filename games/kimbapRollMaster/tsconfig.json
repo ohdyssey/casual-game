@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["vite/client"],
+    "noEmit": true,
+    // 하네스 생성물(screens.js)의 노드 id 상수를 임포트하기 위함 — 문자열 id 하드코딩 금지 규약.
+    "allowJs": true
+  },
+  "include": ["src", ".pue-harness/generated"]
+}

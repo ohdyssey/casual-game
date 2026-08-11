@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 2,
+  "frame": {
+    "designW": 1080,
+    "designH": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_KBRM_BG_Stage_01-1_v2",
+      "x": 540,
+      "y": 1200,
+      "w": 1205,
+      "h": 2410,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true,
+      "depth": 1
+    }
+  ]
+}

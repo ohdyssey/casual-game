@@ -1,0 +1,21 @@
+{
+  "name": "@casual/game-kimbaproll",
+  "version": "0.1.0",
+  "private": true,
+  "description": "김밥 롤 마스터(Kimbap Roll Master) — 메뉴 두 장 중 선택→밥 펴기→재료 조합→말기·썰기→종을 쳐 서빙하고 별 1~3개로 채점되는 캐주얼 조리 게임.",
+  "type": "module",
+  "scripts": {
+    "dev": "npx vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4212",
+    "balance": "tsx scripts/balance.mts"
+  },
+  "dependencies": {
+    "@casual/core": "*",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.10",
+    "vite-plugin-pwa": "0.21.1"
+  }
+}

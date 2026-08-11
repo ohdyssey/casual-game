@@ -1,0 +1,40 @@
+{
+  "screens": [
+    {
+      "id": "main_copy",
+      "name": "김밥썰기",
+      "file": "ui/layouts/main_copy.json",
+      "category": "custom"
+    },
+    {
+      "id": "main_copy2",
+      "name": "김밥말기1",
+      "file": "ui/layouts/main_copy2.json",
+      "category": "custom"
+    },
+    {
+      "id": "main_copy2_copy",
+      "name": "김밥말기2",
+      "file": "ui/layouts/main_copy2_copy.json",
+      "category": "custom"
+    },
+    {
+      "id": "main_copy2_copy2",
+      "name": "김밥서빙",
+      "file": "ui/layouts/main_copy2_copy2.json",
+      "category": "custom"
+    },
+    {
+      "id": "main_copy3",
+      "name": "조리 화면1",
+      "file": "ui/layouts/main_copy3.json",
+      "category": "custom"
+    },
+    {
+      "id": "blank",
+      "name": "로비화면",
+      "file": "ui/layouts/blank.json",
+      "category": "custom"
+    }
+  ]
+}
