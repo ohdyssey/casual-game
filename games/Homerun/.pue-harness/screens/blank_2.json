@@ -1,0 +1,751 @@
+{
+  "domain": "ui",
+  "unit": "blank_2",
+  "frame": {
+    "w": 1080,
+    "h": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "label": "패널",
+      "rect": [
+        66,
+        402,
+        948,
+        1265
+      ],
+      "center": [
+        540,
+        1034
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_UI_14_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4",
+      "type": "image",
+      "label": "광고보기 버튼",
+      "rect": [
+        262,
+        1183,
+        557,
+        105
+      ],
+      "center": [
+        540,
+        1235
+      ],
+      "z": 2,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_UI_14-4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_5",
+      "type": "text",
+      "label": "광고보고 경기하기",
+      "rect": [
+        401,
+        1213,
+        238,
+        34
+      ],
+      "center": [
+        520,
+        1230
+      ],
+      "rectApprox": true,
+      "z": 3,
+      "space": "auto",
+      "pin": "none",
+      "text": "광고보고 경기하기",
+      "at": [
+        520,
+        1230
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 28,
+        "fontFamily": "Nanum Gothic",
+        "color": "#ffffff",
+        "fontStyle": "700",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_5_copy4",
+      "type": "text",
+      "label": "광고보고 경기하기 복사",
+      "rect": [
+        695,
+        1213,
+        56,
+        34
+      ],
+      "center": [
+        723,
+        1230
+      ],
+      "rectApprox": true,
+      "z": 4,
+      "space": "auto",
+      "pin": "none",
+      "text": "15초",
+      "at": [
+        723,
+        1230
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 28,
+        "fontFamily": "Nanum Gothic",
+        "color": "#ffffff",
+        "fontStyle": "700",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_4_copy",
+      "type": "image",
+      "label": "포인트 버튼",
+      "rect": [
+        262,
+        1293,
+        557,
+        106
+      ],
+      "center": [
+        540,
+        1346
+      ],
+      "z": 5,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_UI_14-5",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_5_copy",
+      "type": "text",
+      "label": "광고보고 경기하기 복사",
+      "rect": [
+        401,
+        1325,
+        238,
+        34
+      ],
+      "center": [
+        520,
+        1342
+      ],
+      "rectApprox": true,
+      "z": 6,
+      "space": "auto",
+      "pin": "none",
+      "text": "포인트로 경기하기",
+      "at": [
+        520,
+        1342
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 28,
+        "fontFamily": "Nanum Gothic",
+        "color": "#ffffff",
+        "fontStyle": "700",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_5_copy3",
+      "type": "text",
+      "label": "광고보고 경기하기 복사",
+      "rect": [
+        704,
+        1325,
+        42,
+        34
+      ],
+      "center": [
+        725,
+        1342
+      ],
+      "rectApprox": true,
+      "z": 7,
+      "space": "auto",
+      "pin": "none",
+      "text": "500",
+      "at": [
+        725,
+        1342
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 28,
+        "fontFamily": "Nanum Gothic",
+        "color": "#ffffff",
+        "fontStyle": "700",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_4_copy2",
+      "type": "image",
+      "label": "로비로",
+      "rect": [
+        329,
+        1406,
+        422,
+        86
+      ],
+      "center": [
+        540,
+        1449
+      ],
+      "z": 8,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_UI_14-6",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_5_copy2",
+      "type": "text",
+      "label": "광고보고 경기하기 복사",
+      "rect": [
+        449,
+        1431,
+        182,
+        34
+      ],
+      "center": [
+        540,
+        1448
+      ],
+      "rectApprox": true,
+      "z": 9,
+      "space": "auto",
+      "pin": "none",
+      "text": "로비로 나가기",
+      "at": [
+        540,
+        1448
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 28,
+        "fontFamily": "Nanum Gothic",
+        "color": "#4c1f1f",
+        "fontStyle": "700",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "label": "승리버튼",
+      "rect": [
+        410,
+        763,
+        260,
+        116
+      ],
+      "center": [
+        540,
+        821
+      ],
+      "z": 10,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_UI_14-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3",
+      "type": "text",
+      "label": "내팀",
+      "rect": [
+        274,
+        865,
+        48,
+        29
+      ],
+      "center": [
+        298,
+        879
+      ],
+      "rectApprox": true,
+      "z": 11,
+      "space": "auto",
+      "pin": "none",
+      "text": "내팀",
+      "at": [
+        298,
+        879
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 24,
+        "fontFamily": "Noto Sans KR",
+        "color": "#ffffff",
+        "fontStyle": "700",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_3_copy2",
+      "type": "text",
+      "label": "내팀 복사",
+      "rect": [
+        283,
+        897,
+        30,
+        72
+      ],
+      "center": [
+        298,
+        933
+      ],
+      "rectApprox": true,
+      "z": 12,
+      "space": "auto",
+      "pin": "none",
+      "text": "9",
+      "at": [
+        298,
+        933
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 60,
+        "fontFamily": "Noto Sans KR",
+        "color": "#ffffff",
+        "fontStyle": "700",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_3_copy9",
+      "type": "text",
+      "label": "내팀 복사",
+      "rect": [
+        261,
+        1006,
+        90,
+        43
+      ],
+      "center": [
+        306,
+        1027
+      ],
+      "rectApprox": true,
+      "z": 13,
+      "space": "auto",
+      "pin": "none",
+      "text": "1,250",
+      "at": [
+        306,
+        1027
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 36,
+        "fontFamily": "Noto Sans KR",
+        "color": "#57ff29",
+        "fontStyle": "700",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_3_copy10",
+      "type": "text",
+      "label": "내팀 복사",
+      "rect": [
+        723,
+        1006,
+        90,
+        43
+      ],
+      "center": [
+        768,
+        1027
+      ],
+      "rectApprox": true,
+      "z": 14,
+      "space": "auto",
+      "pin": "none",
+      "text": "1,250",
+      "at": [
+        768,
+        1027
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#9e9e9e",
+        "strokeW": 0,
+        "fontSize": 36,
+        "fontFamily": "Noto Sans KR",
+        "color": "#9f9d9d",
+        "fontStyle": "700",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_3_copy6",
+      "type": "text",
+      "label": "내팀 복사",
+      "rect": [
+        528,
+        908,
+        24,
+        29
+      ],
+      "center": [
+        540,
+        922
+      ],
+      "rectApprox": true,
+      "z": 15,
+      "space": "auto",
+      "pin": "none",
+      "text": "VS",
+      "at": [
+        540,
+        922
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 24,
+        "fontFamily": "Noto Sans KR",
+        "color": "#9e9e9e",
+        "fontStyle": "700",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_3_copy7",
+      "type": "text",
+      "label": "내팀 복사",
+      "rect": [
+        334,
+        933,
+        56,
+        17
+      ],
+      "center": [
+        362,
+        941
+      ],
+      "rectApprox": true,
+      "z": 16,
+      "space": "auto",
+      "pin": "none",
+      "text": "HOMERUNS",
+      "at": [
+        362,
+        941
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 14,
+        "fontFamily": "Noto Sans KR",
+        "color": "#9e9e9e",
+        "fontStyle": "700",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_3_copy8",
+      "type": "text",
+      "label": "내팀 복사",
+      "rect": [
+        684,
+        933,
+        56,
+        17
+      ],
+      "center": [
+        712,
+        941
+      ],
+      "rectApprox": true,
+      "z": 17,
+      "space": "auto",
+      "pin": "none",
+      "text": "HOMERUNS",
+      "at": [
+        712,
+        941
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 14,
+        "fontFamily": "Noto Sans KR",
+        "color": "#9e9e9e",
+        "fontStyle": "700",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_3_copy4",
+      "type": "text",
+      "label": "내팀 복사",
+      "rect": [
+        273,
+        975,
+        50,
+        24
+      ],
+      "center": [
+        298,
+        987
+      ],
+      "rectApprox": true,
+      "z": 18,
+      "space": "auto",
+      "pin": "none",
+      "text": "SCORE",
+      "at": [
+        298,
+        987
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 20,
+        "fontFamily": "Noto Sans KR",
+        "color": "#297bff",
+        "fontStyle": "700",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_3_copy5",
+      "type": "text",
+      "label": "내팀 복사",
+      "rect": [
+        745,
+        975,
+        50,
+        24
+      ],
+      "center": [
+        770,
+        987
+      ],
+      "rectApprox": true,
+      "z": 19,
+      "space": "auto",
+      "pin": "none",
+      "text": "SCORE",
+      "at": [
+        770,
+        987
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 20,
+        "fontFamily": "Noto Sans KR",
+        "color": "#297bff",
+        "fontStyle": "700",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_3_copy3",
+      "type": "text",
+      "label": "내팀 복사",
+      "rect": [
+        764,
+        897,
+        30,
+        72
+      ],
+      "center": [
+        779,
+        933
+      ],
+      "rectApprox": true,
+      "z": 20,
+      "space": "auto",
+      "pin": "none",
+      "text": "9",
+      "at": [
+        779,
+        933
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 60,
+        "fontFamily": "Noto Sans KR",
+        "color": "#ffffff",
+        "fontStyle": "700",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_3_copy",
+      "type": "text",
+      "label": "내팀 복사",
+      "rect": [
+        741,
+        865,
+        72,
+        29
+      ],
+      "center": [
+        777,
+        879
+      ],
+      "rectApprox": true,
+      "z": 21,
+      "space": "auto",
+      "pin": "none",
+      "text": "상대팀",
+      "at": [
+        777,
+        879
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 24,
+        "fontFamily": "Noto Sans KR",
+        "color": "#ffffff",
+        "fontStyle": "700",
+        "align": "center"
+      }
+    }
+  ],
+  "refs": [
+    "asset:up_Homerun_UI_14-1",
+    "asset:up_Homerun_UI_14-4",
+    "asset:up_Homerun_UI_14-5",
+    "asset:up_Homerun_UI_14-6",
+    "asset:up_Homerun_UI_14_v2"
+  ],
+  "label": "결과화면",
+  "hints": {
+    "interactiveCandidates": [
+      {
+        "id": "layer_2",
+        "label": "승리버튼",
+        "confidence": 0.95,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Homerun_UI_14-1)",
+          "이름에 버튼/구매 표현 (\"승리버튼\")",
+          "인접 캡션 텍스트 \"VS\" (layer_3_copy6)"
+        ]
+      },
+      {
+        "id": "layer_4",
+        "label": "광고보기 버튼",
+        "confidence": 0.95,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Homerun_UI_14-4)",
+          "이름에 버튼/구매 표현 (\"광고보기 버튼\")",
+          "인접 캡션 텍스트 \"광고보고 경기하기\" (layer_5)"
+        ]
+      },
+      {
+        "id": "layer_4_copy",
+        "label": "포인트 버튼",
+        "confidence": 0.95,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Homerun_UI_14-5)",
+          "이름에 버튼/구매 표현 (\"포인트 버튼\")",
+          "인접 캡션 텍스트 \"포인트로 경기하기\" (layer_5_copy)"
+        ]
+      },
+      {
+        "id": "layer_1",
+        "label": "패널",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Homerun_UI_14_v2)",
+          "인접 캡션 텍스트 \"1,250\" (layer_3_copy9)"
+        ]
+      },
+      {
+        "id": "layer_4_copy2",
+        "label": "로비로",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Homerun_UI_14-6)",
+          "인접 캡션 텍스트 \"로비로 나가기\" (layer_5_copy2)"
+        ]
+      }
+    ],
+    "note": "추정입니다 — 저작된 값이 아닙니다. 확정이 필요하면 에디터에서 「버튼」과 역할(action:이름)을 지정하세요. 구현 시에는 이 후보를 근거로 삼되, 코드에 TODO 로 남겨 사람이 확인할 수 있게 하세요."
+  },
+  "rev": "481558f0"
+}

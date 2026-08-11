@@ -1,0 +1,414 @@
+{
+  "domain": "ui",
+  "unit": "stage_select",
+  "frame": {
+    "w": 720,
+    "h": 1280
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "r10",
+      "type": "rect",
+      "label": "스테이지_7",
+      "role": "stage_6",
+      "rect": [
+        79,
+        687,
+        170,
+        170
+      ],
+      "center": [
+        164,
+        772
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#28313f",
+        "stroke": "",
+        "strokeW": 0,
+        "radius": 12
+      }
+    },
+    {
+      "id": "r11",
+      "type": "rect",
+      "label": "스테이지_8",
+      "role": "stage_7",
+      "rect": [
+        275,
+        687,
+        170,
+        170
+      ],
+      "center": [
+        360,
+        772
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#28313f",
+        "stroke": "",
+        "strokeW": 0,
+        "radius": 12
+      }
+    },
+    {
+      "id": "r12",
+      "type": "rect",
+      "label": "스테이지_9",
+      "role": "stage_8",
+      "rect": [
+        471,
+        687,
+        170,
+        170
+      ],
+      "center": [
+        556,
+        772
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#28313f",
+        "stroke": "",
+        "strokeW": 0,
+        "radius": 12
+      }
+    },
+    {
+      "id": "r13",
+      "type": "rect",
+      "label": "스테이지_10",
+      "role": "stage_9",
+      "rect": [
+        79,
+        883,
+        170,
+        170
+      ],
+      "center": [
+        164,
+        968
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#28313f",
+        "stroke": "",
+        "strokeW": 0,
+        "radius": 12
+      }
+    },
+    {
+      "id": "r14",
+      "type": "rect",
+      "label": "스테이지_11",
+      "role": "stage_10",
+      "rect": [
+        275,
+        883,
+        170,
+        170
+      ],
+      "center": [
+        360,
+        968
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#28313f",
+        "stroke": "",
+        "strokeW": 0,
+        "radius": 12
+      }
+    },
+    {
+      "id": "r15",
+      "type": "rect",
+      "label": "스테이지_12",
+      "role": "stage_11",
+      "rect": [
+        471,
+        883,
+        170,
+        170
+      ],
+      "center": [
+        556,
+        968
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#28313f",
+        "stroke": "",
+        "strokeW": 0,
+        "radius": 12
+      }
+    },
+    {
+      "id": "r4",
+      "type": "rect",
+      "label": "스테이지_1",
+      "role": "stage_0",
+      "rect": [
+        79,
+        295,
+        170,
+        170
+      ],
+      "center": [
+        164,
+        380
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#28313f",
+        "stroke": "",
+        "strokeW": 0,
+        "radius": 12
+      }
+    },
+    {
+      "id": "r5",
+      "type": "rect",
+      "label": "스테이지_2",
+      "role": "stage_1",
+      "rect": [
+        275,
+        295,
+        170,
+        170
+      ],
+      "center": [
+        360,
+        380
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#28313f",
+        "stroke": "",
+        "strokeW": 0,
+        "radius": 12
+      }
+    },
+    {
+      "id": "r6",
+      "type": "rect",
+      "label": "스테이지_3",
+      "role": "stage_2",
+      "rect": [
+        471,
+        295,
+        170,
+        170
+      ],
+      "center": [
+        556,
+        380
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#28313f",
+        "stroke": "",
+        "strokeW": 0,
+        "radius": 12
+      }
+    },
+    {
+      "id": "r7",
+      "type": "rect",
+      "label": "스테이지_4",
+      "role": "stage_3",
+      "rect": [
+        79,
+        491,
+        170,
+        170
+      ],
+      "center": [
+        164,
+        576
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#28313f",
+        "stroke": "",
+        "strokeW": 0,
+        "radius": 12
+      }
+    },
+    {
+      "id": "r8",
+      "type": "rect",
+      "label": "스테이지_5",
+      "role": "stage_4",
+      "rect": [
+        275,
+        491,
+        170,
+        170
+      ],
+      "center": [
+        360,
+        576
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#28313f",
+        "stroke": "",
+        "strokeW": 0,
+        "radius": 12
+      }
+    },
+    {
+      "id": "r9",
+      "type": "rect",
+      "label": "스테이지_6",
+      "role": "stage_5",
+      "rect": [
+        471,
+        491,
+        170,
+        170
+      ],
+      "center": [
+        556,
+        576
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#28313f",
+        "stroke": "",
+        "strokeW": 0,
+        "radius": 12
+      }
+    },
+    {
+      "id": "r2",
+      "type": "rect",
+      "label": "뒤로",
+      "role": "back",
+      "rect": [
+        50,
+        93,
+        92,
+        74
+      ],
+      "center": [
+        96,
+        130
+      ],
+      "z": 2,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#3a4658",
+        "stroke": "",
+        "strokeW": 0,
+        "radius": 16
+      }
+    },
+    {
+      "id": "t3",
+      "type": "text",
+      "label": "뒤로_라벨",
+      "rect": [
+        85,
+        104,
+        22,
+        53
+      ],
+      "center": [
+        96,
+        130
+      ],
+      "rectApprox": true,
+      "z": 3,
+      "space": "auto",
+      "pin": "none",
+      "text": "‹",
+      "at": [
+        96,
+        130
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "",
+        "strokeW": 0,
+        "fontSize": 44,
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "t1",
+      "type": "text",
+      "label": "제목",
+      "rect": [
+        240,
+        94,
+        240,
+        72
+      ],
+      "center": [
+        360,
+        130
+      ],
+      "rectApprox": true,
+      "z": 6,
+      "space": "auto",
+      "pin": "none",
+      "text": "스테이지",
+      "at": [
+        360,
+        130
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "",
+        "strokeW": 6,
+        "fontSize": 60,
+        "color": "#ffffff",
+        "align": "center"
+      }
+    }
+  ],
+  "refs": [],
+  "label": "스테이지 선택",
+  "groups": [
+    {
+      "id": "g_stage",
+      "label": "스테이지"
+    }
+  ],
+  "rev": "7e7930d5"
+}

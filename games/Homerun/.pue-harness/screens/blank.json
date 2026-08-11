@@ -1,0 +1,770 @@
+{
+  "domain": "ui",
+  "unit": "blank",
+  "frame": {
+    "w": 1080,
+    "h": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_2",
+      "type": "image",
+      "label": "하늘",
+      "rect": [
+        -495,
+        -98,
+        2411,
+        2411
+      ],
+      "center": [
+        710,
+        1107
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_ChatGPT_Image_2026__7__30_____06_01_54",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        89,
+        193,
+        296,
+        1024
+      ],
+      "center": [
+        237,
+        705
+      ],
+      "z": 2,
+      "space": "auto",
+      "pin": "none",
+      "angle": -30,
+      "asset": "up_Homerun_BG_Loby_01-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy5",
+      "type": "image",
+      "label": "축포",
+      "rect": [
+        1411,
+        23,
+        296,
+        1024
+      ],
+      "center": [
+        1559,
+        535
+      ],
+      "z": 3,
+      "space": "auto",
+      "pin": "none",
+      "angle": 15,
+      "asset": "up_Homerun_BG_Loby_01-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy2",
+      "type": "image",
+      "label": "축포",
+      "rect": [
+        346,
+        178,
+        264,
+        988
+      ],
+      "center": [
+        478,
+        672
+      ],
+      "z": 4,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_BG_Loby_01-2_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy3",
+      "type": "image",
+      "label": "축포",
+      "rect": [
+        1173,
+        82,
+        264,
+        988
+      ],
+      "center": [
+        1305,
+        576
+      ],
+      "z": 5,
+      "space": "auto",
+      "pin": "none",
+      "angle": -15,
+      "asset": "up_Homerun_BG_Loby_01-2_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy",
+      "type": "image",
+      "label": "축포",
+      "rect": [
+        243,
+        241,
+        251,
+        887
+      ],
+      "center": [
+        368,
+        684
+      ],
+      "z": 6,
+      "space": "auto",
+      "pin": "none",
+      "angle": -15,
+      "asset": "up_Homerun_BG_Loby_01-3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy4",
+      "type": "image",
+      "label": "축포",
+      "rect": [
+        1317,
+        116,
+        251,
+        887
+      ],
+      "center": [
+        1442,
+        559
+      ],
+      "z": 7,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_BG_Loby_01-3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4_copy2",
+      "type": "image",
+      "label": "비행선",
+      "rect": [
+        561,
+        184,
+        187,
+        113
+      ],
+      "center": [
+        654,
+        240
+      ],
+      "z": 8,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_BG_Loby_01-8_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4_copy",
+      "type": "image",
+      "label": "비행선",
+      "rect": [
+        -97,
+        111,
+        244,
+        169
+      ],
+      "center": [
+        25,
+        195
+      ],
+      "z": 9,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_BG_Loby_01-7",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4",
+      "type": "image",
+      "label": "비행선",
+      "rect": [
+        898,
+        14,
+        152,
+        224
+      ],
+      "center": [
+        974,
+        126
+      ],
+      "z": 10,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_BG_Loby_01-5",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_1",
+      "type": "image",
+      "label": "야구장",
+      "rect": [
+        -495,
+        -5,
+        2411,
+        2411
+      ],
+      "center": [
+        710,
+        1200
+      ],
+      "z": 11,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_BG_Loby_01",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_5",
+      "type": "polygon",
+      "label": "다각형",
+      "rect": [
+        616,
+        526,
+        555,
+        464
+      ],
+      "center": [
+        893,
+        758
+      ],
+      "z": 12,
+      "space": "auto",
+      "pin": "none",
+      "points": [
+        [
+          1167,
+          526
+        ],
+        [
+          1170,
+          942
+        ],
+        [
+          764,
+          979
+        ],
+        [
+          616,
+          990
+        ],
+        [
+          617,
+          621
+        ]
+      ],
+      "closed": false,
+      "style": {
+        "fill": "#5b8cff",
+        "fillAlpha": 1,
+        "stroke": "#ffffff",
+        "strokeW": 0
+      }
+    },
+    {
+      "id": "layer_6",
+      "type": "image",
+      "label": "클럽 팝업",
+      "rect": [
+        180,
+        286,
+        695,
+        925
+      ],
+      "center": [
+        527,
+        748
+      ],
+      "z": 13,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Card_01_v5",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy",
+      "type": "image",
+      "label": "클럽 팝업 복사",
+      "rect": [
+        400,
+        186,
+        280,
+        197
+      ],
+      "center": [
+        540,
+        284
+      ],
+      "z": 14,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Card_01-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_8_copy2",
+      "type": "text",
+      "label": "보상 : 복사",
+      "rect": [
+        418,
+        727,
+        108,
+        43
+      ],
+      "center": [
+        472,
+        748
+      ],
+      "rectApprox": true,
+      "z": 15,
+      "space": "auto",
+      "pin": "none",
+      "text": "접속중",
+      "at": [
+        418,
+        748
+      ],
+      "anchorX": "left",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 36,
+        "fontFamily": "Jua",
+        "color": "#281f1f",
+        "align": "left"
+      }
+    },
+    {
+      "id": "layer_8_copy4",
+      "type": "text",
+      "label": "보상 : 복사",
+      "rect": [
+        634,
+        718,
+        75,
+        60
+      ],
+      "center": [
+        671,
+        748
+      ],
+      "rectApprox": true,
+      "z": 16,
+      "space": "auto",
+      "pin": "none",
+      "text": "879",
+      "at": [
+        671,
+        748
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 50,
+        "fontFamily": "Lilita One",
+        "color": "#281f1f",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_8_copy7",
+      "type": "text",
+      "label": "보상 : 복사",
+      "rect": [
+        420,
+        406,
+        240,
+        72
+      ],
+      "center": [
+        540,
+        442
+      ],
+      "rectApprox": true,
+      "z": 17,
+      "space": "auto",
+      "pin": "none",
+      "text": "클럽리그",
+      "at": [
+        540,
+        442
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 60,
+        "fontFamily": "Bagel Fat One",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_8_copy5",
+      "type": "text",
+      "label": "보상 : 복사",
+      "rect": [
+        607,
+        840,
+        125,
+        60
+      ],
+      "center": [
+        669,
+        870
+      ],
+      "rectApprox": true,
+      "z": 18,
+      "space": "auto",
+      "pin": "none",
+      "text": "2,500",
+      "at": [
+        669,
+        870
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 50,
+        "fontFamily": "Lilita One",
+        "color": "#281f1f",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_8_copy",
+      "type": "text",
+      "label": "보상 : 복사",
+      "rect": [
+        607,
+        968,
+        125,
+        60
+      ],
+      "center": [
+        669,
+        998
+      ],
+      "rectApprox": true,
+      "z": 19,
+      "space": "auto",
+      "pin": "none",
+      "text": "2,500",
+      "at": [
+        669,
+        998
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 50,
+        "fontFamily": "Lilita One",
+        "color": "#281f1f",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_8_copy3",
+      "type": "text",
+      "label": "보상 : 복사",
+      "rect": [
+        418,
+        849,
+        108,
+        43
+      ],
+      "center": [
+        472,
+        870
+      ],
+      "rectApprox": true,
+      "z": 20,
+      "space": "auto",
+      "pin": "none",
+      "text": "입장료",
+      "at": [
+        418,
+        870
+      ],
+      "anchorX": "left",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 36,
+        "fontFamily": "Jua",
+        "color": "#281f1f",
+        "align": "left"
+      }
+    },
+    {
+      "id": "layer_8_copy6",
+      "type": "text",
+      "label": "보상 : 복사",
+      "rect": [
+        418,
+        977,
+        72,
+        43
+      ],
+      "center": [
+        454,
+        998
+      ],
+      "rectApprox": true,
+      "z": 21,
+      "space": "auto",
+      "pin": "none",
+      "text": "보상",
+      "at": [
+        418,
+        998
+      ],
+      "anchorX": "left",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 36,
+        "fontFamily": "Jua",
+        "color": "#281f1f",
+        "align": "left"
+      }
+    },
+    {
+      "id": "layer_7",
+      "type": "spriteDocClip",
+      "label": "캐릭터: 여성캐릭터 아이들",
+      "rect": [
+        522,
+        1732,
+        647,
+        1166
+      ],
+      "center": [
+        845,
+        2315
+      ],
+      "z": 22,
+      "space": "auto",
+      "pin": "none",
+      "note": "저작된 스프라이트 애니메이션 클립 — 게임이 자체 재생 구현"
+    },
+    {
+      "id": "layer_8",
+      "type": "spriteDocClip",
+      "label": "캐릭터: 남성 아이들 동작",
+      "rect": [
+        -23,
+        1654,
+        667,
+        1232
+      ],
+      "center": [
+        310,
+        2270
+      ],
+      "z": 23,
+      "space": "auto",
+      "pin": "none",
+      "note": "저작된 스프라이트 애니메이션 클립 — 게임이 자체 재생 구현"
+    },
+    {
+      "id": "layer_9",
+      "type": "image",
+      "label": "좌이동",
+      "rect": [
+        23,
+        648,
+        120,
+        145
+      ],
+      "center": [
+        83,
+        720
+      ],
+      "z": 24,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_21-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_9_copy",
+      "type": "image",
+      "label": "우이동",
+      "rect": [
+        942,
+        649,
+        120,
+        143
+      ],
+      "center": [
+        1002,
+        720
+      ],
+      "z": 25,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_21-2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_10",
+      "type": "image",
+      "label": "start버튼",
+      "rect": [
+        686,
+        1980,
+        341,
+        138
+      ],
+      "center": [
+        856,
+        2049
+      ],
+      "z": 26,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_21-3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_11",
+      "type": "text",
+      "label": "Play Ball",
+      "rect": [
+        767,
+        2025,
+        180,
+        48
+      ],
+      "center": [
+        857,
+        2049
+      ],
+      "rectApprox": true,
+      "z": 27,
+      "space": "auto",
+      "pin": "none",
+      "text": "Play Ball",
+      "at": [
+        857,
+        2049
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 1,
+        "fontSize": 40,
+        "fontFamily": "Russo One",
+        "color": "#ffffff",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    }
+  ],
+  "refs": [
+    "asset:up_Card_01-1",
+    "asset:up_Card_01_v5",
+    "asset:up_ChatGPT_Image_2026__7__30_____06_01_54",
+    "asset:up_Homerun_BG_Loby_01",
+    "asset:up_Homerun_BG_Loby_01-1",
+    "asset:up_Homerun_BG_Loby_01-2_v2",
+    "asset:up_Homerun_BG_Loby_01-3",
+    "asset:up_Homerun_BG_Loby_01-5",
+    "asset:up_Homerun_BG_Loby_01-7",
+    "asset:up_Homerun_BG_Loby_01-8_v2",
+    "asset:up_Solitare_UI_21-1",
+    "asset:up_Solitare_UI_21-2",
+    "asset:up_Solitare_UI_21-3",
+    "sprite:ui/sprites/char_mqd873pc49d0/char_mqd873pc49d0_sprite_mse0ees2qvji.json",
+    "sprite:ui/sprites/char_ms7u2y78weud/char_ms7u2y78weud_1_ms7wos3iqb0y.json",
+    "sprite:ui/sprites/char_msaqg3r12hla/char_msaqg3r12hla_1_msaqlpkilf4y.json"
+  ],
+  "label": "로비",
+  "hints": {
+    "interactiveCandidates": [
+      {
+        "id": "layer_10",
+        "label": "start버튼",
+        "confidence": 0.95,
+        "suggestedAction": "play",
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Solitare_UI_21-3)",
+          "이름에 버튼/구매 표현 (\"start버튼\")",
+          "인접 캡션 텍스트 \"Play Ball\" (layer_11)",
+          "이름에서 동작 추정 → \"play\""
+        ]
+      }
+    ],
+    "note": "추정입니다 — 저작된 값이 아닙니다. 확정이 필요하면 에디터에서 「버튼」과 역할(action:이름)을 지정하세요. 구현 시에는 이 후보를 근거로 삼되, 코드에 TODO 로 남겨 사람이 확인할 수 있게 하세요."
+  },
+  "rev": "ae6a3242"
+}

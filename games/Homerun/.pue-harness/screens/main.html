@@ -1,0 +1,66 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>main — 하네스 미리보기</title>
+<!--
+  이 파일은 생성물이며 **보조 뷰**입니다. 수치의 진실은 같은 폴더의 main.json 입니다.
+  화면은 실제로 Phaser 캔버스로 그려지므로, 여기서는 9-slice·마스크·스프라이트 애니·곡선 텍스트가
+  재현되지 않습니다. 배치·크기·색·글꼴을 눈으로 확인하는 용도로만 쓰세요.
+  rev: 58dbea5c
+-->
+<style>
+  body { margin:0; background:#20242c; color:#cfd6e4; font-family:system-ui,sans-serif; }
+  .wrap { padding:16px; }
+  .meta { font-size:13px; margin-bottom:10px; line-height:1.6; }
+  .meta b { color:#fff; }
+  .stage { position:relative; width:1080px; height:2400px; overflow:hidden;
+           background:#11141a; outline:1px solid #3a4150; transform-origin:top left; }
+  .n { position:absolute; }
+  .ph { background:repeating-linear-gradient(45deg,#2a3140,#2a3140 6px,#333b4c 6px,#333b4c 12px);
+        border:1px dashed #5a6478; color:#8fa0bb; font-size:11px; display:flex;
+        align-items:center; justify-content:center; text-align:center; overflow:hidden; }
+  .sh { border:1px dashed #6f7a8f; color:#93a2b8; font-size:11px; display:flex;
+        align-items:center; justify-content:center; }
+  /* 노드 경계 보기 — 주소창에 #outline 붙이면 켜집니다. */
+  :target ~ .wrap .n, body.outline .n { outline:1px solid rgba(120,200,255,.5); }
+</style>
+<div class="wrap">
+  <div class="meta">
+    <b>main</b> — 메인 화면 ·
+    1080×2400 · 노드 30개 · rev <code>58dbea5c</code><br>
+    ⚠ <b>보조 뷰입니다.</b> 정확한 수치는 <code>main.json</code> 을 보세요.
+    실제 렌더는 Phaser 캔버스이므로 일부 효과는 여기서 재현되지 않습니다.
+    <br>· 경로를 모르는 에셋 14개는 빗금 상자로 표시됩니다.
+  </div>
+  <div class="stage">
+    <div class="n ph" data-id="layer_3" style="position:absolute;left:-667px;top:-7px;width:2415px;height:2415px;z-index:1;" title="배경 · layer_3">up_Homerun_BG_06_v3</div>
+    <div class="n sh" data-id="layer_5" style="position:absolute;left:327px;top:549px;width:441px;height:311px;z-index:3;" title="전광판 이펙트 · layer_5">polygon</div>
+    <div class="n ph" data-id="layer_1_copy7" style="position:absolute;left:872px;top:2099px;width:147px;height:195px;z-index:4;" title="메뉴_우하 · layer_1_copy7">up_Homerun_UI_10_v2</div>
+    <div class="n ph" data-id="layer_1_copy" style="position:absolute;left:877px;top:2253px;width:39px;height:40px;z-index:5;" title="메뉴_우하 복사 · layer_1_copy">up_Homerun_UI_10-1</div>
+    <div class="n ph" data-id="layer_1_copy6" style="position:absolute;left:431px;top:2180px;width:361px;height:114px;z-index:6;" title="메뉴_아이템_중앙하단 · layer_1_copy6">up_Homerun_UI_09_v3</div>
+    <div class="n t" data-id="layer_2_copy10" style="position:absolute;left:456px;top:2192px;width:169px;z-index:7;font-size:30px;font-family:'Luckiest Guy',sans-serif;color:#ffffff;text-align:left;line-height:1.2;white-space:pre-wrap;" title="메뉴_아이템_중앙하단_네임 · layer_2_copy10">HIT 5 HOMRUNS</div>
+    <div class="n ph" data-id="layer_1_copy5" style="position:absolute;left:43px;top:2179px;width:323px;height:114px;z-index:8;" title="메뉴_시즌패스_좌하단 · layer_1_copy5">up_Homerun_UI_08_v2</div>
+    <div class="n" data-id="layer_11" style="position:absolute;left:96px;top:2228px;width:130px;height:31px;z-index:9;background:#2954ff;opacity:1;border-radius:6px;" title="사각형 · layer_11"></div>
+    <div class="n ph" data-id="layer_9" style="position:absolute;left:54px;top:2189px;width:91px;height:89px;z-index:10;" title="새 레이어 · layer_9">up_Homerun_UI_08-1</div>
+    <div class="n t" data-id="layer_2_copy9" style="position:absolute;left:144px;top:2191px;width:133px;z-index:11;font-size:30px;font-family:'Luckiest Guy',sans-serif;color:#ffea00;text-align:left;line-height:1.2;white-space:pre-wrap;" title="메뉴_시즌패스_네임 · layer_2_copy9">SEASON PASS</div>
+    <div class="n ph" data-id="layer_1" style="position:absolute;left:25px;top:90px;width:1024px;height:199px;z-index:12;" title="새 레이어 · layer_1">up_Homerun_UI_00</div>
+    <div class="n ph" data-id="layer_7" style="position:absolute;left:-438px;top:1185px;width:99px;height:126px;z-index:13;" title="수비수 · layer_7">up_Ch-3-04</div>
+    <div class="n ph" data-id="layer_7_copy" style="position:absolute;left:1249px;top:1183px;width:99px;height:130px;z-index:14;" title="수비수 복사 · layer_7_copy">up_Ch-3-02</div>
+    <div class="n ph" data-id="layer_7_copy2" style="position:absolute;left:597px;top:1146px;width:69px;height:93px;z-index:15;" title="수비수 복사 · layer_7_copy2">up_Ch-3-03</div>
+    <div class="n ph" data-id="layer_7_copy3" style="position:absolute;left:149px;top:1154px;width:74px;height:93px;z-index:16;" title="수비수 복사 · layer_7_copy3">up_Ch-3-01</div>
+    <div class="n ph" data-id="layer_7_copy4" style="position:absolute;left:919px;top:1157px;width:35px;height:47px;z-index:17;" title="수비수 복사 · layer_7_copy4">up_Ch-3-05</div>
+    <div class="n ph" data-id="layer_7_copy5" style="position:absolute;left:288px;top:1157px;width:29px;height:38px;z-index:18;" title="수비수 복사 · layer_7_copy5">up_Ch-3-08</div>
+    <div class="n t" data-id="layer_2_copy3" style="position:absolute;left:795px;top:160px;width:100px;z-index:19;font-size:40px;font-family:'Luckiest Guy',sans-serif;color:#ffd500;text-align:center;-webkit-text-stroke:2px #5a3210;line-height:1.2;white-space:pre-wrap;" title="헤더_우_점수 · layer_2_copy3">1,620</div>
+    <div class="n t" data-id="layer_2_copy" style="position:absolute;left:764px;top:125px;width:135px;z-index:20;font-size:30px;font-family:'Luckiest Guy',sans-serif;color:#ffffff;text-align:right;-webkit-text-stroke:1px #5a3210;line-height:1.2;white-space:pre-wrap;" title="헤더_우_네임 · layer_2_copy">SLUGGER89</div>
+    <div class="n t" data-id="layer_2_copy4" style="position:absolute;left:481px;top:205px;width:118px;z-index:21;font-size:40px;font-family:'Luckiest Guy',sans-serif;color:#ffffff;text-align:center;-webkit-text-stroke:1px #5a3210;line-height:1.2;white-space:pre-wrap;" title="헤더_중앙_시간 · layer_2_copy4">2R</div>
+    <div class="n t" data-id="layer_2_copy5" style="position:absolute;left:435px;top:162px;width:211px;z-index:22;font-size:46px;font-family:'Luckiest Guy',sans-serif;color:#ffd500;text-align:center;-webkit-text-stroke:1px #5a3210;line-height:1.2;white-space:pre-wrap;" title="헤더_중앙_네임 · layer_2_copy5">ROUND</div>
+    <div class="n t" data-id="layer_2_copy2" style="position:absolute;left:174px;top:160px;width:100px;z-index:23;font-size:40px;font-family:'Luckiest Guy',sans-serif;color:#ffd500;text-align:center;-webkit-text-stroke:2px #5a3210;line-height:1.2;white-space:pre-wrap;" title="헤더_좌_점수 · layer_2_copy2">1,835</div>
+    <div class="n t" data-id="layer_2" style="position:absolute;left:178px;top:128px;width:120px;z-index:24;font-size:30px;font-family:'Luckiest Guy',sans-serif;color:#ffffff;text-align:left;-webkit-text-stroke:1px #5a3210;line-height:1.2;white-space:pre-wrap;" title="헤더_좌_네임 · layer_2">ROOKIE27</div>
+    <div class="n ph" data-id="layer_6" style="position:absolute;left:419px;top:1174px;width:242px;height:224px;z-index:26;" title="캐릭터: 투수1 · layer_6">spriteDocClip</div>
+    <div class="n t" data-id="layer_9_copy2" style="position:absolute;left:29px;top:285px;width:280px;z-index:27;font-size:40px;font-family:'Russo One',sans-serif;color:#ffffff;text-align:left;font-style:italic;line-height:1.2;white-space:pre-wrap;" title="1R Homerun 125 복사 · layer_9_copy2">2R Homerun 110</div>
+    <div class="n t" data-id="layer_9_copy" style="position:absolute;left:757px;top:285px;width:280px;z-index:28;font-size:40px;font-family:'Russo One',sans-serif;color:#ffffff;text-align:right;font-style:italic;line-height:1.2;white-space:pre-wrap;" title="1R Homerun 125 복사 · layer_9_copy">2R Homerun 110</div>
+    <div class="n" data-id="layer_10" style="position:absolute;left:54px;top:116px;width:98px;height:128px;z-index:29;background:#5b8cff;opacity:1;border-radius:16px;" title="프로필 좌 · layer_10"></div>
+    <div class="n" data-id="layer_10_copy" style="position:absolute;left:920px;top:116px;width:98px;height:128px;z-index:30;background:#5b8cff;opacity:1;border-radius:16px;" title="프로필 우 · layer_10_copy"></div>
+    <div class="n ph" data-id="layer_12" style="position:absolute;left:485px;top:37px;width:110px;height:119px;z-index:31;" title="홈버튼 · layer_12">up_Homerun_UI_11</div>
+    <div class="n ph" data-id="layer_4" style="position:absolute;left:-185px;top:1574px;width:814px;height:814px;z-index:32;" title="캐릭터: 타자1 · layer_4">spriteDocClip</div>
+  </div>
+</div>

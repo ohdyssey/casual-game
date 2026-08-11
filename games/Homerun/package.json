@@ -7,9 +7,12 @@
   "scripts": {
     "dev": "npx vite",
     "build": "vite build",
-    "preview": "vite preview --port 4197"
+    "preview": "vite preview --port 4197",
+    "fonts": "node ../../scripts/fonts-build.mjs .",
+    "build:toss": "node ../../scripts/fonts-check.mjs . && vite build && node ../../scripts/build-toss.mjs dist"
   },
   "dependencies": {
+    "@apps-in-toss/web-framework": "^2.10.8",
     "@casual/core": "*",
     "phaser": "3.90.0"
   },

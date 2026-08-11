@@ -9,27 +9,81 @@
     <meta name="theme-color" content="#1E88E5" />
     <title>홈런팝</title>
     <style>
-      /* Jua/Do Hyeon — OFL 한글+라틴 둥근 게임체. P0 에선 CDN 로드(P1 셀프호스팅 전환). */
-      @import url('https://fonts.googleapis.com/css2?family=Jua&family=Do+Hyeon&display=block');
+      /* 폰트는 **로컬 자체 호스팅**이다 — src/fonts/fonts.css(scripts/fonts-build.mjs 생성)를
+         src/main.ts 가 import 한다. 여기(index.html)에서 @import 하지 않는 이유는 두 가지다:
+           · public/ 의 CSS 는 Vite 가 처리하지 않아 빌드에서 해석에 실패한다(실측)
+           · TS 에서 import 하면 Vite 가 woff2 URL 을 base 에 맞춰 재작성해 준다
+         예전엔 Google Fonts CDN 을 @import 했는데 계속 깨졌다: 에디터가 쓰는 7종 중 4종이 목록에
+         없어 34곳 중 20곳이 시스템 폰트로 폴백됐고, 웹뷰에서 CDN 이 늦으면 Phaser 캔버스가 이미
+         폴백으로 그린 글자를 되돌리지 못해 "일부 텍스트만 다른 폰트로 굳는" 증상이 남았다. */
+      /* 세이프에어리어 인셋(노치·다이나믹 아일랜드·홈바) — JS 는 env() 를 직접 못 읽으므로
+         :root 커스텀 프로퍼티로 노출(main.ts 의 readSafeArea() 가 getComputedStyle 로 읽는다).
+         풀블리드 캔버스(아래 #game-container 는 상단 패딩 없음)라 헤더/라운드표시 UI 를 PlayScene 이
+         이 값만큼 코드로 내려 배치한다(사용자 요청: "홈버튼이 아일랜드 독에 가릴 경우"). */
+      :root {
+        --sat: env(safe-area-inset-top, 0px);
+        --sab: env(safe-area-inset-bottom, 0px);
+        --sal: env(safe-area-inset-left, 0px);
+        --sar: env(safe-area-inset-right, 0px);
+      }
       html, body {
         margin: 0; padding: 0;
         background: #000;
         color: #FFF6D8;
         font-family: 'Jua', system-ui, sans-serif;
         overflow: hidden;
-        width: 100vw; height: 100dvh;
+        width: 100vw;
+        height: 100vh; /* 폴백 — 아래 dvh 미지원 웹뷰용 */
+        height: 100dvh;
         touch-action: none; user-select: none;
         -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
         overscroll-behavior: none;
       }
       #game-container { background: #000;
         position: fixed; inset: 0;
-        width: 100vw; height: 100dvh;
+        width: 100vw;
+        height: 100vh; /* 폴백 — 아래 dvh 미지원 웹뷰용 */
+        height: 100dvh;
         overflow: hidden;
         padding: 0 env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
         box-sizing: border-box;
       }
       #game-container canvas { display: block; }
+      /* 하단 배너 광고 컨테이너 — 토스 SDK(TossAds.attachBanner)가 이 안에 직접 렌더링한다
+         (src/ads.ts 참조). width 는 항상 100%, 광고 콘텐츠 높이는 고정형 권장값 96px.
+         ⚠️ 예전엔 bottom: env(safe-area-inset-bottom) 으로 홈바 "위에" 띄웠는데, 그러면 배너 아래
+         홈바 높이(아이폰 ~34pt)만큼 검은 띠가 남아 배너가 공중에 뜬 것처럼 보였다(사용자 보고:
+         아이폰에서 "배너가 위로 뜨고 ... 하단에 여백"). 바닥까지 내리고 그 인셋을 안쪽 패딩으로
+         돌려, 흰 배경은 화면 끝까지 이어지되 광고 콘텐츠(96px)는 홈바에 안 겹치게 한다. */
+      #ad-banner-container {
+        position: fixed; left: 0; right: 0;
+        bottom: 0;
+        width: 100%;
+        height: calc(96px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        box-sizing: border-box;
+        background: #ffffff;
+        z-index: 20;
+      }
+      /* 광고 제거(NO ADS) 인앱결제 버튼 — 배너와 겹치지 않게 우측 상단쪽에 배치(사용자 요청:
+         "오른쪽으로 옮기고 위치는 상단으로 조금 더 올려주세요" — 왼쪽·60px 여유였던 이전 배치를
+         오른쪽·90px 여유로 조정).
+         이미지 자체가 버튼(Homerun_UI_13, 302×301 정사각) — 배경 없이 이미지만 표시.
+         ⚠️ --no-ads-bottom-clearance 는 PlayScene 하단 UI(시즌패스 바) 실측 높이의 근사치다 —
+         이 버튼은 순수 DOM 이라 Phaser 게임좌표를 직접 못 읽어 고정값으로 어림한다. 실기기에서
+         아이콘 줄과 안 맞으면 이 값만 조정하면 된다. */
+      #no-ads-btn {
+        position: fixed;
+        right: 10px;
+        --no-ads-bottom-clearance: 130px;
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 96px + var(--no-ads-bottom-clearance));
+        width: 64px; height: 64px;
+        padding: 0; border: 0; background: transparent;
+        z-index: 21;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #no-ads-btn img { width: 100%; height: 100%; display: block; }
+      #no-ads-btn[hidden] { display: none; }
       .loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); opacity: 0.7; }
       .rotate-hint { display: none; }
       @media (orientation: landscape) and (max-width: 1000px) {
@@ -44,6 +98,10 @@
   </head>
   <body>
     <div id="game-container"><div class="loading">홈런팝 로딩 중...</div></div>
+    <div id="ad-banner-container"></div>
+    <button id="no-ads-btn" type="button" hidden aria-label="광고 제거">
+      <img src="/ui/uploads/up_Homerun_UI_13.png" alt="" />
+    </button>
     <div class="rotate-hint"><div style="font-size:48px">📱↻</div><strong>세로로 돌려주세요</strong></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

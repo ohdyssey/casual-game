@@ -59,13 +59,26 @@ const JUDGEMENT_POWER: Record<SwingJudgement, number> = {
 
 /**
  * 정확도(터치 위치) 등급 경계 — 붉은 존 중심 정확도(0~1)가 타구 등급/비거리를 결정.
- * 정중앙에 가까울수록(1) 더 긴 타구 = 홈런.
- * 홈런은 정중앙 부근만(난이도 ↑) — 그 밖은 안타(직선타/뜬공/내야땅볼)·파울로 분산.
+ * 0.85→0.90(홈런 비율↓ 요청)을 거쳐, "모바일 난이도가 높고 홈런 비율도 낮다"는 요청으로
+ * 0.90→0.78 로 크게 낮췄다 — 이 값이 **모바일 기준값**(현재 수준 유지)이다. hit 경계(0.3)는
+ * 그대로라 [0.78,1.0) 구간이 전부 homerun 으로 넓어져 홈런이 눈에 띄게 자주 나온다.
+ * PC 는 이보다 살짝 어렵게 별도 오버라이드한다 — setAccuracyTiers() 참조(PlayScene 이 부팅 시 1회 호출).
  */
 export const ACCURACY_TIERS = {
-  homerun: 0.72,
-  hit: 0.32,
+  homerun: 0.78,
+  hit: 0.3,
 } as const;
+
+/** resolveAccuracySwing 이 실제로 참조하는 티어 — 기본은 ACCURACY_TIERS(모바일), setAccuracyTiers 로 교체 가능. */
+let activeAccuracyTiers: { homerun: number; hit: number } = ACCURACY_TIERS;
+
+/**
+ * 플랫폼별 정확도 티어 오버라이드 — 모바일/PC 차등 난이도용(사용자 요청: "모바일은 현재 수준
+ * 유지, PC는 약간 어렵게"). ACCURACY_TIERS(모바일 기본값)는 건드리지 않고 내부 참조만 바꾼다.
+ */
+export function setAccuracyTiers(tiers: { homerun: number; hit: number }): void {
+  activeAccuracyTiers = tiers;
+}
 
 /**
  * 스윙 1회를 최종 결과로 해석 (타이밍 기반 보조 경로).
@@ -94,7 +107,8 @@ export function resolveSwing(progress: number): SwingOutcome {
 export function resolveAccuracySwing(accuracy: number, progress: number, lateral = 0): SwingOutcome {
   const acc = Number.isFinite(accuracy) ? clamp(accuracy, 0, 1) : 0;
   const lat = Number.isFinite(lateral) ? clamp(lateral, -1, 1) : 0;
-  const result: PitchResult = acc >= ACCURACY_TIERS.homerun ? 'homerun' : acc >= ACCURACY_TIERS.hit ? 'hit' : 'foul';
+  const result: PitchResult =
+    acc >= activeAccuracyTiers.homerun ? 'homerun' : acc >= activeAccuracyTiers.hit ? 'hit' : 'foul';
   const judgement: SwingJudgement = result === 'homerun' ? 'perfect' : result === 'hit' ? 'good' : 'foul';
   return {
     judgement,

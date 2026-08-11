@@ -1,0 +1,58 @@
+/* 자동 생성 — scripts/fonts-build.mjs. 직접 수정하지 마세요.
+ * 에디터 레이아웃이 쓰는 폰트만 서브셋해 로컬에서 서빙합니다(외부 CDN 의존 제거). */
+
+@font-face {
+  font-family: 'Noto Sans KR';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./noto-sans-kr.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Luckiest Guy';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./luckiest-guy.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Nanum Gothic';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./nanum-gothic.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Jua';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./jua.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Lilita One';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./lilita-one.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Russo One';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./russo-one.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Bagel Fat One';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./bagel-fat-one.woff2') format('woff2');
+}

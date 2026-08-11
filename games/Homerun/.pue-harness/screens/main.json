@@ -1,0 +1,952 @@
+{
+  "domain": "ui",
+  "unit": "main",
+  "frame": {
+    "w": 1080,
+    "h": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_3",
+      "type": "image",
+      "label": "배경",
+      "rect": [
+        -667,
+        -7,
+        2415,
+        2415
+      ],
+      "center": [
+        540,
+        1200
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_BG_06_v3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_8",
+      "type": "zone",
+      "label": "영역 설정",
+      "center": [
+        540,
+        1793
+      ],
+      "note": "크기 미지정",
+      "z": 2,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#a76bff",
+        "fillAlpha": 0.18,
+        "stroke": "#a76bff",
+        "strokeW": 2
+      }
+    },
+    {
+      "id": "layer_5",
+      "type": "polygon",
+      "label": "전광판 이펙트",
+      "rect": [
+        327,
+        549,
+        441,
+        311
+      ],
+      "center": [
+        548,
+        705
+      ],
+      "z": 3,
+      "space": "auto",
+      "pin": "none",
+      "points": [
+        [
+          769,
+          552
+        ],
+        [
+          762,
+          861
+        ],
+        [
+          332,
+          858
+        ],
+        [
+          329,
+          761
+        ],
+        [
+          327,
+          549
+        ]
+      ],
+      "closed": false,
+      "style": {
+        "fill": "#00152e",
+        "fillAlpha": 1,
+        "stroke": "#ffffff",
+        "strokeW": 0
+      }
+    },
+    {
+      "id": "layer_1_copy7",
+      "type": "image",
+      "label": "메뉴_우하",
+      "rect": [
+        872,
+        2099,
+        147,
+        195
+      ],
+      "center": [
+        945,
+        2196
+      ],
+      "z": 4,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_UI_10_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_1_copy",
+      "type": "image",
+      "label": "메뉴_우하 복사",
+      "rect": [
+        877,
+        2253,
+        39,
+        40
+      ],
+      "center": [
+        896,
+        2273
+      ],
+      "z": 5,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_UI_10-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_1_copy6",
+      "type": "image",
+      "label": "메뉴_아이템_중앙하단",
+      "rect": [
+        431,
+        2180,
+        361,
+        114
+      ],
+      "center": [
+        611,
+        2237
+      ],
+      "z": 6,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_UI_09_v3",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy10",
+      "type": "text",
+      "label": "메뉴_아이템_중앙하단_네임",
+      "rect": [
+        456,
+        2192,
+        169,
+        31
+      ],
+      "center": [
+        540,
+        2207
+      ],
+      "z": 7,
+      "space": "auto",
+      "pin": "none",
+      "text": "HIT 5 HOMRUNS",
+      "at": [
+        540,
+        2207
+      ],
+      "anchorX": "center(box)",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 30,
+        "fontFamily": "Luckiest Guy",
+        "color": "#ffffff",
+        "align": "left",
+        "wrapW": 169,
+        "wrapH": 31
+      }
+    },
+    {
+      "id": "layer_1_copy5",
+      "type": "image",
+      "label": "메뉴_시즌패스_좌하단",
+      "rect": [
+        43,
+        2179,
+        323,
+        114
+      ],
+      "center": [
+        204,
+        2236
+      ],
+      "z": 8,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_UI_08_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_11",
+      "type": "rect",
+      "label": "사각형",
+      "rect": [
+        96,
+        2228,
+        130,
+        31
+      ],
+      "center": [
+        161,
+        2243
+      ],
+      "z": 9,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#2954ff",
+        "fillAlpha": 1,
+        "stroke": "#ffffff",
+        "strokeW": 0,
+        "radius": 6
+      }
+    },
+    {
+      "id": "layer_9",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        54,
+        2189,
+        91,
+        89
+      ],
+      "center": [
+        99,
+        2233
+      ],
+      "z": 10,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_UI_08-1",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy9",
+      "type": "text",
+      "label": "메뉴_시즌패스_네임",
+      "rect": [
+        144,
+        2191,
+        133,
+        28
+      ],
+      "center": [
+        210,
+        2205
+      ],
+      "z": 11,
+      "space": "auto",
+      "pin": "none",
+      "text": "SEASON PASS",
+      "at": [
+        210,
+        2205
+      ],
+      "anchorX": "center(box)",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 30,
+        "fontFamily": "Luckiest Guy",
+        "color": "#ffea00",
+        "align": "left",
+        "wrapW": 133,
+        "wrapH": 28
+      }
+    },
+    {
+      "id": "layer_1",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        25,
+        90,
+        1024,
+        199
+      ],
+      "center": [
+        537,
+        189
+      ],
+      "z": 12,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_UI_00",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7",
+      "type": "image",
+      "label": "수비수",
+      "rect": [
+        -438,
+        1185,
+        99,
+        126
+      ],
+      "center": [
+        -389,
+        1248
+      ],
+      "z": 13,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Ch-3-04",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7_copy",
+      "type": "image",
+      "label": "수비수 복사",
+      "rect": [
+        1249,
+        1183,
+        99,
+        130
+      ],
+      "center": [
+        1298,
+        1248
+      ],
+      "z": 14,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Ch-3-02",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7_copy2",
+      "type": "image",
+      "label": "수비수 복사",
+      "rect": [
+        597,
+        1146,
+        69,
+        93
+      ],
+      "center": [
+        631,
+        1192
+      ],
+      "z": 15,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Ch-3-03",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7_copy3",
+      "type": "image",
+      "label": "수비수 복사",
+      "rect": [
+        149,
+        1154,
+        74,
+        93
+      ],
+      "center": [
+        186,
+        1200
+      ],
+      "z": 16,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Ch-3-01",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7_copy4",
+      "type": "image",
+      "label": "수비수 복사",
+      "rect": [
+        919,
+        1157,
+        35,
+        47
+      ],
+      "center": [
+        936,
+        1180
+      ],
+      "z": 17,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Ch-3-05",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7_copy5",
+      "type": "image",
+      "label": "수비수 복사",
+      "rect": [
+        288,
+        1157,
+        29,
+        38
+      ],
+      "center": [
+        302,
+        1176
+      ],
+      "z": 18,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Ch-3-08",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy3",
+      "type": "text",
+      "label": "헤더_우_점수",
+      "rect": [
+        795,
+        160,
+        100,
+        48
+      ],
+      "center": [
+        845,
+        184
+      ],
+      "rectApprox": true,
+      "z": 19,
+      "space": "auto",
+      "pin": "none",
+      "text": "1,620",
+      "binding": "value",
+      "at": [
+        845,
+        184
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 3,
+        "fontSize": 40,
+        "fontFamily": "Luckiest Guy",
+        "color": "#ffd500",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_2_copy",
+      "type": "text",
+      "label": "헤더_우_네임",
+      "rect": [
+        764,
+        125,
+        135,
+        36
+      ],
+      "center": [
+        832,
+        143
+      ],
+      "rectApprox": true,
+      "z": 20,
+      "space": "auto",
+      "pin": "none",
+      "text": "SLUGGER89",
+      "binding": "name",
+      "at": [
+        899,
+        143
+      ],
+      "anchorX": "right",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 2,
+        "fontSize": 30,
+        "fontFamily": "Luckiest Guy",
+        "color": "#ffffff",
+        "align": "right"
+      }
+    },
+    {
+      "id": "layer_2_copy4",
+      "type": "text",
+      "label": "헤더_중앙_시간",
+      "rect": [
+        481,
+        205,
+        118,
+        45
+      ],
+      "center": [
+        540,
+        227
+      ],
+      "z": 21,
+      "space": "auto",
+      "pin": "none",
+      "text": "2R",
+      "binding": "time",
+      "at": [
+        540,
+        227
+      ],
+      "anchorX": "center(box)",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 2,
+        "fontSize": 40,
+        "fontFamily": "Luckiest Guy",
+        "color": "#ffffff",
+        "align": "center",
+        "wrapW": 118,
+        "wrapH": 45
+      }
+    },
+    {
+      "id": "layer_2_copy5",
+      "type": "text",
+      "label": "헤더_중앙_네임",
+      "rect": [
+        435,
+        162,
+        211,
+        55
+      ],
+      "center": [
+        540,
+        189
+      ],
+      "z": 22,
+      "space": "auto",
+      "pin": "none",
+      "text": "ROUND",
+      "at": [
+        540,
+        189
+      ],
+      "anchorX": "center(box)",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 1,
+        "fontSize": 46,
+        "fontFamily": "Luckiest Guy",
+        "color": "#ffd500",
+        "align": "center",
+        "wrapW": 211,
+        "wrapH": 55
+      }
+    },
+    {
+      "id": "layer_2_copy2",
+      "type": "text",
+      "label": "헤더_좌_점수",
+      "rect": [
+        174,
+        160,
+        100,
+        48
+      ],
+      "center": [
+        224,
+        184
+      ],
+      "rectApprox": true,
+      "z": 23,
+      "space": "auto",
+      "pin": "none",
+      "text": "1,835",
+      "binding": "value",
+      "at": [
+        224,
+        184
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 3,
+        "fontSize": 40,
+        "fontFamily": "Luckiest Guy",
+        "color": "#ffd500",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_2",
+      "type": "text",
+      "label": "헤더_좌_네임",
+      "rect": [
+        178,
+        128,
+        120,
+        36
+      ],
+      "center": [
+        238,
+        146
+      ],
+      "rectApprox": true,
+      "z": 24,
+      "space": "auto",
+      "pin": "none",
+      "text": "ROOKIE27",
+      "binding": "name",
+      "at": [
+        178,
+        146
+      ],
+      "anchorX": "left",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 2,
+        "fontSize": 30,
+        "fontFamily": "Luckiest Guy",
+        "color": "#ffffff",
+        "align": "left"
+      }
+    },
+    {
+      "id": "layer_6",
+      "type": "spriteDocClip",
+      "label": "캐릭터: 투수1",
+      "rect": [
+        419,
+        1174,
+        242,
+        224
+      ],
+      "center": [
+        540,
+        1286
+      ],
+      "z": 26,
+      "space": "auto",
+      "pin": "none",
+      "note": "저작된 스프라이트 애니메이션 클립 — 게임이 자체 재생 구현"
+    },
+    {
+      "id": "layer_9_copy2",
+      "type": "text",
+      "label": "1R Homerun 125 복사",
+      "rect": [
+        29,
+        285,
+        280,
+        48
+      ],
+      "center": [
+        169,
+        309
+      ],
+      "rectApprox": true,
+      "z": 27,
+      "space": "auto",
+      "pin": "none",
+      "text": "2R Homerun 110",
+      "at": [
+        29,
+        309
+      ],
+      "anchorX": "left",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 40,
+        "fontFamily": "Russo One",
+        "color": "#ffffff",
+        "fontStyle": "italic",
+        "align": "left",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_9_copy",
+      "type": "text",
+      "label": "1R Homerun 125 복사",
+      "rect": [
+        757,
+        285,
+        280,
+        48
+      ],
+      "center": [
+        897,
+        309
+      ],
+      "rectApprox": true,
+      "z": 28,
+      "space": "auto",
+      "pin": "none",
+      "text": "2R Homerun 110",
+      "at": [
+        1037,
+        309
+      ],
+      "anchorX": "right",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 40,
+        "fontFamily": "Russo One",
+        "color": "#ffffff",
+        "fontStyle": "italic",
+        "align": "right",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_10",
+      "type": "rect",
+      "label": "프로필 좌",
+      "rect": [
+        54,
+        116,
+        98,
+        128
+      ],
+      "center": [
+        103,
+        180
+      ],
+      "z": 29,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#5b8cff",
+        "fillAlpha": 1,
+        "stroke": "#ffffff",
+        "strokeW": 0,
+        "radius": 16
+      }
+    },
+    {
+      "id": "layer_10_copy",
+      "type": "rect",
+      "label": "프로필 우",
+      "rect": [
+        920,
+        116,
+        98,
+        128
+      ],
+      "center": [
+        969,
+        180
+      ],
+      "z": 30,
+      "space": "auto",
+      "pin": "none",
+      "style": {
+        "fill": "#5b8cff",
+        "fillAlpha": 1,
+        "stroke": "#ffffff",
+        "strokeW": 0,
+        "radius": 16
+      }
+    },
+    {
+      "id": "layer_12",
+      "type": "image",
+      "label": "홈버튼",
+      "rect": [
+        485,
+        37,
+        110,
+        119
+      ],
+      "center": [
+        540,
+        96
+      ],
+      "z": 31,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_UI_11",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_4",
+      "type": "spriteDocClip",
+      "label": "캐릭터: 타자1",
+      "rect": [
+        -185,
+        1574,
+        814,
+        814
+      ],
+      "center": [
+        222,
+        1981
+      ],
+      "z": 32,
+      "space": "auto",
+      "pin": "none",
+      "note": "저작된 스프라이트 애니메이션 클립 — 게임이 자체 재생 구현"
+    }
+  ],
+  "refs": [
+    "asset:up_Ch-3-01",
+    "asset:up_Ch-3-02",
+    "asset:up_Ch-3-03",
+    "asset:up_Ch-3-04",
+    "asset:up_Ch-3-05",
+    "asset:up_Ch-3-08",
+    "asset:up_Homerun_BG_06_v3",
+    "asset:up_Homerun_UI_00",
+    "asset:up_Homerun_UI_01-1",
+    "asset:up_Homerun_UI_03-1",
+    "asset:up_Homerun_UI_08-1",
+    "asset:up_Homerun_UI_08_v2",
+    "asset:up_Homerun_UI_09_v3",
+    "asset:up_Homerun_UI_10-1",
+    "asset:up_Homerun_UI_10_v2",
+    "asset:up_Homerun_UI_11",
+    "sprite:ui/sprites/1/1_1_msee37tytdre.json",
+    "sprite:ui/sprites/1_mqdkgdjm58z6/1_mqdkgdjm58z6_sprite_mqdm75cipkiw.json",
+    "sprite:ui/sprites/char_mqd873pc49d0/char_mqd873pc49d0_sprite_mse0ees2qvji.json"
+  ],
+  "label": "메인 화면",
+  "groups": [
+    {
+      "id": "grp_2",
+      "label": "헤더_좌"
+    },
+    {
+      "id": "grp_3",
+      "label": "헤더_중앙"
+    },
+    {
+      "id": "grp_4",
+      "label": "헤더_우"
+    },
+    {
+      "id": "grp_1",
+      "label": "수비수"
+    }
+  ],
+  "hints": {
+    "interactiveCandidates": [
+      {
+        "id": "layer_12",
+        "label": "홈버튼",
+        "confidence": 0.95,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Homerun_UI_11)",
+          "이름에 버튼/구매 표현 (\"홈버튼\")",
+          "인접 캡션 텍스트 \"ROUND\" (layer_2_copy5)"
+        ]
+      },
+      {
+        "id": "layer_1_copy5",
+        "label": "메뉴_시즌패스_좌하단",
+        "confidence": 0.7,
+        "suggestedAction": "pass",
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Homerun_UI_08_v2)",
+          "인접 캡션 텍스트 \"SEASON PASS\" (layer_2_copy9)",
+          "이름에서 동작 추정 → \"pass\""
+        ]
+      },
+      {
+        "id": "layer_1",
+        "label": "새 레이어",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Homerun_UI_00)",
+          "인접 캡션 텍스트 \"ROUND\" (layer_2_copy5)"
+        ]
+      },
+      {
+        "id": "layer_1_copy6",
+        "label": "메뉴_아이템_중앙하단",
+        "confidence": 0.55,
+        "suggestedAction": null,
+        "evidence": [
+          "에셋 키가 UI 계열 (up_Homerun_UI_09_v3)",
+          "인접 캡션 텍스트 \"HIT 5 HOMRUNS\" (layer_2_copy10)"
+        ]
+      }
+    ],
+    "note": "추정입니다 — 저작된 값이 아닙니다. 확정이 필요하면 에디터에서 「버튼」과 역할(action:이름)을 지정하세요. 구현 시에는 이 후보를 근거로 삼되, 코드에 TODO 로 남겨 사람이 확인할 수 있게 하세요."
+  },
+  "rev": "58dbea5c"
+}

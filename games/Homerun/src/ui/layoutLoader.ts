@@ -8,56 +8,10 @@
 import Phaser from 'phaser';
 // 에디터 런타임(스프라이트 클립·도형 렌더·노드 anim 재생)은 @casual/core 단일 공용 사본에서 가져온다.
 import { applyLayoutAnims, loadSpriteClip, clipNativeSize, clipToShape, pointsBounds } from '@casual/core';
-
-export interface LayoutNode {
-  readonly id: string;
-  readonly type: 'image' | 'rect' | 'text' | 'spriteDocClip' | 'polygon' | 'circle';
-  readonly name?: string;
-  readonly key?: string;
-  readonly x: number;
-  readonly y: number;
-  readonly w?: number;
-  readonly h?: number;
-  readonly r?: number;
-  readonly depth?: number;
-  readonly visible?: boolean;
-  readonly alpha?: number;
-  readonly angle?: number;
-  readonly group?: string;
-  /** 좌표공간(에디터 계약) — 'world'=배경과 함께 카메라 줌/팬(전광판) · 'screen'=HUD 고정. 미설정=게임 휴리스틱 폴백. */
-  readonly space?: 'screen' | 'world';
-  /** 화면고정(screen) 노드의 반응형 앵커 — 디자인≠캔버스 높이 시 가장자리 정렬(P1). */
-  readonly pin?: 'none' | 'top' | 'bottom' | 'left' | 'right' | 'center';
-  // rect
-  readonly fill?: string;
-  readonly fillAlpha?: number;
-  readonly radius?: number;
-  // text
-  readonly text?: string;
-  readonly fontSize?: number;
-  readonly fontFamily?: string;
-  readonly color?: string;
-  readonly stroke?: string;
-  readonly strokeW?: number;
-  readonly binding?: string;
-  // polygon / 전광판(도형 채움)
-  readonly points?: ReadonlyArray<{ x: number; y: number }>;
-  readonly fillImage?: string;
-  readonly fillClip?: string;
-  // spriteDocClip(스프라이트 애니)
-  readonly spriteDocFile?: string;
-  readonly spriteDocId?: string;
-  readonly clipId?: string;
-  readonly autoPlay?: boolean;
-  readonly anchor?: { x: number; y: number };
-  /** 캐릭터 식별자 — 레지스트리(_index.json)에서 같은 캐릭터의 다른 동작(준비/스윙/후) 조회용. */
-  readonly characterId?: string;
-}
-
-export interface LayoutDoc {
-  readonly frame: { designW: number; designH: number };
-  readonly nodes: ReadonlyArray<LayoutNode>;
-}
+// 좌표 계약(타입·앵커 변환)은 Phaser 비의존 순수 모듈에 있다 — 기존 import 경로 호환을 위해 재export.
+import { textAnchor, type LayoutNode, type LayoutDoc } from './layoutAnchor.js';
+export { textAnchor, resolvePin, resolvePinX, anchorLayoutDoc } from './layoutAnchor.js';
+export type { LayoutNode, LayoutDoc, PinMode, PinXMode } from './layoutAnchor.js';
 
 export type LayoutObject = Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle | Phaser.GameObjects.Text | Phaser.GameObjects.Container;
 
@@ -109,15 +63,24 @@ export class LayoutIndex {
 
 function makeText(scene: Phaser.Scene, n: LayoutNode): Phaser.GameObjects.Text {
   const family = n.fontFamily ? `"${n.fontFamily}", "Jua", sans-serif` : '"Jua", sans-serif';
-  const t = scene.add.text(n.x, n.y, n.text ?? '', {
+  // x 는 textAnchor 가 계산한 앵커점(wrapW 상자 노드면 상자 모서리) — origin 은 아래 공통 경로에서 지정.
+  const t = scene.add.text(textAnchor(n).x, n.y, n.text ?? '', {
     fontFamily: family,
     fontSize: `${n.fontSize ?? 20}px`,
     color: n.color ?? '#ffffff',
-    align: 'center',
+    align: n.align ?? 'center',
   });
+  if (n.fontStyle) t.setFontStyle(n.fontStyle);
   if (n.stroke && (n.strokeW ?? 0) > 0) t.setStroke(n.stroke, (n.strokeW ?? 0) * 2);
+  if (n.shadow) {
+    const c = Phaser.Display.Color.HexStringToColor(n.shadowColor ?? '#000000');
+    const rgba = `rgba(${c.red},${c.green},${c.blue},${n.shadowAlpha ?? 1})`;
+    t.setShadow(n.shadowX ?? 0, n.shadowY ?? 0, rgba, n.shadowBlur ?? 0, false, true);
+  }
   return t;
 }
+
+
 
 type BBox = { w: number; h: number; cx: number; cy: number };
 
@@ -164,6 +127,11 @@ function buildAdvancedNode(scene: Phaser.Scene, n: LayoutNode): Phaser.GameObjec
         container: c, clipId: n.clipId || '', autoPlay: n.autoPlay !== false, anchor: n.anchor,
       }).then((h: { doc?: unknown } | null) => {
         if (h && n.w && n.h) { const ns = clipNativeSize(h.doc || {}); if (ns.w > 0 && ns.h > 0) c.setScale((n.w as number) / ns.w, (n.h as number) / ns.h); }
+        // 로드 완료된 재생 핸들(clip.timeScale 등)을 컨테이너에 실어 둔다 — 씬이 나중에
+        // layout.tryById(id) 로 이 컨테이너를 찾아 재생 속도 등을 제어할 수 있게(비동기 로드라
+        // 이벤트로도 알림; 이미 늦게 조회하는 쪽은 getData 로 바로 얻는다).
+        c.setData('spriteClipHandle', h);
+        c.emit('clipready', h);
       }).catch(() => { /* 클립 로드 실패 — 빈 컨테이너 */ });
       return c;
     }
@@ -228,7 +196,10 @@ export function buildLayout(scene: Phaser.Scene, doc: LayoutDoc): LayoutIndex {
       obj = makeText(scene, n);
     }
     if (!obj) continue;
-    obj.setOrigin(0.5, 0.5);
+    // 텍스트는 align(left/center/right) 기준으로 x-origin 을 잡아야 에디터 배치와 일치한다.
+    // ⚠️ 이전엔 모든 노드를 무조건 0.5,0.5 로 고정해 left/right 정렬 텍스트가 항상 중앙 앵커로
+    // 그려져 에디터 배치와 어긋났다(사용자 보고: "텍스트 정렬이 게임에서 제대로 표현되지 않는다").
+    obj.setOrigin(n.type === 'text' ? textAnchor(n).originX : 0.5, 0.5);
     obj.setDepth(n.depth ?? 0);
     if (n.angle) obj.setAngle(n.angle);
     if (n.alpha !== undefined) obj.setAlpha(n.alpha);
