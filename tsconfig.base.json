@@ -17,7 +17,9 @@
     "baseUrl": ".",
     "paths": {
       "@casual/core": ["packages/core/src/index.ts"],
-      "@casual/core/*": ["packages/core/src/*"]
+      "@casual/core/*": ["packages/core/src/*"],
+      "@casual/ttt-rules": ["packages/ttt-rules/src/index.ts"],
+      "@casual/ttt-rules/*": ["packages/ttt-rules/src/*"]
     }
   }
 }
