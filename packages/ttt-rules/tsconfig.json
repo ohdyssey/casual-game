@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // 이 패키지는 브라우저(Phaser 게임)와 Node(대전 서버) 양쪽에서 소비된다.
+    // 어느 쪽 전역에도 기대지 않도록 DOM/node 타입을 모두 빼서 순수성을 강제한다.
+    "lib": ["ES2020"],
+    "types": [],
+    "noEmit": true
+  },
+  "include": ["src"]
+}
