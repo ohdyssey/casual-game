@@ -24,12 +24,14 @@ export const TEX = {
   POWER_ACCURACY: 'up_SoccerFlick_UI_11', // ◎ 어큐러시 파워업
 } as const;
 
-/** 에디터가 만든 말·공 목업 노드는 렌더 제외(코드가 생성). 이 텍스처 키를 가진 image 노드는 skip. */
-export const CODE_OWNED_KEYS = new Set<string>([TEX.DISC_RED, TEX.DISC_BLUE, TEX.BALL]);
+/**
+ * 에디터가 만든 말·공 목업 노드는 렌더 제외(코드가 생성). 이 텍스처 키를 가진 image 노드는 skip.
+ * up_SoccerFlick_UI_07_v2 = 에디터에 배치된 레드 선수 목업(변형 텍스처) — 코드가 레드 말을 생성하므로 제외.
+ */
+export const CODE_OWNED_KEYS = new Set<string>([TEX.DISC_RED, TEX.DISC_BLUE, TEX.BALL, 'up_SoccerFlick_UI_07_v2']);
 
 /** 런타임 생성 텍스처 키(Graphics). */
 export const AIM_DOT_KEY = 'aim_dot'; // 조준 가이드 점
-export const SHADOW_KEY = 'disc_shadow'; // 말/공 발밑 그림자
 export const SPARK_KEY = 'hit_spark'; // 충돌 스파크
 
 /** LoadScene.preload 에서 호출 — 에디터 레이아웃 + 업로드 이미지 일괄 로드. */
@@ -55,17 +57,6 @@ export function ensureGeneratedTextures(scene: Phaser.Scene): void {
     g.lineStyle(2, 0x2f80ed, 0.9);
     g.strokeCircle(8, 8, 6);
     g.generateTexture(AIM_DOT_KEY, 16, 16);
-    g.destroy();
-  }
-  // ── 발밑 그림자 (소프트 원형 그라디언트, 96×96) — 깊이감용, 약간 진하게 ──
-  if (!scene.textures.exists(SHADOW_KEY)) {
-    const g = scene.make.graphics({ x: 0, y: 0 }, false);
-    for (let r = 46; r >= 3; r -= 3) {
-      const a = 0.05 + (1 - r / 46) * 0.24; // 중심 ~0.29
-      g.fillStyle(0x000000, a);
-      g.fillCircle(48, 48, r);
-    }
-    g.generateTexture(SHADOW_KEY, 96, 96);
     g.destroy();
   }
   // ── 충돌 스파크 (작은 흰 원, 14×14) ──

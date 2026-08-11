@@ -7,8 +7,8 @@
  */
 import type { Vec2, Team } from './types.js';
 
-export const DESIGN_W = 720;
-export const DESIGN_H = 1280;
+export const DESIGN_W = 1080;
+export const DESIGN_H = 2400;
 
 export interface Bounds {
   readonly left: number;
@@ -102,15 +102,15 @@ export function detectGoal(ball: Vec2, field: FieldGeom): Team | null {
   return null;
 }
 
-/** 폴백: 직사각 필드 + 상·하단 중앙 골 주머니(에디터 값 근사). */
+/** 폴백: 직사각 필드 + 상·하단 중앙 골 주머니(HD 1080×2400 에디터 값 근사). */
 function buildRectFallback(): FieldGeom {
-  const left = 45;
-  const right = 675;
-  const fieldTop = 201; // 입구 라인
-  const fieldBottom = 1197;
-  const backTop = 153; // 골 백
-  const backBottom = 1234;
-  const mouthHalf = 118;
+  const left = 62;
+  const right = 1018;
+  const fieldTop = 384; // 입구 라인
+  const fieldBottom = 2109;
+  const backTop = 292; // 골 백
+  const backBottom = 2126;
+  const mouthHalf = 176;
   const cx = (left + right) / 2;
   const mL = cx - mouthHalf;
   const mR = cx + mouthHalf;

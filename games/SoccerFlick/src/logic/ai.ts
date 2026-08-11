@@ -31,8 +31,8 @@ export interface AiShot {
   readonly power: number;
 }
 
-/** 고스트 볼 오프셋 — 디스크 반경 + 공 반경 근사(px). */
-const CONTACT_OFFSET = 90;
+/** 고스트 볼 오프셋 — 디스크 반경 + 공 반경 근사(px, HD 1080×2400 기준). */
+const CONTACT_OFFSET = 135;
 
 const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
 
@@ -61,13 +61,13 @@ export function chooseAiShot(input: AiInput): AiShot | null {
     const approachY = ady / adist;
     // 정렬도: 말의 접근 방향이 공의 목표 진행 방향과 일치할수록(공 뒤에 있을수록) 높다.
     const align = approachX * goalDirX + approachY * goalDirY; // -1..1
-    const score = align - adist / 2000; // 가까울수록 가점
+    const score = align - adist / 3000; // 가까울수록 가점(HD 거리 스케일)
     if (score > bestScore) {
       bestScore = score;
       const tx = ghostX - d.pos.x;
       const ty = ghostY - d.pos.y;
       const tlen = Math.hypot(tx, ty) || 1;
-      const power = clamp(0.5 + adist / 1100, 0.5, 1);
+      const power = clamp(0.5 + adist / 1650, 0.5, 1);
       best = { discId: d.id, dirX: tx / tlen, dirY: ty / tlen, power };
     }
   }

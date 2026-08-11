@@ -7,9 +7,8 @@
  * 물리·턴·골·AI 의 판정 로직은 src/logic(순수·테스트됨)에 있고, 여기선 Matter 와 입력만 배선.
  */
 import Phaser from 'phaser';
-import { TEX, CODE_OWNED_KEYS, SHADOW_KEY, UI_LAYOUT_KEY } from '../assets.js';
+import { TEX, CODE_OWNED_KEYS, UI_LAYOUT_KEY } from '../assets.js';
 import { buildLayout, type LayoutIndex, type LayoutDoc, type LayoutEntry } from '../ui/layoutLoader.js';
-import { fillCoverLayout } from '@casual/core';
 import { parseField, detectGoal, targetGoalCenter, type FieldGeom } from '../logic/field.js';
 import { kickoffFormation, ballKickoff, type Disc as FormDisc } from '../logic/formation.js';
 import {
@@ -24,40 +23,39 @@ import {
   formatTime,
   type MatchState,
 } from '../logic/match.js';
-import { aimFromDrag, shotVelocity } from '../logic/aim.js';
+import { startCountdown } from '@casual/core';
+import { aimFromDrag, shotVelocity, edgeShotMultiplier, edgeProximity } from '../logic/aim.js';
 import { chooseAiShot } from '../logic/ai.js';
 import type { Team } from '../logic/types.js';
 
-// ── 물리 튜닝 상수 ──
-const DISC_R = 39;
-const BALL_R = 23;
-const WALL_T = 46;
+// ── 물리 튜닝 상수(HD 1080×2400 좌표 기준, 720 시절 ×1.5 스케일) ──
+const DISC_R = 63; // 선수 말 반경(HD 기준 58 → 조정 후 +10% 확대)
+const BALL_R = 38; // 공 반경(HD 기준 35 → 확대 후 -10% 축소)
+const WALL_T = 100; // 벽 두께 — 최대 발사 속도(MAX_SPEED)보다 커야 터널링 방지
 const REST_EPS = 0.36; // 이 속도 이하 = 정지
 const SETTLE_FRAMES = 6; // 연속 정지 프레임 수
 const SIM_TIMEOUT_MS = 6500; // 시뮬 강제 종료
-const MAX_SPEED = 40; // 터널링 방지 속도 캡(벽 두께 46 미만 유지)
-const GRAB_R = 48; // 말 잡기 반경
+const MAX_SPEED = 90; // 터널링 방지 속도 캡(벽 두께 100 미만 유지). 강화된 외곽·파워업 슛도 이 한도로 수렴.
+const GRAB_R = 79; // 말 잡기 반경(디스크 크기에 맞춤)
 const SPEED_MUL = 1.4; // SPEED 파워업 배율
 const AI_DELAY_MS = 650;
 const GOAL_PAUSE_MS = 1600;
-const SHADOW_DX = 5; // 그림자 오프셋(좌상단 광원 가정 → 깊이감)
-const SHADOW_DY = 10;
 
 interface DiscRef {
   readonly team: Team;
   readonly img: Phaser.Physics.Matter.Image;
-  readonly shadow: Phaser.GameObjects.Image;
 }
 
 export class PlayScene extends Phaser.Scene {
   private layout!: LayoutIndex;
   private field!: FieldGeom;
   private match!: MatchState;
+  /** 3·2·1 킥오프 카운트다운 완료 여부 — 완료 전엔 매치 클록이 흐르지 않는다. */
+  private introDone = false;
 
   private discs: DiscRef[] = [];
   private formation: FormDisc[] = [];
   private ball!: Phaser.Physics.Matter.Image;
-  private ballShadow!: Phaser.GameObjects.Image;
 
   // HUD
   private timeText?: Phaser.GameObjects.Text;
@@ -95,16 +93,19 @@ export class PlayScene extends Phaser.Scene {
   create(): void {
     const doc = this.cache.json.get(UI_LAYOUT_KEY) as LayoutDoc | undefined;
     if (!doc) {
-      this.add.text(360, 640, '레이아웃 로드 실패', { color: '#fff', fontSize: '24px' }).setOrigin(0.5);
+      this.add
+        .text(this.scale.width / 2, this.scale.height / 2, '레이아웃 로드 실패', { color: '#fff', fontSize: '36px' })
+        .setOrigin(0.5);
       return;
     }
 
-    // 1) 에디터 렌더(말·공 목업은 코드 생성하므로 제외).
+    // 1) 에디터 렌더(말·공 목업 + 에디터 자동 그림자 노드는 코드가 다루므로 제외).
+    //    `__sh_` = phaser-ui-editor 가 생성한 드롭섀도 텍스처(공/말 목업의 그림자) → 렌더 안 함.
     this.layout = buildLayout(this, doc, {
-      skip: (n) => !!n.key && CODE_OWNED_KEYS.has(n.key),
+      skip: (n) => !!n.key && (CODE_OWNED_KEYS.has(n.key) || n.key.includes('__sh_')),
     });
-    // 반응형 — 창 높이로 채우고 배경 cover + 하단 부스터 바닥정렬(FIT 레터박스 제거).
-    fillCoverLayout(this, this.layout);
+    // 에디터 디자인을 1:1 재현(고정 1080×2400 세로 HD + Phaser FIT 레터박스).
+    // 코어 fillCoverLayout 은 캔버스 폭을 720 으로 되돌려 HD 필드 우측을 잘라내므로 사용하지 않는다.
 
     // 2) field 폴리곤 → Matter 벽(골 주머니 포함, 사용자가 그린 라인 그대로).
     this.field = parseField(doc);
@@ -129,9 +130,12 @@ export class PlayScene extends Phaser.Scene {
     // 6) 충돌 스파크.
     this.matter.world.on('collisionstart', this.onCollision, this);
 
-    // 7) 매치 시작.
+    // 7) 매치 시작 — 시간제 매치라 3·2·1 킥오프 카운트다운(코어 공용) 후 클록 개시.
     this.match = createMatch('red', 120);
     this.beginAimPhase();
+    void startCountdown(this, { go: 'KICK OFF!' }).then(() => {
+      this.introDone = true;
+    });
   }
 
   // ─────────────────────────── 물리 구성 ───────────────────────────
@@ -182,10 +186,6 @@ export class PlayScene extends Phaser.Scene {
   private spawnPieces(): void {
     this.discs = this.formation.map((f) => {
       const key = f.team === 'red' ? TEX.DISC_RED : TEX.DISC_BLUE;
-      const shadow = this.add
-        .image(f.pos.x + SHADOW_DX, f.pos.y + SHADOW_DY, SHADOW_KEY)
-        .setDisplaySize(DISC_R * 2.25, DISC_R * 2.25)
-        .setDepth(9);
       const img = this.matter.add.image(f.pos.x, f.pos.y, key);
       // 스프라이트 표시 크기를 먼저 적용한 뒤, 마지막에 setCircle 로 바디 반경을 보이는 외곽(DISC_R)에 고정.
       // (순서 반대면 setDisplaySize 의 스케일이 바디까지 줄여 충돌 반경이 작아진다 → 겹침)
@@ -194,14 +194,10 @@ export class PlayScene extends Phaser.Scene {
       img.setDensity(0.0019);
       img.setFixedRotation();
       img.setDepth(10);
-      return { team: f.team, img, shadow };
+      return { team: f.team, img };
     });
 
     const bk = ballKickoff(this.field);
-    this.ballShadow = this.add
-      .image(bk.x + SHADOW_DX, bk.y + SHADOW_DY, SHADOW_KEY)
-      .setDisplaySize(BALL_R * 2.3, BALL_R * 2.3)
-      .setDepth(9);
     this.ball = this.matter.add.image(bk.x, bk.y, TEX.BALL);
     this.ball.setDisplaySize(BALL_R * 2, BALL_R * 2);
     this.ball.setCircle(BALL_R, { restitution: 0.9, friction: 0.005, frictionStatic: 0, frictionAir: 0.03 });
@@ -246,13 +242,13 @@ export class PlayScene extends Phaser.Scene {
       const o = speedEntry.obj as Phaser.GameObjects.Image;
       o.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.togglePower('speed'));
       this.speedRing = this.add.graphics().setDepth(o.depth + 1);
-      this.speedBadge = this.makeBadge(o.x + 24, o.y - 22);
+      this.speedBadge = this.makeBadge(o.x + 36, o.y - 33);
     }
     if (accEntry) {
       const o = accEntry.obj as Phaser.GameObjects.Image;
       o.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.togglePower('accuracy'));
       this.accRing = this.add.graphics().setDepth(o.depth + 1);
-      this.accBadge = this.makeBadge(o.x + 24, o.y - 22);
+      this.accBadge = this.makeBadge(o.x + 36, o.y - 33);
     }
     this.updatePowerBadges();
   }
@@ -261,10 +257,10 @@ export class PlayScene extends Phaser.Scene {
     return this.add
       .text(x, y, '2', {
         fontFamily: '"Jua", sans-serif',
-        fontSize: '18px',
+        fontSize: '27px',
         color: '#ffffff',
         backgroundColor: '#e23b3b',
-        padding: { x: 6, y: 1 },
+        padding: { x: 9, y: 2 },
       })
       .setOrigin(0.5)
       .setDepth(40);
@@ -333,20 +329,24 @@ export class PlayScene extends Phaser.Scene {
   private onPointerMove(p: Phaser.Input.Pointer): void {
     if (!this.dragging || !this.activeDisc) return;
     const disc = this.activeDisc.img;
-    const aim = aimFromDrag({ x: disc.x, y: disc.y }, { x: p.worldX, y: p.worldY });
+    const edge = edgeProximity({ x: disc.x, y: disc.y }, this.field.playBounds);
+    const aim = aimFromDrag({ x: disc.x, y: disc.y }, { x: p.worldX, y: p.worldY }, edge);
     this.drawAimGuide(disc.x, disc.y, aim.dirX, aim.dirY, aim.power, aim.valid);
   }
 
   private onPointerUp(p: Phaser.Input.Pointer): void {
     if (!this.dragging || !this.activeDisc) return;
     const disc = this.activeDisc;
-    const aim = aimFromDrag({ x: disc.img.x, y: disc.img.y }, { x: p.worldX, y: p.worldY });
+    const pos = { x: disc.img.x, y: disc.img.y };
+    // 외곽라인에 가까울수록: 짧은 드래그로도 풀파워(edge → aimFromDrag) + 최종 슛 강화(edgeShotMultiplier).
+    const edge = edgeProximity(pos, this.field.playBounds);
+    const aim = aimFromDrag(pos, { x: p.worldX, y: p.worldY }, edge);
     this.aimGfx.clear();
     this.dragging = false;
     this.activeDisc = null;
     if (!aim.valid) return;
-    const mul = this.pendingSpeed ? SPEED_MUL : 1;
-    const v = shotVelocity(aim.dirX, aim.dirY, aim.power, mul);
+    const mul = (this.pendingSpeed ? SPEED_MUL : 1) * edgeShotMultiplier(pos, this.field.playBounds);
+    const v = this.capToMaxSpeed(shotVelocity(aim.dirX, aim.dirY, aim.power, mul));
     disc.img.setVelocity(v.x, v.y);
     this.consumePowerups();
     this.fireBegan();
@@ -357,16 +357,16 @@ export class PlayScene extends Phaser.Scene {
     g.clear();
     if (!valid) return;
     // 파워 링.
-    g.lineStyle(3, 0xffffff, 0.5);
-    g.strokeCircle(x, y, DISC_R + 6 + power * 10);
+    g.lineStyle(4, 0xffffff, 0.5);
+    g.strokeCircle(x, y, DISC_R + 9 + power * 15);
     // 방향 점선(어큐러시면 더 길게).
     const dots = Math.round(power * (this.pendingAccuracy ? 16 : 10)) + 2;
-    const step = 24;
+    const step = 34;
     for (let i = 1; i <= dots; i++) {
       const t = i * step;
       const a = 0.9 - (i / (dots + 2)) * 0.7;
       g.fillStyle(this.pendingAccuracy ? 0xffd147 : 0xffffff, a);
-      g.fillCircle(x + dx * (DISC_R + t), y + dy * (DISC_R + t), 4);
+      g.fillCircle(x + dx * (DISC_R + t), y + dy * (DISC_R + t), 6);
     }
   }
 
@@ -376,9 +376,9 @@ export class PlayScene extends Phaser.Scene {
     g.clear();
     if (this.match.phase !== 'aim' || isOver(this.match)) return;
     const pulse = 0.55 + 0.35 * Math.sin(this.time.now / 220);
-    g.lineStyle(4, 0xffd147, pulse);
+    g.lineStyle(5, 0xffd147, pulse);
     for (const d of this.discs) {
-      if (d.team === this.match.turn) g.strokeCircle(d.img.x, d.img.y, DISC_R + 5);
+      if (d.team === this.match.turn) g.strokeCircle(d.img.x, d.img.y, DISC_R + 8);
     }
   }
 
@@ -416,8 +416,11 @@ export class PlayScene extends Phaser.Scene {
       this.beginAimPhase();
       return;
     }
-    const v = shotVelocity(shot.dirX, shot.dirY, shot.power);
-    blue[shot.discId].img.setVelocity(v.x, v.y);
+    const shooter = blue[shot.discId];
+    // AI 도 동일한 외곽 강화 규칙 적용(포지션 기반 필드 메커닉).
+    const edgeMul = edgeShotMultiplier({ x: shooter.img.x, y: shooter.img.y }, this.field.playBounds);
+    const v = this.capToMaxSpeed(shotVelocity(shot.dirX, shot.dirY, shot.power, edgeMul));
+    shooter.img.setVelocity(v.x, v.y);
     this.fireBegan();
   }
 
@@ -439,11 +442,18 @@ export class PlayScene extends Phaser.Scene {
     this.ball.setAngularVelocity(0);
   }
 
+  /** 속도 벡터를 MAX_SPEED 로 제한(발사 순간 터널링 방지 — clampSpeeds 는 다음 프레임에야 적용되므로). */
+  private capToMaxSpeed(v: { x: number; y: number }): { x: number; y: number } {
+    const sp = Math.hypot(v.x, v.y);
+    if (sp <= MAX_SPEED) return v;
+    return { x: (v.x / sp) * MAX_SPEED, y: (v.y / sp) * MAX_SPEED };
+  }
+
   private clampSpeeds(): void {
     const cap = (img: Phaser.Physics.Matter.Image): void => {
       const v = (img.body as MatterJS.BodyType).velocity;
-      const sp = Math.hypot(v.x, v.y);
-      if (sp > MAX_SPEED) img.setVelocity((v.x / sp) * MAX_SPEED, (v.y / sp) * MAX_SPEED);
+      const capped = this.capToMaxSpeed(v);
+      if (capped !== v) img.setVelocity(capped.x, capped.y);
     };
     for (const d of this.discs) cap(d.img);
     cap(this.ball);
@@ -468,17 +478,20 @@ export class PlayScene extends Phaser.Scene {
   private goalCeremony(scorer: Team): void {
     const color = scorer === 'red' ? 0xff5a5a : 0x5aa2ff;
     const hex = scorer === 'red' ? '#ff5a5a' : '#5aa2ff';
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const cx = W / 2;
 
-    const flash = this.add.rectangle(360, 640, 720, 1280, 0xffffff, 0.45).setDepth(95);
+    const flash = this.add.rectangle(cx, H / 2, W, H, 0xffffff, 0.45).setDepth(95);
     this.tweens.add({ targets: flash, alpha: 0, duration: 420, onComplete: () => flash.destroy() });
 
     const txt = this.add
-      .text(360, 560, 'GOAL!', {
+      .text(cx, H * 0.44, 'GOAL!', {
         fontFamily: '"Jua", sans-serif',
-        fontSize: '96px',
+        fontSize: '144px',
         color: hex,
         stroke: '#ffffff',
-        strokeThickness: 10,
+        strokeThickness: 14,
       })
       .setOrigin(0.5)
       .setDepth(97)
@@ -486,12 +499,12 @@ export class PlayScene extends Phaser.Scene {
     this.tweens.add({ targets: txt, scale: 1.15, duration: 320, ease: 'Back.Out', yoyo: true, hold: 640, onComplete: () => txt.destroy() });
 
     const who = this.add
-      .text(360, 668, scorer === 'red' ? 'Alex 득점!' : 'Mina 득점!', {
+      .text(cx, H * 0.52, scorer === 'red' ? 'Alex 득점!' : 'Mina 득점!', {
         fontFamily: '"Jua", sans-serif',
-        fontSize: '32px',
+        fontSize: '48px',
         color: '#ffffff',
         stroke: hex,
-        strokeThickness: 4,
+        strokeThickness: 6,
       })
       .setOrigin(0.5)
       .setDepth(97)
@@ -537,30 +550,33 @@ export class PlayScene extends Phaser.Scene {
     this.freezeAll();
     const w = winner(this.match);
     const label = w === 'red' ? 'Alex 승리!' : w === 'blue' ? 'Mina 승리!' : '무승부';
-    this.add.rectangle(360, 640, 720, 1280, 0x000000, 0.55).setDepth(100);
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const cx = W / 2;
+    this.add.rectangle(cx, H / 2, W, H, 0x000000, 0.55).setDepth(100);
     this.add
-      .text(360, 540, label, {
+      .text(cx, H * 0.42, label, {
         fontFamily: '"Jua", sans-serif',
-        fontSize: '56px',
+        fontSize: '84px',
         color: '#ffffff',
       })
       .setOrigin(0.5)
       .setDepth(101);
     this.add
-      .text(360, 620, `${this.match.score.red}  :  ${this.match.score.blue}`, {
+      .text(cx, H * 0.48, `${this.match.score.red}  :  ${this.match.score.blue}`, {
         fontFamily: '"Jua", sans-serif',
-        fontSize: '72px',
+        fontSize: '108px',
         color: '#ffd147',
       })
       .setOrigin(0.5)
       .setDepth(101);
     const btn = this.add
-      .text(360, 760, '다시 하기', {
+      .text(cx, H * 0.59, '다시 하기', {
         fontFamily: '"Jua", sans-serif',
-        fontSize: '34px',
+        fontSize: '51px',
         color: '#ffffff',
         backgroundColor: '#2f80ed',
-        padding: { x: 28, y: 12 },
+        padding: { x: 42, y: 18 },
       })
       .setOrigin(0.5)
       .setDepth(101)
@@ -592,15 +608,11 @@ export class PlayScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     if (!this.match) return;
 
-    // 그림자는 매 프레임 말·공을 따라간다(분리 방지) + 오프셋으로 깊이감.
-    for (const d of this.discs) d.shadow.setPosition(d.img.x + SHADOW_DX, d.img.y + SHADOW_DY);
-    this.ballShadow.setPosition(this.ball.x + SHADOW_DX, this.ball.y + SHADOW_DY);
-
     // 현재 턴 팀 말에 금색 링(내 턴/상대 턴 표시).
     this.drawTurnRings();
 
-    // 매치 클록.
-    if (!isOver(this.match)) {
+    // 매치 클록(킥오프 카운트다운 완료 후부터).
+    if (this.introDone && !isOver(this.match)) {
       this.timeAccum += delta;
       if (this.timeAccum >= 100) {
         this.match = tick(this.match, this.timeAccum / 1000);

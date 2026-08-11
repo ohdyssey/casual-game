@@ -8,7 +8,8 @@ import { loadGameAssets, ensureGeneratedTextures, preloadKoreanFonts } from './a
  * Soccer Stars 스타일: 디스크를 드래그-백 슬링샷으로 튕겨 공을 상대 골대에 넣는다.
  *
  * 물리: Matter.js(Phaser 3 내장) — 무중력 탑다운 강체 충돌. 코어 셸 physics override 로 주입.
- * UI 에디터 디자인(720×1280)을 화면비와 무관하게 1:1 재현 — 캔버스 높이 고정(FIT 레터박스).
+ * UI 에디터 디자인(세로 HD 1080×2400)을 화면비와 무관하게 1:1 재현 — 캔버스 폭·높이 고정(FIT 레터박스).
+ * 디자인이 720 폭이 아니므로 designWidth 로 캔버스 폭을 디자인 폭과 일치시킨다(코어 기본 720 override).
  */
 export const SoccerFlickGame: GameModule = {
   id: 'soccerflick',
@@ -26,7 +27,8 @@ export const SoccerFlickGame: GameModule = {
     PlayScene,
   ],
   backgroundColor: '#14532D',
-  designHeight: 1280,
+  designWidth: 1080,
+  designHeight: 2400,
   theme: { brand: '#2F80ED' },
   physics: {
     default: 'matter',
