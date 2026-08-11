@@ -10,14 +10,12 @@
  * 레이아웃/업로드/스프라이트 텍스처는 Load 씬의 loadGameAssets 가 이미 프리로드했다.
  */
 import Phaser from 'phaser';
-import { coverBackground } from '@casual/core';
 import { HOME_LAYOUT_KEY } from '../assets.js';
 import { sfx, isSfxOn, setSfxOn } from '../audio.js';
 import { loadSave, updateSave } from '../save.js';
 import { buildLayout, type LayoutDoc, type LayoutIndex } from '../ui/layoutLoader.js';
 import { openPopup, showToast } from './popups.js';
 
-const DESIGN_H = 1280;
 /** 무료보상 — 쿨다운(8시간)마다 지급 코인. */
 const FREE_REWARD_COINS = 100;
 const FREE_REWARD_COOLDOWN_MS = 8 * 60 * 60 * 1000;
@@ -102,7 +100,7 @@ export class HomeScene extends Phaser.Scene {
     }
 
     this.layout = buildLayout(this, doc);
-    this.adjustForViewport();
+    this.fitLayoutToHD(doc);
 
     this.bindCoins();
     this.wireEnter();
@@ -123,16 +121,33 @@ export class HomeScene extends Phaser.Scene {
 
   // ─────────────────────── 반응형 보정 ───────────────────────
 
-  /** 세로로 긴 화면: 배경을 화면 cover 로 채우고 하단 내비게이션을 바닥에 고정(나머지는 디자인 좌표 유지). */
-  private adjustForViewport(): void {
-    const bg = this.layout.tryById<Phaser.GameObjects.Image>('layer_1');
-    if (bg) coverBackground(this, bg);
+  /**
+   * 진입화면(blank.json)은 아직 720×1280 저작 → 세로 HD(1080×2400) 캔버스에 균일 맞춤.
+   *   · 배경(layer_1)은 루트에 남겨 화면 전체 cover.
+   *   · 나머지 UI 는 폭 기준 배율(1080/720=1.5)로 컨테이너에 담아 세로 가운데 정렬.
+   * (게임플레이 main.json 은 이미 네이티브 1080×2400 라 이 처리가 필요 없다.)
+   */
+  private fitLayoutToHD(doc: LayoutDoc): void {
+    const scale = this.scale.width / doc.frame.designW;
 
-    // 디자인 y(node.y) 기준으로 한 번만 내린다 — 객체의 현재 y 를 되읽지 않아 재호출에도 누적 안 됨.
-    const extra = Math.max(0, this.scale.height - DESIGN_H);
-    if (extra > 0) {
-      for (const e of this.layout.byGroup('grp_2')) e.obj.setY(e.node.y + extra);
+    // 배경은 실제 캔버스(1080×2400)를 덮도록 cover(코어 coverBackground 는 720 폭 가정이라 여기선 직접 계산).
+    const bg = this.layout.tryById<Phaser.GameObjects.Image>('layer_1');
+    if (bg) {
+      const cover = Math.max(this.scale.width / bg.width, this.scale.height / bg.height);
+      bg.setScale(cover).setPosition(this.scale.width / 2, this.scale.height / 2);
     }
+
+    // 배경을 제외한 모든 노드를 depth 순으로 배율 컨테이너에 재부모화(원 좌표=로컬 유지).
+    const entries = this.layout
+      .entries()
+      .filter((e) => e.node.id !== 'layer_1')
+      .sort((a, b) => (a.node.depth ?? 0) - (b.node.depth ?? 0));
+    const contentH = doc.frame.designH * scale;
+    const offsetY = Math.max(0, (this.scale.height - contentH) / 2);
+    this.add
+      .container(0, offsetY, entries.map((e) => e.obj))
+      .setScale(scale)
+      .setDepth(2);
   }
 
   // ─────────────────────── 코인/세이브 표시 ───────────────────────

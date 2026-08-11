@@ -29,7 +29,7 @@ export interface PopupOpts {
 /** 모달 팝업. 반환된 close() 로 코드에서도 닫을 수 있다. */
 export function openPopup(scene: Phaser.Scene, opts: PopupOpts): () => void {
   const cx = scene.scale.width / 2;
-  const cy = Math.min(scene.scale.height / 2, 640);
+  const cy = scene.scale.height / 2;
   const objs: Phaser.GameObjects.GameObject[] = [];
   let closed = false;
 
@@ -120,15 +120,16 @@ export function showToast(scene: Phaser.Scene, msg: string, holdMs = 1100): void
     activeToast = null;
   }
   const cx = scene.scale.width / 2;
+  const toastY = Math.round(scene.scale.height * 0.27);
   const text = scene.add
-    .text(cx, 420, msg, { fontFamily: FONT, fontSize: '28px', color: '#fff8ea' })
+    .text(cx, toastY, msg, { fontFamily: FONT, fontSize: '32px', color: '#fff8ea' })
     .setStroke('#54250e', 6)
     .setOrigin(0.5)
     .setDepth(DEPTH_TOAST + 1)
     .setAlpha(0);
-  const pad = { x: 28, y: 12 };
+  const pad = { x: 30, y: 14 };
   const bg = scene.add
-    .rectangle(cx, 420, text.width + pad.x * 2, text.height + pad.y * 2, 0x3a1c0c, 0.88)
+    .rectangle(cx, toastY, text.width + pad.x * 2, text.height + pad.y * 2, 0x3a1c0c, 0.88)
     .setDepth(DEPTH_TOAST)
     .setAlpha(0);
   const mine = { text, bg };

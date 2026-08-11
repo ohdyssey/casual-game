@@ -48,10 +48,10 @@ export class Hud {
     this.clocheLid = layout.byId<Phaser.GameObjects.Image>(IDS.clocheLid);
     this.clocheBaseY = this.clocheLid.y;
 
-    // 레벨 배지 — 어닝 좌측(디자인 여백)에 작은 텍스트.
+    // 레벨 배지 — 어닝 좌상단(디자인 여백)에 작은 텍스트. 세로 HD 좌표.
     scene.add
-      .text(64, 47, `Lv.${level}`, { fontFamily: '"Do Hyeon", "Jua", sans-serif', fontSize: '28px', color: '#fff3da' })
-      .setStroke('#7a2b16', 5)
+      .text(92, 58, `Lv.${level}`, { fontFamily: '"Do Hyeon", "Jua", sans-serif', fontSize: '40px', color: '#fff3da' })
+      .setStroke('#7a2b16', 7)
       .setOrigin(0.5)
       .setDepth(24);
   }

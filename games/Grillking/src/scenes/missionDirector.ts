@@ -8,7 +8,7 @@
 import Phaser from 'phaser';
 import { itemKey } from '../assets.js';
 import { sfx } from '../audio.js';
-import { remainingByType } from '../logic/board.js';
+import { servableCountByType } from '../logic/board.js';
 import type { BoardState, ItemType } from '../logic/types.js';
 import { LayoutIndex, asLeftGauge } from '../ui/layoutLoader.js';
 import { formatClock } from './hud.js';
@@ -16,13 +16,33 @@ import { formatClock } from './hud.js';
 const GROUP = 'grp_6';
 const ID_ITEM = 'layer_15_copy7';
 const ID_TIME = 'layer_19_copy5';
+const ID_GAUGE_BG = 'layer_20_copy3';
 const ID_GAUGE_FILL = 'layer_20_copy4';
+const ID_BUBBLE = 'layer_11_copy';
 const ID_CHEF = 'layer_11';
 
-const HIDDEN_X = -600;
+/**
+ * 슬라이드-인 하는 미션 노드(캐릭터·말풍선·주문 타이머·게이지·꼬치)만 명시적으로 모은다.
+ * ⚠️ 디자인 grp_6 에는 테이블 배경(layer_3)도 묶여 있어(디자이너 그룹핑), 그룹 전체를 옮기면
+ *    테이블이 화면 밖으로 딸려간다 → 반드시 이 허용목록으로 미션 노드만 컨테이너에 담는다.
+ */
+const MISSION_NODE_IDS = new Set([ID_CHEF, ID_BUBBLE, ID_TIME, ID_GAUGE_BG, ID_GAUGE_FILL, ID_ITEM]);
+/** 세로 HD(1080 폭)에서 컨테이너가 완전히 화면 밖으로 나가는 x. */
+const HIDDEN_X = -1400;
+/** 주문 꼬치 미리보기 표시 크기(말풍선 안). 에디터 SSOT 노드(layer_15_copy7) 80×173 반영. */
+const MISSION_ITEM_W = 80;
+const MISSION_ITEM_H = 173;
 const MISSION_SEC = 20;
+/** 기본(레벨1) 등장 간격(초). 레벨이 오를수록 이 값을 최대 60%까지 단축 → 특별주문이 더 자주 등장. */
 const FIRST_DELAY: [number, number] = [16, 26];
 const NEXT_DELAY: [number, number] = [24, 40];
+/** 레벨→간격 단축 계수(0~0.6). L1=0(기본), L200+=0.6(간격 40%로 단축=최대 빈도). */
+function frequencyScale(level: number): number {
+  return Math.min(0.6, Math.max(0, (level - 1) / 200));
+}
+function scaleRange(range: [number, number], f: number): [number, number] {
+  return [range[0] * (1 - f), range[1] * (1 - f)];
+}
 
 export interface MissionCallbacks {
   /** 미션 성공(매치 달성). */
@@ -46,16 +66,33 @@ export class MissionDirector {
 
   private target: ItemType | null = null;
   private remaining = 0;
-  private nextIn = randBetween(FIRST_DELAY);
+  private nextIn: number;
   private sliding = false;
+
+  /** 이 레벨의 메뉴(주문 가능한 꼬치 종류 = typePool). 특별주문은 이 안에서만 요청한다. */
+  private readonly menu: Set<ItemType>;
+  /** 레벨별로 단축된 등장 간격(초). */
+  private readonly firstDelay: [number, number];
+  private readonly nextDelay: [number, number];
 
   constructor(
     private readonly scene: Phaser.Scene,
     layout: LayoutIndex,
+    menu: ReadonlyArray<ItemType>,
+    level: number,
     private readonly cb: MissionCallbacks,
   ) {
-    // grp_6 객체들을 노드 depth 순서로 컨테이너에 옮긴다(원좌표 유지, 컨테이너로 슬라이드).
-    const entries = layout.byGroup(GROUP).sort((a, b) => (a.node.depth ?? 0) - (b.node.depth ?? 0));
+    this.menu = new Set(menu);
+    const f = frequencyScale(level);
+    this.firstDelay = scaleRange(FIRST_DELAY, f);
+    this.nextDelay = scaleRange(NEXT_DELAY, f);
+    this.nextIn = randBetween(this.firstDelay);
+    // 미션 노드(허용목록)만 depth 순서로 컨테이너에 옮긴다(원좌표 유지, 컨테이너로 슬라이드).
+    //   테이블 배경(layer_3)이 같은 grp_6 에 섞여 있어 그룹 전체를 옮기면 안 된다(위 주석 참조).
+    const entries = layout
+      .byGroup(GROUP)
+      .filter((e) => MISSION_NODE_IDS.has(e.node.id))
+      .sort((a, b) => (a.node.depth ?? 0) - (b.node.depth ?? 0));
     this.container = scene.add.container(HIDDEN_X, 0, entries.map((e) => e.obj));
     this.container.setDepth(8).setVisible(false);
 
@@ -65,8 +102,8 @@ export class MissionDirector {
     this.chef = layout.byId<Phaser.GameObjects.Image>(ID_CHEF);
     this.chefBaseY = this.chef.y;
 
-    // 말풍선 X 버튼(이미지에 그려진 위치)에 투명 히트존.
-    const closeZone = scene.add.circle(494, 202, 30, 0xffffff, 0).setInteractive({ useHandCursor: true });
+    // 말풍선 X 버튼(이미지에 그려진 위치, 세로 HD 좌표)에 투명 히트존.
+    const closeZone = scene.add.circle(702, 360, 40, 0xffffff, 0).setInteractive({ useHandCursor: true });
     this.container.add(closeZone);
     closeZone.on('pointerup', () => {
       if (this.target !== null && !this.sliding) {
@@ -118,15 +155,18 @@ export class MissionDirector {
   }
 
   private start(board: BoardState): void {
-    // 3개 이상 남은 종류만 미션 대상 — 달성 불가능 미션 방지.
-    const candidates = [...remainingByType(board).entries()].filter(([, n]) => n >= 3).map(([t]) => t);
+    // 메뉴(typePool)에 있고 **한 그릴에 3개를 실제로 모을 수 있는** 종류만 대상 — 서빙 불가능한 미션 방지.
+    //   (단순 총량이 아니라 servableCountByType 로 판정 → 고정 꼬치가 여러 그릴에 흩어져 못 모으는 경우 제외.)
+    const candidates = [...servableCountByType(board).entries()]
+      .filter(([t, n]) => n >= 3 && this.menu.has(t))
+      .map(([t]) => t);
     if (candidates.length === 0) {
-      this.nextIn = randBetween(NEXT_DELAY);
+      this.nextIn = randBetween(this.nextDelay);
       return;
     }
     this.target = candidates[Math.floor(Math.random() * candidates.length)];
     this.remaining = MISSION_SEC;
-    this.itemImg.setTexture(itemKey(this.target)).setDisplaySize(28, 60);
+    this.itemImg.setTexture(itemKey(this.target)).setDisplaySize(MISSION_ITEM_W, MISSION_ITEM_H);
     this.timeText.setText(formatClock(MISSION_SEC));
     this.gauge.setRatio(1);
 
@@ -159,7 +199,7 @@ export class MissionDirector {
     this.sliding = true;
     this.chefBob?.stop();
     this.chef.setY(this.chefBaseY);
-    this.nextIn = randBetween(NEXT_DELAY);
+    this.nextIn = randBetween(this.nextDelay);
     this.scene.tweens.add({
       targets: this.container,
       x: HIDDEN_X,

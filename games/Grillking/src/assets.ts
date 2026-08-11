@@ -1,6 +1,6 @@
 /**
  * 에셋 매니페스트 — UI 는 에디터 업로드 매니페스트(ui-assets.json)를 그대로 소비하고,
- * 꼬치 아이템 24종은 assets/items 에서 item_01..item_24 키로 로드한다.
+ * 꼬치 아이템 31종은 assets/items 에서 item_01..item_31 키로 로드한다.
  */
 import type Phaser from 'phaser';
 import { ITEM_TYPE_COUNT } from './logic/levels.js';
@@ -15,7 +15,7 @@ export const HOME_LAYOUT_PATH = 'ui/layouts/blank.json';
 export const UI_SPRITE_INDEX_KEY = 'ui_sprite_index';
 export const UI_SPRITE_INDEX_PATH = 'ui/sprites/_index.json';
 
-/** 꼬치 종류(1..24) → 텍스처 키. */
+/** 꼬치 종류(1..31) → 텍스처 키. */
 export function itemKey(type: number): string {
   return `item_${String(type).padStart(2, '0')}`;
 }

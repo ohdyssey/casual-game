@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   anyMatchPossible,
+  autoFinishRemaining,
   canMove,
   coolNeighborChar,
   findMatchGrill,
@@ -8,13 +9,15 @@ import {
   makeRng,
   moveSkewer,
   neighborsOf,
+  pinnedRemaining,
   refillEmptyGrills,
   remainingByType,
   resolveMatch,
+  servableCountByType,
   shuffleBoard,
   totalRemaining,
 } from './board.js';
-import { GRILL_COUNT, generateBoard, levelConfig } from './levels.js';
+import { COLOR_GROUPS, FAMILIES, GRILL_COUNT, ITEM_TYPE_COUNT, MAX_LEVEL, generateBoard, levelConfig } from './levels.js';
 import type { BoardState, GrillState } from './types.js';
 
 function grill(
@@ -112,7 +115,7 @@ describe('deadlock & shuffle', () => {
 });
 
 describe('level generation', () => {
-  it('builds a valid board: 12 grills, sets of 3, total = target + buffer, deterministic by seed', () => {
+  it('builds a valid board: 12 grills, sets of 3, total = target (남는 음식 0), deterministic by seed', () => {
     const cfg = levelConfig(1);
     const a = generateBoard(cfg, 123);
     const b = generateBoard(cfg, 123);
@@ -121,13 +124,13 @@ describe('level generation', () => {
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
     expect(JSON.stringify(a)).not.toBe(JSON.stringify(c));
 
-    // 레벨1은 하단 6칸 잠금(불판 해제 온보딩)
-    expect(a.grills.filter((g) => g.locked).map((g) => g.id)).toEqual([6, 7, 8, 9, 10, 11]);
+    // 레벨1은 9칸 시작 — 상단 3칸 잠금(추가 그릴은 위쪽에서 열림)
+    expect(a.grills.filter((g) => g.locked).map((g) => g.id)).toEqual([0, 1, 2]);
 
-    // 모든 종류 3의 배수 & 총량 = 목표 + 버퍼(숯은 비-슬롯이라 미포함)
+    // 모든 종류 3의 배수 & 총량 = 목표(정확히, 잉여 0 → 전량 서빙 시 남는 음식 없음)
     const counts = remainingByType(a);
     for (const [, n] of counts) expect(n % 3).toBe(0);
-    expect(totalRemaining(a)).toBe(cfg.targetSkewers + cfg.bufferSets * 3);
+    expect(totalRemaining(a)).toBe(cfg.targetSkewers);
     expect(anyMatchPossible(a)).toBe(true);
 
     // 초기 즉시 매치 없음 + 그릴당 최대 2개(빈 슬롯 보장)
@@ -142,34 +145,212 @@ describe('level generation', () => {
       const cfg = levelConfig(lv);
       const board = generateBoard(cfg, lv * 31 + 7);
       expect(cfg.targetSkewers % 3).toBe(0);
-      expect(totalRemaining(board)).toBe(cfg.targetSkewers + cfg.bufferSets * 3);
+      expect(totalRemaining(board)).toBe(cfg.targetSkewers);
       expect(findMatchGrill(board)).toBe(-1);
       expect(isDeadlocked(board)).toBe(false);
       expect(anyMatchPossible(board)).toBe(true);
-      // 종류 풀은 1..24 범위
+      // 종류 풀은 1..ITEM_TYPE_COUNT 범위
       for (const t of cfg.typePool) {
         expect(t).toBeGreaterThanOrEqual(1);
-        expect(t).toBeLessThanOrEqual(24);
+        expect(t).toBeLessThanOrEqual(ITEM_TYPE_COUNT);
       }
     }
   });
 
-  it('hybrid curve: handcrafted onboarding 1..15, procedural beyond, no flat plateau', () => {
-    // 온보딩 시작은 작고 너그럽다.
+  it('300-level curve: 9-grill start, +1 grill/20 levels (top-unlock), staged obstacles', () => {
+    const active = (lv: number): number => levelConfig(lv).layout.length - levelConfig(lv).lockedGrills.length;
+    // 최소 9그릴로 시작, 작고 너그럽다.
+    expect(active(1)).toBe(9);
     expect(levelConfig(1).typePool.length).toBe(4);
     expect(levelConfig(1).targetSkewers).toBe(12);
-    expect(levelConfig(1).lockedGrills.length).toBe(6);
-    // 메커니즘이 단계적으로 등장
-    expect(levelConfig(6).lockedGrills.length).toBe(0); // 전체 개방
-    expect(levelConfig(7).pinnedCount).toBe(1); // 고정 도입
-    expect(levelConfig(10).charredCount).toBe(1); // 숯 도입
-    expect(levelConfig(14).charLevel).toBe(2); // 2겹 숯
-    // 절차 구간은 캡까지 계속 상승(정체 없음)
-    expect(levelConfig(16).typePool.length).toBeGreaterThanOrEqual(9);
-    expect(levelConfig(99).typePool.length).toBe(13);
-    expect(levelConfig(99).targetSkewers).toBe(75);
-    expect(levelConfig(99).timeSec).toBe(110);
-    expect(levelConfig(99).targetSkewers).toBeGreaterThan(levelConfig(16).targetSkewers);
+    // 상단부터 잠금 — 추가 그릴이 위에서 열린다.
+    expect(levelConfig(1).lockedGrills).toEqual([0, 1, 2]);
+    // 20레벨마다 그릴 +1, L61 만석.
+    expect(active(21)).toBe(10);
+    expect(active(41)).toBe(11);
+    expect(active(61)).toBe(GRILL_COUNT);
+    expect(active(121)).toBe(GRILL_COUNT);
+    // 방해(고정/숯)는 초반에 없음 — 늦게 단계 도입.
+    expect(levelConfig(10).pinnedCount).toBe(0);
+    expect(levelConfig(20).charredCount).toBe(0);
+    expect(levelConfig(25).pinnedCount).toBeGreaterThanOrEqual(1); // 고정 도입
+    expect(levelConfig(45).charredCount).toBeGreaterThanOrEqual(1); // 숯 도입
+    expect(levelConfig(109).charLevel).toBe(1);
+    expect(levelConfig(110).charLevel).toBe(2); // 2겹 숯
+    // 난이도 상승(정체 없음): 목표·종류가 커진다.
+    expect(levelConfig(120).targetSkewers).toBeGreaterThan(levelConfig(20).targetSkewers);
+    expect(levelConfig(150).typePool.length).toBeGreaterThan(levelConfig(20).typePool.length);
+    // 300 상한(그 이상은 300으로 클램프).
+    expect(levelConfig(999).level).toBe(300);
+    // 종류 ≤ 세트(재료 총량 = 목표, 모든 종류 ≥1세트라 종류 수는 세트 수를 넘지 못함)
+    for (const lv of [1, 25, 50, 100, 200, 300]) {
+      const c = levelConfig(lv);
+      expect(c.typePool.length).toBeLessThanOrEqual(c.targetSkewers / 3);
+    }
+  });
+});
+
+describe('혼동 방지: 유사 꼬치는 한 판에 같이 나오지 않는다', () => {
+  // 각 종류 → 소속 패밀리 인덱스.
+  const familyOf = new Map<number, number>();
+  FAMILIES.forEach((fam, fi) => fam.forEach((t) => familyOf.set(t, fi)));
+
+  it('패밀리 파티션이 1..31 전종을 정확히 1번씩 덮는다', () => {
+    const flat = FAMILIES.flat();
+    expect(flat.length).toBe(ITEM_TYPE_COUNT);
+    expect(new Set(flat).size).toBe(ITEM_TYPE_COUNT);
+    for (let t = 1; t <= ITEM_TYPE_COUNT; t++) expect(familyOf.has(t)).toBe(true);
+  });
+
+  it('패밀리 수 > 한 레벨 최대 종류 수 — 겹침 불변식의 전제', () => {
+    let maxTypes = 0;
+    for (let lv = 1; lv <= MAX_LEVEL; lv++) maxTypes = Math.max(maxTypes, levelConfig(lv).typePool.length);
+    expect(maxTypes).toBeLessThan(FAMILIES.length);
+  });
+
+  it('모든 레벨의 종류 풀은 중복 없고, 같은 패밀리(유사 디자인) 2개를 포함하지 않는다', () => {
+    for (let lv = 1; lv <= MAX_LEVEL; lv++) {
+      const pool = levelConfig(lv).typePool;
+      expect(new Set(pool).size).toBe(pool.length); // 종류 중복 없음
+      const fams = pool.map((t) => familyOf.get(t));
+      expect(new Set(fams).size).toBe(fams.length); // 패밀리 중복 없음 = 유사 디자인 공존 없음
+    }
+  });
+
+  it('300레벨에 걸쳐 신규 포함 전 31종이 최소 1회 이상 등장한다', () => {
+    const seen = new Set<number>();
+    for (let lv = 1; lv <= MAX_LEVEL; lv++) for (const t of levelConfig(lv).typePool) seen.add(t);
+    expect(seen.size).toBe(ITEM_TYPE_COUNT);
+  });
+
+  it('색 계열까지 최대 분산 — 종류 ≤ 색 그룹 수면 전부 다른 색, 그 이상이면 라운드로빈 균등', () => {
+    const colorOf = new Map<number, number>();
+    const famPerColor = COLOR_GROUPS.map((g) => g.length);
+    COLOR_GROUPS.forEach((g, ci) => g.forEach((fam) => fam.forEach((t) => colorOf.set(t, ci))));
+    const C = COLOR_GROUPS.length;
+    for (let lv = 1; lv <= MAX_LEVEL; lv++) {
+      const pool = levelConfig(lv).typePool;
+      const counts = new Map<number, number>();
+      for (const t of pool) counts.set(colorOf.get(t)!, (counts.get(colorOf.get(t)!) ?? 0) + 1);
+      if (pool.length <= C) {
+        // 종류가 색 그룹 수 이하면 색이 하나도 겹치지 않는다(모두 유니크 색).
+        expect(counts.size).toBe(pool.length);
+      } else {
+        // 종류가 색 그룹 수를 넘으면 모든 색이 최소 1회 등장하고,
+        // 아직 패밀리가 남은(미소진) 색끼리는 사용 횟수 차이가 1 이하(라운드로빈 균등 채움).
+        expect(counts.size).toBe(C);
+        const openCounts = [...counts].filter(([ci, c]) => c < famPerColor[ci]).map(([, c]) => c);
+        if (openCounts.length > 0) {
+          expect(Math.max(...openCounts) - Math.min(...openCounts)).toBeLessThanOrEqual(1);
+        }
+      }
+    }
+  });
+});
+
+describe('autoFinish & no-leftover (막판 자동 서빙 · 남는 음식 0)', () => {
+  it('serves all free skewers and empties the board (고정 없을 때 전량 서빙)', () => {
+    const b: BoardState = {
+      grills: [grill(0, [5, 5, null], [5]), grill(1, [7, 7, 7]), grill(2, [null, null, null], [], true)],
+      served: 6,
+      dishes: 2,
+    };
+    const before = totalRemaining(b); // 3 + 3 = 6
+    const { board: fin, served, dishes } = autoFinishRemaining(b);
+    expect(served).toBe(before);
+    expect(dishes).toBe(before / 3);
+    expect(totalRemaining(fin)).toBe(0);
+    expect(fin.served).toBe(6 + before);
+    expect(fin.dishes).toBe(2 + before / 3);
+    expect(fin.grills[0].slots).toEqual([null, null, null]);
+    expect(fin.grills[0].queue).toEqual([]);
+    expect(fin.grills[1].slots).toEqual([null, null, null]);
+    expect(fin.grills[2].locked).toBe(true);
+    // 불변성: 원본 보존
+    expect(totalRemaining(b)).toBe(before);
+  });
+
+  it('never auto-serves pinned skewers (고정은 남기고 자유만 서빙)', () => {
+    const b: BoardState = {
+      grills: [
+        grill(0, [4, 4, null], [], false, { char: [0, 0, 1] }), // 자유 2개 + 숯 블로커
+        grill(1, [9, null, null], [], false, { pinned: [true, false, false] }), // 고정 9
+      ],
+      served: 0,
+      dishes: 0,
+    };
+    const { board: fin, served } = autoFinishRemaining(b);
+    // 자유 꼬치(4,4)만 서빙. 고정 꼬치(9)는 그대로 + 플래그 유지.
+    expect(served).toBe(2);
+    expect(fin.grills[0].slots).toEqual([null, null, null]);
+    expect(fin.grills[0].char).toBeUndefined(); // 숯 블로커(꼬치 아님)는 해제
+    expect(fin.grills[1].slots).toEqual([9, null, null]);
+    expect(fin.grills[1].pinned).toEqual([true, false, false]);
+    // 고정이 남아 있으니 pinnedRemaining>0 → 게임은 이 상태에서 자동 서빙을 발동하지 않는다.
+    expect(pinnedRemaining(fin)).toBe(1);
+  });
+
+  it('every level 1..300: total materials == target (잉여 0) with a manual section', () => {
+    for (let lv = 1; lv <= 300; lv++) {
+      const cfg = levelConfig(lv);
+      const board = generateBoard(cfg, (lv * 100003 + 7919) >>> 0);
+      expect(totalRemaining(board)).toBe(cfg.targetSkewers); // 총량 = 목표(남는 음식 0)
+      expect(cfg.targetSkewers).toBeGreaterThan(3); // 마지막 한 세트(3)만 자동 → 수동 구간 존재
+    }
+  });
+});
+
+describe('servableCountByType (미션 서빙 가능성)', () => {
+  it('counts free skewers gatherable into one grill', () => {
+    const b = board([grill(0, [3, 3, null]), grill(1, [3, null, null], [7, 7]), grill(2, [null, null, null], [8])]);
+    const s = servableCountByType(b);
+    expect(s.get(3)).toBe(3); // 자유 3개 → 한 그릴에 모아 매치 가능
+    expect(s.get(7)).toBe(2); // 큐의 7 두 개(리필되면 이동 가능) → 아직 2
+    expect(s.get(8)).toBe(1);
+  });
+
+  it('a pinned anchor plus free skewers can be gathered', () => {
+    // 고정 5 한 개 + 자유 5 두 개 → 그 그릴에서 완성 가능(3).
+    const b = board([grill(0, [5, null, null], [], false, { pinned: [true, false, false] }), grill(1, [5, 5, null])]);
+    expect(servableCountByType(b).get(5)).toBe(3);
+  });
+
+  it('pinned copies scattered across grills are NOT servable (도달 불가 미션 제외)', () => {
+    // 같은 종류 6이 서로 다른 3그릴에 고정 1개씩(자유 0) → 총량 3이지만 한 그릴에 못 모음 → 서빙 불가.
+    const b = board([
+      grill(0, [6, null, null], [], false, { pinned: [true, false, false] }),
+      grill(1, [6, null, null], [], false, { pinned: [true, false, false] }),
+      grill(2, [6, null, null], [], false, { pinned: [true, false, false] }),
+    ]);
+    expect(remainingByType(b).get(6)).toBe(3); // 단순 총량은 3
+    expect(servableCountByType(b).get(6)).toBe(1); // 그러나 한 그릴 최대 = 고정1 + 자유0 = 1
+  });
+
+  it('ignores locked grills', () => {
+    const b = board([grill(0, [2, 2, 2], [], true), grill(1, [2, null, null])]);
+    expect(servableCountByType(b).get(2)).toBe(1); // 잠금 그릴의 2는 세지 않음
+  });
+
+  it('generated boards: every pinned skewer type is servable (고정 종류 서빙 가능 불변식)', () => {
+    // 같은 종류를 두 그릴에 고정하면 3개를 못 모아 영구 서빙 불가 → 고정은 종류 유일해야 하고,
+    // 각 고정 종류는 servableCountByType ≥ 3(한 그릴에 3개를 모을 수 있음) 이어야 한다.
+    for (let lv = 25; lv <= 300; lv += 1) {
+      const cfg = levelConfig(lv);
+      for (let s = 1; s <= 6; s++) {
+        const b = generateBoard(cfg, (lv * 100003 + s * 7919) >>> 0);
+        const servable = servableCountByType(b);
+        const pinnedTypes: number[] = [];
+        for (const g of b.grills) {
+          if (g.locked || !g.pinned) continue;
+          for (let i = 0; i < 3; i++) if (g.pinned[i] && g.slots[i] !== null) pinnedTypes.push(g.slots[i] as number);
+        }
+        // 고정 종류는 서로 달라야 하고(중복 없음), 각각 서빙 가능(≥3).
+        expect(new Set(pinnedTypes).size, `L${lv}#${s} 고정 종류 중복`).toBe(pinnedTypes.length);
+        for (const t of pinnedTypes) {
+          expect(servable.get(t) ?? 0, `L${lv}#${s} 고정 종류 ${t} 서빙 불가`).toBeGreaterThanOrEqual(3);
+        }
+      }
+    }
   });
 });
 
@@ -275,7 +456,6 @@ describe('per-level grill layout (보드 모양)', () => {
       typePool: [1, 2, 3, 4],
       targetSkewers: 12,
       timeSec: 120,
-      bufferSets: 2,
       initialPerGrill: 2,
       layout: [0, 1, 2, 3, 4, 5],
       lockedGrills: [],
@@ -289,27 +469,26 @@ describe('per-level grill layout (보드 모양)', () => {
       expect(b.grills[i].locked).toBe(true);
       expect(b.grills[i].slots).toEqual([null, null, null]);
     }
-    expect(totalRemaining(b)).toBe(12 + 2 * 3);
+    expect(totalRemaining(b)).toBe(12);
     expect(findMatchGrill(b)).toBe(-1);
     expect(isDeadlocked(b)).toBe(false);
   });
 
-  it('onboarding finale (L15) is a 10-cell ring with empty center column', () => {
-    const cfg = levelConfig(15);
-    expect(cfg.layout.length).toBe(10);
-    expect(cfg.layout.includes(4)).toBe(false); // (row1,col1)
-    expect(cfg.layout.includes(7)).toBe(false); // (row2,col1)
-    const b = generateBoard(cfg, 15);
-    expect(b.grills[4].locked).toBe(true);
-    expect(b.grills[7].locked).toBe(true);
+  it('shape variety appears once the board is full (L125 is a holed layout)', () => {
+    // 성장 완료(만석) 이후 5의 배수 레벨은 이형(구멍) 보드.
+    const cfg = levelConfig(125);
+    expect(cfg.lockedGrills.length).toBe(0);
+    expect(cfg.layout.length).toBeLessThan(GRILL_COUNT); // 구멍 있는 모양
+    expect(cfg.layout.length).toBeGreaterThanOrEqual(8);
+    const b = generateBoard(cfg, 125);
     expect(isDeadlocked(b)).toBe(false);
-    expect(totalRemaining(b)).toBe(cfg.targetSkewers + cfg.bufferSets * 3);
+    expect(totalRemaining(b)).toBe(cfg.targetSkewers);
   });
 
-  it('procedural curve varies board shape (not always 12 cells)', () => {
+  it('board shape varies across high levels (full 12 mixed with holed shapes)', () => {
     const sizes = new Set<number>();
-    for (let lv = 16; lv <= 30; lv++) sizes.add(levelConfig(lv).layout.length);
-    expect(sizes.size).toBeGreaterThan(1);
+    for (let lv = 121; lv <= 200; lv++) sizes.add(levelConfig(lv).layout.length);
+    expect(sizes.size).toBeGreaterThan(1); // 만석(12)과 이형 모양이 섞임
     expect(sizes.has(12)).toBe(true);
   });
 });

@@ -190,6 +190,36 @@ export function totalRemaining(board: BoardState): number {
   return board.grills.reduce((n, g) => n + slotItemCount(g.slots) + g.queue.length, 0);
 }
 
+/** 남은 고정(pinned) 꼬치 수 — 자동 서빙은 이 값이 0일 때만 발동(고정은 플레이어가 직접 매치). */
+export function pinnedRemaining(board: BoardState): number {
+  let n = 0;
+  for (const g of board.grills) {
+    if (g.locked || !g.pinned) continue;
+    for (let i = 0; i < g.slots.length; i++) if (g.pinned[i] && g.slots[i] !== null) n++;
+  }
+  return n;
+}
+
+/**
+ * 막판 자동 마무리 — 보드에 남은 **자유(비고정) 꼬치만** 서빙 처리한다.
+ * ⚠️ 고정(pinned) 꼬치는 "이동 불가"라 자동 매칭 금지(요구사항) → 남겨둔다. 숯 블로커(꼬치 아님)는 해제.
+ * 발동은 pinnedRemaining===0 일 때만이라(GrillScene) 실제로는 남은 전량이 자유 꼬치 = 완전한 세트(3의 배수)
+ * → 전량 서빙되어 **남는 음식 0**. served 는 서빙한 꼬치 수, dishes 는 세트 수만큼 증가.
+ */
+export function autoFinishRemaining(board: BoardState): { board: BoardState; served: number; dishes: number } {
+  let served = 0;
+  const grills = board.grills.map((g) => {
+    if (g.locked) return g;
+    const slots = g.slots.map((s, i) => (s !== null && slotPinned(g, i) ? s : null));
+    for (let i = 0; i < g.slots.length; i++) if (g.slots[i] !== null && !slotPinned(g, i)) served++;
+    served += g.queue.length; // 고정 그릴 큐는 항상 비어 있음(불변) → 자유 그릴 큐만 반영됨
+    const keepsPinned = slots.some((s) => s !== null);
+    return { ...g, slots, queue: [], pinned: keepsPinned ? g.pinned : undefined, char: undefined };
+  });
+  const dishes = Math.floor(served / SLOT_COUNT);
+  return { board: { ...board, grills, served: board.served + served, dishes: board.dishes + dishes }, served, dishes };
+}
+
 /** 종류별 남은 개수 — 미션 대상 선정/완주 가능성 판단용. */
 export function remainingByType(board: BoardState): Map<ItemType, number> {
   const map = new Map<ItemType, number>();
@@ -204,6 +234,39 @@ export function remainingByType(board: BoardState): Map<ItemType, number> {
 export function anyMatchPossible(board: BoardState): boolean {
   for (const count of remainingByType(board).values()) if (count >= 3) return true;
   return false;
+}
+
+/**
+ * 종류별 "한 그릴에 3개를 모아 매치할 수 있는" 최대 개수 — 특별주문(미션) **서빙 가능성** 판정용.
+ * remainingByType(단순 총량)와 달리 도달 가능성을 반영해 "달성 불가능한 미션"을 걸러낸다.
+ * 원칙:
+ *   · 잠금 그릴은 제외(플레이 불가).
+ *   · 고정(pinned) 꼬치는 빼낼 수 없어 **자기 그릴의 앵커로만** 쓰인다(다른 그릴로 못 모음).
+ *   · 그 외(자유 슬롯 + 리필될 큐)의 꼬치는 전역 드래그로 어느 그릴로든 모을 수 있다.
+ *   · 고정 그릴의 큐는 리필되지 않아(슬롯0 영구 점유) 갇히므로 자유 개수에서 제외.
+ * 서빙 가능 개수(X) = min(3, max_그릴(그 그릴의 고정 X 수) + 자유 X 수).
+ *   예) 같은 종류가 서로 다른 그릴에 고정 3개(자유 0)면 총량은 3이지만 한 그릴에 못 모아 값은 1(서빙 불가).
+ */
+export function servableCountByType(board: BoardState): Map<ItemType, number> {
+  const free = new Map<ItemType, number>();
+  const bestPinned = new Map<ItemType, number>(); // 한 그릴 내 같은 종류 고정 꼬치의 최대 수
+  for (const g of board.grills) {
+    if (g.locked) continue;
+    const pinnedHere = new Map<ItemType, number>();
+    for (let i = 0; i < g.slots.length; i++) {
+      const s = g.slots[i];
+      if (s === null) continue;
+      if (slotPinned(g, i)) pinnedHere.set(s, (pinnedHere.get(s) ?? 0) + 1);
+      else free.set(s, (free.get(s) ?? 0) + 1);
+    }
+    if (!g.pinned?.some(Boolean)) for (const q of g.queue) free.set(q, (free.get(q) ?? 0) + 1);
+    for (const [t, c] of pinnedHere) bestPinned.set(t, Math.max(bestPinned.get(t) ?? 0, c));
+  }
+  const out = new Map<ItemType, number>();
+  for (const t of new Set<ItemType>([...free.keys(), ...bestPinned.keys()])) {
+    out.set(t, Math.min(SLOT_COUNT, (bestPinned.get(t) ?? 0) + (free.get(t) ?? 0)));
+  }
+  return out;
 }
 
 /**

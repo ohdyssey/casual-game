@@ -13,24 +13,28 @@ export const GRILL_BODY_KEY = 'up_GK_UI_10-1';
 export const GRILL_GRATE_KEY = 'up_GK_UI_10-2_v2';
 export const GRILL_LOCKED_KEY = 'up_GK_UI_09';
 
-/** 에디터 그릴2 노드에서 추출한 상대 오프셋. */
-const BODY_W = 198;
-const BODY_H = 170;
-const FIRE_DY = -22;
-const FIRE_W = 146;
-const FIRE_H = 74;
-const FIRE_RADIUS = 42;
-const GRATE_DY = -25;
-const GRATE_W = 201;
-const GRATE_H = 91;
-export const SLOT_DX = [-55, 0, 56] as const;
-export const SLOT_DY = -28;
-export const SKEWER_W = 52;
-export const SKEWER_H = 110;
-const TRAY_DX = [-39, 0, 40] as const;
-const TRAY_DY = 58;
-const TRAY_ITEM_W = 28;
-const TRAY_ITEM_H = 60;
+/**
+ * 세로 HD(1080×2400) 그릴 기하. **에디터 제공 크기보다 크게**(본체 291×249 대비 ≈1.07×) 키우되,
+ * 3열이 1080폭에 **좌우 패딩(≈48px)**을 두고 들어가도록 조정한 값(열 간격=GrillScene.GRID_COL_PITCH).
+ */
+const BODY_W = 312;
+const BODY_H = 267;
+const LOCK_BODY_H = 253;
+const FIRE_DY = -35;
+const FIRE_W = 236;
+const FIRE_H = 118;
+const FIRE_RADIUS = 64;
+const GRATE_DY = -41;
+const GRATE_W = 313;
+const GRATE_H = 142;
+export const SLOT_DX = [-86, 0, 88] as const;
+export const SLOT_DY = -43;
+export const SKEWER_W = 86;
+export const SKEWER_H = 179;
+const TRAY_DX = [-62, 0, 64] as const;
+const TRAY_DY = 90;
+const TRAY_ITEM_W = 43;
+const TRAY_ITEM_H = 92;
 const TRAY_ANGLE = 15;
 
 const DEPTH_BODY = 30;
@@ -58,10 +62,10 @@ export class GrillView {
     // 비활성 칸(이 레벨엔 그릴 없음) — 아무것도 그리지 않는다. 로직상 locked 처럼 취급.
     if (absent) return;
     if (locked) {
-      this.body = scene.add.image(x, y, GRILL_LOCKED_KEY).setDisplaySize(BODY_W, 172).setDepth(DEPTH_BODY);
+      this.body = scene.add.image(x, y, GRILL_LOCKED_KEY).setDisplaySize(BODY_W, LOCK_BODY_H).setDepth(DEPTH_BODY);
       scene.add
-        .text(x, y, lockLabel ?? '🔒', { ...LOCK_TEXT_STYLE, fontSize: '24px', lineSpacing: 2 })
-        .setStroke('#5a3210', 4)
+        .text(x, y, lockLabel ?? '🔒', { ...LOCK_TEXT_STYLE, fontSize: '34px', lineSpacing: 4 })
+        .setStroke('#5a3210', 6)
         .setOrigin(0.5)
         .setDepth(DEPTH_GRATE);
       return;
@@ -135,6 +139,6 @@ export class GrillView {
 
   /** 포인터가 이 그릴 히트영역(본체+쟁반) 안인가. */
   contains(px: number, py: number): boolean {
-    return Math.abs(px - this.x) <= BODY_W / 2 + 12 && Math.abs(py - this.y) <= BODY_H / 2 + 26;
+    return Math.abs(px - this.x) <= BODY_W / 2 + 19 && Math.abs(py - this.y) <= BODY_H / 2 + 43;
   }
 }

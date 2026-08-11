@@ -5,7 +5,7 @@
  * 같은 꼬치 3개가 한 그릴에 모이면 매치(서빙). 그릴이 완전히 비면 큐에서 리필.
  */
 
-/** 꼬치 종류 — 에셋 GK_Item_01..24 의 1-based 인덱스. */
+/** 꼬치 종류 — 에셋 GK_Item_01..31 의 1-based 인덱스. */
 export type ItemType = number;
 
 /** 그릴 슬롯 — 항상 길이 3, 빈 칸은 null. */
@@ -48,8 +48,6 @@ export interface LevelCfg {
   readonly targetSkewers: number;
   /** 제한 시간(초). */
   readonly timeSec: number;
-  /** 여유 세트 수(버퍼). 재료 총량 = 목표 + bufferSets×3. 낮을수록 빡빡(재료 부족 위험). */
-  readonly bufferSets: number;
   /** 그릴당 초기 배치 꼬치 수(1~2). 높을수록 시작부터 붐빈다. */
   readonly initialPerGrill: number;
   /**

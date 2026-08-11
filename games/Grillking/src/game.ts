@@ -26,6 +26,10 @@ export const GrillkingGame: GameModule = {
     HomeScene,
     GrillScene,
   ],
+  // 게임플레이(main.json)가 세로 HD 1080×2400 로 저작됨 → 캔버스 좌표계를 디자인과 1:1 로 맞춘다.
+  // (코어 기본 720×동적 대신 고정 → FIT 레터박스로 기기 대응, 에디터 디자인 네이티브 렌더.)
+  designWidth: 1080,
+  designHeight: 2400,
   backgroundColor: '#2B1810',
   theme: { brand: '#E8542A' },
   hud: { coins: true, timer: true, combo: true },
