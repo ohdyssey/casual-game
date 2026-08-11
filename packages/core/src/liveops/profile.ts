@@ -23,7 +23,12 @@ export interface Profile {
   /** 마지막 무료 스핀(ms, 0=없음). */
   lastSpinAt: number;
   powerups: { hint: number; shuffle: number; undo: number };
+  /** 통합 프로필 아바타 — 전 게임 공유. 값 = 아바타 이미지 텍스처 키(에디터 저작 키와 동일). 미설정 시 DEFAULT_AVATAR_KEY. */
+  avatarKey?: string;
 }
+
+/** 통합 프로필 아바타 기본값 — 에디터가 프로필 노드(Profile_img)에 저작한 텍스처 키와 일치. */
+export const DEFAULT_AVATAR_KEY = 'up_Profilel_Male_001';
 
 export interface Reward {
   coins?: number;
@@ -45,6 +50,7 @@ export const DEFAULT_PROFILE: Profile = {
   dailyStreak: 0,
   lastSpinAt: 0,
   powerups: { hint: 10, shuffle: 1, undo: 5 }, // 힌트 기본 10개
+  avatarKey: DEFAULT_AVATAR_KEY,
 };
 
 const clamp0 = (n: number): number => Math.max(0, n);

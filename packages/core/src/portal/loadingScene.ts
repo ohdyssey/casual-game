@@ -19,7 +19,13 @@
 import Phaser from 'phaser';
 import { portalConfirmStart, portalLoadingBar, type LoadingBar } from './bridge.js';
 
-const BTN_DISPLAY_W = 308;
+/**
+ * START 버튼 표시 폭 — 프레임 폭에 비례(좁은 720 프레임 ~360, HD 1080 프레임 ~432).
+ * 이전엔 고정 308 이라 화면 대비 작았다 → 폭 비례로 키워 모든 게임에서 눈에 띄게 크게.
+ */
+function startButtonWidth(frameW: number): number {
+  return Math.max(360, Math.min(460, Math.round(frameW * 0.4)));
+}
 
 // 로딩 에셋 캐시 키(게임 에셋과 충돌 없게 접두).
 const K_BG = '__pl_bg';
@@ -46,6 +52,26 @@ export interface PortalLoadingConfig {
   preload?: (scene: Phaser.Scene) => void;
   /** 로드 완료 후 1회 셋업(텍스처 생성·폰트 선로딩 등). START 활성화 전에 실행. */
   onLoaded?: (scene: Phaser.Scene) => void | Promise<void>;
+  /** 로딩바 Y(픽셀, FIT 프레임 기준). 기본 H-470. 화면에서 위로 올리려면 더 작은 값. */
+  barY?: number;
+  /** 로딩바 두께(세로, px). 기본 26. */
+  barHeight?: number;
+  /** 로딩바 길이(가로, px). 기본은 화면폭 비례 자동 계산. */
+  barWidth?: number;
+  /** 진행률(%) 텍스트 위치 — 기본 바 아래('below'). 'above'=바 위, 'center'=바 중앙(겹쳐 표시). */
+  barPctPosition?: 'above' | 'below' | 'center';
+  /** 진행률(%) 텍스트 폰트 크기(px). 기본 24. */
+  barPctFontSize?: number;
+  /** 진행률(%) 텍스트 볼드체 여부. 기본 false. */
+  barPctBold?: boolean;
+  /** START 버튼 Y(픽셀, FIT 프레임 기준). 기본 H-300. */
+  buttonY?: number;
+  /**
+   * true 면 로딩 화면 자체엔 START 버튼을 띄우지 않고, 로드 완료(+onLoaded) 즉시 startScene 으로
+   * 넘어간다. 게임이 자체 로비/타이틀 화면(자체 START 버튼 포함)을 startScene 으로 두는 경우용
+   * (예: Homerun 로비). 기본 false(기존 동작 그대로 — 다른 게임에 영향 없음).
+   */
+  autoAdvance?: boolean;
 }
 
 /** 공용 로딩 [Boot, Load] 씬을 생성. GameModule.scenes 앞에 펼쳐 넣는다. */
@@ -112,10 +138,18 @@ export function makePortalLoading(cfg: PortalLoadingConfig): Phaser.Types.Scenes
         });
       }
 
-      // 하단 로딩바 + START(비활성) — 프레임 바닥 기준(H). FIT 이 프레임 전체를 보여주므로
-      //   어떤 창 크기에서도 화면 안에 남는다(아래로 떨어지지 않음).
-      this.loadBar = portalLoadingBar(this, { y: H - 300, color: cfg.barColor ?? 0xf9a825 });
-      this.buildStartButton(cx, H - 150);
+      // 로딩바 + START(비활성) — 프레임 바닥에서 위로 올려 배치(기본 barY=H-470, buttonY=H-300).
+      //   FIT 이 프레임 전체를 보여주므로 어떤 창 크기에서도 화면 안에 남는다(아래로 떨어지지 않음).
+      this.loadBar = portalLoadingBar(this, {
+        y: cfg.barY ?? H - 470,
+        color: cfg.barColor ?? 0xf9a825,
+        height: cfg.barHeight,
+        width: cfg.barWidth,
+        pctPosition: cfg.barPctPosition,
+        pctFontSize: cfg.barPctFontSize,
+        pctBold: cfg.barPctBold,
+      });
+      if (!cfg.autoAdvance) this.buildStartButton(cx, cfg.buttonY ?? H - 300);
 
       // 게임 에셋 큐잉(바가 이 로드를 추종).
       cfg.preload?.(this);
@@ -125,19 +159,20 @@ export function makePortalLoading(cfg: PortalLoadingConfig): Phaser.Types.Scenes
       void (async () => {
         await this.loadBar.whenReady();
         if (cfg.onLoaded) await cfg.onLoaded(this);
-        this.enableStart();
+        if (cfg.autoAdvance) this.scene.start(cfg.startScene);
+        else this.enableStart();
       })();
     }
 
     private buildStartButton(x: number, y: number): void {
       this.btn = this.add.image(x, y, K_OFF).setDepth(100000);
-      this.btnBaseScale = BTN_DISPLAY_W / this.btn.width;
+      this.btnBaseScale = startButtonWidth(this.scale.width) / this.btn.width;
       this.btn.setScale(this.btnBaseScale).setAlpha(0.92);
     }
 
     private enableStart(): void {
       this.btn.setTexture(K_ON).setAlpha(1);
-      this.btnBaseScale = BTN_DISPLAY_W / this.btn.width;
+      this.btnBaseScale = startButtonWidth(this.scale.width) / this.btn.width;
       this.btn.setScale(this.btnBaseScale);
       this.btn.setInteractive({ useHandCursor: true });
       this.btnPulse = this.tweens.add({

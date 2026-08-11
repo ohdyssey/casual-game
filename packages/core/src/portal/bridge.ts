@@ -143,6 +143,16 @@ export interface LoadingBarOpts {
   color?: number;
   /** 바 y 좌표(기본 화면 세로 중앙 + 150). */
   y?: number;
+  /** 바 두께(세로, px). 기본 26. */
+  height?: number;
+  /** 바 길이(가로, px). 기본은 화면폭 비례 자동 계산(440~760). */
+  width?: number;
+  /** 진행률(%) 텍스트 위치 — 기본 바 아래('below'). 'above'=바 위, 'center'=바 중앙(겹쳐 표시). */
+  pctPosition?: 'above' | 'below' | 'center';
+  /** 진행률(%) 텍스트 폰트 크기(px). 기본 24. */
+  pctFontSize?: number;
+  /** 진행률(%) 텍스트 볼드체 여부. 기본 false. */
+  pctBold?: boolean;
 }
 
 /**
@@ -158,23 +168,33 @@ export function portalLoadingBar(scene: Phaser.Scene, opts: LoadingBarOpts = {})
   const color = opts.color ?? 0x3cb54a;
   const cx = scene.scale.width / 2;
   const by = opts.y ?? scene.scale.height / 2 + 150;
-  const barW = 420;
-  const barH = 26;
+  // 바 길이 — 프레임 폭에 비례해 길게(좁은 720 프레임 ~446, HD 1080 프레임 ~670). 이전 고정 420 대비 확대.
+  const barW = opts.width ?? Math.max(440, Math.min(760, Math.round(scene.scale.width * 0.62)));
+  const barH = opts.height ?? 26;
   const bx = cx - barW / 2;
+  // 양끝을 완전한 반원(캡슐/알약 모양)으로 — 반지름을 두께의 절반으로 둬 어떤 두께에서도
+  // 끝이 각지지 않고 둥글게 떨어지게 한다(이전엔 고정 13/10 이라 두꺼운 바에선 각져 보였다).
+  const frameRadius = barH / 2;
+  const fillRadius = Math.max(0, barH / 2 - 3);
 
   const frame = scene.add.graphics().setDepth(99999);
   frame.lineStyle(4, 0xffffff, 0.9);
-  frame.strokeRoundedRect(bx, by, barW, barH, 13);
+  frame.strokeRoundedRect(bx, by, barW, barH, frameRadius);
   const fill = scene.add.graphics().setDepth(99999);
+  const pctFontSize = opts.pctFontSize ?? 24;
+  const pctPos = opts.pctPosition ?? 'below';
+  const pctY = pctPos === 'above' ? by - 20 : pctPos === 'center' ? by + barH / 2 : by + barH + 28;
+  const pctOriginY = pctPos === 'above' ? 1 : 0.5;
   const pct = scene.add
-    .text(cx, by + barH + 28, '0%', {
+    .text(cx, pctY, '0%', {
       fontFamily: 'Jua, sans-serif',
-      fontSize: '24px',
+      fontSize: `${pctFontSize}px`,
+      fontStyle: opts.pctBold ? 'bold' : undefined,
       color: '#ffffff',
       stroke: '#0a3018',
       strokeThickness: 5,
     })
-    .setOrigin(0.5)
+    .setOrigin(0.5, pctOriginY)
     .setDepth(99999);
 
   let target = 0; // 실제 로더 진행률(0..1)
@@ -195,7 +215,7 @@ export function portalLoadingBar(scene: Phaser.Scene, opts: LoadingBarOpts = {})
     fill.clear();
     fill.fillStyle(color, 1);
     const w = (barW - 6) * displayed;
-    if (w > 0) fill.fillRoundedRect(bx + 3, by + 3, w, barH - 6, 10);
+    if (w > 0) fill.fillRoundedRect(bx + 3, by + 3, w, barH - 6, Math.min(fillRadius, w / 2));
     pct.setText(`${Math.round(displayed * 100)}%`);
   };
   render();

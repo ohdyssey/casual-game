@@ -5,7 +5,7 @@
 import type { Profile } from './profile.js';
 
 export const MAX_LIVES = 5;
-export const LIFE_REGEN_MS = 10 * 60 * 1000; // 10분당 1개
+export const LIFE_REGEN_MS = 60 * 60 * 1000; // 1시간당 1개
 
 /**
  * 재생 반영 — lastLifeAt 이후 경과로 채워진 하트를 lives 에 합산하고 기준 시각을 전진.

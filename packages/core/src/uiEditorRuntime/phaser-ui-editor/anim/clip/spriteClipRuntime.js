@@ -39,25 +39,48 @@ export function ensureSpriteDocTexture(scene, doc) {
 
   return new Promise((resolve, reject) => {
     let done = false;
-    const finish = (ok, err) => { if (done) return; done = true; ok ? resolve(key) : reject(err || new Error('텍스처 로드 실패')); };
+    // ⚠️ 예전엔 로더 전체의 제네릭 'complete'/'loaderror' 이벤트를 once() 로 들었는데, 이 함수가
+    //    같은 씬의 로더에서 여러 클립을 순차 호출(로딩화면 프리로드)될 때 실제로 실패가
+    //    재현됐다(예: 홈런팝 — WebP 전환 후 실 배포/프리뷰 빌드에서도 "Failed to process file"
+    //    로 캐릭터·전광판 스프라이트가 아예 안 뜸). 파일별 완료 이벤트(filecomplete-*-key)로
+    //    바꾸고, loaderror 도 이 key 것만 걸러 받아 다른 파일의 실패/제네릭 완료 타이밍에
+    //    엉뚱하게 반응하지 않게 한다 — 여러 파일을 동시/연속 로드해도 서로 안 섞인다.
+    const fileType = rects ? 'image' : 'spritesheet';
+    const completeEvent = `filecomplete-${fileType}-${key}`;
+    const cleanup = () => {
+      scene.load.off(completeEvent, onFileComplete);
+      scene.load.off('loaderror', onLoadError);
+    };
+    const finish = (ok, err) => {
+      if (done) return;
+      done = true;
+      cleanup();
+      ok ? resolve(key) : reject(err || new Error('텍스처 로드 실패'));
+    };
     const timer = setTimeout(() => finish(false, new Error('텍스처 로드 시간초과')), TEX_LOAD_TIMEOUT);
+    const onFileComplete = () => {
+      clearTimeout(timer);
+      if (rects) {                                  // 비균일 — 단일 이미지에 커스텀 프레임 등록
+        try {
+          const tex = scene.textures.get(key);
+          const src = tex.getSourceImage(); const iw = src.width | 0, ih = src.height | 0;
+          for (const fr of rects) {
+            const x = Math.max(0, Math.min(iw - 1, fr.x | 0)), y = Math.max(0, Math.min(ih - 1, fr.y | 0));
+            const w = Math.max(1, Math.min(iw - x, fr.w | 0)), h = Math.max(1, Math.min(ih - y, fr.h | 0));
+            tex.add(fr.index, 0, x, y, w, h);
+          }
+        } catch (e) { devWarn('rects 프레임 등록 실패:', e && e.message); }
+      }
+      finish(true);
+    };
+    const onLoadError = (file) => {
+      if (!file || file.key !== key) return; // 다른 파일의 실패는 이 프라미스와 무관 — 무시.
+      clearTimeout(timer);
+      finish(false, new Error(`텍스처 로드 실패: ${path}`));
+    };
     try {
-      scene.load.once('complete', () => {
-        clearTimeout(timer);
-        if (rects) {                                  // 비균일 — 단일 이미지에 커스텀 프레임 등록
-          try {
-            const tex = scene.textures.get(key);
-            const src = tex.getSourceImage(); const iw = src.width | 0, ih = src.height | 0;
-            for (const fr of rects) {
-              const x = Math.max(0, Math.min(iw - 1, fr.x | 0)), y = Math.max(0, Math.min(ih - 1, fr.y | 0));
-              const w = Math.max(1, Math.min(iw - x, fr.w | 0)), h = Math.max(1, Math.min(ih - y, fr.h | 0));
-              tex.add(fr.index, 0, x, y, w, h);
-            }
-          } catch (e) { devWarn('rects 프레임 등록 실패:', e && e.message); }
-        }
-        finish(true);
-      });
-      scene.load.once('loaderror', () => { clearTimeout(timer); finish(false, new Error(`텍스처 로드 실패: ${path}`)); });
+      scene.load.on(completeEvent, onFileComplete);
+      scene.load.on('loaderror', onLoadError);
       if (rects) scene.load.image(key, path);
       else scene.load.spritesheet(key, path, { frameWidth: Math.max(1, sl.frameWidth || s.imageW || 1), frameHeight: Math.max(1, sl.frameHeight || s.imageH || 1) });
       scene.load.start();

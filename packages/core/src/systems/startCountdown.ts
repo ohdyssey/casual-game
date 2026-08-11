@@ -25,6 +25,8 @@ export interface StartCountdownOptions {
   depth?: number;
   /** 폰트(기본 코어 FONT.family). */
   fontFamily?: string;
+  /** 숫자가 바뀔 때마다(3·2·1) 호출 — 카운트다운 효과음을 화면과 맞춰 울리는 용도. */
+  onStep?: (n: number) => void;
 }
 
 /** 3·2·1 카운트다운을 표시하고 'START!' 시점에 resolve 한다(중복 호출 시 각자 독립 동작). */
@@ -36,6 +38,7 @@ export function startCountdown(scene: Phaser.Scene, opts: StartCountdownOptions 
     dimAlpha = 0.42,
     depth = 900000,
     fontFamily = FONT.family,
+    onStep,
   } = opts;
   return new Promise((resolve) => {
     const cam = scene.cameras.main;
@@ -78,6 +81,7 @@ export function startCountdown(scene: Phaser.Scene, opts: StartCountdownOptions 
       if (n > 0) {
         label.setFontSize(numSize).setText(String(n));
         pop();
+        onStep?.(n);
         n -= 1;
         scene.time.delayedCall(stepMs, tick);
         return;
