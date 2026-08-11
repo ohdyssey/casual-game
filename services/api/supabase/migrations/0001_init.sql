@@ -224,6 +224,11 @@ grant execute on function ttt.join_queue(uuid, int, int, text) to service_role;
 -- ───────────────────────── 유령 매치 청소 ─────────────────────────
 -- 양쪽이 다 이탈하면 아무도 timeout 을 주장하지 않는다. 데드라인이 한참 지난 판을 정리한다.
 -- pg_cron 이 없는 환경(로컬 등)에서는 조용히 건너뛴다.
+--
+-- ⚠️ 예외 조건명은 `invalid_schema_name`(3F000) 이다. `undefined_schema` 라는 조건명은
+--    PostgreSQL 에 **없다** — plpgsql 은 조건명을 컴파일 시점에 확인하므로, 없는 이름을 쓰면
+--    pg_cron 이 켜져 있든 없든 `unrecognized exception condition` 으로 이 블록이 죽고,
+--    스크립트 한 트랜잭션이 통째로 롤백된다(2026-08-11 실제로 밟았다).
 do $$ begin
   perform cron.schedule(
     'ttt-sweep-abandoned',
@@ -235,6 +240,6 @@ do $$ begin
          and turn_deadline < now() - interval '2 minutes'
     $sweep$
   );
-exception when undefined_function or undefined_schema then
+exception when undefined_function or invalid_schema_name then
   raise notice 'pg_cron 미설치 — 유령 매치 스윕을 건너뜁니다(로컬 개발에서는 정상).';
 end $$;
