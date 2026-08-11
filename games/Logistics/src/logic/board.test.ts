@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createGame, deliver, deployNext, resolveSwap, isLevelComplete } from './board.js';
+import { createGame, deliver, deployNext, resolveSwap, isLevelComplete, rejectBay, isLevelFailed } from './board.js';
 import { makeLevel, BAYS } from './levels.js';
 import { makeRng } from './rng.js';
 import { findMatches } from './match3.js';
@@ -14,7 +14,7 @@ describe('createGame', () => {
     expect(state.goal).toBe(cfg.goal);
     expect(state.bays).toHaveLength(BAYS);
     expect(state.bays.every((t) => t != null)).toBe(true);
-    expect(state.queue).toHaveLength(cfg.goal - BAYS);
+    expect(state.queue).toHaveLength(cfg.goal * 2 - BAYS); // 총 트럭 2×goal(버퍼) − 초기 정차 BAYS
     for (const t of state.bays) for (const s of t!.orders) expect(s.loaded).toBe(0);
   });
 
@@ -59,6 +59,32 @@ describe('deliver', () => {
   });
 });
 
+describe('배송거부(rejectBay) + 실패(isLevelFailed)', () => {
+  it('rejectBay: 그 베이 null + rejectedBays true (불변)', () => {
+    const state = createGame(makeLevel(1, makeRng(1)), makeRng(2));
+    const r = rejectBay(state, 1);
+    expect(r.bays[1]).toBeNull();
+    expect(r.rejectedBays[1]).toBe(true);
+    expect(r.rejectedBays[0]).toBe(false);
+    expect(state.rejectedBays[1]).toBe(false); // 원본 불변
+  });
+
+  it('전 베이 배송거부 + 목표 미달 → isLevelFailed=true', () => {
+    let state = createGame(makeLevel(1, makeRng(1)), makeRng(2));
+    expect(isLevelFailed(state)).toBe(false);
+    for (let b = 0; b < state.bays.length; b++) state = rejectBay(state, b);
+    expect(isLevelFailed(state)).toBe(true);
+  });
+
+  it('목표 달성 시엔 전 베이 거부라도 실패 아님', () => {
+    let state = createGame(makeLevel(1, makeRng(1)), makeRng(2));
+    state = { ...state, dispatched: state.goal };
+    for (let b = 0; b < state.bays.length; b++) state = rejectBay(state, b);
+    expect(isLevelComplete(state)).toBe(true);
+    expect(isLevelFailed(state)).toBe(false);
+  });
+});
+
 describe('deployNext', () => {
   it('출발한 베이에 대기열의 다음 트럭이 재진입', () => {
     const state = createGame(makeLevel(1, makeRng(1)), makeRng(2));
@@ -98,6 +124,7 @@ describe('resolveSwap', () => {
     } as Board,
     typePool: [7, 8, 9],
     bays: [{ serial: 0, bay: 0, dispatched: false, orders: [{ type: 7, required: 99, loaded: 0 }] }],
+    rejectedBays: [false],
     queue: [],
     nextSerial: 1,
     dispatched: 0,

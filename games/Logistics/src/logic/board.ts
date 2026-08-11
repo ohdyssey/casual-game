@@ -39,6 +39,7 @@ export function createGame(cfg: LevelCfg, rng: Rng): GameState {
     board,
     typePool: cfg.typePool,
     bays,
+    rejectedBays: bays.map(() => false),
     queue: cfg.trucks.slice(serial),
     nextSerial: serial,
     dispatched: 0,
@@ -46,6 +47,7 @@ export function createGame(cfg: LevelCfg, rng: Rng): GameState {
     reqMin: cfg.reqMin,
     reqMax: cfg.reqMax,
     timeLimitMs: cfg.timeLimitMs,
+    levelTimeMs: cfg.levelTimeMs,
   };
 }
 
@@ -127,6 +129,26 @@ export function isTruckComplete(truck: TruckState): boolean {
 
 export function isLevelComplete(state: GameState): boolean {
   return state.dispatched >= state.goal;
+}
+
+/**
+ * **배송거부** — 제한시간 초과한 베이를 죽인다(트럭 비우고 rejected 표시). 새 트럭은 오지 않는다(deployNext 미호출).
+ */
+export function rejectBay(state: GameState, bay: number): GameState {
+  const bays = state.bays.slice();
+  bays[bay] = null;
+  const rejectedBays = state.rejectedBays.slice();
+  rejectedBays[bay] = true;
+  return { ...state, bays, rejectedBays };
+}
+
+/**
+ * 레벨 실패(로직상) — **모든 베이가 닫혀**(배송거부 또는 대기 트럭 소진=배송완료 → bays[b]=null)
+ * 더 배송할 레인이 없는데 아직 목표 미달. 무한 공급을 폐지했으므로 닫힌 레인엔 새 트럭이 오지 않고,
+ * 전 베이가 null 이면 더는 배송이 불가능하다. (글로벌 시간 초과 실패는 씬 타이머가 판정한다.)
+ */
+export function isLevelFailed(state: GameState): boolean {
+  return !isLevelComplete(state) && state.bays.length > 0 && state.bays.every((b) => b === null);
 }
 
 /**

@@ -21,6 +21,9 @@ export const LogisticsGame: GameModule = {
     ...makePortalLoading({
       startScene: 'lobby',
       barColor: 0xf2b705,
+      // 로딩바·START 버튼을 화면 위쪽으로(기본 H-300/H-150 → 캐릭터 발밑 위로).
+      barY: 1610,
+      buttonY: 1800,
       preload: (s) => loadGameAssets(s),
       onLoaded: async (s) => {
         ensureGeneratedTextures(s);

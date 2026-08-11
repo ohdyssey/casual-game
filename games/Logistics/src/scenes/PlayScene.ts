@@ -10,8 +10,8 @@
  * 규칙은 순수 로직(../logic/match3, ../logic/board). 씬은 렌더·입력·애니·영속만.
  */
 import Phaser from 'phaser';
-import { loadProfile, saveProfile, applyReward, recordResult, haptics, type Profile } from '@casual/core';
-import { createGame, deliver, deployNext, isLevelComplete, type DeliverResult } from '../logic/board.js';
+import { loadProfile, saveProfile, applyReward, recordResult, haptics, startCountdown, type Profile } from '@casual/core';
+import { createGame, deliver, deployNext, isLevelComplete, isLevelFailed, type DeliverResult } from '../logic/board.js';
 import {
   findMatches,
   findMatchGroups,
@@ -24,10 +24,10 @@ import {
   reshuffle,
   cellKey,
 } from '../logic/match3.js';
-import { makeLevel, makeTruckSpec, truckTimeLimitMs } from '../logic/levels.js';
+import { makeLevel, truckTimeLimitMs } from '../logic/levels.js';
 import { makeRng } from '../logic/rng.js';
-import type { Coord, GameState, CollapseMove, Rng, TruckState, TruckSpec } from '../logic/types.js';
-import { makeProductIcon, productById, UI_LAYOUT_KEY, TILE_KEY, COIN_KEY } from '../assets.js';
+import type { Coord, GameState, CollapseMove, Rng, TruckState } from '../logic/types.js';
+import { makeProductIcon, productById, UI_LAYOUT_KEY, TILE_KEY, COIN_KEY, POPUP_CLEAR_TEX, POPUP_FAIL_TEX, BTN_OK_TEX, DELIVERY_DONE_TEX, DELIVERY_FAIL_TEX } from '../assets.js';
 import { buildLayout, textResolution, type LayoutDoc, type LayoutIndex } from '../ui/layoutLoader.js';
 import { sfx, startAudio, pitchVar, type Sfx } from '../audio.js';
 import { ITEM_RGB } from '../logic/itemColors.js';
@@ -37,47 +37,48 @@ const H = 2400; // 세로 HD 디자인 높이
 type Pos = { x: number; y: number };
 const TEXT_RES = textResolution(); // 또렷한 글자(고DPI FIT 확대 대비)
 
-// ── 에디터 노드 앵커 ──
-const LEVEL_TEXT_ID = 'layer_6_copy2'; // 좌상단 별표(UI_28) — 레벨 숫자를 별 안에
-const COINS_PANEL_ID = 'layer_6_copy'; // 상단 중앙 통화 바(UI_29) — 코인
-const PROGRESS_PANEL_ID = 'layer_6_copy3'; // 우상단 바(UI_31) — 진행도
-const SLOT_TEX = 'up_Logistics_UI_19'; // 셀 배경 아트(매니페스트 전체 로드라 사용 가능)
+// ── 에디터 노드 앵커 (main.json = 디자이너 재디자인 플레이 화면) ──
+// **핵심 원칙: 에디터 노드의 좌표·폰트를 그대로 사용**(레벨/코인/타이머/갯수 텍스트는 에디터 텍스트 객체를
+// 재사용해 위치·폰트·크기·색을 100% 일치시킨다. 아이템/갯수는 4베이 각각의 노드에 정확 매핑).
+const LEVEL_TIMER_ID = 'layer_3_copy'; // 중앙 상단 패널 안 **글로벌 레벨 타이머**("04:00", Luckiest Guy)
+const PROGRESS_PANEL_ID = 'layer_2_copy14'; // 중앙 상단 진행도 패널(UI_03) — 진행바를 이 패널 하단에 그림
+const COINS_PANEL_ID = 'layer_13_copy7'; // 우상단 코인바 값 텍스트("36,708", Luckiest Guy)
+const SLOT_TEX = 'up_Logistics_UI_19-1'; // 셀 배경 아트(신규 — 디자이너 보드 셀 UI_19-1)
+const BOARD_PANEL_ID = 'layer_3'; // 디자이너 보드 패널 아트(UI_20-1) — 그리드를 **이 패널 안쪽**에 배치
+const BOARD_PANEL_INSET = 0.025; // 패널 테두리 여백(작게 — 그리드가 패널을 꽉 채우게)
 
-// 도크 4베이 — 트럭 / 오더 패널 / 카운트 뱃지(좌→우: 청·녹·오렌지·보라).
-const BAY_TRUCK_IDS = ['layer_4', 'layer_4_copy4', 'layer_4_copy8', 'layer_4_copy3'];
-const BAY_PANEL_IDS = ['layer_1', 'layer_1_copy4', 'layer_1_copy2', 'layer_1_copy3'];
-const BAY_BADGE_IDS = ['layer_1_copy', 'layer_1_copy5', 'layer_1_copy6', 'layer_1_copy7'];
-// 제한시간 디지털 표시 위치 = 에디터에 저장된 시간 텍스트 노드("1:30", 전부 y480 정렬) — 시계/시간을 이 위치에.
-const BAY_TIME_IDS = ['layer_10_copy', 'layer_10_copy2', 'layer_10_copy3', 'layer_10_copy4'];
+// 도크 4베이(좌→우: 청·녹·오렌지·보라) — 트럭 / 오더 아이템 / 갯수 / 타이머, 각 요소는 **자기 에디터 노드** 위치.
+const BAY_TRUCK_IDS = ['layer_2', 'layer_2_copy2', 'layer_2_copy3', 'layer_2_copy4'];
+const BAY_ITEM_IDS = ['layer_2_copy', 'layer_2_copy8', 'layer_2_copy9', 'layer_2_copy10']; // 오더 아이템(102² 자리)
+const BAY_COUNT_IDS = ['layer_10_copy4', 'layer_10_copy5', 'layer_10_copy6', 'layer_10_copy7']; // 갯수("02 / 15", Bungee)
+const BAY_TIME_IDS = ['layer_10', 'layer_10_copy', 'layer_10_copy2', 'layer_10_copy3']; // 타이머("01:30", Luckiest Guy) — 재사용
 
-// 숨길 노드: ① 정적 캐릭터 노드(layer_8) — 베이별 프로그래밍 캐릭터로 대체(크기/위치는 이 노드를 기준 삼음),
-// ② 오더 패널 디자인 샘플(아이템/카운트 "16 💧"), ③ 정적 샘플 시간 텍스트("1:30") — 실시간 시계/디지털로 대체,
-// ④ 하단 정적 차량(뒷모습 밴 4대 + 그림자) — 빈 베이가 생길 때만 아래에서 트럭이 올라오므로 제거.
+// 배송 성공/실패 배너 **배치·크기 템플릿**(디자이너가 에디터에 배치 — 위치 Y·크기 SSOT).
+// 샘플은 특정 베이에 하나씩(안 씀·숨김), 코드가 이 노드의 Y·w·h·key 를 읽어 닫히는 베이마다 배너를 그린다.
+const DELIVERY_DONE_NODE = 'layer_12'; // 배송완료 배너(UI_48-1_v2) 템플릿
+const DELIVERY_FAIL_NODE = 'layer_12_copy'; // 배송거부 배너(UI_48-2_v2) 템플릿
+
+// 숨길 노드(디자인 샘플/플레이스홀더 → 런타임 동적 요소로 대체):
+// 4베이 오더 아이템 샘플(실제 상품 아이콘으로), 보드 샘플 셀 + 샘플 아이템(실제 셀/타일로).
+// 레벨/코인/타이머/갯수 **텍스트 노드는 숨기지 않고 그대로 재사용**(setText 로 값만 갱신 → 폰트/좌표 정확).
 const HIDE_IDS = [
-  'layer_8', // 캐릭터(정적) — 베이별 동적 캐릭터로 대체
-  'layer_9',
-  'layer_9_copy',
-  'layer_10',
-  // 정적 샘플 시간 텍스트("1:30") — 트럭별 실시간 시계/디지털시간으로 대체
-  'layer_10_copy',
-  'layer_10_copy2',
-  'layer_10_copy3',
-  'layer_10_copy4',
-  // 하단 정적 차량(녹/청/오렌지/보라 뒷모습) + 그림자
-  'layer_4_copy',
-  'layer_4_copy__shadow',
-  'layer_4_copy5',
-  'layer_4_copy5__shadow',
-  'layer_4_copy6',
-  'layer_4_copy6__shadow',
-  'layer_4_copy7',
-  'layer_4_copy7__shadow',
+  'layer_2_copy', // 베이0 오더 아이템 샘플
+  'layer_2_copy8', // 베이1
+  'layer_2_copy9', // 베이2
+  'layer_2_copy10', // 베이3
+  'layer_10_copy4', // 베이0 갯수 샘플("02 / 15") — 폰트만 읽어 실시간 갯수로 대체
+  'layer_10_copy5', // 베이1
+  'layer_10_copy6', // 베이2
+  'layer_10_copy7', // 베이3
+  'layer_2_copy62', // 보드 아이템 샘플 → 실제 타일
+  'layer_2_copy54', // 보드 셀 샘플 → 실제 셀 배경
+  'layer_2_copy15', // 진행도 박스 아이콘(UI_13) → 완성/전체 카운트 텍스트로 대체
+  DELIVERY_DONE_NODE, // 배송완료 배너 샘플(템플릿만 사용 → 숨김, 베이별 코드로 그림)
+  DELIVERY_FAIL_NODE, // 배송거부 배너 샘플
 ];
 
-// 오더 표시 기본 좌표(패널/뱃지 노드를 못 찾을 때 폴백). 실제론 노드 좌표를 읽어 배치.
-const ORDER_ITEM_Y = 559; // 패널 위 아이콘
-const ORDER_COUNT_Y = 487; // 뱃지 위 카운트
-const ORDER_ICON = 78; // 배송목표 아이템 크기(1.5배 확대: 52→78)
+// 오더 아이콘 폴백 크기(아이템 노드를 못 찾을 때). 실제론 노드 w 를 사용.
+const ORDER_ICON = 102;
 
 // 보드 영역(도크 트럭 하단과 하단 버튼 바 상단 사이의 도로)은 레이아웃 노드에서 동적 산출
 // (computeBoardArea). 세로 HD(1080×2400)에서 노드가 이동/리사이즈돼도 따라가도록 SSOT 파생.
@@ -108,63 +109,57 @@ const BAY_REAR_TEX = [
 // 블루 베이(트럭0) 기준으로 저장된 x/y/높이를 읽어, 다른 베이는 트럭 x 차이만큼 평행이동해 적용.
 const CHAR_PERSONS = ['01', '02']; // Chr_01=남, Chr_02=여(교대)
 const CHAR_VARIANTS = 4;
-const CHAR_NODE_ID = 'layer_8'; // 에디터에 저장된 캐릭터(블루 베이) 노드 — 크기/위치 기준
+// 캐릭터(차량 앞 직원) 노드 — 신규 디자인(main.json)엔 없어 캐릭터 생략(빈 문자열 = 없음).
+const CHAR_NODE_ID = ''; // 에디터에 캐릭터 노드가 추가되면 그 id 로 지정 → 자동으로 다시 그림
 const CHAR_DEPTH = 60; // 트럭 위, 보드 타일(90) 아래
 // 노드 못 찾을 때 폴백(트럭 중심 기준 x오프셋·절대 y·표시 높이).
 const CHAR_FALLBACK = { offX: -83, y: 755, h: 204 };
 
-// ── 상단 제한시간: 아날로그 초시계 + 디지털 시간(MM:SS) ──
-// 시계는 뱃지 좌측 끝으로, 디지털 시간은 패널(뱃지) 정중앙에. 파란 배경 없음(배경디자인 위).
-const CLOCK_R = 15;
-const CLOCK_DX = -54; // 뱃지 중심 기준 시계(왼쪽) — 디지털시간 1.5배 확대에 맞춰 좌측으로 더 띄움
-const TIME_DX = 0; // 뱃지 정중앙
-const CLOCK_DEPTH = 100; // 항상 위에
-const CLOCK_ICON_KEY = 'logi_clock_icon'; // 시간 보너스 시 매치→트럭시계로 날아가는 시계 아이콘(런타임 생성 텍스처)
-// 패널 안 아이템/갯수 좌우 배치(에디터 디자인 샘플 위치: 갯수 panel.x-23, 아이템 panel.x+15).
-const ITEM_DX = 36; // 아이템(우) — 1.5배 확대 아이템/갯수가 겹치지 않게 간격도 비례 확대(24→36)
-const ITEM_DY = 4; // 패널 기준 약간 아래(디자인 y≈290)
-const COUNT_DX = -36; // 갯수(좌) — 동일하게 비례 확대(-24→-36)
-// 제한시간 15초 이하 → 배송표시 패널 점멸(빠듯한 타이머에 맞춰 막판 경고).
-const LOW_TIME_MS = 15000;
-const DEFAULT_TIME_LIMIT_MS = 60000;
+// ── 상단 제한시간: **디지털 시간(MM:SS)만** — 에디터 타이머 텍스트 노드를 그대로 재사용(아날로그 시계 아이콘 없음). ──
+const CLOCK_ICON_KEY = 'logi_clock_icon'; // 시간 보너스 시 매치→트럭 타이머로 날아가는 시계 아이콘(런타임 생성 텍스처, 연출용)
+// 제한시간 6초 이하 → 배송표시 패널 점멸(배송시간 30~60s 스케일에 맞춘 막판 경고).
+const LOW_TIME_MS = 6000;
+const DEFAULT_TIME_LIMIT_MS = 30000;
 // 유휴 10초 → 매칭 가능한 아이템 깜박임 힌트.
 const HINT_IDLE_MS = 10000;
 
 type PowerKind = 'shuffle' | 'forklift' | 'rearrange' | 'hint';
 const POWER_NODES: ReadonlyArray<{ kind: PowerKind; id: string }> = [
-  { kind: 'shuffle', id: 'layer_9_copy3' }, // Shuffle (UI_32_v2)
-  { kind: 'forklift', id: 'layer_9_copy4' }, // Forklift (UI_33)
-  { kind: 'rearrange', id: 'layer_9_copy5' }, // Repack (UI_34)
-  { kind: 'hint', id: 'layer_9_copy6' }, // Help (UI_35)
+  { kind: 'shuffle', id: 'layer_2_copy18' }, // Shuffle (UI_32-1)
+  { kind: 'forklift', id: 'layer_2_copy5' }, // Forklift (UI_33-1)
+  { kind: 'rearrange', id: 'layer_2_copy6' }, // Repack (UI_34-1)
+  { kind: 'hint', id: 'layer_2_copy7' }, // Help (UI_35-1)
 ];
 
-// 배송 fly — 매치 상품이 공통 경로를 따라 줄지어(stagger) 트럭으로 가속 이동.
-const FLY_DUR = 340;
-const FLY_STAGGER = 55;
+// 배송 fly — 매치 상품이 공통 경로를 따라 줄지어(stagger) 트럭으로 가속 이동. (SocialCasino 급 스냅감)
+const FLY_DUR = 240;
+const FLY_STAGGER = 36;
 
 /** 한 베이의 렌더 상태(트럭 아트 + 오더 아이콘/카운트). */
 interface BayView {
   bay: number;
+  /** 베이 중심 x(= 트럭 노드 x) — 코인 드랍/출발 스탬프 기준. */
   homeX: number;
-  /** 오더 아이콘 y(오더 패널 위). */
+  /** 오더 아이템 아이콘 위치/크기 = 에디터 아이템 노드(BAY_ITEM_IDS[b]). */
+  iconX: number;
   iconY: number;
-  /** 적재 카운트 위치(카운트 뱃지 위). */
+  iconSize: number;
+  /** 적재 카운트 위치 = 에디터 갯수 노드(BAY_COUNT_IDS[b], "02 / 15"). */
   countX: number;
   countY: number;
   truckRestY: number;
   truck?: Phaser.GameObjects.Image;
-  /** 배송표시 패널(UI_15..18) — 제한시간 30초 이하 시 점멸. */
+  /** 배송표시 패널(구 디자인) — 신규 디자인엔 없음(항상 undefined). */
   panel?: Phaser.GameObjects.GameObject & { setAlpha(a: number): unknown };
   icon?: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
   count?: Phaser.GameObjects.Text;
   /** 차량 앞 직원 캐릭터(출발 시 사라짐). */
   char?: Phaser.GameObjects.Image;
-  /** 제한시간 아날로그 초시계(도크 상단) + 디지털 시간(MM:SS). */
-  clock?: Phaser.GameObjects.Graphics;
+  /** 제한시간 디지털 시간(MM:SS) — **에디터 타이머 텍스트 노드 재사용**(아날로그 시계 없음). */
   timeText?: Phaser.GameObjects.Text;
+  /** 시간 보너스 연출(flyTimeBonus) 목표 = 타이머 텍스트 위치. */
   clockX: number;
   clockY: number;
-  timeX: number;
   /** 남은 시간/제한시간(ms) + 카운트다운 활성 여부. */
   timeLeftMs: number;
   timeLimitMs: number;
@@ -177,6 +172,11 @@ interface BayView {
   required: number;
   /** 적재 완료(도착) 시점에 출발시키기 위한 대기 플래그. */
   pendingDispatch?: boolean;
+  /** **닫힌 레인** — 배송완료(대기 트럭 소진) 또는 배송거부(시간초과)되어 새 트럭이 오지 않는 베이. */
+  rejected?: boolean;
+  rejectedLabel?: Phaser.GameObjects.Text;
+  /** 닫힘 배너 이미지(UI_48-1 배송완료 / UI_48-2 배송거부) — 텍스트 스탬프 대체. */
+  rejectedIcon?: Phaser.GameObjects.Image;
 }
 
 export class PlayScene extends Phaser.Scene {
@@ -186,12 +186,13 @@ export class PlayScene extends Phaser.Scene {
   private layout!: LayoutIndex;
   private busy = false;
   private finished = false;
+  /** 3·2·1 시작 카운트다운 완료 여부 — 완료 전엔 트럭 제한시간이 흐르지 않는다. */
+  private introDone = false;
 
   // 보드 기하/타일
   private cellCenters = new Map<string, Pos>();
   private tiles = new Map<string, Phaser.GameObjects.Image>();
   private cellBgs: Phaser.GameObjects.GameObject[] = [];
-  private boardPanel?: Phaser.GameObjects.Graphics;
   private cellSize = 80;
   private cellH = 80;
   private tileDisp = 72;
@@ -227,11 +228,24 @@ export class PlayScene extends Phaser.Scene {
   // 베이/HUD
   private bayViews: BayView[] = [];
   private coinsText?: Phaser.GameObjects.Text;
+  /** 글로벌 레벨 타이머(타임어택) — 중앙 UI_03 패널의 "04:00" 노드 재사용 + 남은시간(ms). */
+  private levelTimerText?: Phaser.GameObjects.Text;
+  private levelTimeLeftMs = 240000;
+  private levelTimeTotalMs = 240000;
+  private levelTimerBaseColor = '#ffffff';
+  /** 목표 진행바(dispatched/goal) — UI_03 패널 하단에 그림. */
+  private progressBar?: Phaser.GameObjects.Graphics;
+  private progressGeom = { x: 0, y: 0, w: 0, h: 0 };
+  /** 목표 진행 텍스트(완성/전체 배송 = dispatched/goal) — 시간 하단 진행바 위에 표시. */
   private progressText?: Phaser.GameObjects.Text;
-  // 캐릭터 기준 기하(에디터 layer_8 노드에서 산출) — 트럭 중심 기준 x오프셋 · 절대 y · 표시 높이.
+  /** 타이머 기본 글자색(에디터 타이머 노드 색 — 위급 시 빨강으로만 변경). */
+  private timerBaseColor = '#ffffff';
+  // 캐릭터 기준 기하(에디터 캐릭터 노드에서 산출) — 트럭 중심 기준 x오프셋 · 절대 y · 표시 높이.
   private charOffX = CHAR_FALLBACK.offX;
   private charY = CHAR_FALLBACK.y;
   private charH = CHAR_FALLBACK.h;
+  /** 에디터에 캐릭터 노드가 있을 때만 차량 앞 직원을 그린다(신규 디자인엔 없어 생략). */
+  private hasCharNode = false;
 
   private powerCounts: Record<PowerKind, number> = { shuffle: 3, forklift: 3, rearrange: 3, hint: 3 };
   private powerCountTexts: Partial<Record<PowerKind, Phaser.GameObjects.Text>> = {};
@@ -248,7 +262,6 @@ export class PlayScene extends Phaser.Scene {
     this.cellCenters = new Map();
     this.tiles = new Map();
     this.cellBgs = [];
-    this.boardPanel = undefined;
     this.selected = null;
     this.selectRing = undefined;
     this.selectShadow = undefined;
@@ -270,7 +283,7 @@ export class PlayScene extends Phaser.Scene {
     const level = Math.max(1, this.profile.level);
     this.rng = makeRng((level * 2654435 + 13) >>> 0);
     this.state = createGame(makeLevel(level, makeRng(level * 100003 + 7)), this.rng);
-    this.refillQueue(); // 무한 공급 — 시간초과 자동출발이 큐를 소진해도 늘 다음 트럭이 진입.
+    // 무한 공급 폐지 — 각 차고는 대기열(goal 대)이 소진되면 '배송완료'로 닫힌다(무한 트럭 대기 안 함).
     // 동시 정차한 베이들은 서로 다른 상품을 주문하도록(같은 품목 중복 방지).
     for (let b = 0; b < this.state.bays.length; b++) this.ensureBayDistinct(b);
 
@@ -292,6 +305,14 @@ export class PlayScene extends Phaser.Scene {
 
     this.input.on('pointermove', this.onPointerMove, this);
     this.input.on('pointerup', this.onPointerUp, this);
+    // ⚠️캔버스 밖에서 버튼을 떼면 'pointerup' 이 안 온다 → 드래그가 안 풀려 타일이 마우스에 붙어
+    //   계속 따라다니는 버그(사용자 보고). 캔버스 밖 릴리즈도 동일하게 드래그 종료로 처리.
+    this.input.on('pointerupoutside', this.onPointerUp, this);
+
+    // 타임어택(트럭별 제한시간) — 3·2·1 카운트다운(코어 공용) 후 시간 개시.
+    void startCountdown(this).then(() => {
+      this.introDone = true;
+    });
   }
 
   private nodePos(id: string): Pos | null {
@@ -302,6 +323,23 @@ export class PlayScene extends Phaser.Scene {
   /** 또렷한 텍스트 생성(고DPI FIT 확대로 흐려지지 않게 setResolution). */
   private mkText(x: number, y: number, s: string, style: Phaser.Types.GameObjects.Text.TextStyle): Phaser.GameObjects.Text {
     return this.add.text(x, y, s, style).setResolution(TEXT_RES);
+  }
+
+  /**
+   * 에디터 텍스트 노드의 **폰트/크기/색/외곽선을 그대로** 딴 텍스트를 지정 좌표에 생성(정확 폰트 재현).
+   * layoutLoader.makeText 와 동일한 폰트 폴백 규칙(지정 폰트 → Jua → sans-serif).
+   */
+  private mkTextLikeNode(id: string, x: number, y: number, s: string): Phaser.GameObjects.Text {
+    const n = this.layout.nodeById(id);
+    const family = n?.fontFamily ? `"${n.fontFamily}", "Jua", sans-serif` : '"Jua", sans-serif';
+    const t = this.mkText(x, y, s, {
+      fontFamily: family,
+      fontSize: `${n?.fontSize ?? 24}px`,
+      color: n?.color ?? '#ffffff',
+      align: 'center',
+    }).setOrigin(0.5);
+    if (n?.stroke && (n.strokeW ?? 0) > 0) t.setStroke(n.stroke, (n.strokeW ?? 0) * 2);
+    return t;
   }
 
   /** 클릭 유동 — base 비율 기준으로 통통 키웠다 복원(버튼 이미지/베이크된 텍스트 함께). */
@@ -321,33 +359,73 @@ export class PlayScene extends Phaser.Scene {
   }
 
   // ─── HUD ───
-  // 좌상단 뱃지=레벨 · 상단 중앙 통화바=코인 · 우상단 바=진행도. 패널 노드 좌표 위에 텍스트를 올린다.
-  private setupHud(level: number): void {
-    // 레벨 = 별표(UI_28) 안에 숫자만.
-    const lv = this.nodePos(LEVEL_TEXT_ID) ?? { x: 74, y: 145 };
-    this.mkText(lv.x, lv.y, String(level), { fontFamily: '"Do Hyeon", "Jua", sans-serif', fontSize: '22px', color: '#ffffff' })
-      .setOrigin(0.5)
-      .setStroke('#5a3210', 5)
-      .setDepth(96);
-
-    // 코인(상단 헤더 점수) — 패널 안에서 약간 아래로.
-    const coin = this.nodePos(COINS_PANEL_ID) ?? { x: 540, y: 104 };
-    this.coinsText = this.mkText(coin.x + 26, coin.y + 14, this.fmtCoins(), { fontFamily: '"Jua", sans-serif', fontSize: '24px', color: '#3c2816' })
-      .setOrigin(0.5)
-      .setDepth(95);
-
-    const bar = this.nodePos(PROGRESS_PANEL_ID) ?? { x: 934, y: 85 };
-    this.progressText = this.mkText(bar.x, bar.y, this.fmtProgress(), { fontFamily: '"Jua", sans-serif', fontSize: '18px', color: '#ffffff', fontStyle: '700' })
-      .setOrigin(0.5)
-      .setStroke('#3a2a12', 4)
-      .setDepth(95);
+  // 중앙 상단 UI_03 패널 = **글로벌 레벨 타이머(타임어택)** + 목표 진행바 · 우상단 = 코인.
+  private setupHud(_level: number): void {
+    // 글로벌 레벨 타이머 = 중앙 패널 "04:00" 텍스트 노드 재사용(위치·폰트 그대로) — 값만 갱신.
+    this.levelTimeTotalMs = this.state.levelTimeMs ?? 240000;
+    this.levelTimeLeftMs = this.levelTimeTotalMs;
+    this.levelTimerText = this.layout.tryById<Phaser.GameObjects.Text>(LEVEL_TIMER_ID);
+    this.levelTimerBaseColor = this.layout.nodeById(LEVEL_TIMER_ID)?.color ?? '#ffffff';
+    this.refreshLevelTimer();
+    // 코인 = 에디터 텍스트 노드 재사용.
+    this.coinsText = this.layout.tryById<Phaser.GameObjects.Text>(COINS_PANEL_ID);
+    this.coinsText?.setText(this.fmtCoins());
+    // 목표 진행바 — UI_03 패널 하단 영역에 채움 그래픽.
+    this.setupProgressBar();
+    this.refreshProgress();
   }
 
   private fmtCoins(): string {
     return this.profile.coins.toLocaleString('en-US');
   }
-  private fmtProgress(): string {
-    return `🚚 ${this.state.dispatched}/${this.state.goal}`;
+
+  /** 글로벌 타임어택 남은시간 갱신(MM:SS) — 위급(≤30초) 시 빨강. */
+  private refreshLevelTimer(): void {
+    if (!this.levelTimerText) return;
+    this.levelTimerText.setText(this.fmtTime(this.levelTimeLeftMs));
+    this.levelTimerText.setColor(this.levelTimeLeftMs <= 30000 ? '#ff5a5a' : this.levelTimerBaseColor);
+  }
+
+  /** 목표 진행바 기하 = UI_03 패널 하단 영역에서 산출 + 그래픽 생성. */
+  private setupProgressBar(): void {
+    const p = this.layout.nodeById(PROGRESS_PANEL_ID);
+    if (p?.w && p?.h) {
+      const w = p.w * 0.78;
+      const h = p.h * 0.3;
+      this.progressGeom = { x: p.x - w / 2, y: p.y + p.h * 0.16 - h / 2, w, h };
+    } else {
+      this.progressGeom = { x: 428, y: 300, w: 224, h: 34 };
+    }
+    this.progressBar?.destroy();
+    this.progressBar = this.add.graphics().setDepth(4); // 패널(3) 위, 타이머(6) 아래
+    // **완성/전체 배송 수(시간 하단)** = 진행바 정중앙에 "🚚 dispatched / goal".
+    const { x, y, w, h } = this.progressGeom;
+    this.progressText = this.mkText(x + w / 2, y + h / 2, '', {
+      fontFamily: '"Do Hyeon", "Jua", sans-serif',
+      fontSize: '25px',
+      color: '#ffffff',
+      fontStyle: '700',
+    })
+      .setOrigin(0.5)
+      .setStroke('#2a1c0c', 5)
+      .setDepth(7);
+  }
+
+  /** 진행바 채움(dispatched/goal) + 완성/전체 숫자 재그림. */
+  private refreshProgress(): void {
+    const g = this.progressBar;
+    if (!g) return;
+    const { x, y, w, h } = this.progressGeom;
+    const frac = Phaser.Math.Clamp(this.state.goal > 0 ? this.state.dispatched / this.state.goal : 0, 0, 1);
+    g.clear();
+    if (frac > 0) {
+      const fw = Math.max(h, w * frac); // 최소 폭 = 높이(라운드 캡)
+      g.fillStyle(0x2f9e44, 0.95); // 초록 채움
+      g.fillRoundedRect(x, y, fw, h, h / 2);
+      g.fillStyle(0xffffff, 0.25); // 상단 하이라이트
+      g.fillRoundedRect(x + 3, y + 3, Math.max(h - 6, fw - 6), h * 0.32, h * 0.16);
+    }
+    this.progressText?.setText(`🚚 ${this.state.dispatched} / ${this.state.goal}`);
   }
 
   /**
@@ -355,6 +433,19 @@ export class PlayScene extends Phaser.Scene {
    * 사이를 보드 영역으로 삼는다(좌우는 작은 여백). 세로 HD 디자인이 바뀌어도 따라가도록 SSOT 파생.
    */
   private computeBoardArea(): { left: number; right: number; top: number; bottom: number } {
+    // **디자이너 보드 패널(UI_20-1) 안쪽**에 그리드 배치(사용자 요청) — 패널 경계를 여백만큼 안으로.
+    const panel = this.layout.nodeById(BOARD_PANEL_ID);
+    if (panel?.w && panel?.h) {
+      const insetX = panel.w * BOARD_PANEL_INSET;
+      const insetY = panel.h * BOARD_PANEL_INSET;
+      return {
+        left: panel.x - panel.w / 2 + insetX,
+        right: panel.x + panel.w / 2 - insetX,
+        top: panel.y - panel.h / 2 + insetY,
+        bottom: panel.y + panel.h / 2 - insetY,
+      };
+    }
+    // 폴백: 트럭 하단 ~ 파워버튼 상단.
     let truckBottom = 0;
     for (const id of BAY_TRUCK_IDS) {
       const n = this.layout.nodeById(id);
@@ -385,7 +476,7 @@ export class PlayScene extends Phaser.Scene {
     const cell = Math.min(areaW / cols, areaH / rows);
     this.cellSize = cell;
     this.cellH = cell;
-    this.tileDisp = cell * 0.84; // 비율 유지 + 살짝 축소(셀 안 여백)
+    this.tileDisp = cell * 0.96; // 상품 타일이 셀을 꽉 채우도록(비율 유지, 셀 간 최소 간격만 남김)
 
     const cx = (this.boardArea.left + this.boardArea.right) / 2;
     const cy = (this.boardArea.top + this.boardArea.bottom) / 2;
@@ -397,35 +488,15 @@ export class PlayScene extends Phaser.Scene {
       }
     }
 
-    this.reframeBoardPanel(cols, rows, cell, cx, cy);
+    // 보드 패널 바탕 = **디자이너 에디터 노드(UI_20-1, layer_3)** 하나만 사용(코드 크림 패널 제거 — 이중 배치 방지).
     this.drawCellBackgrounds();
-  }
-
-  /**
-   * 보드 패널을 그리드에 맞춰 리프레임 — 에디터 기본 사각 패널(탁한 갈색)은 숨기고,
-   * **외곽 라운드 코너**의 밝은 크림 반투명 패널로 대체(탁함 제거 + 라운드 외곽선).
-   */
-  private reframeBoardPanel(cols: number, rows: number, cell: number, cx: number, cy: number): void {
-    const pad = cell * 0.22;
-    const w = cols * cell + pad * 2;
-    const h = rows * cell + pad * 2;
-    const r = Math.min(30, w * 0.06, h * 0.06);
-    const x = cx - w / 2;
-    const y = cy - h / 2;
-    this.boardPanel?.destroy();
-    const g = this.add.graphics().setDepth(18);
-    g.fillStyle(0xfff3e0, 0.5); // 밝은 크림 반투명(도로 BG 살짝 비침)
-    g.fillRoundedRect(x, y, w, h, r);
-    g.lineStyle(3, 0xffffff, 0.55); // 외곽 라운드 선
-    g.strokeRoundedRect(x, y, w, h, r);
-    this.boardPanel = g;
   }
 
   /** 각 셀 배경(에디터 슬롯 아트)을 산출 위치/크기로 배치. */
   private drawCellBackgrounds(): void {
     for (const o of this.cellBgs) o.destroy();
     this.cellBgs = [];
-    const size = this.cellSize * 0.94;
+    const size = this.cellSize * 0.99; // 슬롯 아트가 셀을 거의 꽉 채우도록(그리드가 빽빽하게)
     const hasArt = this.textures.exists(SLOT_TEX);
     for (const pos of this.cellCenters.values()) {
       if (hasArt) {
@@ -442,47 +513,54 @@ export class PlayScene extends Phaser.Scene {
 
   // ─── 베이(트럭 + 단일 오더) ───
   private setupBays(): void {
-    // 캐릭터 기준 기하 = 에디터 에셋 노드(layer_8)에서 산출. 블루 베이(트럭0) 기준 x오프셋·절대 y·표시 높이.
-    const charNode = this.layout.nodeById(CHAR_NODE_ID);
+    // 캐릭터 기준 기하 = 에디터 캐릭터 노드에서 산출(있을 때만). 신규 디자인엔 노드가 없어 캐릭터 생략.
+    const charNode = CHAR_NODE_ID ? this.layout.nodeById(CHAR_NODE_ID) : null;
     const truck0Node = this.layout.nodeById(BAY_TRUCK_IDS[0]);
+    this.hasCharNode = !!charNode;
     if (charNode && truck0Node) {
       this.charOffX = charNode.x - truck0Node.x;
       this.charY = charNode.y;
       if (charNode.h) this.charH = charNode.h;
     }
-
+    this.timerBaseColor = this.layout.nodeById(BAY_TIME_IDS[0])?.color ?? '#ffffff'; // 타이머 기본색(에디터 노드)
     const n = this.state.bays.length;
     for (let b = 0; b < n; b++) {
-      const panel = this.nodePos(BAY_PANEL_IDS[b]) ?? { x: 239 + b * 196, y: ORDER_ITEM_Y };
-      const badge = this.nodePos(BAY_BADGE_IDS[b]) ?? { x: panel.x, y: ORDER_COUNT_Y };
-      // 시계/디지털시간은 에디터에 저장된 시간 텍스트 노드 위치(전부 y480 정렬)에 배치 — 없으면 뱃지 폴백.
-      const timeNode = this.nodePos(BAY_TIME_IDS[b]) ?? badge;
       const truck = this.layout.tryById<Phaser.GameObjects.Image>(BAY_TRUCK_IDS[b]);
-      const truckRestY = truck ? truck.y : 749;
-      // 트럭 그림자(__shadow)는 트럭과 같은 depth 라 일부 베이(녹/오렌지)에서 트럭을 덮어 어둡게
-      // 보였다 → 그림자를 트럭보다 한 단계 아래로 내려 항상 트럭이 또렷하게 보이도록 한다.
+      const truckNode = this.layout.nodeById(BAY_TRUCK_IDS[b]);
+      const bayX = truckNode?.x ?? (truck ? truck.x : 222 + b * 209); // 트럭 중심 = 코인드랍 기준
+      // **각 요소는 자기 에디터 노드 좌표를 그대로 사용**(아이템/갯수/타이머).
+      const itemNode = this.layout.nodeById(BAY_ITEM_IDS[b]);
+      const countNode = this.nodePos(BAY_COUNT_IDS[b]);
+      const timeNode = this.nodePos(BAY_TIME_IDS[b]) ?? { x: bayX, y: 601 };
+      const iconX = itemNode?.x ?? bayX;
+      const iconY = itemNode?.y ?? 693;
+      const iconSize = itemNode?.w ?? ORDER_ICON;
+      const truckRestY = truck ? truck.y : 940;
+      // 트럭 그림자(__shadow)는 트럭과 같은 depth 라 일부 베이에서 트럭을 덮어 어둡게 보였다
+      // → 그림자를 트럭보다 한 단계 아래로 내려 항상 트럭이 또렷하게 보이도록 한다.
       const shadowNode = this.layout.tryById<Phaser.GameObjects.Image>(BAY_TRUCK_IDS[b] + '__shadow');
       if (truck && shadowNode) shadowNode.setDepth(truck.depth - 1);
+      // 타이머 = **에디터 텍스트 노드를 그대로 재사용**(위치·폰트 정확) — setText 로 MM:SS 만 갱신.
+      const timeText = this.layout.tryById<Phaser.GameObjects.Text>(BAY_TIME_IDS[b]);
       const view: BayView = {
         bay: b,
-        homeX: panel.x,
-        iconY: panel.y + ITEM_DY, // 디자인 샘플 y≈290
-        // 갯수는 패널 좌측, 아이템은 우측(상단 뱃지 줄은 시계/시간이 차지).
-        countX: panel.x + COUNT_DX,
-        countY: panel.y + ITEM_DY,
-        panel: this.layout.tryById(BAY_PANEL_IDS[b]) as (Phaser.GameObjects.GameObject & { setAlpha(a: number): unknown }) | undefined,
+        homeX: bayX,
+        iconX,
+        iconY,
+        iconSize,
+        countX: countNode?.x ?? iconX,
+        countY: countNode?.y ?? iconY + 61,
+        panel: undefined,
         truckRestY,
         truck,
-        // 아날로그 초시계+디지털시간을 **에디터에 저장된 시간 텍스트 노드(layer_10_copy*) 위치**에 배치.
-        // 시간 노드는 4베이 모두 y480 으로 정렬돼 있어 타이머가 한 줄로 가지런하다. 시계는 그 좌측에.
-        clockX: timeNode.x + CLOCK_DX,
+        timeText,
+        clockX: timeNode.x,
         clockY: timeNode.y,
-        timeX: timeNode.x + TIME_DX,
         timeLeftMs: 0,
         timeLimitMs: this.state.timeLimitMs ?? DEFAULT_TIME_LIMIT_MS,
         timerActive: false,
         warned: false,
-        slotPos: { x: panel.x, y: panel.y },
+        slotPos: { x: iconX, y: iconY },
         shownLoaded: 0,
         required: 0,
       };
@@ -491,9 +569,7 @@ export class PlayScene extends Phaser.Scene {
       this.renderBayOrder(view, truckState);
       if (truckState) this.attachTruckExtras(view, truckState);
     }
-    // 남는 베이 노드 숨김(베이 수가 디자인 도크보다 적을 때).
-    for (let b = n; b < BAY_BADGE_IDS.length; b++) this.layout.tryById(BAY_BADGE_IDS[b])?.setVisible(false);
-    for (let b = n; b < BAY_PANEL_IDS.length; b++) this.layout.tryById(BAY_PANEL_IDS[b])?.setVisible(false);
+    // 남는 트럭 노드 숨김(베이 수가 디자인 도크보다 적을 때).
     for (let b = n; b < BAY_TRUCK_IDS.length; b++) this.layout.tryById(BAY_TRUCK_IDS[b])?.setVisible(false);
   }
 
@@ -509,13 +585,13 @@ export class PlayScene extends Phaser.Scene {
   /** 차량 앞 캐릭터 생성 + 트럭별 개별 제한시간/시계 시작(트럭 정차 시). */
   private attachTruckExtras(view: BayView, truck: TruckState): void {
     const serial = truck.serial;
-    // 캐릭터(차량 앞-좌). 의상색=차량색, serial 짝/홀로 남/여 교대. **크기/위치는 에디터 에셋 노드 기준**:
-    // 높이=charH, x=트럭중심+charOffX, y=charY(전부 layer_8 노드에서 산출). 재업로드된 _v2 아트가 있으면 우선.
+    // 캐릭터(차량 앞-좌). 의상색=차량색, serial 짝/홀로 남/여 교대. **크기/위치는 에디터 캐릭터 노드 기준**.
+    // 신규 디자인(main.json)엔 캐릭터 노드가 없어 생략 — 에디터에 노드를 추가하면 자동으로 다시 그린다.
     view.char?.destroy();
     let key = this.charKeyFor(view.bay, serial);
     if (this.textures.exists(key + '_v2')) key = key + '_v2';
     const truckX = view.truck ? view.truck.x : view.homeX;
-    if (this.textures.exists(key)) {
+    if (this.hasCharNode && this.textures.exists(key)) {
       const src = this.textures.get(key).getSourceImage() as { height: number };
       const scale = this.charH / (src.height || this.charH); // 비율 유지로 에셋 높이에 맞춤
       const img = this.add
@@ -526,27 +602,13 @@ export class PlayScene extends Phaser.Scene {
       this.tweens.add({ targets: img, alpha: 1, duration: 220 });
       view.char = img;
     }
-    // 제한시간 — **트럭마다 다른 ~2분**(주문량+serial). 시계+디지털 시간(상단) 시작.
-    view.timeLimitMs = truckTimeLimitMs(truck.orders[0].required, serial);
+    // 제한시간 — **트럭마다 다른 ~2분**(주문량+serial). 디지털 시간(에디터 타이머 노드) 시작.
+    view.timeLimitMs = truckTimeLimitMs(truck.orders[0].required, serial, this.state.level);
     view.timeLeftMs = view.timeLimitMs;
     view.timerActive = true;
     view.warned = false; // 새 트럭 = 경고음 재무장
-    view.panel?.setAlpha(1); // 점멸 알파 초기화(새 트럭은 충분한 시간)
-    if (!view.clock) view.clock = this.add.graphics().setDepth(CLOCK_DEPTH);
-    if (!view.timeText) {
-      view.timeText = this.mkText(view.timeX, view.clockY, '', {
-          fontFamily: '"Jua", sans-serif',
-          fontSize: '26px', // 1.5배 확대(17→26)
-          color: '#ffffff',
-          fontStyle: '700',
-        })
-        .setOrigin(0.5)
-        .setDepth(CLOCK_DEPTH + 1);
-      view.timeText.setStroke('#2a1c0c', 4); // 파란 배경 대신 외곽선으로 가독성
-    }
-    view.clock.setVisible(true);
-    view.timeText.setVisible(true);
-    this.drawClock(view);
+    view.timeText?.setVisible(true);
+    this.refreshTimer(view);
   }
 
   /** typePool 에서 avoid 에 없는 상품 1종 선택(없으면 아무거나). */
@@ -572,10 +634,9 @@ export class PlayScene extends Phaser.Scene {
     this.state = { ...this.state, bays };
   }
 
-  /** 트럭 출발 시 캐릭터 제거 + 타이머 정지 + 시계/시간 숨김. */
+  /** 트럭 출발 시 캐릭터 제거 + 타이머 정지 + 시간 숨김. */
   private detachTruckExtras(view: BayView): void {
     view.timerActive = false;
-    view.clock?.setVisible(false);
     view.timeText?.setVisible(false);
     const c = view.char;
     view.char = undefined;
@@ -591,87 +652,35 @@ export class PlayScene extends Phaser.Scene {
   }
 
   /**
-   * 아날로그 초시계 그리기(상단) + 디지털 시간 갱신.
-   * **초침은 남은 초수에 정확히 대응**(1회전=60초): 12시=0초, 3시=15초, 6시=30초, 9시=45초.
-   * ms 기반 분수초로 매 프레임 그려 **부드럽고 정교하게** 회전한다. 남은비율로 잔량 파이/색 표시.
+   * 디지털 제한시간(MM:SS) 갱신 — **에디터 타이머 텍스트 노드(재사용)의 값만 setText**.
+   * 아날로그 시계 아이콘은 사용하지 않는다(요청). 위급(≤5초) 시 글자색만 빨강으로.
    */
-  private drawClock(view: BayView): void {
-    const g = view.clock;
-    if (!g) return;
-    const cx = view.clockX;
-    const cy = view.clockY;
-    const r = CLOCK_R;
-    const remainMs = Math.max(0, view.timeLeftMs);
-    const remainSec = remainMs / 1000;
-    const f = Phaser.Math.Clamp(remainMs / Math.max(1, view.timeLimitMs), 0, 1);
-    const color = remainSec <= 5 ? 0xe03131 : f < 0.4 ? 0xf2b705 : 0x2f9e44;
-    g.clear();
-    // 시계 배경 그림자 + 면.
-    g.fillStyle(0x000000, 0.18);
-    g.fillCircle(cx, cy + 1.5, r + 1.5);
-    g.fillStyle(0xffffff, 0.97);
-    g.fillCircle(cx, cy, r);
-    // 잔량 파이(12시부터 남은비율만큼).
-    if (f > 0) {
-      g.fillStyle(color, 0.16);
-      g.slice(cx, cy, r - 4, Phaser.Math.DegToRad(-90), Phaser.Math.DegToRad(-90 + 360 * f), false);
-      g.fillPath();
-    }
-    // 분 눈금 12개(정교함).
-    g.lineStyle(1.4, 0x9aa0a6, 0.85);
-    for (let i = 0; i < 12; i++) {
-      const a = Phaser.Math.DegToRad(i * 30 - 90);
-      g.lineBetween(
-        cx + Math.cos(a) * (r - 2.5),
-        cy + Math.sin(a) * (r - 2.5),
-        cx + Math.cos(a) * (r - 5.5),
-        cy + Math.sin(a) * (r - 5.5),
-      );
-    }
-    // 테두리.
-    g.lineStyle(2.5, color, 1);
-    g.strokeCircle(cx, cy, r);
-    // 초침 — 남은 초수에 정확히 대응(분수초 → 부드러운 sweep).
-    const secAngle = Phaser.Math.DegToRad(-90 + ((remainSec % 60) / 60) * 360);
-    g.lineStyle(2.5, color, 1);
-    g.lineBetween(cx, cy, cx + Math.cos(secAngle) * (r - 4), cy + Math.sin(secAngle) * (r - 4));
-    // 짧은 꼬리(밸런스).
-    g.lineStyle(2.5, color, 1);
-    g.lineBetween(cx, cy, cx - Math.cos(secAngle) * 4, cy - Math.sin(secAngle) * 4);
-    g.fillStyle(color, 1);
-    g.fillCircle(cx, cy, 2.6);
-    // 디지털 시간(MM:SS) — **파란 배경 없이** 뱃지 위 텍스트만(외곽선으로 가독성). 위급 시 빨강.
-    if (view.timeText) {
-      view.timeText.setText(this.fmtTime(view.timeLeftMs));
-      view.timeText.setColor(remainSec <= 5 ? '#ffd2d2' : '#ffffff');
-    }
+  private refreshTimer(view: BayView): void {
+    if (!view.timeText) return;
+    const remainSec = Math.max(0, view.timeLeftMs) / 1000;
+    view.timeText.setText(this.fmtTime(view.timeLeftMs));
+    view.timeText.setColor(remainSec <= 5 ? '#ff5a5a' : this.timerBaseColor);
   }
 
-  /** 무한 공급 — 큐가 모자라면 새 트럭 명세를 결정적으로 보충(동일 품목 연속 방지). */
-  private refillQueue(): void {
-    const minQ = this.state.bays.length + 2;
-    if (this.state.queue.length >= minQ) return;
-    const typePool = this.state.typePool;
-    const reqMin = this.state.reqMin ?? 5;
-    const reqMax = this.state.reqMax ?? 10;
-    const add: TruckSpec[] = [];
-    const last = this.state.queue[this.state.queue.length - 1];
-    let prev: number | undefined = last ? last.orders[0].type : undefined;
-    while (this.state.queue.length + add.length < minQ + 4) {
-      const spec = makeTruckSpec(typePool, reqMin, reqMax, this.rng, prev);
-      prev = spec.orders[0].type;
-      add.push(spec);
-    }
-    this.state = { ...this.state, queue: [...this.state.queue, ...add] };
-  }
-
-  /** 매 프레임 — 각 베이 제한시간 카운트다운 + 시계 갱신 + 시간초과 자동출발. */
+  /** 매 프레임 — 글로벌 타임어택 + 각 베이 제한시간 카운트다운 + 시간초과 배송거부. */
   update(_time: number, delta: number): void {
     if (this.finished) return;
+
+    // 글로벌 레벨 타이머(타임어택) — 0 도달 시 목표 미달이면 미션 실패.
+    this.levelTimeLeftMs -= delta;
+    this.refreshLevelTimer();
+    if (this.levelTimeLeftMs <= 0) {
+      this.levelTimeLeftMs = 0;
+      if (!isLevelComplete(this.state)) {
+        this.levelFail();
+        return;
+      }
+    }
+
     for (const view of this.bayViews) {
-      if (!view || !view.timerActive) continue;
+      if (!view || !view.timerActive || !this.introDone) continue; // 카운트다운 전엔 정지
       view.timeLeftMs -= delta;
-      this.drawClock(view);
+      this.refreshTimer(view);
       // 30초 이하 → 배송표시 패널(+아이템·갯수) 점멸로 경고 + 경고음(트럭당 1회).
       if (view.timeLeftMs <= LOW_TIME_MS) {
         if (!view.warned) {
@@ -772,19 +781,15 @@ export class PlayScene extends Phaser.Scene {
     const slot = truck.orders[0];
     view.shownLoaded = slot.loaded;
     view.required = slot.required;
-    // 패널: 아이템(우) + 갯수(좌). 상단 뱃지 줄은 시계/시간.
-    const icon = makeProductIcon(this, slot.type, ORDER_ICON).setPosition(view.homeX + ITEM_DX, view.iconY).setDepth(95);
-    const count = this.mkText(view.countX, view.countY, `${slot.loaded}/${slot.required}`, {
-        fontFamily: '"Jua", sans-serif',
-        fontSize: '26px', // 1.5배 확대(17→26)
-        color: '#3c2816',
-        fontStyle: '700',
-      })
-      .setOrigin(0.5)
-      .setDepth(96);
+    // 오더 아이콘 = **에디터 아이템 노드 위치/크기 그대로**, 갯수 = **에디터 갯수 노드 위치/폰트 그대로**(Bungee).
+    // ⚠️디자이너 재저장으로 오른쪽 2베이(2·3) 갯수 노드가 삭제됨 → 폰트/색이 흰색 폴백(밝은 슬롯에서 안 보임).
+    //   그 베이는 **베이0 갯수 노드(존재) 스타일**(검정 Bungee)을 빌려 쓴다(위치는 자기 countX/countY).
+    const icon = makeProductIcon(this, slot.type, view.iconSize).setPosition(view.iconX, view.iconY).setDepth(95);
+    const countStyleId = this.layout.nodeById(BAY_COUNT_IDS[view.bay]) ? BAY_COUNT_IDS[view.bay] : BAY_COUNT_IDS[0];
+    const count = this.mkTextLikeNode(countStyleId, view.countX, view.countY, `${slot.loaded} / ${slot.required}`).setDepth(96);
     view.icon = icon;
     view.count = count;
-    view.slotPos = { x: view.homeX + ITEM_DX, y: view.iconY };
+    view.slotPos = { x: view.iconX, y: view.iconY };
   }
 
   // ─── 타일 ───
@@ -847,7 +852,7 @@ export class PlayScene extends Phaser.Scene {
 
     const oldTiles = this.tiles;
     this.tiles = new Map();
-    const COL_STAGGER = 70; // 라인(열)마다 순차 지연 → 왼→오 차례로 떨어짐
+    const COL_STAGGER = 46; // 라인(열)마다 순차 지연 → 왼→오 차례로 떨어짐(스냅)
     const dropDist = rows * cell + 120; // 위에서 떨어지는 거리(보드 위로 충분히)
     const outY = gridBottom + cell + 60; // 기존 타일이 빠져나갈 아래(마스크 밖)
 
@@ -869,7 +874,7 @@ export class PlayScene extends Phaser.Scene {
           this.tweens.add({
             targets: img,
             y: outY,
-            duration: 320,
+            duration: 230,
             delay,
             ease: 'Quad.easeIn',
             onComplete: () => img.destroy(),
@@ -888,8 +893,8 @@ export class PlayScene extends Phaser.Scene {
         this.tweens.add({
           targets: img,
           y: dest.y,
-          duration: 430,
-          delay: dropOld ? delay + 110 : delay, // 셔플은 기존 열이 빠지기 시작한 뒤
+          duration: 300, // 보드 인 낙하 430→300(스냅)
+          delay: dropOld ? delay + 70 : delay, // 셔플은 기존 열이 빠지기 시작한 뒤
           ease: 'Bounce.easeOut',
           onComplete: () => {
             img.clearMask();
@@ -965,6 +970,14 @@ export class PlayScene extends Phaser.Scene {
 
   private onPointerMove(pointer: Phaser.Input.Pointer): void {
     if (this.finished || !this.pressCell) return;
+    // 안전장치: 버튼이 떼진 상태로 이동 중이면(pointerup 을 놓친 경우) 드래그를 강제 종료 —
+    // 안 하면 버튼을 뗀 뒤에도 타일이 마우스를 계속 따라다니는 버그(사용자 보고)가 남는다.
+    if (!pointer.isDown) {
+      if (this.dragging && this.dragTile) this.endDrag(pointer);
+      this.pressCell = null;
+      this.dragging = false;
+      return;
+    }
     const dx = pointer.worldX - this.pressX;
     const dy = pointer.worldY - this.pressY;
     if (!this.dragging) {
@@ -1070,6 +1083,12 @@ export class PlayScene extends Phaser.Scene {
     this.dragOrigin = undefined;
     this.dragNeighbor = null;
     if (!from || !dragTile || !origin) {
+      // 방어: 집었던 타일이 있으면 크기·각도·위치를 원복(스케일 1.4 상태로 멈춰있지 않게).
+      if (dragTile) {
+        this.tweens.killTweensOf(dragTile);
+        dragTile.setScale((dragTile.getData('baseScale') as number) ?? dragTile.scale).setAngle(0).setDepth(90);
+        if (origin) dragTile.setPosition(origin.x, origin.y);
+      }
       this.deselect();
       return;
     }
@@ -1230,19 +1249,20 @@ export class PlayScene extends Phaser.Scene {
     const pb = this.cellPos(b.col, b.row);
     const baseA = (imgA.getData('baseScale') as number) ?? imgA.scale;
     const baseB = (imgB.getData('baseScale') as number) ?? imgB.scale;
-    // 스왑 중 두 타일을 위로(이웃 가림) + 둘 다 **확실히 커지며** 방향으로 이동(스위칭 강조).
+    // 스왑 중 두 타일을 위로(이웃 가림) 올리고 **부드럽게 미끄러지듯**(Sine.easeInOut) 자리 교환 —
+    // 딱딱한 오버슈트 스냅(Back)+팝 대신 소프트 글라이드(사용자 "소프트한 매칭").
     imgA.setDepth(96);
     imgB.setDepth(95);
-    const SWAP_MS = 260;
+    const SWAP_MS = 140; // 소프트하되 **빠른** 글라이드(부드러운 Sine, 느리지 않게 — 130→140)
 
-    this.tweens.add({ targets: imgA, x: pb.x, y: pb.y, scale: baseA * 1.5, duration: SWAP_MS, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: imgA, x: pb.x, y: pb.y, scale: baseA, duration: SWAP_MS, ease: 'Sine.easeInOut' });
     this.tweens.add({
       targets: imgB,
       x: pa.x,
       y: pa.y,
-      scale: baseB * 1.5,
+      scale: baseB,
       duration: SWAP_MS,
-      ease: 'Back.easeOut',
+      ease: 'Sine.easeInOut',
       onComplete: () => {
         if (legal) {
           imgA.setScale(baseA).setDepth(90);
@@ -1250,8 +1270,8 @@ export class PlayScene extends Phaser.Scene {
           this.comboCount = 0; // 이번 스왑의 콤보 카운터 초기화
           this.state = { ...this.state, board: swapTypes(this.state.board, a, b) };
           this.swapTileRefs(a, b);
-          // 히트스톱 한 박자 — 교환이 "딱" 멈췄다가 매치가 터지며 타격감을 키운다(매치 햅틱은 resolveCascade).
-          this.time.delayedCall(60, () => this.resolveCascade());
+          // 히트스톱(딱 멈춤) 제거 — 글라이드가 끝나면 곧바로 부드럽게 매치 해소로 이어진다.
+          this.time.delayedCall(0, () => this.resolveCascade());
         } else {
           // 불법: 제자리로 빠르게 복귀 → 좌우 셰이크 + 붉은 플래시 + 경고 진동(성공과 확실히 구분).
           this.tweens.add({ targets: imgA, x: pa.x, y: pa.y, scale: baseA, duration: 120, ease: 'Quad.easeInOut', onComplete: () => imgA.setDepth(90) });
@@ -1359,21 +1379,22 @@ export class PlayScene extends Phaser.Scene {
     const bayByType = new Map<number, number>(); // 배송받은 상품(global type) → 베이
     for (const g of d.delivered) bayByType.set(g.type, g.bay);
 
-    // 라인 길이 배수 — 4개=×2, 5개=×4, 6개=×8 …(2^(len-3)). 두 가지 이익:
-    //   ① 보너스 코인(awardLineBonus)  ② 해당 배송 트럭(배송퍼즐)의 제한시간 증가(addTruckTime).
+    // 라인 길이 — 두 가지 이익: ① 보너스 코인(awardLineBonus, ×2/×4/×8 배수 유지)
+    //   ② 해당 배송 트럭의 제한시간 **선형** 증가(4매치 +10s · 5매치 +20s · 6매치 +30s …, 사용자 요청).
     for (const g of findMatchGroups(this.state.board)) {
       if (g.len < 4) continue;
-      const mult = Math.pow(2, g.len - 3);
+      const mult = Math.pow(2, g.len - 3); // 코인/×N 표시용(지수)
+      const timeBonusMs = (g.len - 3) * 10000; // 시간 보너스(선형): 4→+10s · 5→+20s · 6→+30s
       const center = this.centroidOf(g.coords) ?? { x: W / 2, y: this.boardCy() };
       this.spawnLineMultiplier(center, mult);
       this.awardLineBonus(mult);
-      // ② 이 라인 상품을 받은 트럭의 시간 증가(10초×배수). 출발하는 트럭/미주문 상품은 제외.
+      // ② 이 라인 상품을 받은 트럭의 시간 증가(선형 +10s×(len-3)). 출발하는 트럭/미주문 상품은 제외.
       //    매치 위치에서 **시계 아이템이 나타나 해당 트럭 시계로 날아가** 도착 시 시간이 가산된다.
       const first = g.coords[0];
       const localType = first ? this.state.board.cells[first.row][first.col] : null;
       if (localType != null) {
         const bay = bayByType.get(this.state.typePool[localType]);
-        if (bay != null && !dispatchedSet.has(bay)) this.flyTimeBonus(center, bay, mult);
+        if (bay != null && !dispatchedSet.has(bay)) this.flyTimeBonus(center, bay, timeBonusMs);
       }
     }
 
@@ -1436,8 +1457,8 @@ export class PlayScene extends Phaser.Scene {
           targets: img,
           x: dest.x,
           y: dest.y,
-          duration: 220,
-          ease: 'Quad.easeIn',
+          duration: 150, // 소프트하되 빠른 낙하(느리지 않게)
+          ease: 'Quad.easeOut', // 하드 슬램(Quad.easeIn) 대신 부드러운 감속 착지
           onComplete: () => {
             if (--pending === 0) done();
           },
@@ -1449,22 +1470,22 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private clearTileFx(img: Phaser.GameObjects.Image, idx: number, done: () => void): void {
-    // 매칭되는 시점에 타일을 **확실히 크게 부풀렸다가**(1.55배 팝) → 회전하며 사라짐.
+    // 매칭 시점에 타일을 **살짝 부풀렸다가**(소프트 1.25배 팝) → 부드럽게 작아지며 사라짐.
     img.setDepth(92); // 부푸는 동안 이웃 위로
     this.tweens.add({
       targets: img,
-      scale: img.scale * 1.55,
-      duration: 150,
-      ease: 'Back.easeOut',
-      delay: idx * 16,
+      scale: img.scale * 1.25, // 팝 1.5→1.25(과한 오버슈트 완화)
+      duration: 100, // 소프트하되 빠른 팝(부드러운 커브, 느리지 않게)
+      ease: 'Sine.easeOut', // 오버슈트 없는 소프트 팝
+      delay: idx * 9, // 스태거(빠른 물결)
       onComplete: () => {
         this.tweens.add({
           targets: img,
           scale: 0,
           alpha: 0,
-          angle: img.angle + 160,
-          duration: 170,
-          ease: 'Back.easeIn',
+          angle: img.angle + 100, // 회전 160→100(덜 격하게)
+          duration: 115, // 소프트하되 빠른 축소(느리지 않게)
+          ease: 'Sine.easeIn',
           onComplete: () => {
             img.destroy();
             done();
@@ -1655,7 +1676,7 @@ export class PlayScene extends Phaser.Scene {
    * 시간 보너스 연출 — **매치 위치에서 시계 아이템이 나타나** 해당 트럭의 시계로 **아치를 그리며 날아가고**,
    * 도착하는 순간 실제 시간이 가산된다(addTruckTime). 비행 중엔 회전 + 살짝 커졌다 작아짐.
    */
-  private flyTimeBonus(from: Pos, bay: number, mult: number): void {
+  private flyTimeBonus(from: Pos, bay: number, bonusMs: number): void {
     const view = this.bayViews[bay];
     if (!view || !view.timerActive) return;
     this.ensureClockIconTexture();
@@ -1679,20 +1700,19 @@ export class PlayScene extends Phaser.Scene {
       },
       onComplete: () => {
         icon.destroy();
-        this.addTruckTime(bay, mult); // 도착 순간 실제 시간 가산 + "+N초" 팝 + 시계 갱신
+        this.addTruckTime(bay, bonusMs); // 도착 순간 실제 시간 가산 + "+N초" 팝 + 시계 갱신
       },
     });
   }
 
   /**
-   * 라인 배수 보상 ② — 해당 배송 트럭(배송퍼즐)의 제한시간 증가.
-   * **×2 → +20초, ×4 → +40초, ×8 → +80초**(= 10초 × 배수). 시계/디지털 즉시 반영 + "+N초" 팝.
+   * 라인 매치 보상 ② — 해당 배송 트럭(배송퍼즐)의 제한시간 증가(선형).
+   * **4매치 +10초, 5매치 +20초, 6매치 +30초**(= 10초 × (len-3)). 시계/디지털 즉시 반영 + "+N초" 팝.
    * (보통 flyTimeBonus 의 시계 아이템이 도착하는 순간 호출된다.)
    */
-  private addTruckTime(bay: number, mult: number): void {
+  private addTruckTime(bay: number, bonusMs: number): void {
     const view = this.bayViews[bay];
     if (!view || !view.timerActive) return;
-    const bonusMs = 10000 * mult; // 10초 × 배수
     view.timeLeftMs += bonusMs;
     // 다시 여유가 생기면 위급 경고 상태 해제 + 점멸 알파 원복.
     if (view.timeLeftMs > LOW_TIME_MS) {
@@ -1701,7 +1721,7 @@ export class PlayScene extends Phaser.Scene {
       view.icon?.setAlpha(1);
       view.count?.setAlpha(1);
     }
-    this.drawClock(view); // 잔량 파이/초침/디지털 즉시 갱신
+    this.refreshTimer(view); // 디지털 시간 즉시 갱신
     this.spawnTimeBonus(view, bonusMs);
   }
 
@@ -1859,19 +1879,13 @@ export class PlayScene extends Phaser.Scene {
     // 출발 → 캐릭터 제거 + 타이머 정지 + 시계 숨김(차량이 떠나므로).
     this.detachTruckExtras(view);
 
-    this.progressText?.setText(this.fmtProgress());
+    if (filled) this.refreshProgress(); // 목표 진행바 갱신(성공 배송만 집계)
 
     // 시간 내 성공 → 코인 보상(빠를수록 많이) + 트럭에서 코인이 떨어진다.
     if (filled) this.awardDispatchCoins(view, speedFrac);
 
-    const stamp = this.mkText(view.homeX, view.iconY - 30, filled ? '출발! 🚚' : '시간초과! ⏰', {
-        fontFamily: '"Do Hyeon", "Jua", sans-serif',
-        fontSize: '22px',
-        color: filled ? '#2f9e44' : '#e03131',
-      })
-      .setOrigin(0.5)
-      .setDepth(140);
-    this.tweens.add({ targets: stamp, y: stamp.y - 26, alpha: 0, duration: 900, onComplete: () => stamp.destroy() });
+    // 배송 성공/실패 **순간 피드백 아이콘**(48-3 초록체크 / 48-4 빨강X) — 트럭 출발 시 표시 칸에 잠깐 팝.
+    this.spawnResultIcon(view, filled ? 'done' : 'rejected', false);
 
     // 현재 오더 아이콘/카운트 페이드아웃(트럭이 떠나는 동안).
     const oldIcon = view.icon;
@@ -1887,13 +1901,21 @@ export class PlayScene extends Phaser.Scene {
 
     // 다음 트럭(뒷모습)이 아래에서 올라와 정차 → 앞모습 도크 트럭으로 교체.
     const enter = (): void => {
-      this.refillQueue(); // 무한 공급 — 항상 다음 트럭이 진입.
-      this.state = deployNext(this.state, bay).state;
+      if (this.finished) return;
+      const deployed = deployNext(this.state, bay); // 무한 공급 폐지 — 대기열에서만 진입.
+      this.state = deployed.state;
+      if (!deployed.truck) {
+        // **대기 트럭 소진 = 이 차고 배송완료**(무한 트럭 대기 안 함). 배송거부와 동일하게 스탬프 + 레인 닫힘.
+        truck?.setVisible(false).setDepth(restDepth);
+        this.showBayClosed(view, 'done');
+        if (isLevelFailed(this.state)) this.levelFail(); // 전 베이 닫힘 & 목표 미달 → 실패
+        return;
+      }
       this.ensureBayDistinct(bay); // 다른 정차 베이와 다른 상품으로(중복 방지)
       const newTruck = this.state.bays[bay]; // 교체 반영본 재조회
       this.renderBayOrder(view, newTruck); // 오더 아이콘/카운트 생성 + 앞 트럭 visible
       if (!newTruck || !truck) {
-        truck?.setVisible(false).setDepth(restDepth); // (이론상) 공급 소진 → 빈 베이
+        truck?.setVisible(false).setDepth(restDepth);
         return;
       }
       // 앞 트럭과 오더는 뒷모습 트럭이 도착할 때까지 숨긴다.
@@ -1958,6 +1980,11 @@ export class PlayScene extends Phaser.Scene {
       }
     };
 
+    // 배송거부(timeout)여도 **레인은 죽지 않는다** — 이번 트럭만 미집계(dispatched↑ 안 함)로 버리고
+    // 다음 트럭이 진입한다(enter). 사용자 요청: 배송거부가 많아도 목표 갯수만 채우면 미션 완수 가능.
+    // (트럭 대기열에 목표+버퍼가 있어 거부로 몇 대 날려도 목표 달성 여지가 남는다.)
+    const onDeparted = enter;
+
     if (truck) {
       // 출발(앞모습): 보드 밑으로 도로를 따라 아래로 가속 + 아래로 갈수록 투명.
       truck.setDepth(TRUCK_TRAVEL_DEPTH);
@@ -1967,11 +1994,63 @@ export class PlayScene extends Phaser.Scene {
         duration: 640,
         ease: 'Quad.easeIn',
         onUpdate: () => truck.setAlpha(this.truckAlphaForY(truck.y)),
-        onComplete: enter,
+        onComplete: onDeparted,
       });
     } else {
-      enter();
+      onDeparted();
     }
+  }
+
+  /**
+   * 배송 결과 아이콘(**UI_48-3 초록체크=성공 / UI_48-4 빨강X=실패**, 텍스트 없는 컴팩트 정사각 아이콘)을
+   * 베이 표시 칸에 팝인. persist=true → 배송완료 스탬프(레인 닫힘·유지). persist=false → 배송 성공/실패
+   * **순간 피드백**(잠깐 뜨고 사라짐, 트럭 출발 시). 위치 Y 는 디자이너 템플릿 노드(layer_12/_copy),
+   * 정사각 아이콘이라 크기는 높이를 슬롯에 맞춰 비율유지(에디터 노드의 배너용 w/h 는 안 씀).
+   */
+  private spawnResultIcon(view: BayView, kind: 'done' | 'rejected', persist: boolean): void {
+    const done = kind === 'done';
+    const tex = done ? DELIVERY_DONE_TEX : DELIVERY_FAIL_TEX;
+    if (this.textures.exists(tex)) {
+      const node = this.layout.nodeById(done ? DELIVERY_DONE_NODE : DELIVERY_FAIL_NODE);
+      const y = node?.y ?? view.iconY;
+      const img = this.add.image(view.homeX, y, tex).setDepth(persist ? 120 : 140);
+      const targetH = view.iconSize * 1.1; // 제품 아이콘보다 살짝 큰 정사각 결과 아이콘
+      const s = targetH / (img.height || targetH); // 비율유지(정사각 아이콘, 높이 기준)
+      img.setScale(0);
+      this.tweens.add({
+        targets: img,
+        scale: s,
+        duration: 260,
+        ease: 'Back.easeOut',
+        onComplete: persist
+          ? undefined
+          : () => this.tweens.add({ targets: img, scale: s * 0.9, alpha: 0, duration: 360, delay: 340, onComplete: () => img.destroy() }),
+      });
+      if (persist) view.rejectedIcon = img;
+      return;
+    }
+    if (!persist) return;
+    // 폴백: 텍스트 스탬프(이미지 미로드 시).
+    const label = this.mkText(view.homeX, view.iconY, done ? '배송완료' : '배송거부', {
+      fontFamily: '"Do Hyeon", "Jua", sans-serif',
+      fontSize: '30px',
+      color: done ? '#2f9e44' : '#e03131',
+      fontStyle: '700',
+    })
+      .setOrigin(0.5)
+      .setStroke('#ffffff', 5)
+      .setDepth(120)
+      .setAngle(-8)
+      .setScale(0);
+    this.tweens.add({ targets: label, scale: 1, duration: 260, ease: 'Back.easeOut' });
+    view.rejectedLabel = label;
+  }
+
+  /** 닫힌 차고(대기 트럭 소진=배송완료) 스탬프 — 지속 결과 아이콘. */
+  private showBayClosed(view: BayView, kind: 'done' | 'rejected'): void {
+    view.rejected = true; // 닫힌 레인 마커(새 트럭 없음)
+    if (view.rejectedLabel || view.rejectedIcon) return; // 이미 스탬프 표시됨(중복 방지)
+    this.spawnResultIcon(view, kind, true);
   }
 
   // ─── 파워업 ───
@@ -2045,19 +2124,75 @@ export class PlayScene extends Phaser.Scene {
     const reward = 40 + cleared * 10;
 
     this.profile = applyReward(this.profile, { coins: reward });
-    this.profile = recordResult(this.profile, cleared, reward, true);
+    this.profile = recordResult(this.profile, cleared, reward, true); // 승리 → 레벨+1 저장
     saveProfile(this.profile);
     this.coinsText?.setText(this.fmtCoins());
 
-    const vh = this.scale.height;
-    this.add.rectangle(W / 2, vh / 2, W, vh, 0x000000, 0.55).setDepth(200);
-    this.mkText(W / 2, vh / 2 - 60, '레벨 클리어! 🎉', { fontFamily: '"Do Hyeon", "Jua", sans-serif', fontSize: '52px', color: '#ffffff' })
-      .setOrigin(0.5)
-      .setDepth(201);
-    this.mkText(W / 2, vh / 2 + 30, `+${reward} 🪙`, { fontFamily: '"Jua", sans-serif', fontSize: '40px', color: '#ffe48a' })
-      .setOrigin(0.5)
-      .setDepth(201);
+    // 자동 진행 대신 **"다음 레벨로 이동" 메시지 + OK 버튼** → OK 클릭 시 다음 레벨 시작(사용자 요청).
+    this.showResultPopup(POPUP_CLEAR_TEX, `레벨 ${cleared} 클리어!`, `다음 레벨로 이동합니다\n+${reward} 🪙`, '#3a6b1e', () =>
+      this.scene.restart(),
+    );
+  }
 
-    this.time.delayedCall(1500, () => this.scene.restart());
+  /** 미션 실패 — 글로벌 시간 초과(목표 미달) 또는 전 베이 배송거부. 코인 보상 없음 → OK 로 같은 레벨 재시도. */
+  private levelFail(): void {
+    if (this.finished) return;
+    this.finished = true;
+    sfx('fail', { volume: 0.8 });
+    haptics.warn();
+    this.profile = recordResult(this.profile, this.state.level, 0, false);
+    saveProfile(this.profile);
+
+    const reason = this.levelTimeLeftMs <= 0 ? '시간 초과!' : '배송거부가 너무 많아요!';
+    this.showResultPopup(POPUP_FAIL_TEX, '미션 실패…', `${reason}\n다시 도전해요`, '#1e4a6b', () => this.scene.restart());
+  }
+
+  /**
+   * 레벨 결과 팝업(공통에셋 패널 + OK 버튼) — **OK 입력 전까진 자동 진행하지 않는다**.
+   * onOk 클릭 시 콜백(다음 레벨/재시도). 패널/버튼은 popup 에셋(Pannel_02/01 · UI_btn_01).
+   */
+  private showResultPopup(panelTex: string, title: string, subtitle: string, textColor: string, onOk: () => void): void {
+    const vh = this.scale.height;
+    const cx = W / 2, cy = vh / 2;
+    // 뒷배경 딤 + 입력 차단(팝업 밖 클릭 무시).
+    this.add.rectangle(cx, cy, W, vh, 0x000000, 0.6).setDepth(200).setInteractive();
+
+    const cont = this.add.container(cx, cy).setDepth(201);
+    const hasPanel = this.textures.exists(panelTex);
+    let dh = 620;
+    if (hasPanel) {
+      const panel = this.add.image(0, 0, panelTex);
+      const k = Math.min((W * 0.82) / panel.width, 1.4);
+      panel.setScale(k);
+      dh = panel.displayHeight;
+      cont.add(panel);
+    } else {
+      const g = this.add.graphics();
+      g.fillStyle(0xfff3e0, 0.98);
+      g.fillRoundedRect(-360, -dh / 2, 720, dh, 40);
+      cont.add(g);
+    }
+    // 제목(왕관 배너 아래) · 부제 · OK 버튼 — 패널 표시높이 비례 배치.
+    cont.add(this.mkText(0, -dh * 0.16, title, { fontFamily: '"Do Hyeon", "Jua", sans-serif', fontSize: '48px', color: textColor, align: 'center' }).setOrigin(0.5).setStroke('#ffffff', 5));
+    cont.add(this.mkText(0, dh * 0.02, subtitle, { fontFamily: '"Jua", sans-serif', fontSize: '32px', color: '#5a3a1a', align: 'center', lineSpacing: 8 }).setOrigin(0.5));
+
+    const btn = this.add.image(0, dh * 0.3, BTN_OK_TEX);
+    const bScale = this.textures.exists(BTN_OK_TEX) ? Math.min((W * 0.32) / btn.width, 1.3) : 1;
+    btn.setScale(bScale).setInteractive({ useHandCursor: true });
+    cont.add(btn);
+    this.tweens.add({ targets: btn, scale: bScale * 1.06, duration: 720, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+    // 팝업 등장(스케일 팝).
+    cont.setScale(0.6).setAlpha(0);
+    this.tweens.add({ targets: cont, scale: 1, alpha: 1, duration: 300, ease: 'Back.easeOut' });
+
+    let done = false;
+    btn.on('pointerup', () => {
+      if (done) return;
+      done = true;
+      sfx('order_complete', { volume: 0.5 });
+      haptics.tap();
+      this.tweens.add({ targets: cont, scale: 0.85, alpha: 0, duration: 160, onComplete: onOk });
+    });
   }
 }

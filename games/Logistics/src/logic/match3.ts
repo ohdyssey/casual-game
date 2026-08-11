@@ -133,8 +133,18 @@ export function collapse(b: Board, rng: Rng): { board: Board; moves: CollapseMov
       cells[r][col] = null;
     }
     const needed = b.rows - existing.length;
+    // 새로 떨어지는 타일도 **세로로 같은 종류가 이어지지 않게** 회피(리필 뭉침 방지 — 다양한 배치 유지).
+    // 아래(기존 top 타일)에서 위로 채우며 바로 아래 타일과 다른 종류를 우선한다(거부 샘플링).
+    const newTiles: TileType[] = new Array<TileType>(needed);
+    let below: TileType | null = existing.length ? existing[0].type : null;
+    for (let i = needed - 1; i >= 0; i--) {
+      let t = randInt(rng, b.numTypes) as TileType;
+      for (let k = 0; k < 8 && t === below; k++) t = randInt(rng, b.numTypes) as TileType;
+      newTiles[i] = t;
+      below = t;
+    }
     const seq: { type: TileType; fromRow: number | null }[] = [];
-    for (let i = 0; i < needed; i++) seq.push({ type: randInt(rng, b.numTypes), fromRow: null });
+    for (let i = 0; i < needed; i++) seq.push({ type: newTiles[i], fromRow: null });
     for (const e of existing) seq.push({ type: e.type, fromRow: e.fromRow });
 
     for (let r = 0; r < b.rows; r++) {
@@ -190,10 +200,36 @@ export function findLegalSwap(b: Board): { a: Coord; c: Coord } | null {
   return null;
 }
 
+/**
+ * 보드를 **균등분포 + 인접(좌·상) 회피**로 채운다 — 사용자 요청: "한 종류/특정 색 위주로 배치하지 말고 다양하게".
+ *  ① 균등: 각 종류가 거의 같은 개수(round-robin 잔여 카운트)로 등장 → 특정 종류/색 쏠림 원천 차단.
+ *  ② 인접회피: 좌·상 이웃과 다른 종류 우선 → 같은 아이템 뭉침 방지(무매치 초기보드에도 기여).
+ * 잔여 최다 종류를 우선 배치(균형)하되 이웃과 겹치면 제외, 전부 막히면 완화. rng 로 동률만 무작위(결정적).
+ */
 function fillRandom(rows: number, cols: number, numTypes: number, rng: Rng): (TileType | null)[][] {
-  return Array.from({ length: rows }, () =>
-    Array.from({ length: cols }, () => randInt(rng, numTypes) as TileType | null),
+  const cells: (TileType | null)[][] = Array.from({ length: rows }, () =>
+    Array.from<TileType | null>({ length: cols }).fill(null),
   );
+  // 각 종류 목표 개수(균등). 총 셀 수를 종류 수로 나눠 반올림 — 합이 셀 수보다 커도 무방(잔여로만 사용).
+  const remaining = Array.from({ length: numTypes }, () => Math.ceil((rows * cols) / numTypes));
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const left = c > 0 ? cells[r][c - 1] : null;
+      const up = r > 0 ? cells[r - 1][c] : null;
+      // 후보: 좌·상과 다르고 잔여>0. 없으면 좌·상만 회피. 그래도 없으면 전체.
+      let cands: TileType[] = [];
+      for (let t = 0; t < numTypes; t++) if (t !== left && t !== up && remaining[t] > 0) cands.push(t);
+      if (!cands.length) for (let t = 0; t < numTypes; t++) if (t !== left && t !== up) cands.push(t);
+      if (!cands.length) for (let t = 0; t < numTypes; t++) cands.push(t);
+      // 균형: 잔여가 가장 많은 종류를 우선(쏠림 방지), 동률은 rng 로.
+      const maxRem = Math.max(...cands.map((t) => remaining[t]));
+      const pool = cands.filter((t) => remaining[t] === maxRem);
+      const t = pool[Math.floor(rng() * pool.length)];
+      cells[r][c] = t;
+      remaining[t]--;
+    }
+  }
+  return cells;
 }
 
 /** 초기 보드 — 즉시 매치 없음 + 합법 수 1개 이상 보장. */

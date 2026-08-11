@@ -7,12 +7,6 @@
       "category": "custom"
     },
     {
-      "id": "blank_copy",
-      "name": "팝업화면",
-      "file": "ui/layouts/blank_copy.json",
-      "category": "custom"
-    },
-    {
       "id": "popup_ad_3",
       "name": "광고 보상 제안",
       "file": "ui/layouts/popup_ad_3.json",

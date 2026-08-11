@@ -2,7 +2,7 @@
  * 에셋 — 에디터(phaser-ui-editor) 산출물(레이아웃 JSON + 업로드 이미지)을 SSOT 로 로드 +
  * 상품 카탈로그(에디터 item 아트 매핑).
  *
- * 화면은 ui/layouts/blank.json(진입화면 디자인)이 단일 진실 공급원. 상품 타일/아이콘은 up_Logistics_item_NN 사용.
+ * 화면은 ui/layouts/main.json(디자이너 재디자인 플레이 화면)이 단일 진실 공급원. 상품 타일/아이콘은 up_Logistics_item_NN(신규 16종) 사용.
  * 아트 미지급 환경 폴백용 생성 텍스처(tile/truck)도 유지(멱등).
  */
 import type Phaser from 'phaser';
@@ -11,7 +11,7 @@ import { PRODUCT_COUNT } from './logic/types.js';
 
 /** 에디터 산출물 — 레이아웃 JSON 캐시 키 + 업로드 매니페스트. */
 export const UI_LAYOUT_KEY = 'ui_layout';
-export const UI_LAYOUT_PATH = 'ui/layouts/blank.json';
+export const UI_LAYOUT_PATH = 'ui/layouts/main.json';
 /** 로비(시작) 화면 레이아웃. */
 export const LOBBY_LAYOUT_KEY = 'ui_lobby';
 export const LOBBY_LAYOUT_PATH = 'ui/layouts/blank_2.json';
@@ -23,6 +23,15 @@ export const TILE_KEY = 'tile';
 export const TRUCK_KEY = 'truck';
 /** 배송 보상 코인(Graphics 생성). */
 export const COIN_KEY = 'coin_fx';
+
+/** 레벨 결과 팝업 에셋(공통에셋 — 승리 패널·실패 패널·OK 버튼). public/popup/ 에서 로드. */
+export const POPUP_CLEAR_TEX = 'popup_clear';
+export const POPUP_FAIL_TEX = 'popup_fail';
+export const BTN_OK_TEX = 'btn_ok';
+
+/** 배송 성공/실패 아이콘(디자이너 UI_48-3 초록체크 · UI_48-4 빨강X, 텍스트 없는 컴팩트 아이콘). 매니페스트로 로드. */
+export const DELIVERY_DONE_TEX = 'up_Logistics_UI_48-3';
+export const DELIVERY_FAIL_TEX = 'up_Logistics_UI_48-4';
 
 export interface Product {
   /** 1-based 인덱스(= ProductType). */
@@ -89,6 +98,10 @@ export function loadGameAssets(scene: Phaser.Scene): void {
   scene.load.json(UI_LAYOUT_KEY, UI_LAYOUT_PATH);
   scene.load.json(LOBBY_LAYOUT_KEY, LOBBY_LAYOUT_PATH);
   scene.load.json(UI_MANIFEST_KEY, UI_MANIFEST_PATH);
+  // 레벨 결과 팝업 에셋(공통에셋).
+  scene.load.image(POPUP_CLEAR_TEX, 'popup/panel_clear.png');
+  scene.load.image(POPUP_FAIL_TEX, 'popup/panel_fail.png');
+  scene.load.image(BTN_OK_TEX, 'popup/btn_ok.png');
   // 매니페스트 도착 즉시 거기 적힌 업로드 이미지를 같은 로더 사이클에 추가 로드.
   scene.load.on(`filecomplete-json-${UI_MANIFEST_KEY}`, () => {
     const manifest = (scene.cache.json.get(UI_MANIFEST_KEY) ?? {}) as Record<string, string>;
@@ -143,6 +156,9 @@ export async function preloadKoreanFonts(): Promise<void> {
     await Promise.all([
       fonts.load('400 24px "Do Hyeon"', '가나다 0123 X/:%'),
       fonts.load('400 24px "Jua"', '가나다 0123'),
+      // 에디터 지정 라틴 게임체(레벨/코인/타이머 Luckiest Guy, 갯수 Bungee) — 캔버스 렌더 전 선로딩.
+      fonts.load('400 36px "Luckiest Guy"', '0123456789Level:/,'),
+      fonts.load('400 32px "Bungee"', '0123456789/ '),
     ]);
     await fonts.ready;
   } catch {
