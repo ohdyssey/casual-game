@@ -56,14 +56,25 @@ export interface HandlerContext<TBody> {
 }
 
 /**
+ * Vercel Node 런타임이 인식하는 **웹 표준 핸들러** 형태.
+ *
+ * ⚠️ 함수를 그대로 `export default` 하면 Vercel 이 옛 Node 방식 `(req, res)` 핸들러로
+ *    오인해 IncomingMessage 를 넘긴다 → `request.headers.get is not a function` 으로
+ *    호출 즉시 죽는다(FUNCTION_INVOCATION_FAILED). 반드시 `{ fetch }` 로 감싸야 한다.
+ */
+export interface WebHandler {
+  fetch(request: Request): Promise<Response>;
+}
+
+/**
  * 인증이 필요한 POST 핸들러를 만든다.
  * `schema` 를 주면 요청 본문을 zod 로 파싱해 넘긴다(주지 않으면 본문 없는 요청).
  */
 export function postHandler<TSchema extends ZodTypeAny>(
   schema: TSchema | null,
   run: (ctx: HandlerContext<z.infer<TSchema>>) => Promise<unknown>,
-): (req: Request) => Promise<Response> {
-  return async (req: Request): Promise<Response> => {
+): WebHandler {
+  const fetch = async (req: Request): Promise<Response> => {
     const origin = req.headers.get('origin');
 
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) });
@@ -97,11 +108,13 @@ export function postHandler<TSchema extends ZodTypeAny>(
       return json({ error: { code: 'internal', message: '서버 오류가 발생했습니다' } }, 500, origin);
     }
   };
+
+  return { fetch };
 }
 
 /** 인증 없는 GET 핸들러(헬스체크용). */
-export function getHandler(run: () => Promise<unknown>): (req: Request) => Promise<Response> {
-  return async (req: Request): Promise<Response> => {
+export function getHandler(run: () => Promise<unknown>): WebHandler {
+  const fetch = async (req: Request): Promise<Response> => {
     const origin = req.headers.get('origin');
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) });
     if (req.method !== 'GET') {
@@ -109,4 +122,6 @@ export function getHandler(run: () => Promise<unknown>): (req: Request) => Promi
     }
     return json(await run(), 200, origin);
   };
+
+  return { fetch };
 }
