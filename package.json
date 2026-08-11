@@ -65,7 +65,10 @@
     "deploy:assemble": "node scripts/assemble-deploy.mjs",
     "deploy:static": "npm run build:all && npm run deploy:assemble",
     "typecheck": "tsc -p packages/core/tsconfig.json && tsc -p packages/ttt-rules/tsconfig.json && tsc -p games/TICTACTOE/tsconfig.json && tsc -p services/api/tsconfig.json && tsc -p games/hub/tsconfig.json && tsc -p games/store/tsconfig.json && tsc -p games/eco01/tsconfig.json && tsc -p games/bubblepong/tsconfig.json && tsc -p games/Grillking/tsconfig.json && tsc -p games/SumoClash/tsconfig.json && tsc -p games/Homerun/tsconfig.json && tsc -p games/DragonBeat/tsconfig.json && tsc -p games/Archery/tsconfig.json && tsc -p games/ZombieArrow/tsconfig.json && tsc -p games/DuckhuntRush/tsconfig.json && tsc -p games/Logistics/tsconfig.json && tsc -p games/SoccerFlick/tsconfig.json && tsc -p games/PathRush/tsconfig.json && tsc -p games/PawLink/tsconfig.json && tsc -p games/Pickmeup/tsconfig.json && tsc -p games/SocialCasino/tsconfig.json && tsc -p games/FlockGo/tsconfig.json && tsc -p games/Solitare/tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:tictactoe:msstore": "npm run build:msstore --workspace games/TICTACTOE",
+    "assemble:tictactoe:msstore": "node scripts/assemble-ttt-store.mjs",
+    "deploy:tictactoe:msstore": "npm run build:tictactoe:msstore && npm run assemble:tictactoe:msstore"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.8",

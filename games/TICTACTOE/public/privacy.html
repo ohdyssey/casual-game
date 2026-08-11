@@ -1,0 +1,156 @@
+<!doctype html>
+<!--
+  개인정보처리방침 — Microsoft Store 제출 필수 항목(Partner Center 의 Privacy policy URL).
+
+  ⚠️ 배포 전 반드시 `TODO_CONTACT_EMAIL` 을 실제 문의 이메일로 바꿀 것. 자리표시 상태로 제출하면
+     "연락 수단 없음" 으로 반려된다. 주소가 정해지면 아래 두 군데(본문·footer)를 함께 고친다.
+
+  ⚠️ 내용이 실제 수집 항목과 어긋나면 등급·심사 취소 사유다. 다음이 바뀌면 이 문서도 같이 고칠 것:
+     · 광고/인앱결제 도입(msstore 타겟은 현재 둘 다 없음 — src/store/msstore.ts)
+     · 채팅·친구 등 이용자 간 직접 소통 수단 추가(현재 없음 — 대전은 착수 교환뿐)
+     · 계정 연동(현재 익명 로그인만 — src/net/client.ts)
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="index, follow">
+<title>개인정보처리방침 — 틱택토 네온</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 32px 20px 64px;
+    background: #0A0714; color: #E8E6F0;
+    font: 16px/1.75 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 26px; color: #27C4FF; margin: 0 0 4px; }
+  h2 { font-size: 18px; color: #27C4FF; margin: 36px 0 8px; }
+  .meta { color: #8E88A8; font-size: 14px; margin: 0 0 28px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 15px; }
+  th, td { border: 1px solid #2A2340; padding: 9px 12px; text-align: left; vertical-align: top; }
+  th { background: #16112A; color: #B9B3D0; font-weight: 600; }
+  ul { padding-left: 20px; }
+  li { margin: 4px 0; }
+  a { color: #27C4FF; }
+  .note { background: #16112A; border-left: 3px solid #27C4FF; padding: 12px 16px; margin: 16px 0; }
+  footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #2A2340; color: #8E88A8; font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>개인정보처리방침</h1>
+  <p class="meta">틱택토 네온 (TicTacToe Neon) · 시행일 2026년 8월 11일</p>
+
+  <p>
+    본 방침은 게임 <strong>틱택토 네온</strong>(이하 "본 게임")이 이용자의 정보를 어떻게 처리하는지 설명합니다.
+    본 게임은 <strong>회원가입을 요구하지 않으며, 이름·이메일·전화번호 등 이용자를 직접 식별할 수 있는
+    정보를 일절 수집하지 않습니다.</strong>
+  </p>
+
+  <h2>1. 수집하는 정보</h2>
+  <p>온라인 대전 기능을 이용할 때에 한해 다음 정보가 서버에 생성·저장됩니다.</p>
+  <table>
+    <tr><th>항목</th><th>내용</th><th>수집 시점</th></tr>
+    <tr>
+      <td>익명 계정 식별자</td>
+      <td>무작위로 발급되는 임의의 문자열(UUID). 개인을 식별할 수 있는 정보와 연결되지 않습니다.</td>
+      <td>온라인 대전 최초 이용 시</td>
+    </tr>
+    <tr>
+      <td>표시용 닉네임</td>
+      <td>서버가 자동 생성한 임의의 이름(예: "고요한여행자#3795"). 이용자가 입력하지 않습니다.</td>
+      <td>익명 계정 생성 시</td>
+    </tr>
+    <tr>
+      <td>대전 기록</td>
+      <td>레이팅 점수, 승·패·무 횟수, 진행 중인 대국의 판 상태와 착수 시각.</td>
+      <td>대전 진행 중</td>
+    </tr>
+    <tr>
+      <td>접속 기록</td>
+      <td>서버 운영·장애 대응을 위해 접속 IP 주소와 요청 시각이 서비스 제공자의 로그에 일시적으로 남습니다.</td>
+      <td>서버 요청 시</td>
+    </tr>
+  </table>
+
+  <div class="note">
+    <strong>싱글 플레이·AI 스터디만 이용하는 경우 서버로 전송되는 정보가 없습니다.</strong>
+    해당 모드의 진행도와 설정은 이용자의 기기에만 저장됩니다.
+  </div>
+
+  <h2>2. 수집하지 않는 정보</h2>
+  <ul>
+    <li>이름, 이메일 주소, 전화번호, 생년월일 등 신원 정보</li>
+    <li>위치 정보, 연락처, 사진, 파일 등 기기 내 개인 데이터</li>
+    <li>결제 정보 — 본 게임에는 인앱 구매가 없습니다</li>
+    <li>광고 식별자 및 광고 추적 정보 — 본 게임에는 광고가 없습니다</li>
+  </ul>
+
+  <h2>3. 이용 목적</h2>
+  <ul>
+    <li>대전 상대 매칭 및 대국 진행</li>
+    <li>승패 판정과 레이팅 산정</li>
+    <li>부정 행위(비정상 착수·조작된 요청) 차단 및 서버 안정성 유지</li>
+  </ul>
+  <p>수집된 정보는 위 목적 외에 이용되지 않으며, <strong>광고·마케팅 목적으로 이용하거나 제3자에게
+  판매·제공하지 않습니다.</strong></p>
+
+  <h2>4. 이용자 간 상호작용</h2>
+  <p>
+    본 게임의 온라인 대전에서 이용자 간에 오가는 것은 <strong>착수 위치와 대국 결과뿐</strong>입니다.
+    채팅, 음성, 이미지 전송, 친구 추가 등 이용자가 직접 내용을 주고받는 기능은 제공하지 않습니다.
+    상대에게는 자동 생성된 닉네임과 레이팅만 표시됩니다.
+  </p>
+
+  <h2>5. 처리 위탁 및 보관 위치</h2>
+  <p>본 게임은 서버 운영을 위해 다음 서비스를 이용합니다.</p>
+  <table>
+    <tr><th>수탁자</th><th>역할</th><th>데이터 보관 위치</th></tr>
+    <tr><td>Supabase, Inc.</td><td>익명 인증, 데이터베이스, 실시간 동기화</td><td>대한민국 서울</td></tr>
+    <tr><td>Vercel, Inc.</td><td>게임 서버(대전 판정·정산) 실행</td><td>대한민국 서울</td></tr>
+  </table>
+
+  <h2>6. 보유 기간 및 파기</h2>
+  <ul>
+    <li>종료된 대국 기록과 계정 정보는 서비스 운영에 필요한 기간 동안 보관합니다.</li>
+    <li>이용자가 삭제를 요청하면 해당 익명 계정과 그에 연결된 대전 기록을 지체 없이 파기합니다.</li>
+    <li>접속 로그는 서비스 제공자의 정책에 따라 일정 기간 후 자동 삭제됩니다.</li>
+  </ul>
+
+  <h2>7. 이용자의 권리</h2>
+  <p>
+    이용자는 자신의 익명 계정에 저장된 정보의 열람·삭제를 요청할 수 있습니다.
+    본 게임은 신원 정보를 보관하지 않으므로, 요청 시 게임 내에서 확인 가능한
+    <strong>닉네임</strong>을 알려주시면 해당 계정을 특정하여 처리합니다.
+  </p>
+
+  <h2>8. 아동의 개인정보</h2>
+  <p>
+    본 게임은 연령을 확인하지 않으며, 아동을 포함한 어떤 이용자로부터도 신원 정보를 수집하지 않습니다.
+    보호자께서 자녀의 대전 기록 삭제를 원하시는 경우 아래 연락처로 요청하실 수 있습니다.
+  </p>
+
+  <h2>9. 보안</h2>
+  <ul>
+    <li>서버와의 모든 통신은 HTTPS 로 암호화됩니다.</li>
+    <li>데이터베이스는 행 수준 보안(RLS)으로 보호되어, 이용자는 자신이 참가한 대국만 조회할 수 있습니다.</li>
+    <li>모든 착수는 서버가 다시 검증하며, 클라이언트가 데이터베이스를 직접 수정할 수 없습니다.</li>
+  </ul>
+
+  <h2>10. 방침의 변경</h2>
+  <p>
+    본 방침이 변경되는 경우 이 페이지에 개정 내용과 시행일을 게시합니다.
+    수집 항목이나 이용 목적이 실질적으로 바뀌는 경우에는 게임 내에서 별도로 안내합니다.
+  </p>
+
+  <h2>11. 문의처</h2>
+  <p>개인정보 처리에 관한 문의 및 삭제 요청: <a href="mailto:TODO_CONTACT_EMAIL">TODO_CONTACT_EMAIL</a></p>
+
+  <footer>
+    틱택토 네온 · 개인정보처리방침 · 시행일 2026-08-11<br>
+    문의: TODO_CONTACT_EMAIL
+  </footer>
+</main>
+</body>
+</html>

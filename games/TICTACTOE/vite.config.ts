@@ -87,6 +87,11 @@ export default defineConfig(({ mode }) => {
     },
     server: { port: 6211, host: true, strictPort: true },
     build: {
+      // ⚠️ msstore 산출물은 **다른 폴더**로 뺀다. 같은 `dist` 를 쓰면
+      //    `scripts/assemble-deploy.mjs` 가 그걸 그대로 `deploy/tictactoe/` 로 복사하는데,
+      //    msstore 빌드는 base 가 '/' 라 허브 하위 경로(/tictactoe/)에서 자산을 전부 놓친다.
+      //    "라이브가 갑자기 흰 화면" 으로 나타나고 원인 찾기가 어렵다.
+      outDir: isMsStore ? 'dist-msstore' : 'dist',
       target: 'es2020',
       sourcemap: true,
       chunkSizeWarningLimit: 1500,
