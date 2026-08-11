@@ -38,6 +38,8 @@ import {
   type LayoutDoc,
 } from '../assets.js';
 import { playGateAd } from '../rewardedAd.js';
+import store from '@store';
+import { isAdGateTurn } from '../logic/adGate.js';
 import {
   applyAction,
   cellOwner,
@@ -1758,12 +1760,20 @@ ${this.pressureLine()}`;
    *
    * ⚠️ 광고를 봐도 따로 주는 보상은 없다 — 다시하기 자체가 무료였다가 **N번에 한 번만** 광고를
    *    거치는 구조다. 그래서 보상형이 아니라 관문(전면) 광고를 쓴다(`playGateAd`).
-   * 판정 기준은 저장된 통산 패배 수 — 별도 카운터 없이도 정확히 N판에 한 번 걸리고,
-   * 앱을 껐다 켜도 주기가 유지된다. 스터디(가르치는 판)와 대전은 대상이 아니다.
+   *
+   * 판정은 `logic/adGate` 가 한다(테스트로 잠가 두려고 씬 밖으로 뺐다). 광고를 띄울 수 없는
+   * 타겟(msstore/android/ios)에서는 관문이 통째로 사라진다 — 라벨만 "광고 보고 다시하기" 이고
+   * 실제로는 아무 일도 안 일어나면 스토어 심사에서 미동작 기능이다.
    */
   private isAdRetryTurn(): boolean {
-    if (this.studyMode || this.isVersus()) return false;
-    return this.record.losses > 0 && this.record.losses % AD_RETRY_EVERY === 0;
+    const { ads } = store;
+    return isAdGateTurn({
+      losses: this.record.losses,
+      studyMode: this.studyMode,
+      versus: this.isVersus(),
+      adsUsable: ads.fullscreenSupported || ads.allowPlaceholders,
+      every: AD_RETRY_EVERY,
+    });
   }
 
   /** 광고 보고 다시하기 — 광고가 **닫힌 뒤에** 새 판을 연다(가려진 채 제한시간이 흐르면 안 된다). */
