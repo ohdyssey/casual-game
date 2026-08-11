@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createGame, DRAW_MOVE_CAP, SERVER_TURN_MS, type GameState } from '@casual/ttt-rules';
+import { createGame, DRAW_MOVE_CAP, SERVER_TURN_MS, type GameState } from './rules.js';
 import { resolveMove, resolveResign, resolveTimeout, symbolOf, type MatchRow } from './matchFlow.js';
 
 const O_USER = 'user-o';

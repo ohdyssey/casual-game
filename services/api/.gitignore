@@ -1,3 +1,4 @@
+# Vercel 링크 정보(프로젝트 id 등)와 내려받은 환경변수 — 절대 커밋하지 않는다.
 .vercel
 .env
-.env.local
+.env*.local

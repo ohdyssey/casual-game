@@ -14,8 +14,8 @@ import {
   SERVER_TURN_MS,
   type GameState,
   type Player,
-} from '@casual/ttt-rules';
-import type { MatchCause } from '@casual/ttt-rules/protocol.js';
+} from './rules.js';
+import type { MatchCause } from './wire.js';
 
 /** DB `matches` 행에서 판정에 필요한 부분만. */
 export interface MatchRow {

@@ -10,7 +10,7 @@
 import { postHandler, HttpError } from '../../../../src/http.js';
 import { ensurePlayer, joinQueue, loadMatch, snapshotFor } from '../../../../src/repo.js';
 import { symbolOf } from '../../../../src/matchFlow.js';
-import type { QueueJoinResponse } from '@casual/ttt-rules/protocol.js';
+import type { QueueJoinResponse } from '../../../../src/wire.js';
 
 export default postHandler(null, async ({ userId }): Promise<QueueJoinResponse> => {
   const player = await ensurePlayer(userId);

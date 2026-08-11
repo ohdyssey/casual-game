@@ -5,7 +5,7 @@
  * 착수 번호 불일치로 화면을 되돌려야 할 때. 종료된 판이면 레이팅 정산까지 함께 온다.
  */
 import { postHandler } from '../../../../src/http.js';
-import { ResignRequest, type MatchSnapshot } from '@casual/ttt-rules/protocol.js';
+import { ResignRequest, type MatchSnapshot } from '../../../../src/wire.js';
 import { readMatch } from '../../../../src/matchOps.js';
 
 // 본문이 { matchId } 하나뿐이라 ResignRequest 스키마를 그대로 재사용한다.

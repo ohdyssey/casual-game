@@ -6,13 +6,13 @@
  * **0행 갱신 = 다른 요청이 먼저 이겼다** 로 해석한다. 낙관적 잠금 한 겹으로
  * 재전송·동시착수·"타임아웃 주장과 착수가 겹치는" 경합을 전부 막는다.
  */
-import { GameStateSchema, type MatchCause, type MatchSnapshot } from '@casual/ttt-rules/protocol.js';
+import { GameStateSchema, type MatchCause, type MatchSnapshot } from './wire.js';
 import { HttpError } from './http.js';
 import { serviceClient } from './supabase.js';
 import { makeNickname } from './nickname.js';
 import type { Advance, MatchRow } from './matchFlow.js';
 import type { Settlement } from './ratings.js';
-import { SERVER_TURN_MS, type Player } from '@casual/ttt-rules';
+import { SERVER_TURN_MS, type Player } from './rules.js';
 
 /**
  * 이 게임의 테이블은 전부 `ttt` 스키마 안에 있다(플랫폼 공용 `public` 과 분리).

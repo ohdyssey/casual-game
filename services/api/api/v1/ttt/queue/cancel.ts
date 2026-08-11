@@ -7,7 +7,7 @@
 import { postHandler } from '../../../../src/http.js';
 import { cancelQueue, findActiveMatch, snapshotFor } from '../../../../src/repo.js';
 import { symbolOf } from '../../../../src/matchFlow.js';
-import type { MatchSnapshot } from '@casual/ttt-rules/protocol.js';
+import type { MatchSnapshot } from '../../../../src/wire.js';
 
 interface CancelResponse {
   ok: true;

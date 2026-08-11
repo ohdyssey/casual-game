@@ -28,14 +28,10 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": false,
-    "noEmit": true,
-
-    // 게임 규칙 공유 패키지 — 빌드 산출물이 없어 소스를 직접 가리킨다.
-    "baseUrl": ".",
-    "paths": {
-      "@casual/ttt-rules": ["../../packages/ttt-rules/src/index.ts"],
-      "@casual/ttt-rules/*": ["../../packages/ttt-rules/src/*"]
-    }
+    "noEmit": true
+    // 경로 별칭(paths)은 쓰지 않는다 — Vercel 이 지원하지 않고(공식 문서 명시),
+    // 별칭을 써도 컴파일된 JS 의 import 문은 그대로 남아 실행 시점에 깨진다.
+    // 공유 규칙은 src/rules.ts · src/wire.ts 가 상대경로로 가져온다.
   },
   "include": ["src", "api"]
 }

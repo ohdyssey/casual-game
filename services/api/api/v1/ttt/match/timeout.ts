@@ -6,7 +6,7 @@
  * 않는 판은 pg_cron 스윕이 'abandoned' 로 정리한다.
  */
 import { postHandler } from '../../../../src/http.js';
-import { TimeoutRequest, type MoveResponse } from '@casual/ttt-rules/protocol.js';
+import { TimeoutRequest, type MoveResponse } from '../../../../src/wire.js';
 import { resolveTimeout } from '../../../../src/matchFlow.js';
 import { runMatchOp } from '../../../../src/matchOps.js';
 

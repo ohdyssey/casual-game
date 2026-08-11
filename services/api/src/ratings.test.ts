@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createGame, RATING_FLOOR, SERVER_TURN_MS } from '@casual/ttt-rules';
+import { createGame, RATING_FLOOR, SERVER_TURN_MS } from './rules.js';
 import { settle } from './ratings.js';
 import type { MatchRow } from './matchFlow.js';
 

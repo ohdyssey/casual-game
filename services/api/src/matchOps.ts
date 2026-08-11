@@ -10,7 +10,7 @@ import { HttpError } from './http.js';
 import { symbolOf, type Resolution } from './matchFlow.js';
 import { settle } from './ratings.js';
 import { commitAdvance, loadMatch, snapshotFor } from './repo.js';
-import type { MoveResponse } from '@casual/ttt-rules/protocol.js';
+import type { MoveResponse } from './wire.js';
 
 export async function runMatchOp(
   userId: string,

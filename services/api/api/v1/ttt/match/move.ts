@@ -6,7 +6,7 @@
  * 보내도 상대의 판은 오염되지 않는다.
  */
 import { postHandler } from '../../../../src/http.js';
-import { MoveRequest, type MoveResponse } from '@casual/ttt-rules/protocol.js';
+import { MoveRequest, type MoveResponse } from '../../../../src/wire.js';
 import { resolveMove } from '../../../../src/matchFlow.js';
 import { runMatchOp } from '../../../../src/matchOps.js';
 

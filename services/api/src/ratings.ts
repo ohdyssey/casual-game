@@ -4,7 +4,7 @@
  * 계산 기준은 **매치 시작 시점의 레이팅**(`o_rating_at`/`x_rating_at`)이다. 대기 중이나
  * 대국 중에 다른 판이 끝나 레이팅이 변해도 이 판의 보상이 흔들리지 않게 하기 위해서다.
  */
-import { applyRatingDelta, ratingDelta, type Outcome, type Player } from '@casual/ttt-rules';
+import { applyRatingDelta, ratingDelta, type Outcome, type Player } from './rules.js';
 import type { MatchRow } from './matchFlow.js';
 
 export interface SideSettlement {
