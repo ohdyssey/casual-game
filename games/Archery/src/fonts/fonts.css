@@ -1,0 +1,10 @@
+/* 자동 생성 — scripts/fonts-build.mjs. 직접 수정하지 마세요.
+ * 에디터 레이아웃이 쓰는 폰트만 서브셋해 로컬에서 서빙합니다(외부 CDN 의존 제거). */
+
+@font-face {
+  font-family: 'Do Hyeon';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./do-hyeon.woff2') format('woff2');
+}

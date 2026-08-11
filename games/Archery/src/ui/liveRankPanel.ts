@@ -41,34 +41,35 @@ function ensureStyle(): void {
   .arklrp-overlay{position:fixed;z-index:46;pointer-events:none;overflow:hidden;}
   .arklrp-stage{position:absolute;top:0;left:0;transform-origin:top left;
     font-family:"Do Hyeon","Jua",system-ui,sans-serif;color:#eaf4ff;}
-  .arklrp-panel{position:absolute;left:10px;top:150px;width:190px;
-    padding:7px;border-radius:12px;
+  /* HD 1080 디자인 기준 — 라운드 배지(하단 y≈167) 아래로 패딩을 두고(top:210) 적절히 크게. */
+  .arklrp-panel{position:absolute;left:16px;top:210px;width:300px;
+    padding:11px;border-radius:16px;
     background:linear-gradient(180deg, rgba(8,22,44,.62), rgba(6,16,34,.5));
-    border:1px solid rgba(120,180,255,.2);box-shadow:0 6px 18px rgba(0,0,0,.42);}
-  .arklrp-title{font-family:"Do Hyeon",sans-serif;font-size:13px;letter-spacing:.5px;
-    color:#bfe0ff;text-align:center;margin:1px 0 6px;text-shadow:0 1px 3px rgba(0,0,0,.6);}
-  .arklrp-row{position:relative;height:33px;display:flex;align-items:center;gap:6px;
-    padding:0 7px 0 3px;margin-bottom:4px;border-radius:8px;
+    border:1px solid rgba(120,180,255,.2);box-shadow:0 8px 22px rgba(0,0,0,.42);}
+  .arklrp-title{font-family:"Do Hyeon",sans-serif;font-size:19px;letter-spacing:.5px;
+    color:#bfe0ff;text-align:center;margin:1px 0 9px;text-shadow:0 1px 3px rgba(0,0,0,.6);}
+  .arklrp-row{position:relative;height:46px;display:flex;align-items:center;gap:9px;
+    padding:0 11px 0 5px;margin-bottom:6px;border-radius:11px;
     background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.06);}
   .arklrp-row:last-child{margin-bottom:0;}
-  .arklrp-rank{width:20px;flex:none;text-align:center;font-size:14px;color:#dbe9fb;
+  .arklrp-rank{width:28px;flex:none;text-align:center;font-size:19px;color:#dbe9fb;
     text-shadow:0 1px 3px rgba(0,0,0,.7);}
   .arklrp-rank.gold{color:#ffd23f;} .arklrp-rank.silver{color:#dfe7ee;} .arklrp-rank.bronze{color:#e6a065;}
-  .arklrp-flag{width:24px;height:17px;flex:none;border-radius:3px;overflow:hidden;background:#0b1a28;
+  .arklrp-flag{width:34px;height:24px;flex:none;border-radius:4px;overflow:hidden;background:#0b1a28;
     border:1px solid rgba(255,255,255,.25);}
   .arklrp-flag img{width:100%;height:100%;object-fit:cover;display:block;}
-  .arklrp-id{flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  .arklrp-id{flex:1;min-width:0;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     text-shadow:0 1px 3px rgba(0,0,0,.6);}
-  .arklrp-score{flex:none;font-size:13px;color:#f3f8ff;text-shadow:0 1px 3px rgba(0,0,0,.7);}
+  .arklrp-score{flex:none;font-size:18px;color:#f3f8ff;text-shadow:0 1px 3px rgba(0,0,0,.7);}
   .arklrp-row.first .arklrp-score{color:#ffd23f;}
   .arklrp-row.me{background:rgba(53,167,255,.18);border-color:#35a7ff;
-    box-shadow:0 0 12px rgba(53,167,255,.4);}
+    box-shadow:0 0 14px rgba(53,167,255,.4);}
   .arklrp-row.me .arklrp-id{color:#e4f1ff;}
-  .arklrp-row.me .arklrp-id small{font-size:10px;color:#06203b;background:#35a7ff;padding:1px 6px;
-    border-radius:999px;margin-left:5px;vertical-align:middle;font-family:"Jua",sans-serif;}
-  .arklrp-row.pinned{margin-top:9px;}
-  .arklrp-row.pinned::before{content:'⋯';position:absolute;top:-13px;left:0;right:0;text-align:center;
-    font-size:13px;line-height:1;color:rgba(200,222,245,.5);}
+  .arklrp-row.me .arklrp-id small{font-size:13px;color:#06203b;background:#35a7ff;padding:2px 8px;
+    border-radius:999px;margin-left:6px;vertical-align:middle;font-family:"Jua",sans-serif;}
+  .arklrp-row.pinned{margin-top:12px;}
+  .arklrp-row.pinned::before{content:'⋯';position:absolute;top:-16px;left:0;right:0;text-align:center;
+    font-size:17px;line-height:1;color:rgba(200,222,245,.5);}
   .arklrp-row.up{animation:arklrp-pulse .5s ease;}
   @keyframes arklrp-pulse{0%{transform:scale(1);box-shadow:0 0 0 rgba(53,167,255,0)}
     40%{transform:scale(1.05);box-shadow:0 0 18px rgba(53,167,255,.75)}

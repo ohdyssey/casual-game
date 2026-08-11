@@ -34,58 +34,78 @@ const NODE = {
   roundBadge: 'layer_3',
   gauge: 'layer_3_copy2',
   dpad: 'layer_3_copy4',
+  windDialText: 'layer_5_copy', // 좌측 다이얼 수치 텍스트 → 바람 표시
+  timeDialText: 'layer_5_copy2', // 우측 다이얼 수치 텍스트 → 타임어택 카운트다운
+  resultTarget: 'layer_6', // 우측 상단 큰 과녁(BG_04) — 발사 후 명중 위치 확대 표시(평상시 숨김)
 } as const;
+
+// ── 타임어택 ──
+const SHOT_TIME = 20; // 한 발 제한시간(초). 만료 시 자동 발사 or 시간초과 미스.
+
+// ── 명중 결과 표시 과녁(에디터 layer_6, 우측에서 슬라이드 인) ──
+const RESULT_SHOW_MS = 5000; // 명중 위치를 표시하는 시간(ms) 후 우측으로 사라짐
+// 결과 과녁의 득점반경 분율 — 겨냥 과녁(BG_03)의 SCORE_R_FRAC 와 동일하게 두어, 겨냥 과녁의 화살
+// 명중점과 결과 과녁의 타격점이 '같은 링'에 정밀하게 일치하도록 한다(두 과녁 모두 동일 표적 디자인 가정).
+const RESULT_SCORE_R_FRAC = 0.424; // 겨냥 과녁 링과 시각적으로 일치(BG_03 0.42/faceR0.467 × BG_04 faceR0.471)
+const RESULT_GOLD_FX = 0.498; // 결과 과녁(BG_04) 골드 중심 X 분율(링 무게중심) — 점 원점 보정
+const RESULT_GOLD_FY = 0.5; // 결과 과녁 골드 중심 Y 분율(링 무게중심)
+const RESULT_DOT_R_FRAC = 0.014; // 명중 점 반경 = 과녁 표시폭 × 이 값(작게)
+const RESULT_DOT_COLOR = 0x8f1d1d; // 이전(히스토리) 타격점 색 — 검붉은색(crimson)
+const RESULT_DOT_LAST_COLOR = 0x18ff5a; // 마지막 타격점 색 — 녹색
 
 // ── 줌(필드 전체) ──
 const ZOOM_FULL = 5.5; // 완전 드로우 시 필드 배율(과녁이 크게 줌인되도록)
-// 불스아이(노란 중심)의 과녁 이미지 내 위치. 사용자 피드백 양끝(우하단/좌상단)의 중간으로 수렴: aim≈(349.5,602.5).
-const BULLSEYE_DX = 0.043; // +면 오른쪽
-const BULLSEYE_UP = 0.0915;
+// 불스아이(노란 중심)의 과녁 이미지(BG_03) 내 위치 — 파랑·빨강 링 무게중심(대형 뚜렷 영역)으로 확정:
+// 골드 = (0.498, 0.379). 사용자 편향 피드백(좌상↔우하) 양쪽과 정확히 일치. aim 을 실제 골드에 맞춰
+// 시각적 골드 조준=10점·결과 과녁 타격점 편향 제거.
+const BULLSEYE_DX = 0.007; // 이미지 중심 대비 골드 X(피드백 수렴: 살짝 우측)
+const BULLSEYE_UP = 0.113; // 이미지 중심 대비 골드가 위로 올라간 정도(골드 Y≈0.387, 피드백 수렴)
 const SCORE_R_FRAC = 0.42; // 득점 반지름 = 과녁 폭 × 이 비율
 
-// ── 드로우(활시위) ──
-const HANDLE_R = 46;
-const HANDLE_TRAVEL = 300; // 흰 원 시작점 → 파란 원까지의 세로 거리(px). 시작점을 더 위로 — 더 길게 당김(텐션↑·천천히 당길 여유↑)
-const OVER_TRAVEL = 96; // 파란 원 아래로 더 당길 수 있는 거리(오버드로우)
-const START_ZONE_Y = 660;
-const DRAW_MIN = 0.9; // 발사 가능한 최소 드로우(흔들림 사각지대 없도록 WOBBLE_START_D 이후)
-const STEER_X = 78; // 좌우 미세 조준 가동폭(px)
-const STEER_GAIN = 0.5; // 좌우 조준 → 명중 오프셋 비율
+// ── 드로우(활시위) — 세로 HD 1080×2400 좌표 ──
+const HANDLE_R = 69;
+const HANDLE_TRAVEL = 525; // 흰 원 시작점 → 파란 원까지의 세로 거리(px).
+const START_ZONE_Y = 1050; // 이 아래를 누르면 드로우 시작
+const DRAW_MIN = 0.9; // 발사 가능한 최소 드로우
+// ── 최대 시위 당김 + 미세 2D 조준 ──
+// 흰 원(드로우 핸들)을 파란 원 중심까지 당기면=최대 시위 당김. 이때 파란 원 외곽에 붉은 링 표시.
+// 이 시점부터 손가락 미세 이동으로 십자선(조준점)을 상하좌우로 움직여 겨냥한다(아주 미세한 움직임에도 반응).
+const MAXDRAW_LATCH = 0.985; // 이 드로우 진행도에서 흰 원이 파란 원 중심에 겹쳤다고 보고 최대 당김 확정
+const FINE_GAIN = 1.4; // 최대 당김 후 손가락 이동 → 십자선 이동 배수(미세 조준)
+const NUDGE_MAX = 180; // 손가락 조준 이동 한계(px)
+const FINE_SMOOTH = 13; // 미세 조준 스무딩(관성) 속도 — 낮을수록 부드럽고 느긋
 
-// ── 내려오는 조준 — 드로우할수록 진폭이 부드럽게 커지며 조준이 위↔중심으로 오르내린다(맞추기 어렵게). ──
-const WOBBLE_START_D = 0.78; // 이 드로우부터 진폭 램프인 시작(임계값 켜짐/꺼짐 없이 연속)
-const AIM_DESCEND_AMP = 0.35; // × 득점반경: 세로 조준 스윙 기본 진폭
-const AIM_DESCEND_OVERDRAW = 0.35; // × 득점반경: 오버드로우 추가 진폭
-const AIM_DESCEND_FREQ = 2.0; // 오르내리는 진동 각속도(rad/s) — 중심 교차 시 명중
+// ── 세로 조준(양궁 기본 방식 + 오버드로우 미세조준) ──
+// 드로우를 당길수록 조준(십자선)이 과녁 '상단(위지점)'까지 떠오르고, 파란 원 아래로 더 당기면
+// (오버드로우) 조준이 상단→중심→하단으로 '천천히 내려온다'. 오버드로우 깊이(curO)가 곧 세로
+// 미세조준이라, 원하는 지점(중앙/상단/하단)에서 손을 떼면 그 곳에 명중. 과녁은 화면 중앙 고정,
+// 이동하는 건 조준 십자선(=실제 착탄 예상점). 좌우는 미세 조준으로 바람을 보정한다.
+// 세로 조준 범위 — 시위를 당길수록 조준이 과녁 상단→중심→하단으로 '서서히 내려온다'.
+// aimSpan = curD + curO - 1 : -1(가벼운 당김=상단) → 0(파란 원=중심) → +1(오버드로우=하단).
+const AIM_TOP = 0.85; // × 득점반경: 상단/하단 조준 최대 오프셋
+const AIM_SWAY = 0.05; // × 득점반경: 기본 조준 유동 진폭(느리게 흐름)
+// ── 활시위 긴장 유동 — 파란 원을 지나(오버드로우) 시위를 최대로 당길수록·오래 버틸수록 커지는 '느린 유동'. ──
+// 고주파 떨림이 아니라 서서히 흐르는 조준 유동으로 조준을 어렵게 함(긴장감). 상단=거의 정지, 하단=크게 유동.
+const AIM_TENSION_SHAKE = 0.05; // × 득점반경: 최대 당김 유동 최대 게인(과하지 않게)
+const TENSION_FREQ = 1.1; // 조준 유동 각속도(rad/s) — 낮게=아주 서서히 흐르는 유동(빠른 떨림 아님)
+const TENSION_BUILD = 2.4; // 최대 당김 유지 시 유동이 최대까지 차오르는 시간(초, 더 서서히)
 
-// ── 드로우 속도 → 떨림 ──
-// 시위를 빨리(또는 들쭉날쭉) 당길수록 최종 떨림 진폭이 커지고, 천천히 '일정한 속도'로
-// 당길수록 떨림이 최소화된다. 순간 드로우 속도(초당 curD)를 추종해 흔들림 계수(drawShake)를
-// 빠르게 올리고 천천히 가라앉힌다(peak-hold) → 빨리 당긴 대가가 발사 직전까지 남는다.
-const DRAW_SPEED_SMOOTH = 12; // 순간 드로우 속도 추종 속도(클수록 민감)
-const DRAW_SPEED_CALM = 0.7; // 이 속도(초당 curD) 이하 = '편안한' 당김 → 추가 떨림 없음
-const DRAW_SPEED_MAX = 3.2; // 이 속도 이상이면 떨림 최대
-const SHAKE_RISE = 9; // 빠른 당김 시 흔들림 계수가 차오르는 속도(즉각 반응)
-const SHAKE_DECAY = 0.9; // 멈추면 천천히 가라앉음(빨리 당긴 대가가 한동안 남음)
-const SHAKE_MIN = 0.18; // 완벽히 천천히 일정하게 당김 → 진폭 배수 하한(거의 흔들림 없음)
-const SHAKE_MAX = 1.7; // 최대 흔들림 시 진폭 배수
-
-// ── 바람 / 오버드로우 보상 ──
-const WIND_ENABLED = false; // (임시) 바람 끔 — 조준선 정렬에 집중. 나중에 true 로 재활성.
-const WIND_PX = 34; // 바람 최대 가로 편차(px). 좌우 조준 가동폭(±39) 안이라 보정 가능.
-const WIND_REDUCE = 0.8; // 오버드로우가 바람을 최대 80% 감쇄
-const SPEED_BONUS = 0.45;
+// ── 바람 시스템 ──
+// 매 발 좌우 바람이 조준 십자선(=착탄 예상점)을 옆으로 민다. 좌우 미세조준(STEER)으로 바람 반대쪽을
+// 겨눠 상쇄 → 십자선을 과녁 중앙에 정확히 올리면 명중. (오버드로우는 세로 미세조준에 쓰이므로 바람과 분리.)
+const WIND_ENABLED = true; // 바람 시스템 ON
+const WIND_PX = 44; // 바람 최대 가로 편차(px, 줌 화면 기준). 좌우 조준 가동폭(STEER_X·GAIN) 안이라 보정 가능.
 
 // ── 활/화살 ──
 const BOW_ZOOM = 0.42; // 완전 드로우 시 활도 확대(필드 줌과 함께 — 활은 이미 크므로 적당히)
 // 활 사이트(원형 링)의 활 텍스처 내 실측 위치(분율). 완전 드로우 시 이 점을 조준점(aim)에 정렬.
 const SIGHT_FX = 0.641; // 볼트링 geometric center(외곽박스 중심) = aim. 직접 측정(녹색 십자선 대비) 정렬.
 const SIGHT_FY = 0.478;
-const FLIGHT_MS = 470;
-const ARROW_ORIGIN = { x: 338, y: 1014 };
-const ARROW_FLIGHT_START = 1.3; // 비행 시작 — 가까이서 큰 화살
-const ARROW_FLIGHT_END = 0.28; // 비행 끝 — 멀어지며 작은 화살
-const HOLE_STICK_SCREEN = 0.14; // 박히는 순간 명중 구멍(64px)의 화면 스케일(더 작게)
+const FLIGHT_MS = 300; // 화살 비행시간(짧을수록 빠름). 오버드로우면 SPEED_BONUS 만큼 더 단축.
+const ARROW_ORIGIN = { x: 507, y: 1901 }; // 세로 HD — 활 그립 부근(바닥정렬 시 +extra)
+const ARROW_FLIGHT_START = 1.95; // 비행 시작 — 가까이서 큰 화살(HD ×1.5)
+const ARROW_FLIGHT_END = 0.42; // 비행 끝 — 멀어지며 작은 화살(HD ×1.5)
+const HOLE_STICK_SCREEN = 0.21; // 박히는 순간 명중 구멍의 화면 스케일(HD ×1.5)
 const SHOW_SCORE_MS = 1050;
 
 type Phase = 'ready' | 'draw' | 'flight' | 'scored' | 'gameover';
@@ -97,15 +117,16 @@ const GAUGE_SMOOTH = 7; // 스무스 따라가기 속도(클수록 빠름) — �
 // ── 호흡(전체 화면) — 숨 들이쉬고 내쉬는 템포로 화면 전체가 미세하게 확대↔축소. ──
 // 메인 카메라 줌을 천천히 진동시킨다(렌더만 변형 → 조준 좌표계는 그대로라 게임플레이 영향 없음).
 const BREATH_PERIOD = 5.2; // 한 호흡(들숨+날숨) 주기(초). 편안한 호흡 ≈ 분당 11~12회.
-const BREATH_AMP = 0.018; // 줌 진폭(1.0 → 1.018). 미세하게.
+const BREATH_AMP = 0.018; // world 줌 진폭(1.0 → 1.018). 미세하게(과녁 뷰에만 적용).
+const BREATH_AIM_AMP = 0.12; // × 득점반경: 최대 당김 시 숨쉬기로 인한 십자선 세로 유동(느린 상하)
 
 // ── 반응형 화면(긴 화면/플립폰) ──
 // 본편도 로딩처럼 캔버스를 창 전체로 확장(FIT 레터박스 제거) → 중앙배치 어긋남 해소.
 // 배경은 화면을 cover(끝부분까지), 상단 메뉴는 상단 가장자리, 하단 컨트롤/활/다이얼은 바닥에 정렬.
-const DESIGN_W = 720; // 에디터 디자인 폭(고정)
-const DESIGN_H = 1280; // 에디터 디자인 밴드 높이
-const MAX_FILL_H = 2400; // 캔버스 세로 확장 상한(9:22+ 폰 수용)
-// 하단 정렬 그룹 — 화면이 길면 'extra'(=canvasH-1280)만큼 아래로 내려 화면 바닥에 붙는다.
+const DESIGN_W = 1080; // 에디터 디자인 폭(세로 HD, 고정)
+const DESIGN_H = 2400; // 에디터 디자인 밴드 높이(세로 HD)
+const MAX_FILL_H = 2900; // 캔버스 세로 확장 상한(초장폰 수용, DESIGN_H 초과분만 하단정렬로 흡수)
+// 하단 정렬 그룹 — 화면이 길면 'extra'(=canvasH-2400)만큼 아래로 내려 화면 바닥에 붙는다.
 // (활 layer_4 는 별도 처리. 여기엔 D패드·바람/타이머 다이얼·그 수치 텍스트.)
 const BOTTOM_NODE_IDS = ['layer_3_copy4', 'layer_3_copy5', 'layer_5_copy2', 'layer_3_copy6', 'layer_5_copy'] as const;
 
@@ -117,16 +138,21 @@ export class PlayScene extends Phaser.Scene {
 
   // 반응형 화면(창 채움) — 캔버스 높이/여백/배경 cover 변환.
   private canvasH = DESIGN_H;
-  private extra = 0; // 디자인 밴드(1280) 초과분 — 하단 그룹을 이만큼 내린다.
+  private extra = 0; // 디자인 밴드(2400) 초과분 — 하단 그룹을 이만큼 내린다.
   private coverScale = 1; // world(배경+과녁) 기본 배율(배경이 캔버스를 덮도록)
   private coverPos = { x: 0, y: 0 }; // world 기본 위치(줌=0일 때)
 
   // 필드 줌 컨테이너(배경+과녁+박힌 화살)
   private world!: Phaser.GameObjects.Container;
-  private aim = { x: 347, y: 593 }; // 과녁 중심(불스아이) 화면 위치 = 줌 축
-  private restScoreR = 24;
-  private scoreR = 24;
+  private aim = { x: 520, y: 1112 }; // 과녁 중심(불스아이) 화면 위치 = 줌 축 (세로 HD 폴백)
+  private restScoreR = 45;
+  private scoreR = 45;
   private stuck: Phaser.GameObjects.GameObject[] = [];
+  // world 호흡(숨쉬기) — 호흡 제외 base 변환을 저장하고 breathScale 을 곱해 world 에만 적용.
+  private worldBaseS = 1;
+  private worldBaseX = 0;
+  private worldBaseY = 0;
+  private breathScale = 1;
 
   // 활
   private bowImg?: Phaser.GameObjects.Image;
@@ -141,13 +167,19 @@ export class PlayScene extends Phaser.Scene {
   // 드로우 컨트롤
   private handle!: Phaser.GameObjects.Arc;
   private anchorRing!: Phaser.GameObjects.Arc;
-  private anchor = { x: 343, y: 1080 };
-  private handleStart = { x: 343, y: 858 };
+  private redRing!: Phaser.GameObjects.Arc; // 최대 시위 당김 표시 — 파란 원 외곽 붉은 링
+  private anchor = { x: 540, y: 2005 };
+  private handleStart = { x: 540, y: 1480 };
+  // 최대 당김 후 미세 2D 조준(손가락 이동 → 십자선 이동, 가속도+스무딩)
+  private maxDraw = false;
+  private nudge = { x: 0, y: 0 };
+  private nudgeOrigin = { x: 0, y: 0 };
+  private fineAim = { x: 0, y: 0 }; // 스무딩된 미세 조준점(관성)
   private drawKnob!: Phaser.GameObjects.Rectangle;
   private aimReticle!: Phaser.GameObjects.Graphics; // 정밀 조준 십자선 — 정확히 aim(=화살 도착점) 위
-  private gaugeTopY = 260;
-  private gaugeBotY = 584;
-  private gaugeX = 669;
+  private gaugeTopY = 488;
+  private gaugeBotY = 1095;
+  private gaugeX = 1004;
 
   // HUD
   private scoreText!: Phaser.GameObjects.Text;
@@ -164,20 +196,30 @@ export class PlayScene extends Phaser.Scene {
   private round = 1;
   private arrowInRound = 0;
   private totalScore = 0;
-  private holdX = 343;
-  private holdY = 858;
+  private holdX = 540;
+  private holdY = 1480;
   private curD = 0;
-  private curO = 0;
   private wobbleT = 0;
-  private prevD = 0; // 직전 프레임 드로우 진행도 — 드로우 속도 산출용
-  private drawSpeed = 0; // 스무스 순간 드로우 속도(초당 curD)
-  private drawShake = 0; // 0~1 누적 흔들림 계수(드로우 속도/들쭉날쭉 기반)
+  private tensionHold = 0; // 0~1 최대 당김 유지 축적(길게 버틸수록 긴장 유동↑)
   private breathT = 0; // 호흡 위상 누적(초) — 화면 전체 미세 줌 진동
   private wind = { x: 0, y: 0 };
   private windOffNow = { x: 0, y: 0 }; // 현재 바람 편차(px) — 녹색 십자선=aim+이것=실제 착탄점
   private curHit = { x: 0, y: 0 };
-  private frozenHit = { x: 0, y: 0 };
   private resetTween?: Phaser.Tweens.Tween;
+
+  // 타임어택(우측 다이얼) + 바람 표시(좌측 다이얼)
+  private shotTimeLeft = SHOT_TIME;
+  private windDialText?: Phaser.GameObjects.Text;
+  private timeDialText?: Phaser.GameObjects.Text;
+
+  // 명중 결과 표시 과녁(에디터 layer_6, 우측에서 슬라이드 인 → 5초 후 우측으로 사라짐) — 평상시 숨김.
+  private resultPanel?: Phaser.GameObjects.Container; // layer_6 + 명중 점을 담는 슬라이드 컨테이너
+  private resultTargetW = 734; // 결과 과녁 표시 폭(px, layer_6)
+  private resultDots: Phaser.GameObjects.GameObject[] = [];
+  private resultHomeX = 0; // 표시 위치 X(에디터 배치)
+  private resultOffX = 0; // 숨김(우측 밖) X
+  private resultTween?: Phaser.Tweens.Tween;
+  private resultHideCall?: Phaser.Time.TimerEvent;
 
   // 실시간 글로벌 랭킹(왼쪽 패널) — 식별자/NPC 사다리는 판 시작 시 1회, 내 총점으로 매 갱신.
   private identity!: Identity;
@@ -235,19 +277,25 @@ export class PlayScene extends Phaser.Scene {
       this.gaugeBotY = bot - gNode.h * 0.05;
     }
 
-    // 2) 흰 원/파란 원 + 게이지 노브.
+    // 2) 흰 원/파란 원 + 최대 당김 붉은 링 + 게이지 노브.
     this.anchorRing = this.add
-      .circle(this.anchor.x, this.anchor.y, 40, 0x35a7ff, 0.26)
-      .setStrokeStyle(3, 0x35a7ff, 0.85)
+      .circle(this.anchor.x, this.anchor.y, 60, 0x35a7ff, 0.26)
+      .setStrokeStyle(5, 0x35a7ff, 0.85)
       .setDepth(19);
+    // 최대 시위 당김 표시 — 파란 원 외곽 붉은 링(평상시 숨김).
+    this.redRing = this.add
+      .circle(this.anchor.x, this.anchor.y, 76, 0xff2b2b, 0)
+      .setStrokeStyle(7, 0xff2b2b, 0.95)
+      .setDepth(20)
+      .setVisible(false);
     this.handle = this.add
       .circle(this.handleStart.x, this.handleStart.y, HANDLE_R, 0xffffff, 0.42)
-      .setStrokeStyle(4, 0xffffff, 0.92)
+      .setStrokeStyle(6, 0xffffff, 0.92)
       .setDepth(21);
-    const gw = (gNode?.w ?? 64) * 0.82;
+    const gw = (gNode?.w ?? 96) * 0.82;
     this.drawKnob = this.add
-      .rectangle(this.gaugeX, this.gaugeBotY, gw, 12, 0xffe14d, 1)
-      .setStrokeStyle(2, 0x0a2540, 0.85)
+      .rectangle(this.gaugeX, this.gaugeBotY, gw, 18, 0xffe14d, 1)
+      .setStrokeStyle(3, 0x0a2540, 0.85)
       .setDepth(18)
       .setVisible(false);
 
@@ -255,39 +303,45 @@ export class PlayScene extends Phaser.Scene {
     this.aimReticle = this.add.graphics().setDepth(17);
     this.drawAimReticle();
 
-    // 3) HUD 텍스트.
+    // 명중 결과 표시 과녁(에디터 layer_6) — 평상시 숨김, 발사 후 우측에서 슬라이드 인.
+    this.setupResultPanel();
+
+    // 3) HUD 텍스트 (세로 HD).
     this.scoreText = this.add
-      .text(this.scale.width / 2, 70, '0', { fontFamily: '"Do Hyeon", sans-serif', fontSize: '46px', color: '#ffffff' })
+      .text(this.scale.width / 2, 131, '0', { fontFamily: '"Do Hyeon", sans-serif', fontSize: '69px', color: '#ffffff' })
       .setOrigin(0.5)
-      .setStroke('#0a2540', 8)
+      .setStroke('#0a2540', 12)
       .setDepth(22);
     this.windText = this.add
-      .text(this.scale.width / 2, 116, '', { fontFamily: '"Jua", sans-serif', fontSize: '20px', color: '#d7f5ff' })
+      .text(this.scale.width / 2, 218, '', { fontFamily: '"Jua", sans-serif', fontSize: '30px', color: '#d7f5ff' })
       .setOrigin(0.5)
-      .setStroke('#0a2540', 4)
+      .setStroke('#0a2540', 6)
       .setDepth(22);
     const badge = this.layout.nodeById(NODE.roundBadge);
     this.roundText = this.add
-      .text(badge ? badge.x : 82, badge ? badge.y + 44 : 95, '', {
+      .text(badge ? badge.x : 123, badge ? badge.y + 82 : 178, '', {
         fontFamily: '"Jua", sans-serif',
-        fontSize: '20px',
+        fontSize: '30px',
         color: '#ffe082',
       })
       .setOrigin(0.5)
-      .setStroke('#0a2540', 5)
+      .setStroke('#0a2540', 8)
       .setDepth(22);
     // 에디터 배지의 라운드 텍스트(layer_5)를 게임 라운드로 구동 → 내 중복 오버레이는 숨김.
     this.editRound = this.layout.tryById<Phaser.GameObjects.Text>('layer_5');
     if (this.editRound) this.roundText.setVisible(false);
+    // 좌/우 다이얼 수치 텍스트 → 바람 / 타임어택 구동.
+    this.windDialText = this.layout.tryById<Phaser.GameObjects.Text>(NODE.windDialText);
+    this.timeDialText = this.layout.tryById<Phaser.GameObjects.Text>(NODE.timeDialText);
     this.promptText = this.add
-      .text(this.scale.width / 2, 1200, '', { fontFamily: '"Jua", sans-serif', fontSize: '26px', color: '#ffffff' })
+      .text(this.scale.width / 2, 2250, '', { fontFamily: '"Jua", sans-serif', fontSize: '39px', color: '#ffffff' })
       .setOrigin(0.5)
-      .setStroke('#0a2540', 6)
+      .setStroke('#0a2540', 9)
       .setDepth(22);
     this.popupText = this.add
-      .text(0, 0, '', { fontFamily: '"Do Hyeon", sans-serif', fontSize: '46px', color: '#ffffff' })
+      .text(0, 0, '', { fontFamily: '"Do Hyeon", sans-serif', fontSize: '69px', color: '#ffffff' })
       .setOrigin(0.5)
-      .setStroke('#0a2540', 7)
+      .setStroke('#0a2540', 11)
       .setDepth(25)
       .setVisible(false);
 
@@ -339,19 +393,26 @@ export class PlayScene extends Phaser.Scene {
   private toReady(): void {
     this.phase = 'ready';
     this.curD = 0;
-    this.curO = 0;
+    this.tensionHold = 0;
+    this.maxDraw = false;
+    this.nudge = { x: 0, y: 0 };
+    // 휴식 시 조준은 과녁 상단(당김 시작=상단, 당길수록 서서히 하강) — 드로우 시작 시 튀지 않게.
+    this.curHit = { x: 0, y: -this.restScoreR * AIM_TOP };
     this.holdX = this.anchor.x;
     this.holdY = this.handleStart.y;
     this.rollWind();
-    this.windOffNow = { x: this.wind.x * WIND_PX, y: this.wind.y * WIND_PX }; // o=0 기준 바람 편차
+    this.windOffNow = { x: this.wind.x * WIND_PX, y: this.wind.y * WIND_PX };
     this.drawAimReticle();
-    this.setZoom(0, 0, 0);
+    this.setZoom(0);
     this.setBow(0);
+    this.shotTimeLeft = SHOT_TIME; // 타임어택 리셋
+    this.timeDialText?.setText(this.shotTimeLeft.toFixed(1));
     this.handle.setVisible(true).setPosition(this.handleStart.x, this.handleStart.y);
     this.anchorRing.setVisible(true);
+    this.redRing.setVisible(false);
     this.drawKnob.setVisible(false);
     this.aimReticle.setVisible(true);
-    this.promptText.setText('흰 원을 ↓ 파란 원으로 천천히 일정하게 당기세요');
+    this.promptText.setText('흰 원을 파란 원까지 당긴 뒤, 미세 조준해 발사');
     this.updateRoundHud();
   }
 
@@ -359,6 +420,7 @@ export class PlayScene extends Phaser.Scene {
     if (!WIND_ENABLED) {
       this.wind = { x: 0, y: 0 };
       this.windText.setText('바람 없음');
+      this.windDialText?.setText('0.0');
       return;
     }
     // 가로 바람만(세로는 조준 보정 수단이 없음). 부호 랜덤, 세기 0.4~1.0.
@@ -367,6 +429,9 @@ export class PlayScene extends Phaser.Scene {
     const arrows = Math.max(1, Math.round(mag * 3));
     const dir = this.wind.x >= 0 ? '▶'.repeat(arrows) : '◀'.repeat(arrows);
     this.windText.setText(`바람  ${dir}  ${(mag * 10).toFixed(0)}`);
+    // 좌측 다이얼 — 풍속(m/s 느낌) + 방향 화살표.
+    const arrow = this.wind.x >= 0 ? '▶' : '◀';
+    this.windDialText?.setText(`${arrow}${(mag * 3).toFixed(1)}`);
   }
 
   // ── 입력 ──────────────────────────────────────────────────────
@@ -381,9 +446,11 @@ export class PlayScene extends Phaser.Scene {
     this.resetTween?.stop();
     this.phase = 'draw';
     this.wobbleT = 0;
-    this.prevD = 0;
-    this.drawSpeed = 0;
-    this.drawShake = 0;
+    this.tensionHold = 0;
+    this.maxDraw = false;
+    this.nudge = { x: 0, y: 0 };
+    this.fineAim = { x: 0, y: 0 };
+    this.redRing.setVisible(false);
     this.updateDrawFromPointer(p);
   }
 
@@ -399,33 +466,65 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private updateDrawFromPointer(p: Phaser.Input.Pointer): void {
-    this.holdX = Phaser.Math.Clamp(p.x, this.anchor.x - STEER_X, this.anchor.x + STEER_X);
-    this.holdY = Phaser.Math.Clamp(p.y, this.handleStart.y, this.anchor.y + OVER_TRAVEL);
+    if (this.maxDraw) {
+      // 최대 시위 당김 이후 — 손가락 미세 이동으로 십자선을 상하좌우로 겨냥(아주 미세한 움직임에도 반응).
+      this.nudge = {
+        x: Phaser.Math.Clamp(p.x - this.nudgeOrigin.x, -NUDGE_MAX, NUDGE_MAX),
+        y: Phaser.Math.Clamp(p.y - this.nudgeOrigin.y, -NUDGE_MAX, NUDGE_MAX),
+      };
+      this.curD = 1;
+      this.setBow(1);
+      this.promptText.setText('미세 조준 — 바람을 고려해 조준하고 손을 떼세요');
+      return;
+    }
+    // 드로우 단계 — 흰 원을 파란 원으로 당긴다(세로만). 파란 원 중심에 겹치면 최대 당김 확정.
+    this.holdX = this.anchor.x;
+    this.holdY = Phaser.Math.Clamp(p.y, this.handleStart.y, this.anchor.y);
     this.curD = Phaser.Math.Clamp((this.holdY - this.handleStart.y) / (this.anchor.y - this.handleStart.y), 0, 1);
-    this.curO = Phaser.Math.Clamp((this.holdY - this.anchor.y) / OVER_TRAVEL, 0, 1);
+    if (this.curD >= MAXDRAW_LATCH) {
+      // 최대 시위 당김 — 흰 원 파란 원에 고정, 붉은 링 표시, 이후 미세 2D 조준.
+      this.maxDraw = true;
+      this.curD = 1;
+      this.holdY = this.anchor.y;
+      this.nudgeOrigin = { x: p.x, y: p.y };
+      this.nudge = { x: 0, y: 0 };
+      this.fineAim = { x: 0, y: 0 };
+      this.tensionHold = 0;
+      this.handle.setPosition(this.anchor.x, this.anchor.y);
+      this.redRing.setVisible(true).setScale(1.4).setAlpha(0);
+      this.tweens.add({ targets: this.redRing, scale: 1, alpha: 1, duration: 220, ease: 'Back.easeOut' });
+    }
     this.setBow(this.curD);
     this.promptText.setText(
-      this.curO > 0.05
-        ? '오버드로우 — 바람↓ 속도↑ (떨림↑)'
-        : this.curD >= DRAW_MIN
-          ? '중앙을 겨냥해 손을 떼세요!'
-          : '천천히 일정하게 끝까지 당기세요',
+      this.curD >= MAXDRAW_LATCH ? '미세 조준 — 손을 떼세요' : '흰 원을 파란 원까지 당기세요',
     );
   }
 
   // ── 줌(필드 전체) / 활 ────────────────────────────────────────
 
-  /** world 컨테이너를 과녁 중심(aim)을 축으로 줌 d(0~1) + 드리프트로 변환.
-   *  기본 배율/위치는 cover(coverScale/coverPos) — 배경이 캔버스를 덮은 상태가 줌=0. */
-  private setZoom(d: number, driftX: number, driftY: number): void {
+  /** world 컨테이너를 과녁 중심(aim)을 축으로 줌 d(0~1). 과녁은 화면 중앙(aim) 고정(드리프트 없음) —
+   *  이동하는 건 조준 십자선(reticle). 기본 배율/위치는 cover(coverScale/coverPos)=줌0. */
+  private setZoom(d: number): void {
     const k = lerp(1, ZOOM_FULL, easeOut(d)); // cover 기준 추가 줌 배율
-    this.world.setScale(this.coverScale * k);
-    this.world.setPosition(
-      this.aim.x - driftX - k * (this.aim.x - this.coverPos.x),
-      this.aim.y - driftY - k * (this.aim.y - this.coverPos.y),
-    );
+    // 호흡(숨쉬기)은 world(배경+과녁)에만 적용 → base(호흡 제외) 값을 저장하고 applyWorldBreath 에서 곱한다.
+    // (UI/컨트롤/활은 호흡 영향 없음 — 카메라 전체 줌이 아니라 world 컨테이너만 미세 진동.)
+    this.worldBaseS = this.coverScale * k;
+    this.worldBaseX = this.aim.x - k * (this.aim.x - this.coverPos.x);
+    this.worldBaseY = this.aim.y - k * (this.aim.y - this.coverPos.y);
+    this.applyWorldBreath();
     this.scoreR = this.restScoreR * k; // restScoreR 은 cover 반영 화면반경
     this.gaugeTarget = d * GAUGE_CAP; // 게이지 목표(스무스 따라감은 update 에서)
+  }
+
+  /** 호흡 배율(breathScale)을 world(배경+과녁)에만 적용 — 과녁 중심(aim)을 축으로 미세 확대/축소.
+   *  UI·활·컨트롤은 건드리지 않으므로 '숨쉬기'가 화면 전체가 아니라 게임 뷰(과녁)에만 나타난다. */
+  private applyWorldBreath(): void {
+    const b = this.breathScale;
+    this.world.setScale(this.worldBaseS * b);
+    this.world.setPosition(
+      this.aim.x + b * (this.worldBaseX - this.aim.x),
+      this.aim.y + b * (this.worldBaseY - this.aim.y),
+    );
   }
 
   /** 본편 캔버스를 창 비율로 늘려 화면을 꽉 채운다(FIT 레터박스 제거). 반환=적용 높이. */
@@ -482,6 +581,7 @@ export class PlayScene extends Phaser.Scene {
       this.restScoreR = targetImg.displayWidth * this.coverScale * SCORE_R_FRAC;
     }
 
+
     // 활 — 바닥 정렬(디자인 Y + extra) + 완전드로우 사이트→aim.
     if (this.bowImg) {
       const bowNode = this.layout.nodeById(NODE.bow);
@@ -494,16 +594,16 @@ export class PlayScene extends Phaser.Scene {
 
     // 파란 원(앵커)=바닥 정렬 D패드 중심, 흰 원 시작점은 그 위.
     const dpadO = this.layout.tryById<Phaser.GameObjects.Image>(NODE.dpad);
-    this.anchor = { x: dpadO ? dpadO.x : 343, y: dpadO ? dpadO.y : 1080 + this.extra };
+    this.anchor = { x: dpadO ? dpadO.x : 540, y: dpadO ? dpadO.y : 2005 + this.extra };
     this.handleStart = { x: this.anchor.x, y: this.anchor.y - HANDLE_TRAVEL };
     this.anchorRing?.setPosition(this.anchor.x, this.anchor.y);
 
     // 프롬프트 — 화면 하단 가장자리.
-    this.promptText?.setPosition(DESIGN_W / 2, this.canvasH - 78);
+    this.promptText?.setPosition(DESIGN_W / 2, this.canvasH - 146);
 
     // 안정 단계면 줌/조준/흰 원을 cover 기준 휴식 상태로 갱신.
     if (this.phase === 'ready') {
-      this.setZoom(0, 0, 0);
+      this.setZoom(0);
       this.handle?.setPosition(this.handleStart.x, this.handleStart.y);
       this.drawAimReticle();
     }
@@ -515,11 +615,13 @@ export class PlayScene extends Phaser.Scene {
   private setBow(d: number): void {
     if (!this.bowImg) return;
     const e = easeOut(d);
-    // 활을 들어올리며 사이트가 조준점에 오도록 이동 + 수직(0°) + 확대.
-    // + 바람 편차만큼 활을 기울인다 → 사이트가 녹색 십자선(=실제 착탄점 aim+바람)을 따라간다.
+    // 활(사이트=활의 과녁)이 조준 십자선과 함께 움직인다 — 활 사이트가 녹색 십자선(=aim + 조준오프셋,
+    // 바람 제외)에 정확히 얹히도록 같은 오프셋을 따라간다.
+    const offX = this.curHit.x;
+    const offY = this.curHit.y;
     this.bowImg.setPosition(
-      lerp(this.bowBaseX, this.bowFullX, e) + this.windOffNow.x * e,
-      lerp(this.bowBaseY, this.bowFullY, e) + this.windOffNow.y * e,
+      lerp(this.bowBaseX, this.bowFullX, e) + offX * e,
+      lerp(this.bowBaseY, this.bowFullY, e) + offY * e,
     );
     this.bowImg.setAngle(lerp(this.bowBaseAngle, 0, e));
     this.bowImg.setScale(this.bowBaseScaleX * (1 + BOW_ZOOM * e), this.bowBaseScaleY * (1 + BOW_ZOOM * e));
@@ -530,30 +632,33 @@ export class PlayScene extends Phaser.Scene {
     this.stuck = [];
   }
 
-  /** 조준 십자선을 실제 착탄점(aim + 바람 편차) 위에 그린다 — 십자선=화살이 떨어질 곳. */
+  /** 조준 십자선을 플레이어 조준점(aim + 조준오프셋) 위에 그린다. **바람은 표시하지 않는다** —
+   *  화살은 바람만큼 밀리므로, 플레이어가 바람(좌측 다이얼)을 고려해 반대쪽으로 겨눠야 한다. */
   private drawAimReticle(): void {
-    const a = { x: this.aim.x + this.windOffNow.x, y: this.aim.y + this.windOffNow.y };
+    const a = {
+      x: this.aim.x + this.curHit.x,
+      y: this.aim.y + this.curHit.y,
+    };
     const g = this.aimReticle;
     g.clear();
-    g.lineStyle(3, 0x000000, 0.5);
-    g.strokeCircle(a.x, a.y, 12);
-    g.lineStyle(2.5, 0x2bff66, 0.95);
-    g.strokeCircle(a.x, a.y, 12);
+    g.lineStyle(4.5, 0x000000, 0.5);
+    g.strokeCircle(a.x, a.y, 18);
+    g.lineStyle(4, 0x2bff66, 0.95);
+    g.strokeCircle(a.x, a.y, 18);
     g.beginPath();
-    g.moveTo(a.x - 21, a.y); g.lineTo(a.x - 7, a.y);
-    g.moveTo(a.x + 7, a.y); g.lineTo(a.x + 21, a.y);
-    g.moveTo(a.x, a.y - 21); g.lineTo(a.x, a.y - 7);
-    g.moveTo(a.x, a.y + 7); g.lineTo(a.x, a.y + 21);
+    g.moveTo(a.x - 32, a.y); g.lineTo(a.x - 11, a.y);
+    g.moveTo(a.x + 11, a.y); g.lineTo(a.x + 32, a.y);
+    g.moveTo(a.x, a.y - 32); g.lineTo(a.x, a.y - 11);
+    g.moveTo(a.x, a.y + 11); g.lineTo(a.x, a.y + 32);
     g.strokePath();
     g.fillStyle(0x2bff66, 1);
-    g.fillCircle(a.x, a.y, 1.8);
+    g.fillCircle(a.x, a.y, 2.7);
   }
 
   // ── 발사/취소 ─────────────────────────────────────────────────
 
   private cancelDraw(): void {
     this.phase = 'scored';
-    this.frozenHit = { x: 0, y: 0 };
     this.springBack(this.curD, () => this.toReady());
   }
 
@@ -562,23 +667,20 @@ export class PlayScene extends Phaser.Scene {
     this.promptText.setText('');
     this.handle.setVisible(false);
     this.anchorRing.setVisible(false);
+    this.redRing.setVisible(false);
     this.gaugeTarget = 0; // 발사 = 시위 놓음 → 에너지바 비워짐(스무스)
     this.aimReticle.setVisible(false);
 
-    const hit = { x: this.curHit.x, y: this.curHit.y };
-    this.frozenHit = hit; // 월드 드리프트(조준)와 일치 — 줌아웃 시 박힌 화살이 따라오도록
-    const o = this.curO;
     const sR = this.scoreR;
-    // 착탄 = 녹색 십자선 위치(aim + 바람 편차). 십자선=실제 착탄점이므로 그대로 사용.
-    const windOff = { x: this.windOffNow.x, y: this.windOffNow.y };
-    const landing = { x: this.aim.x + windOff.x, y: this.aim.y + windOff.y };
-    // 명중 오프셋(불스아이 대비) = 조준 오프셋 + 바람 편차.
-    const dist = Math.hypot(hit.x + windOff.x, hit.y + windOff.y);
+    // 착탄 = 조준 십자선 위치(aim + 조준오프셋 + 바람). 십자선=착탄 예상점이므로 그대로 사용.
+    const off = { x: this.curHit.x + this.windOffNow.x, y: this.curHit.y + this.windOffNow.y }; // 불스아이 대비 명중 오프셋
+    const landing = { x: this.aim.x + off.x, y: this.aim.y + off.y };
+    const dist = Math.hypot(off.x, off.y);
     const score = scoreForDistance(dist, sR);
 
     this.bowFollowThrough();
 
-    const flightMs = FLIGHT_MS * (1 - o * SPEED_BONUS);
+    const flightMs = FLIGHT_MS; // 오버드로우는 세로 미세조준이라 속도 보정과 분리 — 일정하게 빠른 비행
     // 화살 출발점 — 활이 바닥 정렬로 내려간 만큼(extra) 함께 내린다.
     const originX = ARROW_ORIGIN.x;
     const originY = ARROW_ORIGIN.y + this.extra;
@@ -588,7 +690,7 @@ export class PlayScene extends Phaser.Scene {
       .setDepth(15)
       .setScale(ARROW_FLIGHT_START);
     // 부드러운 2차 포물선: 직선 보간 + 4·arcH·t·(1-t) 호. 선형 속도, 접선 방향 회전.
-    const arcH = 200;
+    const arcH = 375; // 세로 HD ×1.875
     const dx0 = landing.x - originX;
     const dy0 = landing.y - originY;
     const holder = { t: 0 };
@@ -611,8 +713,68 @@ export class PlayScene extends Phaser.Scene {
       },
       onComplete: () => {
         this.stickArrow(arrow, landing);
+        this.showResult(off, sR); // 명중 결과 과녁을 우측에서 슬라이드 인 → 정확한 위치 점 표시
         this.onHit(landing, score);
       },
+    });
+  }
+
+  /** 에디터 큰 과녁(layer_6, BG_04)을 결과 표시용 컨테이너로 편입 — 평상시 숨김, 우측 화면 밖에서 대기. */
+  private setupResultPanel(): void {
+    const rt = this.layout.tryById<Phaser.GameObjects.Image>(NODE.resultTarget);
+    if (!rt) return;
+    this.resultHomeX = rt.x; // 에디터가 배치한 위치가 표시 홈
+    const homeY = rt.y;
+    this.resultTargetW = rt.displayWidth;
+    this.resultPanel = this.add.container(rt.x, homeY).setDepth(30).setVisible(false);
+    rt.setPosition(0, 0); // 컨테이너 중심에 맞춤(원점 0.5)
+    this.resultPanel.add(rt);
+    this.resultDots = []; // 새 게임 시작 시 히스토리 초기화
+  }
+
+  /** 명중 결과 과녁을 우측에서 슬라이드 인 → 정확한 명중 위치를 검붉은 점으로 표시(3라운드 히스토리 누적)
+   *  → RESULT_SHOW_MS 후 우측으로 사라짐. 결과 과녁 타격점은 겨냥 과녁의 명중점과 같은 링에 정밀 일치. */
+  private showResult(off: { x: number; y: number }, sR: number): void {
+    if (!this.resultPanel) return;
+    const halfW = this.resultTargetW / 2;
+    this.resultOffX = this.scale.width + halfW + 80; // 우측 화면 밖
+    this.resultTween?.stop();
+    this.resultHideCall?.remove(false);
+    // 명중 점 — 불스아이 대비 오프셋(off/sR, -1..1)을 결과 과녁의 득점반경에 매핑(겨냥 과녁과 동일 분율).
+    // 결과 과녁(BG_04) 골드 중심 보정(RESULT_GOLD_FX/FY) → 점 원점을 실제 골드에 맞춤.
+    // 이전 발들의 점은 지우지 않고 누적(3라운드 히스토리). 게임 시작 시에만 초기화(setupResultPanel).
+    const mapR = this.resultTargetW * RESULT_SCORE_R_FRAC;
+    const gx = (RESULT_GOLD_FX - 0.5) * this.resultTargetW;
+    const gy = (RESULT_GOLD_FY - 0.5) * this.resultTargetW;
+    const fx = Phaser.Math.Clamp(off.x / sR, -1, 1);
+    const fy = Phaser.Math.Clamp(off.y / sR, -1, 1);
+    const r = this.resultTargetW * RESULT_DOT_R_FRAC;
+    // 이전 타격점은 검붉은색(히스토리)로 바꾸고, 이번(마지막) 타격점만 녹색.
+    for (const d of this.resultDots) (d as Phaser.GameObjects.Arc).setFillStyle(RESULT_DOT_COLOR, 1);
+    const dot = this.add
+      .circle(gx + fx * mapR, gy + fy * mapR, r, RESULT_DOT_LAST_COLOR, 1)
+      .setStrokeStyle(Math.max(1.5, r * 0.3), 0x000000, 0.65);
+    this.resultPanel.add(dot);
+    this.resultDots.push(dot);
+    dot.setScale(0.1);
+    this.tweens.add({ targets: dot, scale: 1, duration: 240, ease: 'Back.easeOut' });
+    // 슬라이드 인 → 유지 → 우측으로 슬라이드 아웃.
+    this.resultPanel.setVisible(true).setX(this.resultOffX);
+    this.resultTween = this.tweens.add({
+      targets: this.resultPanel,
+      x: this.resultHomeX,
+      duration: 380,
+      ease: 'Back.easeOut',
+    });
+    this.resultHideCall = this.time.delayedCall(RESULT_SHOW_MS, () => {
+      if (!this.resultPanel) return;
+      this.resultTween = this.tweens.add({
+        targets: this.resultPanel,
+        x: this.resultOffX,
+        duration: 340,
+        ease: 'Cubic.easeIn',
+        onComplete: () => this.resultPanel?.setVisible(false),
+      });
     });
   }
 
@@ -648,14 +810,14 @@ export class PlayScene extends Phaser.Scene {
     this.popupText
       .setText(scoreLabel(score))
       .setColor(score >= 9 ? '#ffd23f' : score === 0 ? '#ffb4b4' : '#ffffff')
-      .setPosition(landing.x, landing.y - 44)
+      .setPosition(landing.x, landing.y - 82)
       .setScale(0.5)
       .setAlpha(1)
       .setVisible(true);
     this.tweens.add({
       targets: this.popupText,
       scale: 1.15,
-      y: landing.y - 110,
+      y: landing.y - 206,
       alpha: 0,
       duration: 880,
       ease: 'Cubic.easeOut',
@@ -683,17 +845,15 @@ export class PlayScene extends Phaser.Scene {
     this.springBack(this.curD, () => this.toReady());
   }
 
-  /** 줌아웃 + 활 원위치. 박힌 화살은 world 자식이라 줌아웃을 자동으로 따라간다. */
+  /** 줌아웃 + 활 원위치. 박힌 화살·명중 점은 world 자식이라 줌아웃을 자동으로 따라간다. */
   private springBack(fromD: number, done: () => void): void {
-    const hx = this.frozenHit.x;
-    const hy = this.frozenHit.y;
     const holder = { p: 1 };
     this.resetTween = this.tweens.add({
       targets: holder,
       p: 0,
       duration: 460,
       ease: 'Cubic.easeOut',
-      onUpdate: () => this.setZoom(fromD * holder.p, hx * holder.p, hy * holder.p),
+      onUpdate: () => this.setZoom(fromD * holder.p),
       onComplete: done,
     });
     if (this.bowImg) {
@@ -725,23 +885,23 @@ export class PlayScene extends Phaser.Scene {
 
     this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x06210b, 0.74).setDepth(40);
     this.add
-      .text(cx, cy - 150, '경기 종료', { fontFamily: '"Do Hyeon", sans-serif', fontSize: '56px', color: '#F9A825' })
+      .text(cx, cy - 281, '경기 종료', { fontFamily: '"Do Hyeon", sans-serif', fontSize: '84px', color: '#F9A825' })
       .setOrigin(0.5)
-      .setStroke('#0a2540', 8)
+      .setStroke('#0a2540', 12)
       .setDepth(41);
     this.add
-      .text(cx, cy - 30, `${this.totalScore}`, { fontFamily: '"Do Hyeon", sans-serif', fontSize: '120px', color: '#ffffff' })
+      .text(cx, cy - 56, `${this.totalScore}`, { fontFamily: '"Do Hyeon", sans-serif', fontSize: '180px', color: '#ffffff' })
       .setOrigin(0.5)
-      .setStroke('#0a2540', 10)
+      .setStroke('#0a2540', 15)
       .setDepth(41);
     this.add
-      .text(cx, cy + 60, `/ ${max} 점`, { fontFamily: '"Jua", sans-serif', fontSize: '34px', color: '#e8f5e9' })
+      .text(cx, cy + 113, `/ ${max} 점`, { fontFamily: '"Jua", sans-serif', fontSize: '51px', color: '#e8f5e9' })
       .setOrigin(0.5)
       .setDepth(41);
     const again = this.add
-      .text(cx, cy + 180, '다시하기 — 화면을 탭', { fontFamily: '"Jua", sans-serif', fontSize: '30px', color: '#ffffff' })
+      .text(cx, cy + 338, '다시하기 — 화면을 탭', { fontFamily: '"Jua", sans-serif', fontSize: '45px', color: '#ffffff' })
       .setOrigin(0.5)
-      .setStroke('#0a2540', 6)
+      .setStroke('#0a2540', 9)
       .setDepth(41);
     this.tweens.add({ targets: again, alpha: 0.4, duration: 700, yoyo: true, repeat: -1 });
   }
@@ -760,7 +920,7 @@ export class PlayScene extends Phaser.Scene {
   private bowFollowThrough(): void {
     if (!this.bowImg) return;
     // 9) 활을 오른쪽(시계방향)으로 회전시키며 아래로 내린다.
-    this.tweens.add({ targets: this.bowImg, angle: 28, y: this.bowBaseY + 130, duration: 420, ease: 'Quad.easeIn' });
+    this.tweens.add({ targets: this.bowImg, angle: 28, y: this.bowBaseY + 244, duration: 420, ease: 'Quad.easeIn' });
   }
 
   // ── 매 프레임: 완전 드로우부터 떨림(오버드로우로 증가) + 좌우 조준 + 바람 ──
@@ -772,49 +932,82 @@ export class PlayScene extends Phaser.Scene {
       .setY(this.gaugeBotY - this.gaugeFill * (this.gaugeBotY - this.gaugeTopY))
       .setVisible(this.gaugeFill > 0.01);
 
-    // 호흡 — 모든 단계에서 화면 전체가 들숨↔날숨처럼 미세하게 확대/축소(카메라 중심 기준).
+    // 호흡(숨쉬기) — 게임 뷰(world=배경+과녁)만 들숨↔날숨처럼 미세 확대/축소. UI·컨트롤·활은 불변.
     // 0.5-0.5cos: 양 극단에서 부드럽게 멈춰 자연스러운 호흡감(선형 톱니 아님).
     this.breathT += delta / 1000;
     const breath = 0.5 - 0.5 * Math.cos(this.breathT * ((Math.PI * 2) / BREATH_PERIOD));
-    this.cameras.main.setZoom(1 + BREATH_AMP * breath);
+    this.breathScale = 1 + BREATH_AMP * breath;
+    this.applyWorldBreath(); // world 에만 적용(카메라 전체 줌 아님)
+
+    // 타임어택 — ready/draw 동안 카운트다운(우측 다이얼 표시), 만료 시 강제 발사/미스.
+    this.tickShotTimer(delta / 1000);
 
     if (this.phase !== 'draw') return;
 
-    // 드로우 속도 추적 — 시위를 빨리/들쭉날쭉 당길수록 drawShake↑, 천천히 일정하게 당길수록 ↓.
     const dt = delta / 1000;
-    const dD = this.curD - this.prevD;
-    this.prevD = this.curD;
-    const inst = dt > 1e-4 ? Math.abs(dD) / dt : 0; // 순간 드로우 속도(초당 curD)
-    this.drawSpeed = lerp(this.drawSpeed, inst, Math.min(1, dt * DRAW_SPEED_SMOOTH));
-    const speedF = Phaser.Math.Clamp(
-      (this.drawSpeed - DRAW_SPEED_CALM) / (DRAW_SPEED_MAX - DRAW_SPEED_CALM),
-      0,
-      1,
-    );
-    // 빠르게 차오르고(RISE) 천천히 가라앉음(DECAY) — 빨리 당긴 대가가 발사 직전까지 남는다.
-    const k = speedF > this.drawShake ? SHAKE_RISE : SHAKE_DECAY;
-    this.drawShake = lerp(this.drawShake, speedF, Math.min(1, dt * k));
-    const shakeMul = lerp(SHAKE_MIN, SHAKE_MAX, this.drawShake);
 
-    // 내려오는 조준 — 드로우 진행도(curD)에 따라 진폭을 0에서 부드럽게 램프인(켜짐/꺼짐·톡 튐 없음).
-    // 세로가 중심(0)을 지날 때 손을 떼야 명중. 오버드로우 + 드로우 속도(shakeMul)로 진폭↑.
     this.wobbleT += dt;
-    const ramp = Phaser.Math.Clamp((this.curD - WOBBLE_START_D) / (1 - WOBBLE_START_D), 0, 1);
-    const amp = this.scoreR * (AIM_DESCEND_AMP + this.curO * AIM_DESCEND_OVERDRAW) * ramp * shakeMul;
-    const tremY = -amp * Math.cos(this.wobbleT * AIM_DESCEND_FREQ);
-    const tremX = Math.sin(this.wobbleT * 4.2) * amp * 0.4;
+    // 바람(비행 중 적용) — 십자선엔 표시하지 않는다. 플레이어가 바람을 고려해 조준해야 함.
+    this.windOffNow = { x: this.wind.x * WIND_PX, y: this.wind.y * WIND_PX };
 
-    // 조준 오프셋 = 떨림 + 좌우 미세 조준. (바람은 발사 후 비행 중에 적용된다.)
-    this.curHit = { x: tremX + (this.holdX - this.anchor.x) * STEER_GAIN, y: tremY };
+    if (!this.maxDraw) {
+      // ① 드로우 단계 — 십자선이 과녁 상단에서 중심으로 '서서히 내려온다'(당김 속도=하강 속도).
+      const aimY = this.scoreR * AIM_TOP * (this.curD - 1); // -top(상단) → 0(파란 원=중심)
+      this.curHit = { x: 0, y: aimY };
+      this.handle.setPosition(this.holdX, this.holdY);
+    } else {
+      // ② 최대 시위 당김 — 손가락 미세 이동(nudge)으로 십자선 2D 조준 + 숨쉬기·긴장에 의한 느린 유동.
+      // 미세조정: 손가락 오프셋에 가속도 곡선(중심 부근=아주 미세, 멀수록 가속) + 스무딩(관성)을 적용해
+      // 아주 미세한 손 이동에도 십자선이 정밀하게 상하좌우로 움직인다.
+      this.tensionHold = Math.min(1, this.tensionHold + dt / TENSION_BUILD);
+      const accel = (v: number): number => {
+        const n = Phaser.Math.Clamp(v / NUDGE_MAX, -1, 1);
+        return Math.sign(n) * (0.35 * Math.abs(n) + 0.65 * n * n) * NUDGE_MAX * FINE_GAIN; // 선형+제곱(가속)
+      };
+      // 목표 조준점으로 스무스하게 접근(관성) → 부드럽고 미세한 이동.
+      const s = Math.min(1, dt * FINE_SMOOTH);
+      this.fineAim.x = lerp(this.fineAim.x, accel(this.nudge.x), s);
+      this.fineAim.y = lerp(this.fineAim.y, accel(this.nudge.y), s);
+      // 숨쉬기·긴장 유동(유지할수록↑).
+      const breathPhase = Math.sin(this.breathT * ((Math.PI * 2) / BREATH_PERIOD));
+      const driftAmp = this.scoreR * (AIM_SWAY + this.tensionHold * AIM_TENSION_SHAKE);
+      const breathY = this.scoreR * BREATH_AIM_AMP * breathPhase;
+      const driftY = breathY + driftAmp * Math.sin(this.wobbleT * TENSION_FREQ);
+      const driftX = driftAmp * 1.1 * Math.sin(this.wobbleT * TENSION_FREQ * 0.73 + 1.3);
+      this.curHit = { x: this.fineAim.x + driftX, y: this.fineAim.y + driftY };
+      this.handle.setPosition(this.anchor.x, this.anchor.y); // 흰 원은 파란 원에 고정(최대 당김 유지)
+    }
 
-    // 바람 편차(오버드로우로 감쇄) — 녹색 십자선이 실제 착탄점(aim+이것)을 가리키게 갱신.
-    const windK = 1 - this.curO * WIND_REDUCE;
-    this.windOffNow = { x: this.wind.x * WIND_PX * windK, y: this.wind.y * WIND_PX * windK };
     this.drawAimReticle();
-    this.setBow(this.curD); // 활도 바람 편차를 따라가 사이트가 십자선에 유지되게.
+    this.setBow(this.curD);
+    this.setZoom(this.curD); // 과녁은 aim 고정 — 이동하는 건 십자선.
+  }
 
-    // 흰 원도 같은 떨림으로 흔들린다(조준과 동기화).
-    this.handle.setPosition(this.holdX + tremX, this.holdY + tremY);
-    this.setZoom(this.curD, this.curHit.x, this.curHit.y);
+  /** 타임어택 카운트다운(우측 다이얼) — 시위를 당기기 시작(draw)할 때부터 감소.
+   *  ready(대기) 중엔 멈춰 있고(10.0 표시), 만료 시 충분히 당겼으면 자동발사·아니면 시간초과 미스. */
+  private tickShotTimer(dt: number): void {
+    if (this.phase !== 'draw') return; // 시위를 당기는 동안에만 카운트다운
+    this.shotTimeLeft = Math.max(0, this.shotTimeLeft - dt);
+    this.timeDialText?.setText(this.shotTimeLeft.toFixed(1));
+    if (this.shotTimeLeft > 0) return;
+    if (this.curD >= DRAW_MIN) this.fire();
+    else this.timeoutMiss();
+  }
+
+  /** 제한시간 초과(미당김/부족) — 이 발을 0점 처리하고 다음으로. */
+  private timeoutMiss(): void {
+    this.phase = 'scored';
+    this.handle.setVisible(false);
+    this.anchorRing.setVisible(false);
+    this.aimReticle.setVisible(false);
+    this.popupText
+      .setText('시간 초과!')
+      .setColor('#ffb4b4')
+      .setPosition(this.scale.width / 2, this.aim.y)
+      .setScale(1)
+      .setAlpha(1)
+      .setVisible(true);
+    this.tweens.add({ targets: this.popupText, alpha: 0, duration: 900, ease: 'Cubic.easeOut' });
+    this.time.delayedCall(SHOW_SCORE_MS, () => this.nextArrow());
   }
 }
