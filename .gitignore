@@ -28,3 +28,21 @@ _diag*.png
 /deploy/
 /deploy-play/
 .vercel
+
+# 앱인토스 빌드 산출물(ait build) — 수십 MB 바이너리, 커밋 금지
+*.ait
+
+# 미참조 스프라이트 시트 보관함(번들 제외, 확인 후 영구삭제 가능)
+games/*/_unused-sheets/
+
+# ait build 중간 산출물
+.granite/
+games/*/_unused-assets/
+
+# 폰트 원본 캐시(fonts-build.mjs 가 받아둔 TTF)
+games/*/.font-cache/
+
+# 검증·디버그용 일회성 스크립트와 산출물 — 커밋 대상이 아니다
+*-tmp.mjs
+.tmp*
+games/*/.tmp*
