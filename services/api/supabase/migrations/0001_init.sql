@@ -5,7 +5,12 @@
 --     `players` 같은 흔한 이름이 서로 부딪히지 않는다.
 --   · 나중에 틱택토만 별도 DB 로 떼어내야 할 때도 이 스키마만 통째로 옮기면 된다.
 --   ⚠️ 이 스키마를 쓰려면 Supabase 대시보드에서
---      Settings → API → **Exposed schemas 에 `ttt` 를 추가**해야 한다(안 하면 API 가 404).
+--      Settings → API → **Exposed schemas 에 `ttt` 를 추가**해야 한다.
+--      ⚠️⚠️ "클라가 DB 를 직접 안 읽으니 필요 없다" 고 착각하기 쉽다(2026-08-11 실제로 틀렸다).
+--        **서버도 PostgREST 를 거친다** — `repo.ts` 의 `serviceClient().schema('ttt')` 는
+--        `/rest/v1/` 호출이고, service_role 은 RLS 만 우회할 뿐 이 화이트리스트는 똑같이 받는다.
+--        빠져 있으면 service_role 로도 `PGRST106 Invalid schema: ttt` (HTTP 406) 다.
+--      · 반면 Realtime 구독은 publication+RLS 로 돌아 이 설정과 무관하다.
 --
 -- 권위 분리: 클라이언트는 **읽기만** 직접 하고(RLS 로 참가자 제한), 모든 쓰기는
 -- Vercel 서버리스 함수(service_role)를 통과한다. 그래서 insert/update/delete 정책을
@@ -122,7 +127,11 @@ do $$ begin
   alter publication supabase_realtime add table ttt.matches;
 exception when duplicate_object then null; end $$;
 
--- UPDATE 이벤트에서 이전 값을 함께 받으려면 필요하다(클라가 move_index 전이를 확인).
+-- 구독 필터가 **기본키가 아닌 컬럼**을 볼 수 있게 한다. 기본값(default)이면 UPDATE 의 WAL 에
+-- 기본키만 실려서 `o_player=eq...` 같은 필터가 대상 컬럼 값을 읽지 못한다.
+-- (현재 UPDATE 구독 필터는 `id=eq...` 뿐이고 `payload.old` 를 읽는 코드도 없으므로 지금 당장
+--  꼭 필요하진 않다. 다만 필터를 하나만 바꿔도 조용히 깨지는 자리라 켜 둔 채로 간다 —
+--  대신 UPDATE 마다 전체 행이 WAL 에 실리는 비용이 있다는 걸 알고 있을 것.)
 alter table ttt.matches replica identity full;
 
 -- ───────────────────────── 플레이어 보장 ─────────────────────────

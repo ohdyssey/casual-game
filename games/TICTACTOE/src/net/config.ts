@@ -16,20 +16,29 @@ const PLACEHOLDER = 'TODO_REPLACE';
 // `: string` 을 붙여 리터럴 타입으로 좁혀지지 않게 한다 — 그러지 않으면 아래 자리표시
 // 비교가 "겹칠 수 없는 비교"라며 타입 에러가 난다(값이 채워질수록 더 그렇다).
 const SUPABASE_URL: string = 'https://uxgpdphgfnokmqlvrflq.supabase.co';
-const SUPABASE_ANON_KEY: string = PLACEHOLDER;
+// 새 키 체계의 publishable key. 구 `anon` JWT 와 역할이 같고 supabase-js 가 그대로 받는다.
+// Supabase 대시보드에도 "can be safely shared publicly" 라고 적혀 있는 공개 전제 값이다.
+const SUPABASE_ANON_KEY: string = 'sb_publishable_HeCZ0aKPdsq-TFI9MF-9QA_-vNsd_hd';
 
 type Target = typeof storeAdapter.target;
 
 /**
  * 대전 API(Vercel 서버리스) 주소. 스토어별로 오리진이 달라도 API 는 하나를 본다.
  * 타겟별로 나눠 둔 이유는 나중에 스테이징을 따로 붙일 수 있게 하기 위해서다.
+ *
+ * ⚠️ 원래 계획은 `ttt-api.ryanlogic.kr` 이었으나 **그 서브도메인은 아직 존재하지 않는다**
+ *    (2026-08-11 확인: NXDOMAIN). 게다가 `ryanlogic.kr` 은 개인 Hobby 계정에, 이 API 는
+ *    팀 `Ohdyssey` 에 있어 계정이 갈려 있다 — 붙이려면 TXT 검증 + 네임서버 CNAME 추가가 필요하다.
+ *    그때까지는 Vercel 이 기본으로 주는 도메인을 그대로 쓴다. 도메인이 붙으면 이 다섯 줄만 고치면 된다.
  */
+const API_BASE = 'https://casual-game-api.vercel.app';
+
 const API_BASE_BY_TARGET: Record<Target, string> = {
-  web: 'https://ttt-api.ryanlogic.kr',
-  toss: 'https://ttt-api.ryanlogic.kr',
-  msstore: 'https://ttt-api.ryanlogic.kr',
-  android: 'https://ttt-api.ryanlogic.kr',
-  ios: 'https://ttt-api.ryanlogic.kr',
+  web: API_BASE,
+  toss: API_BASE,
+  msstore: API_BASE,
+  android: API_BASE,
+  ios: API_BASE,
 };
 
 export function supabaseUrl(): string {

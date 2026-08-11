@@ -63,7 +63,17 @@ supabase link --project-ref <ref>
 supabase db push
 ```
 
-대시보드에서 **Authentication → Providers → Anonymous sign-ins 를 켠다**(끄면 로그인이 전부 실패한다).
+대시보드에서 **Authentication → Sign In / Providers → User Signups → Allow anonymous sign-ins 를 켠다**
+(끄면 `anonymous_provider_disabled` 로 로그인이 전부 실패한다).
+
+**Settings → API → Exposed schemas 에 `ttt` 를 추가한다.** 빠지면 큐 진입부터 500
+(`player_unavailable`)이다.
+
+⚠️ "클라가 DB 를 직접 안 읽으니 이 설정은 필요 없다"는 착각을 하기 쉽다 — 실제로 한 번 틀렸다.
+**서버도 PostgREST 를 거친다.** `repo.ts` 의 `serviceClient().schema('ttt')` 는 `/rest/v1/` 호출이고,
+service_role 은 RLS 만 우회할 뿐 노출 스키마 화이트리스트는 똑같이 적용받는다
+(빠져 있으면 service_role 로도 `PGRST106 Invalid schema: ttt`, HTTP 406).
+Realtime 구독만 publication+RLS 로 돌아 이 설정과 무관하다.
 
 `pg_cron` 이 없으면 마이그레이션이 유령 매치 스윕만 건너뛰고 나머지는 정상 적용된다(로컬은 이게 정상).
 운영에서는 Database → Extensions 에서 `pg_cron` 을 켜고 마이그레이션을 다시 적용할 것.
