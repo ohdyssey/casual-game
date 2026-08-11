@@ -1,7 +1,27 @@
 # @casual/api — 게임 공용 백엔드 API
 
-Vercel 서버리스 함수 + Supabase(Auth/Postgres/Realtime)로 만든 **간단한 실시간 1v1 대전 백엔드**.
-MS 스토어 / 토스 런칭용.
+Vercel 서버리스 함수 + Supabase(Auth/Postgres/Realtime). **모든 게임이 이 하나의 프로젝트를 쓴다.**
+현재 담긴 것은 틱택토 네온의 실시간 1v1 대전(MS 스토어 / 토스 / 구글 / 애플 런칭용).
+
+## 주소 규칙 — 게임과 버전으로 나눈다
+
+```
+/api/health                    ← 공용(인증 없음)
+/api/v1/ttt/queue/join         ← 틱택토
+/api/v1/ttt/match/move
+/api/v1/solitare/...           ← (게임이 늘면 폴더만 추가)
+```
+
+폴더 구조가 곧 주소다: `api/v1/ttt/match/move.ts` → `POST /api/v1/ttt/match/move`.
+
+⚠️ **`v1` 을 고쳐 쓰지 말 것.** 게임은 구글/애플에 **각각 별도 앱**으로 올라가고, 유저는 앱을
+업데이트하지 않는다 — 구버전 앱이 몇 달씩 남는다. 웹은 새로고침하면 최신이지만 앱은 아니다.
+계약이 바뀌어야 하면 `v1` 은 그대로 두고 `api/v2/...` 를 **추가**한 뒤 새 앱만 그쪽을 보게 한다.
+바뀌는 라우트만 v2 에 두면 되고, 나머지는 v1 을 계속 쓴다.
+
+⚠️ **앱을 오리진으로 구분할 수 없다.** Capacitor 웹뷰의 오리진(`capacitor://localhost` 등)은
+앱마다 같은 값이다. 구분이 필요하면 토큰이나 헤더로 한다. CORS 는 보안 경계가 아니며
+(브라우저만 지킨다) 실제 방어선은 JWT + RLS 다.
 
 ## 왜 이 구조인가
 
@@ -87,12 +107,12 @@ npm run dev:api      # = vercel dev --listen 3000
 | | 하는 일 |
 |---|---|
 | `GET  /api/health` | 배포 스모크·CORS preflight 확인 |
-| `POST /api/queue/join` | 대기열 진입. `for update skip locked` 로 원자적 페어링 |
-| `POST /api/queue/cancel` | 대기열 이탈. 직전에 성사됐으면 그 매치를 함께 돌려준다 |
-| `POST /api/match/move` | 착수 재검증 + 상태 전이 + 종료 시 Elo 정산 |
-| `POST /api/match/timeout` | 시간초과 주장(서버가 자기 시계로 재확인) |
-| `POST /api/match/resign` | 포기 |
-| `POST /api/match/state` | 재동기화(백그라운드 복귀·재접속) |
+| `POST /api/v1/ttt/queue/join` | 대기열 진입. `for update skip locked` 로 원자적 페어링 |
+| `POST /api/v1/ttt/queue/cancel` | 대기열 이탈. 직전에 성사됐으면 그 매치를 함께 돌려준다 |
+| `POST /api/v1/ttt/match/move` | 착수 재검증 + 상태 전이 + 종료 시 Elo 정산 |
+| `POST /api/v1/ttt/match/timeout` | 시간초과 주장(서버가 자기 시계로 재확인) |
+| `POST /api/v1/ttt/match/resign` | 포기 |
+| `POST /api/v1/ttt/match/state` | 재동기화(백그라운드 복귀·재접속) |
 
 거부는 HTTP 에러가 아니라 **200 + `{ result: 'rejected', reason, match }`** 다.
 "네트워크 문제"와 "규칙 위반"을 클라가 구분할 수 있어야 하기 때문.
