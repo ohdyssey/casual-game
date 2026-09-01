@@ -15,7 +15,7 @@ import { killSW } from '../../scripts/kill-sw.mjs';
  *    `VAR=x cmd` 접두 문법이 통하지 않는다. --mode 는 OS 를 타지 않는다.
  *    (mode 를 바꿔도 `vite build` 는 NODE_ENV=production 이라 import.meta.env.DEV 는 그대로다)
  */
-const TARGETS = ['web', 'toss', 'msstore', 'android', 'ios'] as const;
+const TARGETS = ['web', 'adsense', 'toss', 'msstore', 'android', 'ios'] as const;
 type Target = (typeof TARGETS)[number];
 
 /** mode → 빌드 타겟. development/production 같은 기본 모드는 web 으로 본다. */

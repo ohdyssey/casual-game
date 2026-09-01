@@ -35,6 +35,7 @@ const API_BASE = 'https://casual-game-api.vercel.app';
 
 const API_BASE_BY_TARGET: Record<Target, string> = {
   web: API_BASE,
+  adsense: API_BASE,
   toss: API_BASE,
   msstore: API_BASE,
   android: API_BASE,

@@ -7,8 +7,10 @@
   "scripts": {
     "dev": "npx vite",
     "dev:toss": "npx vite --mode toss",
+    "dev:adsense": "npx vite --mode adsense",
     "build": "vite build",
     "build:web": "vite build",
+    "build:adsense": "vite build --mode adsense",
     "build:msstore": "npm run icons && vite build --mode msstore",
     "build:android": "vite build --mode android",
     "build:ios": "vite build --mode ios",
@@ -18,7 +20,7 @@
     "build:toss": "node ../../scripts/fonts-check.mjs . && vite build --mode toss && node ../../scripts/build-toss.mjs dist"
   },
   "dependencies": {
-    "@apps-in-toss/web-framework": "^2.10.8",
+    "@apps-in-toss/web-framework": "^3.0.3",
     "@casual/core": "*",
     "@casual/ttt-rules": "*",
     "@supabase/supabase-js": "^2.48.1",

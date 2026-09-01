@@ -37,7 +37,7 @@ import {
   X_KEY,
   type LayoutDoc,
 } from '../assets.js';
-import { playGateAd } from '../rewardedAd.js';
+import { playGateAd, playRewardedAd } from '../rewardedAd.js';
 import store from '@store';
 import { isAdGateTurn } from '../logic/adGate.js';
 import {
@@ -67,6 +67,7 @@ import {
   type LevelProgress,
   applySingleResult,
   isPromotionMatch,
+  isPromotionStage,
   normalizeProgress,
   progressText,
 } from '../logic/levelProgress.js';
@@ -415,6 +416,12 @@ export class PlayScene extends Phaser.Scene {
 
   /** 이번 판 승리로 등급이 올라갔는지 — 결과 화면 문구 분기. */
   private promotedNow = false;
+  /**
+   * 이번 패배가 **승급전(3연승 도전) 중 실제로 쌓아 둔 연승**을 끊었으면 그 직전 연승 수를
+   * 담아 둔다(0판째 손실은 잃을 게 없어 제외) — 결과 화면에서 "광고 보고 승급전 이어가기"
+   * 로 제안하고, 시청 성공 시 이 값으로 되돌린다(PO 2026-09-02: "승급전 패배 무효화").
+   */
+  private promotionStreakToRestore: number | null = null;
   /**
    * 이번 판으로 스터디가 어디까지 갔는지 — 결과 화면에서 성취음을 고르는 데 쓴다.
    * 클리어 토스트가 뜨는 시점에 바로 울리면 승리 징글과 겹쳐 탁해진다.
@@ -1783,6 +1790,30 @@ ${this.pressureLine()}`;
   }
 
   /**
+   * 광고 보고 승급전 패배 무효화 — 끝까지 시청해야만(리워드형) 되돌린다. 이번 판 승부·전적은
+   * 그대로 두고 **승급전 연승만** 패배 직전 값으로 복구한다(공정성엔 손대지 않는다).
+   * 광고를 못 봤거나 중간에 닫으면 그냥 평범한 재도전 — 패배는 취소되지 않는다.
+   */
+  private undoPromotionLoss(): void {
+    const restoreStreak = this.promotionStreakToRestore;
+    if (restoreStreak == null) {
+      this.startNewGame();
+      return;
+    }
+    playSfx('ad_open');
+    playRewardedAd(this, {
+      onReward: () => {
+        this.record = { ...this.record, levelStreak: restoreStreak };
+        saveRecord(this.record);
+        this.promotionStreakToRestore = null;
+        this.showToast('🎖 패배가 취소됐어요! 승급전 계속!', '#FFD54D', 1800);
+        this.startNewGame();
+      },
+      onUnavailable: () => this.startNewGame(), // 광고 실패로 사용자를 가두지 않는다.
+    });
+  }
+
+  /**
    * 싱글/스터디 정산 — 전적·포인트·버티기 목표·패배 기억·스터디 진행.
    * 포기·이탈·무승부는 싱글에 없다(전부 대전 전용 종료 원인) → `ScoredCause` 만 받는다.
    */
@@ -1796,6 +1827,9 @@ ${this.pressureLine()}`;
     const after = this.studyMode ? before : applySingleResult(before, humanWon);
     const promoted = after.level > before.level;
     this.promotedNow = promoted;
+    // 승급전 중 실제로 쌓은 연승(1승 이상)을 이번 패배로 잃었을 때만 되돌릴 게 있다.
+    this.promotionStreakToRestore =
+      !humanWon && !this.studyMode && isPromotionStage(before) && before.streak > 0 ? before.streak : null;
     this.record = {
       ...this.record,
       wins: humanWon ? this.record.wins + 1 : this.record.wins,
@@ -2165,27 +2199,32 @@ ${this.pressureLine()}`;
     };
 
     // 라벨은 결과에 따라 달라진다 — 이겼으면 "다시" 하는 게 아니라 **다음으로 나아가는** 것이다.
-    //   승급 → 다음 등급 / 승리 → 다음 판 / 패배 → 다시 하기(3판에 한 번은 광고) / 대전 → 새 상대
-    // 다시하기 자리는 `AD_RETRY_EVERY` 판에 한 번 "광고 보고 다시하기" 로 바뀐다 —
-    // 버튼을 하나 더 두지 않는다(둘 다 하는 일이 같아 나란히 두면 광고 쪽을 누를 이유가 없다).
-    const adGate = !win && this.isAdRetryTurn();
+    //   승급 → 다음 등급 / 승리 → 다음 판 / 패배 → 다시 하기(3판에 한 번은 광고, 단 승급전
+    //   연승을 실제로 잃었으면 그 구제가 우선) / 대전 → 새 상대
+    // 버튼을 하나 더 두지 않는다(같은 자리에서 겹치면 뭘 눌러야 할지 헷갈린다) — 이번 패배가
+    // 승급전 연승을 끊었으면 관문 광고보다 "승급전 이어가기" 제안을 우선한다(PO 2026-09-02).
+    const promotionUndo = !win && !versus && this.promotionStreakToRestore != null;
+    const adGate = !win && !promotionUndo && this.isAdRetryTurn();
     const [nextIcon, nextLabel] = versus
       ? [BTN_ICON.findFoe, '새 상대 찾기']
       : this.promotedNow
         ? [BTN_ICON.nextLevel, '다음 등급으로']
         : win
           ? [BTN_ICON.nextGame, '다음 판']
-          : adGate
-            ? [BTN_ICON.adRetry, '광고 보고 다시하기']
-            : [BTN_ICON.retry, '다시 하기'];
+          : promotionUndo
+            ? [BTN_ICON.adRetry, '광고 보고 승급전 이어가기']
+            : adGate
+              ? [BTN_ICON.adRetry, '광고 보고 다시하기']
+              : [BTN_ICON.retry, '다시 하기'];
     makeOverlayButton(
       BTN_FIRST_Y,
       nextIcon,
       nextLabel,
-      win ? 0x1587c8 : draw ? 0x4a4470 : adGate ? 0x246b45 : 0xc4256e,
+      win ? 0x1587c8 : draw ? 0x4a4470 : promotionUndo || adGate ? 0x246b45 : 0xc4256e,
       'ui_btn_confirm', // 앞으로 나아가는 버튼 — 상승음
       () => {
         if (versus) this.scene.start('match');
+        else if (promotionUndo) this.undoPromotionLoss();
         else if (adGate) this.adRetry();
         else this.startNewGame();
       },
