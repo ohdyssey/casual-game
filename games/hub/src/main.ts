@@ -16,6 +16,24 @@ import { bootstrapDeferredLink } from './deferredLink/bootstrap.js';
 // 딥링크 진입이면 어차피 게임으로 이동하고, 아니면 아래 크롬이 평소대로 뜬다.
 void bootstrapDeferredLink();
 
+// PWA 설치 버튼 — **다른 어떤 것보다 먼저, 독립적으로** 마운트한다(2026-09-02).
+//   "인앱브라우저 탈출 후 설치 배너가 안 뜬다" 신고가 세 차례 반복됐는데, 배너 로직 자체는
+//   헤드리스로 재현·검증해도 정상 작동했다 — 남은 가능성은 이 파일의 **아래쪽**(계정/지갑/대표게임
+//   부트스트랩)이 실기기의 특정 조건(느린 네트워크·API 실패 등)에서 예외를 던져, 그 뒤에 놓여 있던
+//   `mountInstall()` 호출까지 통째로 실행되지 못하는 경우다(모듈 최상위 코드는 순차 실행이라
+//   앞에서 잡히지 않은 예외가 나면 뒤 문장이 전부 스킵된다). 설치 유도는 이 페이지의 핵심 기능이라
+//   지갑·게임 카탈로그가 뭘 하든 절대 막히면 안 된다 — 맨 앞으로 옮기고 try/catch 로 격리한다.
+const SHOW_INSTALL = true;
+const installBtn = document.getElementById('install-btn');
+// 게임의 "설치하러 가기"가 `?install=1` 을 붙여 보낸다 — 도착하자마자(지연 없이) 배너를 띄운다.
+const installIntent = new URLSearchParams(location.search).get('install') === '1';
+if (installIntent) history.replaceState(null, '', location.pathname); // 이후 내비게이션에 안 남게.
+try {
+  if (SHOW_INSTALL && installBtn) mountInstall(installBtn, toast, { immediate: installIntent });
+} catch (e) {
+  console.error('[hub] mountInstall failed', e);
+}
+
 const walletEl = document.getElementById('wallet');
 const actionsEl = document.getElementById('acc-actions');
 const account: AccountHubHandle | null =
@@ -44,18 +62,6 @@ if (SHOW_RAILS && account && leftEl && rightEl) mountRails(leftEl, rightEl, acco
 // 우상단 메뉴 아이콘 → 포털 메뉴(모든 기능 진입).
 const menuBtn = document.getElementById('menu-btn');
 if (account && menuBtn) menuBtn.addEventListener('click', () => openMenu(account.ctrl));
-
-// PWA 설치 버튼 — 설치 가능(Android/데스크톱) 시 노출, iOS 는 수동 안내, 설치됨이면 숨김.
-// ⚠️ 2026-09-01 재활성화 — 게임 쪽(솔리테어 등) "홈 화면에 추가"가 이제 게임 자신이 아니라
-//   이 허브(PlayPOP)로 리다이렉트하도록 바뀌었다(appLaunch.ts triggerInstallFlow → goHub).
-//   여기가 꺼져 있으면(SHOW_INSTALL=false) 리다이렉트만 되고 실제 설치 진입점이 없어서
-//   "설치하러 가기를 눌러도 아무 일도 안 일어난다"가 된다 — 반드시 true 로 유지할 것.
-const SHOW_INSTALL = true;
-const installBtn = document.getElementById('install-btn');
-// 게임의 "설치하러 가기"가 `?install=1` 을 붙여 보낸다 — 도착하자마자(지연 없이) 배너를 띄운다.
-const installIntent = new URLSearchParams(location.search).get('install') === '1';
-if (installIntent) history.replaceState(null, '', location.pathname); // 이후 내비게이션에 안 남게.
-if (SHOW_INSTALL && installBtn) mountInstall(installBtn, toast, { immediate: installIntent });
 
 const grid = document.getElementById('grid');
 const foot = document.getElementById('foot');
