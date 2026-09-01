@@ -12,7 +12,7 @@ import { scriptSizeBumpPx } from './systems/textScript.js';
 import { enableFullscreenOnFirstTap } from './systems/pwa.js';
 import { mountAppLaunchGuard } from './systems/appLaunch.js';
 import { installHealthMonitor, type HealthMonitorOptions } from './systems/healthMonitor.js';
-import { installHubButton, goHub, type HubButtonOptions } from './systems/hubButton.js';
+import { installHubButton, type HubButtonOptions } from './systems/hubButton.js';
 import { installImmersive } from './systems/immersive.js';
 import { resolveDesignSize, type DesignBox, type DesignRange } from './designSize.js';
 import { SAFE_CENTER_KEY, SAFE_SIZE_KEY, autoCoverBackgrounds, centerSafeZone, insetCanvasFrame, installDiagOverlay } from './safeZone.js';
@@ -351,10 +351,10 @@ export async function createCasualGame(mod: GameModule): Promise<Phaser.Game> {
     //   운영(prod)에선 몰입 + 안드로이드 뒤로가기 흡수 버퍼를 위해 그대로 진입한다.
     if (!import.meta.env?.DEV) enableFullscreenOnFirstTap();
     if (!import.meta.env?.DEV) {
-      // 인앱 브라우저 탈출 + PWA 설치 유도(전 게임 공용). 설치 대상은 게임이 아니라 허브(PlayPOP) —
-      // hubButton 과 같은 hubPath 로 goHub 를 주입해 "설치하러 가기" 클릭 시 허브로 이동시킨다.
+      // 인앱 브라우저 탈출 + PWA 설치 유도(전 게임 공용). 이 화면의 매니페스트를 허브(PlayPOP) 것으로
+      // 바꿔치기해 **이 화면을 벗어나지 않고** 바로 설치되게 한다(hubPath 는 그 매니페스트 위치 계산용).
       const hubOpts = typeof mod.hubButton === 'object' ? mod.hubButton : {};
-      mountAppLaunchGuard({ goToHub: () => goHub(hubOpts.hubPath, true), hubPath: hubOpts.hubPath ?? '../hub/' });
+      mountAppLaunchGuard({ hubPath: hubOpts.hubPath ?? '../hub/' });
     }
     const guardOpts = typeof mod.backGuard === 'object' ? mod.backGuard : {};
     installBackGuard({

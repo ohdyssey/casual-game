@@ -49,6 +49,16 @@ const GAMES = [
   //   클릭 시 외부 미션 리워드 앱(extUrl)을 팝업으로 연다(테스트 연결). 화면 아트 = CashPOP 홈, 로고 = icon_02-09.
   { id: 'cashpop',      title: 'CashPOP',         tagline: '광고 보고 현금 캐시 적립',            genre: 'reward',   art: 'art/CashPOP_Game.webp',       logo: 'art/CashPOP_logo_t.webp',      accent: '#2563EB', live: true,  pinned: true, hidden: true, extUrl: 'https://missionreward-dev-8f477.netlify.app/' },
 
+  // ───────── ⓪-1 그리드 선두 고정(PO 2026-08-21): 틱택토 1번 > 펌프러시 2번 > 솔리테어 3번 ─────────
+  //   틱택토 네온: 3말 순환이동 변형 vs컴퓨터 구현(2026-08-04) — dev 플레이 가능. prod 는 PLAY_OPEN_GAMES 미등록이라 잠금 유지. 키아트 = 게임 배경 상단 크롭.
+  { id: 'tictactoe',    title: '틱택토 네온',     tagline: '가장 오래된 말이 움직이는 3목 두뇌 대결', genre: 'puzzle', art: 'art/TicTacToe_Game.webp',    accent: '#27C4FF', live: true,  devPort: 6211, prodUrl: '../tictactoe/' },
+  //   펌프러시(PUMP RUSH): 바다 위 징검다리 무한계단(구 BobbleRunner→펌프앤고, 2026-08-15 개명).
+  //   ⚠️ id 'pumpngo' 는 라이브 URL(../pumpngo/)·게이트 키 호환을 위해 유지 — 바뀐 건 표시명뿐. dev 폴더는 games/BobbleRunner.
+  //   ⚠️ 카드아트 = 로비 캡처(로고 포함) — logo 필드를 주면 로고가 이중 표시된다(금지, 2026-08-12 확정).
+  { id: 'pumpngo',      title: '펌프러시',        tagline: '징검다리를 밟고 바다 위를 끝없이 오르는 러너', genre: 'puzzle', art: 'art/PumpNGO_Game.webp', accent: '#2E9BD6', live: true,  devPort: 6213, prodUrl: '../pumpngo/' },
+  //   솔리테어 하이츠: 허브 그리드 노출·플레이 오픈(PLAY_OPEN_GAMES 에 등록). 정식 키아트 WebP 적용(2026-07-11).
+  { id: 'solitaire',    title: '솔리테어 하이츠', tagline: '카드를 위·아래로 이어 층층이 타워를 쌓는 솔리테어', genre: 'puzzle', art: 'art/Solitaire_Game.webp', heroVideo: 'art/Solitaire_Hero.mp4', logo: 'art/Solitaire_logo_t.webp', accent: '#E86FA6', live: true,  devPort: 6209, prodUrl: '../solitaire/' },
+
   // ───────── ① 플레이 오픈(allowlist) — 배포 지정 순서대로 앞쪽 배치 ─────────
   //   prod(브라우저·설치형 PWA 공통)에서 실제 플레이 가능한 게임. 목록·순서는 launcher.ts 의 PLAY_OPEN_GAMES 와 일치시킨다.
   //   지정 순서: 열정편의점 > 꼬치왕 > 배송대작전 > 홈런팝 > 아처리스타즈 > 양떼고 > 오션퍼즐 > 패시앤고 > 좀비애로우 > 사커플릭 > 버블퐁 > 베가스호텔
@@ -73,16 +83,11 @@ const GAMES = [
   { id: 'pawlinkroom',  title: '포링크룸',        tagline: '같은 펫 아이템을 이어 짝 맞추는 라인 퍼즐', genre: 'puzzle', art: 'art/PawlinkRoom_Game.webp', logo: 'art/PawlinkRoom_logo_t.webp', accent: '#F2A33C', live: false, devPort: 6205, prodUrl: '../pawlink/' }, // PO 2026-07-30: 준비중으로 전환.
   // 스모클래시: 레인 디펜스 본편 구현(2026-07-23) — dev 플레이 가능. prod 는 PLAY_OPEN_GAMES 미등록이라 잠금 유지.
   { id: 'sumoclash',    title: '스모클래시',      tagline: '스모 부대 라인 배틀',                 genre: 'battle',   art: 'art/SumoClash_Game.webp',     logo: 'art/SumoClash_logo_t.webp',    accent: '#E8553A', live: true,  devPort: 6196, prodUrl: '../sumoclash/' },
-  // 틱택토 네온: 3말 순환이동 변형 vs컴퓨터 구현(2026-08-04) — dev 플레이 가능. prod 는 PLAY_OPEN_GAMES 미등록이라 잠금 유지. 키아트 = 게임 배경 상단 크롭.
-  { id: 'tictactoe',    title: '틱택토 네온',     tagline: '가장 오래된 말이 움직이는 3목 두뇌 대결', genre: 'puzzle', art: 'art/TicTacToe_Game.webp',    accent: '#27C4FF', live: true,  devPort: 6211, prodUrl: '../tictactoe/' },
-
   // 김밥 롤 마스터: 메뉴 선택→재료 조합→말기·썰기→종·채점 완결(2026-08-07). prod 는 **추가 비밀번호 5656**
   //   (scripts/deploy-gate.mjs GAME_GATES.kimbaproll) 뒤에서 열린다.
   { id: 'kimbabroll',   title: '김밥롤 마스터',   tagline: '재료를 올려 김밥을 말아 완성',         genre: 'puzzle',   art: 'art/KimbabRoll_Game.webp',    accent: '#3E9B6B', live: true,  devPort: 6212, prodUrl: '../kimbaproll/' },
 
   // ───────── ③ 준비중 — 퍼즐·캐주얼 ─────────
-  //   솔리테어 하이츠: 허브 그리드 노출·플레이 오픈(PLAY_OPEN_GAMES 에 등록). 정식 키아트 WebP 적용(2026-07-11).
-  { id: 'solitaire',    title: '솔리테어 하이츠', tagline: '카드를 위·아래로 이어 층층이 타워를 쌓는 솔리테어', genre: 'puzzle', art: 'art/Solitaire_Game.webp', heroVideo: 'art/Solitaire_Hero.mp4', logo: 'art/Solitaire_logo_t.webp', accent: '#E86FA6', live: true,  devPort: 6209, prodUrl: '../solitaire/' },
   { id: 'omakase',      title: '오마카세매치',    tagline: '초밥 매치 퍼즐',                      genre: 'puzzle',   art: 'art/omakase_game.webp',       logo: 'art/omakase_logo_t.webp',      accent: '#F2994A', live: false },
   { id: 'aquaslot',     title: '아쿠아슬롯',      tagline: '수중 테마 슬롯',                      genre: 'puzzle',   art: 'art/AquaSlot_Game.webp',      logo: 'art/AquaSlot_logo_t.webp',     accent: '#7C5CFF', live: false },
   { id: 'colorsplash',  title: '컬러스플래시',    tagline: '색을 채우는 캐주얼 퍼즐',              genre: 'puzzle',   art: 'art/ColorSplash_Game.webp',   logo: 'art/ColorSplash_logo_t.webp',  accent: '#FF7AB6', live: false },
@@ -100,6 +105,22 @@ const GAMES = [
   { id: 'zombieroad',   title: '좀비로드',        tagline: '좀비 길목 디펜스',                    genre: 'battle',   art: 'art/ZombieRoad_Game.webp',    logo: 'art/ZombieRoad_logo_t.webp',   accent: '#6BBF2F', live: false },
 
 ];
+
+/**
+ * **라이브(prod) 배포 노출 게임 제한**(PO 2026-09-02: "데브화면과 달리 라이브배포에서는 …만
+ * 표시, 나머지는 비활성화"). dev 는 위 GAMES 저작값 그대로 전부(현재 live:true 인 것들) 켜진다 —
+ * 아래는 **prod 에서만** 이 목록 밖의 게임을 `live:false`(=준비중, 클릭 불가)로 접는다.
+ * ⚠️ CashPOP(고정 리워드앱, pinned+hidden)은 일반 게임 그리드와 무관해 목록에 포함해 보존한다.
+ */
+const PROD_VISIBLE_IDS = new Set([
+  'cashpop',
+  'tictactoe', 'pumpngo', 'solitaire', 'store', 'skewer', 'parcelpoprush', 'archerystars', 'homerunpop',
+]);
+if (!DEV) {
+  for (const g of GAMES) {
+    if (g.live && !PROD_VISIBLE_IDS.has(g.id)) g.live = false;
+  }
+}
 
 /** live 게임의 현재 환경 진입 URL. */
 export function gameUrl(game) {

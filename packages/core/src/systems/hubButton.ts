@@ -5,17 +5,17 @@
  *   **모든 화면(홈/플레이/종료)** 에서 항상 보인다.
  *
  * 배치 기준 = **토스 미니앱 헤더**(사용자 지시, 2026-08-13):
- *   · 화면 **우측 상단**에 `📲(설치)` → `···` → `✕` 순서로 나란히(닫기가 가장 오른쪽).
+ *   · 화면 **우측 상단**에 `···` → `✕` 순서로 나란히(닫기가 가장 오른쪽).
  *   · 여백은 **캔버스(게임 화면) 기준** 우측 20px / 상단 세이프에어리어 + 12px.
  *     ⚠️ 창 기준(`right:14px`)으로 두면 데스크톱 레터박스에서 캔버스 밖(창 끝)에 붙어
  *       여백이 없어 보인다(사용자 리포트) — 캔버스 사각형을 재서 그 안쪽에 놓는다.
  *   · 탭 타깃 34px 원형(기존 26px의 1.3배), 아이콘 20/17px, 반투명 회색 위 흰 아이콘.
  *
- *   · 📲 (설치) → "홈 화면에 추가" — 설치 안 된 경우에만 노출(PO 2026-09-02: "···" 메뉴 안에
- *                 숨기지 말고 게임 상단에 항상 보이는 버튼으로). 허브의 초록 원형 버튼과 톤 통일.
  *   · ✕ (닫기)   → 메인(허브) 화면으로 복귀. 팝업이면 창 닫기, 같은 오리진(운영 형제 배포)이면 ../hub/,
  *                  다른 오리진(dev: 게임 각자 포트)이면 ?portal= 의 허브 origin 으로.
- *   · ··· (메뉴) → 드롭다운: 홈 화면에 추가(중복 진입점) / 공유하기 / 문의하기 / 내 게임 관리.
+ *   · ··· (메뉴) → 드롭다운: 홈 화면에 추가 / 공유하기 / 문의하기 / 내 게임 관리.
+ *     ⚠️ **독립된 초록 아이콘 버튼으로 상단에 노출했었는데 PO 반려**(2026-09-02: "초록색 버튼으로
+ *       표시하지 말고 공유하기에 표시하라") — "홈 화면에 추가"는 다시 이 드롭다운 안, 공유하기 위에만.
  *
  * ⚠️ 게임 실행/전환 로직은 건드리지 않는다 — 순수 DOM 오버레이.
  */
@@ -100,10 +100,6 @@ const DOTS_SVG =
 const X_SVG =
   '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">' +
   '<path d="M6 6l12 12M18 6 6 18"/></svg>';
-// 허브 상단 설치 아이콘과 같은 도상(다운로드 화살표) — 톤 통일.
-const DOWNLOAD_SVG =
-  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-  '<path d="M12 3v10"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg>';
 
 /** 상단 메뉴바(···  ✕) 1회 설치(중복 무시). */
 export function installHubButton(opts: HubButtonOptions = {}): void {
@@ -137,16 +133,6 @@ export function installHubButton(opts: HubButtonOptions = {}): void {
 
     const menuBtn = circle(DOTS_SVG, '메뉴');
     const closeBtn = circle(X_SVG, '메인화면으로');
-
-    // "홈 화면에 추가" 전용 아이콘 — **상단에 항상 보이게**(PO 2026-09-02: "···" 메뉴 안에 숨기지
-    //   말고 게임 상단에 버튼 추가). 허브의 초록 원형 설치 버튼과 톤을 맞춘다. 설치 안 된 경우에만
-    //   노출하고, 이 세션에서 설치가 확인되면(appinstalled) 바로 숨긴다.
-    const installBtn = circle(DOWNLOAD_SVG, '홈 화면에 추가');
-    installBtn.style.background = 'linear-gradient(180deg, #4CD164, #2E9A3C)';
-    installBtn.style.color = '#08311E';
-    installBtn.hidden = !canOfferInstall();
-    installBtn.addEventListener('click', () => { void triggerInstallFlow(); });
-    window.addEventListener('appinstalled', () => { installBtn.hidden = true; });
 
     // 드롭다운 메뉴(공유/문의/내 게임 관리).
     const menu = document.createElement('div');
@@ -214,7 +200,6 @@ export function installHubButton(opts: HubButtonOptions = {}): void {
       if (open && !wrap.contains(e.target as Node)) hide();
     });
 
-    wrap.appendChild(installBtn);
     wrap.appendChild(menuBtn);
     wrap.appendChild(closeBtn);
     wrap.appendChild(menu);

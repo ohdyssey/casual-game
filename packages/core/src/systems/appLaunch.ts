@@ -132,9 +132,6 @@ function retargetManifestToHub(hubPath: string): void {
   document.head.appendChild(link);
 }
 
-/** 허브로 이동시키는 콜백 — `mountAppLaunchGuard({ goToHub })` 로 주입(게임마다 hubPath 가 다를 수 있음). iOS 등 직접 설치가 안 되는 경우의 폴백. */
-let goToHubImpl: (() => void) | null = null;
-
 // ─────────────────────────── 설치 여부 — 세션 한정, 저장하지 않는다 ───────────────────────────
 //
 // ⚠️ **2026-09-02 3차 수정 — localStorage 영구 기록 방식을 완전히 폐기한다.** v1→v2→v3 로 키를
@@ -266,9 +263,7 @@ const IN_APP_LABEL: Record<Exclude<InAppHost, null>, string> = {
 };
 
 export interface AppLaunchOptions {
-  /** "설치하러 가기" 배너를 눌렀을 때 허브로 이동시키는 콜백(iOS 등 직접 설치가 안 될 때의 폴백). */
-  goToHub?: () => void;
-  /** 허브 상대 경로(기본 `../hub/`) — 이 페이지의 매니페스트를 허브 것으로 바꿔치기하는 데도 쓴다. */
+  /** 허브 상대 경로(기본 `../hub/`) — 이 페이지의 매니페스트를 허브 것으로 바꿔치기하는 데 쓴다. */
   hubPath?: string;
 }
 
@@ -279,7 +274,6 @@ export interface AppLaunchOptions {
  */
 export function mountAppLaunchGuard(opts: AppLaunchOptions = {}): void {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
-  goToHubImpl = opts.goToHub ?? null;
   retargetManifestToHub(opts.hubPath ?? '../hub/'); // 이 화면에서 바로 PlayPOP 를 설치할 수 있게.
   captureInstallPrompt();
 
@@ -324,10 +318,25 @@ export function mountAppLaunchGuard(opts: AppLaunchOptions = {}): void {
   });
 }
 
-/** "설치하러 가기" 클릭 — 이 화면에서 바로 설치 프롬프트를 띄울 수 있으면 그걸로, 없으면(iOS 등) 허브로. */
-async function handleInstallAction(): Promise<void> {
-  const prompted = await promptInstallInPlace();
-  if (!prompted) goToHubImpl?.();
+/**
+ * "설치하기" 클릭 — **이 화면을 벗어나지 않는다**(PO 2026-09-02: "설치하기를 눌렀을 때 홈화면으로
+ * 가지 말고 설치로 진행"). 잡아 둔 프롬프트가 있으면 바로 띄우고, 없으면(아직 크롬이
+ * `beforeinstallprompt` 를 안 줬거나 iOS) 같은 자리에 안내 배너로 대체한다 — 허브로 이동하지 않는다.
+ */
+async function handleInstallAction(): Promise<'prompted' | 'guide'> {
+  if (await promptInstallInPlace()) return 'prompted';
+  if (isIOS()) {
+    showBanner({
+      title: '홈 화면에 추가하기',
+      message: '하단 공유 버튼(⬆️)을 누르고 "홈 화면에 추가"를 선택해주세요.',
+    });
+    return 'guide';
+  }
+  showBanner({
+    title: '잠시 후 다시 시도해주세요',
+    message: '설치 준비 중이에요. 몇 초 후 다시 눌러보거나, 브라우저 메뉴(⋮)에서 "홈 화면에 추가"를 선택해주세요.',
+  });
+  return 'guide';
 }
 
 /** 설치 안 됨 안내(닫기 있는 배너) — 이미 설치가 관측된 기기면 더는 권유하지 않는다. */
@@ -354,11 +363,11 @@ function showInstallNag(): void {
   }
 
   if (isIOS()) {
-    // iOS 는 애플이 프로그램적 설치를 막아놔 이 화면에서 직접은 안 된다 — 허브에서 수동 안내를 받는다.
+    // iOS 는 애플이 프로그램적 설치를 막아놔 이 화면에서 직접은 안 된다 — 같은 화면에서 수동 안내만.
     showBanner({
       title: 'PlayPOP 앱으로 설치하고 더 빠르게 즐기세요',
-      message: '허브로 이동해 공유 버튼(⬆️) → "홈 화면에 추가"를 선택해주세요.',
-      actionLabel: '설치하러 가기',
+      message: '하단 공유 버튼(⬆️) → "홈 화면에 추가"를 선택해주세요.',
+      actionLabel: '방법 보기',
       onAction: () => { void handleInstallAction(); },
     });
   }
@@ -375,15 +384,10 @@ export function canOfferInstall(): boolean {
 }
 
 /**
- * 설정 메뉴 등의 "홈 화면에 추가" 버튼 탭 핸들러에서 호출 — 이 화면에서 바로 설치 프롬프트를
- * 띄울 수 있으면 그걸로(페이지 이동 없음), 없으면(iOS 등) `mountAppLaunchGuard({ goToHub })` 로
- * 주입된 콜백을 따라 허브로 이동시킨다.
+ * 설정 메뉴 등의 "홈 화면에 추가" 버튼 탭 핸들러에서 호출 — **이 화면을 벗어나지 않는다**(PO
+ * 2026-09-02: "설치하기를 눌렀을 때 홈화면으로 가지 말고 설치로 진행"). 잡아 둔 프롬프트가 있으면
+ * 바로 띄우고, 없으면 같은 자리에 안내 배너로 대체한다.
  */
-export async function triggerInstallFlow(): Promise<'prompted' | 'redirected' | 'unavailable'> {
-  if (await promptInstallInPlace()) return 'prompted';
-  if (goToHubImpl) {
-    goToHubImpl();
-    return 'redirected';
-  }
-  return 'unavailable';
+export async function triggerInstallFlow(): Promise<'prompted' | 'guide'> {
+  return handleInstallAction();
 }
