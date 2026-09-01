@@ -2,8 +2,14 @@
  * hubButton — 모든 게임 공통 상단 메뉴바(코어 셸이 1회 설치).
  *
  * 제공된 디자인(최상단 `···` 메뉴 + `✕` 닫기) 기준. 게임 캔버스 위 DOM 오버레이(씬 독립) →
- *   **모든 화면(홈/플레이/종료)** 에서 항상 보인다. **화면 최상단 우측**에 배치(게임 UI 와 겹쳐도 우선 노출 —
- *   앞으로 각 게임이 상단 패딩을 확보할 예정).
+ *   **모든 화면(홈/플레이/종료)** 에서 항상 보인다.
+ *
+ * 배치 기준 = **토스 미니앱 헤더**(사용자 지시, 2026-08-13):
+ *   · 화면 **우측 상단**에 `···` → `✕` 순서로 나란히(닫기가 가장 오른쪽).
+ *   · 여백은 **캔버스(게임 화면) 기준** 우측 20px / 상단 세이프에어리어 + 12px.
+ *     ⚠️ 창 기준(`right:14px`)으로 두면 데스크톱 레터박스에서 캔버스 밖(창 끝)에 붙어
+ *       여백이 없어 보인다(사용자 리포트) — 캔버스 사각형을 재서 그 안쪽에 놓는다.
+ *   · 탭 타깃 34px 원형(기존 26px의 1.3배), 아이콘 20/17px, 반투명 회색 위 흰 아이콘.
  *
  *   · ✕ (닫기)   → 메인(허브) 화면으로 복귀. 팝업이면 창 닫기, 같은 오리진(운영 형제 배포)이면 ../hub/,
  *                  다른 오리진(dev: 게임 각자 포트)이면 ?portal= 의 허브 origin 으로.
@@ -13,6 +19,7 @@
  */
 
 import { parseHubOrigin } from '../portal/protocol.js';
+import { canOfferInstall, triggerInstallFlow } from './appLaunch.js';
 
 export interface HubButtonOptions {
   /** 같은 오리진(운영 형제 배포)일 때 허브 경로. 기본 '../hub/'. */
@@ -81,10 +88,10 @@ function shareApp(): void {
 }
 
 const DOTS_SVG =
-  '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+  '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
   '<circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
 const X_SVG =
-  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">' +
+  '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">' +
   '<path d="M6 6l12 12M18 6 6 18"/></svg>';
 
 /** 상단 메뉴바(···  ✕) 1회 설치(중복 무시). */
@@ -98,19 +105,21 @@ export function installHubButton(opts: HubButtonOptions = {}): void {
 
     const wrap = document.createElement('div');
     wrap.id = 'hub-topbar';
-    // 화면 최상단 가운데 배치(사용자 지시). 겹침 허용 — 앞으로 각 게임이 상단 패딩 확보 예정.
+    // 우측 상단 배치(토스 기준). 실제 좌표는 place() 가 **캔버스 사각형 기준**으로 잡는다.
     wrap.style.cssText =
-      'position:fixed;top:calc(env(safe-area-inset-top,0px) + 1px);left:50%;transform:translateX(-50%);' +
-      "z-index:2147483000;display:flex;align-items:flex-start;gap:7px;font-family:system-ui,-apple-system,'Segoe UI',sans-serif";
+      // 위 여백 12 → 0(사용자 지시 2026-08-24: "닫기 버튼 위쪽 여백을 아주 없애고 붙여라") — 노치 인셋만 남긴다.
+      'position:fixed;top:env(safe-area-inset-top,0px);right:20px;' +
+      "z-index:2147483000;display:flex;align-items:center;gap:9px;font-family:system-ui,-apple-system,'Segoe UI',sans-serif";
 
     const circle = (svg: string, label: string): HTMLButtonElement => {
       const b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('aria-label', label);
+      // 크기 1.3배(26 → 34px) + 불투명도 상향(아이콘 0.72 → 0.9 / 배경 0.3 → 0.44) — 사용자 지시.
       b.style.cssText =
-        'width:26px;height:26px;border-radius:50%;border:0;padding:0;cursor:pointer;' +
-        'display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.72);background:rgba(70,74,84,0.3);' +
-        'box-shadow:0 3px 10px rgba(0,0,0,0.14);-webkit-tap-highlight-color:transparent';
+        'width:34px;height:34px;border-radius:50%;border:0;padding:0;cursor:pointer;' +
+        'display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.9);background:rgba(70,74,84,0.44);' +
+        'box-shadow:0 3px 10px rgba(0,0,0,0.18);-webkit-tap-highlight-color:transparent';
       b.innerHTML = svg;
       return b;
     };
@@ -120,9 +129,10 @@ export function installHubButton(opts: HubButtonOptions = {}): void {
 
     // 드롭다운 메뉴(공유/문의/내 게임 관리).
     const menu = document.createElement('div');
-    // ··· 버튼(좌측) 아래에 드롭다운. 가운데 배치라 좌측 정렬로 아래로 펼친다.
+    // 우측 상단 바 아래로 펼친다 — **바의 오른쪽 끝에 맞춰 왼쪽으로** 열려야 화면을 벗어나지 않는다.
+    //   ⚠️ 좌측 정렬(left:0)이면 바가 우측에 있을 때 메뉴가 캔버스 밖으로 삐져나온다(사용자 리포트).
     menu.style.cssText =
-      'position:absolute;top:32px;left:0;min-width:150px;background:#fff;border-radius:14px;' +
+      'position:absolute;top:42px;right:0;min-width:150px;background:#fff;border-radius:14px;' +
       'box-shadow:0 12px 30px rgba(0,0,0,0.28);overflow:hidden;display:none';
 
     let open = false;
@@ -133,9 +143,31 @@ export function installHubButton(opts: HubButtonOptions = {}): void {
     const toggle = (): void => {
       open = !open;
       menu.style.display = open ? 'block' : 'none';
+      if (open) clampMenu();
     };
 
+    /** 메뉴가 캔버스(게임 화면) 안쪽에 머물도록 좌우를 보정한다. */
+    const clampMenu = (): void => {
+      const canvas = document.querySelector('canvas');
+      if (!canvas) return;
+      const c = canvas.getBoundingClientRect();
+      menu.style.right = '0px';
+      menu.style.left = 'auto';
+      const m = menu.getBoundingClientRect();
+      const inset = 8;
+      if (m.right > c.right - inset) menu.style.right = `${Math.round(m.right - (c.right - inset))}px`;
+      const m2 = menu.getBoundingClientRect();
+      if (m2.left < c.left + inset) {
+        menu.style.right = 'auto';
+        menu.style.left = `${Math.round(c.left + inset - wrap.getBoundingClientRect().left)}px`;
+      }
+    };
+
+    // "홈 화면에 추가" — 목록 맨 위(사용자 지시 2026-09-02). 이미 설치된 채로(standalone) 실행
+    //   중이면 무의미하니 canOfferInstall() 로 뺀다. `···` 를 여는 것 자체가 사용자 제스처라
+    //   triggerInstallFlow 내부의 안드로이드 정식 설치창 호출도 그대로 통과한다.
     const items: Array<[string, () => void]> = [
+      ...(canOfferInstall() ? ([['📲 홈 화면에 추가', () => { hide(); void triggerInstallFlow(); }]] as Array<[string, () => void]>) : []),
       ['공유하기', () => { hide(); shareApp(); }],
       ['문의하기', () => { hide(); miniToast('문의는 준비 중이에요'); }],
       ['내 게임 관리', () => { hide(); goHub(hubPath); }],
@@ -165,6 +197,28 @@ export function installHubButton(opts: HubButtonOptions = {}): void {
     wrap.appendChild(closeBtn);
     wrap.appendChild(menu);
     document.body.appendChild(wrap);
+
+    /**
+     * 캔버스 기준 배치 — 게임 화면(캔버스)의 우측 상단 안쪽에 여백을 두고 놓는다.
+     * 캔버스를 못 찾으면 창 기준 CSS(right/top)를 그대로 쓴다.
+     */
+    const place = (): void => {
+      const canvas = document.querySelector('canvas');
+      if (!canvas) return;
+      const r = canvas.getBoundingClientRect();
+      if (r.width < 40 || r.height < 40) return;
+      const inset = 20;
+      const safeTop = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
+      wrap.style.right = 'auto';
+      wrap.style.left = `${Math.round(r.right - wrap.offsetWidth - inset)}px`;
+      wrap.style.top = `${Math.round(r.top + safeTop)}px`; // 위 여백 0 — 화면(캔버스) 상단에 붙인다.
+    };
+    place();
+    // 캔버스 크기는 스케일 매니저가 리사이즈·회전 때 바꾼다 → 그때마다 다시 잡는다.
+    window.addEventListener('resize', place);
+    window.addEventListener('orientationchange', place);
+    setTimeout(place, 0);
+    setTimeout(place, 400); // 첫 레이아웃 직후 캔버스가 커지는 경우 보정
   };
 
   if (document.body) mount();

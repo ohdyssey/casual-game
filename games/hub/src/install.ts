@@ -10,7 +10,14 @@
  *   · Android/데스크톱 Chromium → `beforeinstallprompt` 가로채 저장 → 클릭 시 네이티브 설치 프롬프트.
  *
  * 스타일은 index.html 의 전역 모달 클래스(.modal-layer/.modal-panel …)를 재사용한다.
+ *
+ * ⚠️ 하단 배너(`showInstallBanner`)는 **설치 전까지 매 방문 다시 뜬다**(PO 2026-09-01: "설치되어
+ *   있지 않을 경우 계속 이 배너를 배치하라"). 닫기는 이번 노출만 없앨 뿐 localStorage 로 기억하지
+ *   않는다 — 유일하게 사라지는 조건은 실제 설치 관측(`markPlayPopInstalled`)이다. 이 기록은
+ *   게임 쪽(`@casual/core` appLaunch.ts)과 **같은 키를 공유**해, 게임에서 먼저 설치를 관측했으면
+ *   허브도 다시 권유하지 않는다(반대도 마찬가지).
  */
+import { markPlayPopInstalled, isPlayPopInstalled } from '@casual/core/systems/appLaunch';
 
 /** beforeinstallprompt 이벤트(표준 DOM 타입에 없어 직접 정의). */
 interface BeforeInstallPromptEvent extends Event {
@@ -78,9 +85,6 @@ const IOS_STEPS_HTML =
   `<li><span class="n">3</span><span>오른쪽 위 <b>‘추가’</b> 를 누르면 설치 완료.</span></li>` +
   `</ol>`;
 
-/** 자동 안내 노출 기록 키(1회만). */
-const A2HS_KEY = 'playpop_a2hs_v1';
-
 /** 전역 모달 오버레이 생성(모달 클래스 재사용). body 반환. */
 function overlay(title: string): HTMLElement {
   document.querySelectorAll('.modal-layer').forEach((el) => el.remove());
@@ -113,45 +117,35 @@ function showIosGuide(): void {
 }
 
 /**
- * iOS Safari 첫 방문 자동 안내 — 하단 슬라이드업 배너(비차단, 1회).
- *   iOS 는 설치를 코드로 트리거할 수 없어(공유→홈화면추가 수동), 사용자가 버튼을 찾지 않아도 되게
- *   방법을 자동으로 안내한다. 닫거나 1회 노출하면 localStorage 로 기억해 재노출하지 않는다.
+ * 하단 슬라이드업 설치 배너 — **미설치인 한 매 방문 다시 뜬다**(localStorage 로 억제하지 않음).
+ *   닫기는 이번 노출만 지운다. CTA 는 상단 설치 버튼(`btn`)을 그대로 클릭시켜 플랫폼별 분기
+ *   (인앱 안내 / 네이티브 설치 프롬프트 / iOS 안내)를 중복 구현하지 않고 재사용한다.
  */
-function autoShowIosBanner(): void {
-  // 이미 설치됐거나(이론상 여기 안 옴) 이전에 봤으면 표시 안 함.
-  try {
-    if (localStorage.getItem(A2HS_KEY)) return;
-  } catch {
-    /* 프라이빗 모드 등 — 그냥 진행 */
-  }
+function showInstallBanner(btn: HTMLElement): void {
+  if (isPlayPopInstalled() || isStandalone()) return;
   if (document.querySelector('.a2hs')) return;
 
   const iphone = /iphone|ipod/i.test(navigator.userAgent); // 아이폰만 하단 공유버튼 방향 화살표
   const el = document.createElement('div');
   el.className = 'a2hs';
   el.setAttribute('role', 'dialog');
-  el.setAttribute('aria-label', '홈 화면에 추가');
+  el.setAttribute('aria-label', 'PlayPOP 홈 화면에 추가');
   el.innerHTML =
-    `<div class="a2hs-head"><h3>홈 화면에 추가</h3><button class="a2hs-close" type="button" aria-label="닫기">✕</button></div>` +
-    `<p class="sub">Safari 공유 버튼을 눌러 홈 화면에 추가하면 전체화면 앱으로 실행돼요.</p>` +
-    IOS_STEPS_HTML +
+    `<div class="a2hs-head"><h3>📲 PlayPOP 홈 화면에 추가</h3><button class="a2hs-close" type="button" aria-label="닫기">✕</button></div>` +
+    `<p class="sub">홈 화면에 추가하면 브라우저 없이 더 빠르고 쾌적하게 즐길 수 있어요.</p>` +
+    `<button class="modal-cta" type="button">홈 화면에 설치</button>` +
     (iphone ? `<div class="a2hs-arrow" aria-hidden="true">${DOWN_ARROW_SVG}</div>` : '');
 
-  const remember = (): void => {
-    try {
-      localStorage.setItem(A2HS_KEY, '1');
-    } catch {
-      /* 무시 */
-    }
-  };
   const dismiss = (): void => {
     el.classList.remove('show');
     window.setTimeout(() => el.remove(), 400);
   };
   el.querySelector('.a2hs-close')!.addEventListener('click', dismiss);
+  el.querySelector('.modal-cta')!.addEventListener('click', () => {
+    dismiss();
+    btn.click(); // 상단 설치 버튼과 동일한 플로우로 위임.
+  });
   document.body.appendChild(el);
-  // 노출 즉시 기록(정확히 1회) + 슬라이드업.
-  remember();
   requestAnimationFrame(() => el.classList.add('show'));
 }
 
@@ -228,6 +222,7 @@ export function mountInstall(btn: HTMLElement, toast: (msg: string) => void): vo
   // 이미 설치돼 standalone 으로 실행 중이면 버튼 자체가 필요 없다.
   if (isStandalone()) {
     btn.hidden = true;
+    markPlayPopInstalled();
     return;
   }
 
@@ -238,11 +233,8 @@ export function mountInstall(btn: HTMLElement, toast: (msg: string) => void): vo
   // 인앱 브라우저·iOS 는 설치 이벤트가 없으므로 즉시 버튼 노출(클릭 시 각자 안내).
   if (app || ios) btn.hidden = false;
 
-  // 자동 안내: iOS Safari(인앱 아님·미설치)에서 첫 방문 1회 하단 배너로 설치법을 띄운다.
-  //   (초기 렌더와 겹치지 않게 살짝 지연.)
-  if (ios && !app && isIosSafari()) {
-    window.setTimeout(autoShowIosBanner, 1200);
-  }
+  // 설치 전까지 매 방문 하단 배너로 안내(초기 렌더와 겹치지 않게 살짝 지연).
+  window.setTimeout(() => showInstallBanner(btn), 1200);
 
   // Android/Chromium: 설치 가능 신호를 가로채 저장 + 버튼 노출.
   window.addEventListener('beforeinstallprompt', (e: Event) => {
@@ -251,10 +243,12 @@ export function mountInstall(btn: HTMLElement, toast: (msg: string) => void): vo
     btn.hidden = false;
   });
 
-  // 설치 완료 → 버튼 숨김 + 안내.
+  // 설치 완료 → 버튼 숨김 + 안내 + 배너 제거 + 플랫폼 공용 플래그 기록(게임 쪽과 공유).
   window.addEventListener('appinstalled', () => {
     deferred = null;
     btn.hidden = true;
+    markPlayPopInstalled();
+    document.querySelector('.a2hs')?.remove();
     toast('앱이 설치되었어요 🎉');
   });
 
