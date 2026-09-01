@@ -188,7 +188,15 @@ export function installHubButton(opts: HubButtonOptions = {}): void {
         'padding:15px 18px;font-size:16px;color:#333;font-family:inherit' +
         (i > 0 ? ';border-top:1px solid #eef0f3' : '');
       it.addEventListener('click', fn);
+      if (label === '📲 홈 화면에 추가') it.dataset.installItem = '1';
       menu.appendChild(it);
+    });
+    // 메뉴는 mount 시 한 번만 만들어지므로 canOfferInstall() 도 그 시점 값으로 고정된다 — 이 세션
+    //   안에서 설치가 실제로 완료되면(appinstalled) 다음 새로고침을 기다리지 않고 바로 지운다.
+    window.addEventListener('appinstalled', () => {
+      menu.querySelector('[data-install-item]')?.remove();
+      const firstChild = menu.firstElementChild as HTMLElement | null;
+      if (firstChild) firstChild.style.borderTop = 'none'; // 첫 항목이 된 자리의 남는 구분선 제거.
     });
 
     menuBtn.addEventListener('click', (e) => {
