@@ -105,7 +105,11 @@ let goToHubImpl: (() => void) | null = null;
 
 // ─────────────────────────── 설치 여부 최선 추정(기억, 플랫폼 공통) ───────────────────────────
 
-const LS_PLAYPOP_INSTALLED = 'casual:pwaInstalledSeen';
+// ⚠️ **키 버전을 올렸다**(v2, 2026-09-01) — 옛 키(`casual:pwaInstalledSeen`)는 오늘 고친 버그
+//   (Fullscreen API 가 display-mode:fullscreen 을 오염시켜 첫 탭만으로 "설치됨"으로 잘못 기록되던 것)
+//   때문에 실제로 설치 안 한 기기에도 이미 '1'이 박혀 있을 수 있다 — 그 값을 계속 믿으면 배너·메뉴가
+//   영구히 사라진 채로 남는다(실측: 옛 버그로 오염된 기기에서 재현). 새 키로 갈아타 전부 초기화한다.
+const LS_PLAYPOP_INSTALLED = 'casual:pwaInstalledSeen_v2';
 
 /** PlayPOP(허브)이 설치됐다고 최선 추정으로 기록 — standalone 관측 또는 허브의 appinstalled 에서 호출. */
 export function markPlayPopInstalled(): void {
