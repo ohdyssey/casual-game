@@ -135,32 +135,35 @@ function retargetManifestToHub(hubPath: string): void {
 /** 허브로 이동시키는 콜백 — `mountAppLaunchGuard({ goToHub })` 로 주입(게임마다 hubPath 가 다를 수 있음). iOS 등 직접 설치가 안 되는 경우의 폴백. */
 let goToHubImpl: (() => void) | null = null;
 
-// ─────────────────────────── 설치 여부 최선 추정(기억, 플랫폼 공통) ───────────────────────────
+// ─────────────────────────── 설치 여부 — 세션 한정, 저장하지 않는다 ───────────────────────────
+//
+// ⚠️ **2026-09-02 3차 수정 — localStorage 영구 기록 방식을 완전히 폐기한다.** v1→v2→v3 로 키를
+//   두 번이나 올렸지만(Fullscreen API 오탐, getInstalledRelatedApps 오탐) 매번 "한 번 잘못 저장되면
+//   영구히 배너가 안 뜬다"는 같은 유형의 사고가 재발했다. 근본 원인은 방식 자체다 — 웹은 "이 PWA가
+//   나중에 삭제됐는지" 알려주는 이벤트가 없어서, 영구 저장은 태생적으로 "설치 후 삭제"를 구분 못
+//   한다(PO 2026-09-02: "설치했다 지웠을 경우 배너가 다시 나타나지 않네요").
+//
+//   그래서 저장을 아예 안 한다 — **매번 실시간으로 확인 가능한 신호 하나만** 믿는다:
+//   `isRunningStandalone()`(display-mode: standalone — 지금 이 화면이 실제로 설치된 앱으로
+//   실행 중인가). 저장이 없으니 "잘못된 값이 굳어버리는" 사고 자체가 구조적으로 불가능해진다.
+//   대가는 있다 — 이미 설치한 사용자가 아이콘이 아니라 일반 브라우저 탭(공유 링크 등)으로 들어오면
+//   이미 설치했음에도 배너가 다시 보일 수 있다. 웹이 "이 PWA 설치 여부"를 조회하게 안 해주는 한
+//   피할 수 없는 트레이드오프이고, PO 가 "삭제 후 재노출 안 됨"을 더 큰 문제로 지목해 이 쪽을 택했다.
+//
+//   `markPlayPopInstalled()`는 이제 저장이 아니라 **이번 세션(이 탭)에서만** 유효한 메모리 플래그다 —
+//   방금 `appinstalled` 를 관측했으면 이 페이지 인스턴스 안에서는 재확인 없이 바로 UI 를 숨긴다
+//   (실제 display-mode 전환은 새 창/탭에서 일어나 이 탭 자체는 그대로 브라우저 모드로 남기 때문).
 
-// ⚠️ **키 버전을 두 번 올렸다** — v1→v2(2026-09-01, Fullscreen API 가 display-mode:fullscreen 을
-//   오염시켜 첫 탭만으로 "설치됨"으로 잘못 기록되던 버그), v2→v3(2026-09-02, `getInstalledRelatedApps()`
-//   최선 추정이 오탐으로 마킹하던 버그 — 둘 다 아래 markPlayPopInstalled/isPlayPopInstalled 참고).
-//   실제로 설치 안 한 기기에도 이미 '1'이 박혀 있으면 배너·메뉴가 영구히 사라진 채로 남는다
-//   (실측: 상단 설치 아이콘은 뜨는데 하단 배너만 안 뜨는 형태로 재현 — Chrome 은 beforeinstallprompt
-//   를 줬으니 "설치 안 됨"이 맞는데 우리 플래그만 어긋난 상태였다). 새 키로 갈아타 전부 초기화한다.
-const LS_PLAYPOP_INSTALLED = 'casual:pwaInstalledSeen_v3';
+let installedThisSession = false;
 
-/** PlayPOP(허브)이 설치됐다고 최선 추정으로 기록 — standalone 관측 또는 허브의 appinstalled 에서 호출. */
+/** 방금 설치가 관측됐음을 **이번 세션에만** 기록(저장 안 함) — appinstalled 이벤트에서 호출. */
 export function markPlayPopInstalled(): void {
-  try {
-    localStorage.setItem(LS_PLAYPOP_INSTALLED, '1');
-  } catch {
-    /* 저장 실패(프라이빗 모드 등) — 이번 세션만 반복 안내되는 정도로 넘어간다 */
-  }
+  installedThisSession = true;
 }
 
-/** 이 기기에서 PlayPOP 설치가 관측된 적 있는가(최선 추정 — 보장 아님). */
+/** 지금 설치된 것으로 볼 수 있는가 — 실시간 standalone 관측 + 이번 세션의 설치 완료 신호. */
 export function isPlayPopInstalled(): boolean {
-  try {
-    return localStorage.getItem(LS_PLAYPOP_INSTALLED) === '1';
-  } catch {
-    return false;
-  }
+  return installedThisSession || isRunningStandalone();
 }
 
 // ─────────────────────────── 배너(DOM, Phaser 무관) ───────────────────────────
@@ -368,7 +371,7 @@ function showInstallNag(): void {
  * Phaser 무관이라 각 게임이 자기 UI(팝업 버튼 목록 등)에서 이 값만 보고 항목 표시 여부를 정한다.
  */
 export function canOfferInstall(): boolean {
-  return typeof window !== 'undefined' && !isRunningStandalone() && !isPlayPopInstalled();
+  return typeof window !== 'undefined' && !isPlayPopInstalled();
 }
 
 /**
