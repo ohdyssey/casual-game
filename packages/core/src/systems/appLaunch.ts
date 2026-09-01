@@ -73,17 +73,6 @@ function escapeToChromeAndroid(): void {
   location.href = `intent://${stripped}#Intent;scheme=https;package=com.android.chrome;end;`;
 }
 
-/** `getInstalledRelatedApps` 기반 최선 추정(신뢰도 낮음, 크롬 버전·매니페스트 설정에 따라 다름). */
-async function isInstalledAndroidBestEffort(): Promise<boolean> {
-  try {
-    const nav = navigator as unknown as { getInstalledRelatedApps?: () => Promise<unknown[]> };
-    if (!nav.getInstalledRelatedApps) return false;
-    const apps = await nav.getInstalledRelatedApps();
-    return apps.length > 0;
-  } catch {
-    return false;
-  }
-}
 
 // ─────────────────────────── 설치 대상 = 게임이 아니라 허브(PlayPOP) ───────────────────────────
 //
@@ -148,11 +137,13 @@ let goToHubImpl: (() => void) | null = null;
 
 // ─────────────────────────── 설치 여부 최선 추정(기억, 플랫폼 공통) ───────────────────────────
 
-// ⚠️ **키 버전을 올렸다**(v2, 2026-09-01) — 옛 키(`casual:pwaInstalledSeen`)는 오늘 고친 버그
-//   (Fullscreen API 가 display-mode:fullscreen 을 오염시켜 첫 탭만으로 "설치됨"으로 잘못 기록되던 것)
-//   때문에 실제로 설치 안 한 기기에도 이미 '1'이 박혀 있을 수 있다 — 그 값을 계속 믿으면 배너·메뉴가
-//   영구히 사라진 채로 남는다(실측: 옛 버그로 오염된 기기에서 재현). 새 키로 갈아타 전부 초기화한다.
-const LS_PLAYPOP_INSTALLED = 'casual:pwaInstalledSeen_v2';
+// ⚠️ **키 버전을 두 번 올렸다** — v1→v2(2026-09-01, Fullscreen API 가 display-mode:fullscreen 을
+//   오염시켜 첫 탭만으로 "설치됨"으로 잘못 기록되던 버그), v2→v3(2026-09-02, `getInstalledRelatedApps()`
+//   최선 추정이 오탐으로 마킹하던 버그 — 둘 다 아래 markPlayPopInstalled/isPlayPopInstalled 참고).
+//   실제로 설치 안 한 기기에도 이미 '1'이 박혀 있으면 배너·메뉴가 영구히 사라진 채로 남는다
+//   (실측: 상단 설치 아이콘은 뜨는데 하단 배너만 안 뜨는 형태로 재현 — Chrome 은 beforeinstallprompt
+//   를 줬으니 "설치 안 됨"이 맞는데 우리 플래그만 어긋난 상태였다). 새 키로 갈아타 전부 초기화한다.
+const LS_PLAYPOP_INSTALLED = 'casual:pwaInstalledSeen_v3';
 
 /** PlayPOP(허브)이 설치됐다고 최선 추정으로 기록 — standalone 관측 또는 허브의 appinstalled 에서 호출. */
 export function markPlayPopInstalled(): void {
@@ -341,19 +332,20 @@ function showInstallNag(): void {
   if (isPlayPopInstalled()) return;
 
   if (isAndroid()) {
-    void isInstalledAndroidBestEffort().then((installed) => {
-      if (installed) {
-        markPlayPopInstalled();
-        return;
-      }
-      // 이 화면 자체가 PlayPOP 매니페스트를 가리키도록 바꿔뒀으므로(retargetManifestToHub),
-      //   `beforeinstallprompt` 를 잡았다면 페이지 이동 없이 여기서 바로 설치된다.
-      showBanner({
-        title: 'PlayPOP 앱으로 설치하고 더 빠르게 즐기세요',
-        message: '홈 화면에 추가하면 브라우저 없이 바로 실행돼요.',
-        actionLabel: '설치하기',
-        onAction: () => { void handleInstallAction(); },
-      });
+    // 이 화면 자체가 PlayPOP 매니페스트를 가리키도록 바꿔뒀으므로(retargetManifestToHub),
+    //   `beforeinstallprompt` 를 잡았다면 페이지 이동 없이 여기서 바로 설치된다.
+    // ⚠️ 예전엔 여기서 `getInstalledRelatedApps()` 로 "이미 설치됨"을 먼저 추정해 걸렀는데
+    //   (`isInstalledAndroidBestEffort`), 이 API 는 신뢰도가 낮아(자체 문서에도 "최선 추정 —
+    //   보장 아님"이라 적혀 있었다) 실제로는 설치 안 된 기기에서도 오탐으로 `markPlayPopInstalled()`
+    //   가 불려 배너가 영구히 사라지는 사고가 두 번째로 재현됐다(2026-09-02, 상단 아이콘은 뜨는데
+    //   배너만 안 뜸 — Chrome 자신은 beforeinstallprompt 를 줬으니 "설치 안 됨"이 맞는데 우리
+    //   플래그만 어긋난 상태). 신뢰 못 할 신호로 미리 거르지 말고, 확실한 신호(appinstalled 이벤트·
+    //   standalone 실행)만 믿는다 — 완전히 제거.
+    showBanner({
+      title: 'PlayPOP 앱으로 설치하고 더 빠르게 즐기세요',
+      message: '홈 화면에 추가하면 브라우저 없이 바로 실행돼요.',
+      actionLabel: '설치하기',
+      onAction: () => { void handleInstallAction(); },
     });
     return;
   }
