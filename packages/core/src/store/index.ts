@@ -15,6 +15,7 @@ import { createNoopStore } from './noop.js';
 export * from './contract.js';
 export { createNoopStore, createMemoryStoragePort } from './noop.js';
 export { createLocalStoragePort } from './localStorage.js';
+export { createAdSenseStore, type CreateAdSenseStoreOptions } from './adsense.js';
 export {
   hydrateStorage,
   isStorageHydrated,

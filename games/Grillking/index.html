@@ -2,20 +2,36 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover, orientation=portrait" />
+    <!-- ⚠️ **비표준 토큰(orientation=portrait)을 넣지 않는다**(2026-08-21 제거). WebKit 뷰포트 파서가
+         모르는 키를 만나면 그 뒤 인자 해석이 흔들려 **`viewport-fit=cover` 가 무효화될 수 있다** —
+         실측: PWA 에서 창이 430x774(기기 932)로 잡히고 `env(safe-area-inset-*)` 가 전부 0으로
+         보고돼, 노치·홈인디케이터 자리가 검게 남았다. 회전 제어는 아래 미디어쿼리로 한다. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#E8542A" />
     <title>꼬치왕</title>
+    <!--
+      Google AdSense H5 게임 광고 — Ad Placement API 보일러플레이트(2026-09-02, 틱택토와 동일).
+      계정(pub-6271220374352684)은 심사 대기 중. 실제로 이 SDK 를 호출하는 건 `adsense` 타겟
+      (`npm run dev:adsense`)의 어댑터뿐 — 기본(web) 타겟은 태그만 실리고 안 쓴다.
+      ⚠️⚠️ `data-adbreak-test="on"` — 실서비스로 옮기기 전에 반드시 지울 것. Google 자체 테스트
+      모드(서버 요청 없이 목업 광고)라, 남아 있으면 승인 후에도 영원히 실광고가 안 뜬다.
+    -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js" data-ad-client="ca-pub-6271220374352684" data-adbreak-test="on" crossorigin="anonymous"></script>
+    <script>
+      window.adsbygoogle = window.adsbygoogle || [];
+      function adBreak(o) { adsbygoogle.push(o); }
+      function adConfig(o) { adsbygoogle.push(o); }
+    </script>
     <style>
-      /* Jua/Do Hyeon — OFL 한글+라틴 둥근 게임체. P0 에선 CDN 로드(P1 셀프호스팅 전환). */
-      @import url('https://fonts.googleapis.com/css2?family=Jua&family=Do+Hyeon&display=block');
+      /* Baloo 2(라틴)+Pretendard(한글)+M PLUS(일본어) — OFL 본문 글꼴 스택. P0 에선 CDN 로드(P1 셀프호스팅 전환). */
       html, body {
         margin: 0; padding: 0;
         background: #000;
         color: #FFE3B3;
-        font-family: 'Jua', system-ui, sans-serif;
+        font-family: "Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif;
         overflow: hidden;
         width: 100vw; height: 100dvh;
         touch-action: none; user-select: none;
@@ -24,15 +40,34 @@
       }
       #game-container { background: #000;
         position: fixed; inset: 0;
-        width: 100vw; height: 100dvh;
+      /* ⚠️ **크기를 직접 지정하지 않는다**(2026-08-21). `position:fixed; inset:0` 만으로 브라우저가
+         실제 표시 영역에 맞춰 준다. 예전엔 `width:100vw; height:100dvh` 를 함께 줬는데, 안드로이드
+         주소창·시스템바 때문에 dvh 가 실제 보이는 높이와 어긋나면 Phaser 가 부모를 실제보다 크게
+         재서 **화면이 아래로 밀리고 하단이 잘렸다**(실측: 갤럭시 노트8·플립5). */
         overflow: hidden;
-        padding: 0 env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
+        /* ⚠️ **세이프에어리어 패딩을 주지 않는다**(2026-08-21). 캔버스는 화면 전체를 덮어야 하고
+           (배경이 노치 밑까지 깔린다), 인셋 회피는 **게임 좌표에서** 가장자리 UI 를 밀어내는 방식으로
+           한다(코어 safeZone.ts). 컨테이너에 패딩을 주면 Phaser 가 부모를 보더박스로 재는 것과
+           캔버스가 콘텐츠박스에 놓이는 것이 어긋나 하단에 빈 띠가 생길 수 있다. */
         box-sizing: border-box;
       }
       #game-container canvas { display: block; }
       .loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); opacity: 0.7; }
       .rotate-hint { display: none; }
-      @media (orientation: landscape) and (max-width: 1000px) {
+      /* 회전 안내 — 판단 축은 **가로폭이 아니라 세로높이**다(펌프러시 2026-08-18 수정, 전 게임 이식).
+         세로 저작이므로 가로 화면에서는 언제나 **높이가 병목**이다(렌더 폭 = 높이 × 저작비의 역수).
+         그래서 "얼마나 높은가" 하나로 놀 수 있는지가 갈린다.
+
+         ⚠️ 구 조건 `max-width: 1000px` 은 **양방향으로 틀렸다**:
+           · 폴더블 펼침 가로(837×697)·소형 태블릿 가로(1024×768) → 높이가 넉넉해 게임이 멀쩡히
+             그려지는데도 안내가 떴다. 이런 기기는 화면비가 정사각에 가까워 **돌려도 세로가 안 나온다**
+             — 안내가 막다른 길이 된다.
+           · 21:9 가로(1050×450) → 폭이 1000 을 넘어 안내가 안 떴는데, 실제로는 450px 라 비좁다.
+         480px 를 경계로 두면 일반 폰 가로(316~450)는 안내, 폴드·태블릿(697~768)은 게임으로 갈린다.
+
+         ⚠️ `pointer: coarse` 는 **터치 기기 한정** 조건이다. 빼면 데스크톱에서 창을 좁히는
+         순간 게임이 사라지고 "세로로 돌려주세요"가 뜬다(스토어 심사 반려 사유). */
+      @media (orientation: landscape) and (max-height: 480px) and (pointer: coarse) {
         #game-container { display: none; }
         .rotate-hint {
           display: flex; position: fixed; inset: 0;
@@ -41,6 +76,16 @@
         }
       }
     </style>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <!-- 본문 글꼴(전 게임 공통): 라틴=Baloo 2 · 한글=Pretendard · 일본어=M PLUS Rounded 1c.
+         캔버스가 글리프 단위로 폴백하므로 스택 한 줄이면 언어가 알아서 갈린다.
+         ⚠️ @import 가 아니라 <link> 로 건다 — @import 는 등록이 늦어 캔버스가 시스템 글꼴로 굳는다. -->
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400..800&family=M+PLUS+Rounded+1c:wght@400;700;900&display=block" />
+    <link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" />
   </head>
   <body>
     <div id="game-container"><div class="loading">꼬치왕 로딩 중...</div></div>

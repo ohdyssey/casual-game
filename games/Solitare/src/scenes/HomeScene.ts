@@ -47,6 +47,7 @@ import { openLeaguePanel } from '../ui/leaguePanel.js';
 import { ensure as ensureAssetGroup, prefetch as prefetchGroup } from '../ui/assetBudget.js';
 import { BONUS_PLAYS_PER_DAY, BONUS_PAID_FEE, BONUS_DRAW_COUNT, bonusEntryFee, bonusPlaysLeft } from '../logic/bonusGame.js';
 import { startBonusPlay } from '../logic/bonusRuntime.js';
+import { offerAdFreePlay } from '../ui/adOffer.js';
 import { FONT } from '../ui/uiKit.js';
 /** 보너스 게임 레일 아이콘 아트(준비 중) — 매니페스트에 들어오면 자동으로 임시 아이콘을 대체한다. */
 const BONUS_ICON_KEY = 'up_Solitare_UI_BonusGame';
@@ -1325,47 +1326,49 @@ export class HomeScene extends Phaser.Scene {
      *   폭 640(높이 213)을 넣으면 서로 겹친다 — 간격(SETTINGS_STEP)에 맞춰 폭을 잡는다.
      */
     const SETTINGS_STEP = 190;
-    const mkBtn = (i: number, label: string, color: ButtonColor, fn: () => void): Phaser.GameObjects.Container => {
-      const b = uiButton(this, W / 2, 560 + i * SETTINGS_STEP, label, color, fn, { width: 560, fontSize: 46 });
+    let mkBtnIdx = 0; // 고정 인덱스 대신 순번 카운터 — 항목을 추가·삭제해도 하드코딩 번호를 다시 안 맞춰도 됨.
+    const mkBtn = (label: string, color: ButtonColor, fn: () => void): Phaser.GameObjects.Container => {
+      const b = uiButton(this, W / 2, 560 + mkBtnIdx * SETTINGS_STEP, label, color, fn, { width: 560, fontSize: 46 });
+      mkBtnIdx += 1;
       layer.add(b);
       return b;
     };
-    mkBtn(0, '≡ 레벨 선택', 'purple', () => {
+    mkBtn('≡ 레벨 선택', 'purple', () => {
       sfx('level_open');
       layer.destroy();
       this.showLevelSelect(loadSave());
     });
-    mkBtn(1, '🔍 배치 점검', 'blue', () => {
+    mkBtn('🔍 배치 점검', 'blue', () => {
       if (this.constructing) return; // 건설/철거 애니 중 이탈 금지(소프트락 방지).
       sfx('button');
       this.scene.start('preview', { level: cont });
     });
     // **사운드 볼륨**(PO 2026-07-28) — 플레이 메뉴와 동일한 단계 순환 버튼(100→75→50→25→꺼짐).
-    const snd = mkBtn(2, volumeLabel(), 'purple', () => {
+    const snd = mkBtn(volumeLabel(), 'purple', () => {
       const v = cycleVolume();
       setButtonLabel(snd, volumeLabel());
       if (v > 0) sfx('button');
     });
     // **진동**(2026-08-25) — 켜짐/꺼짐 토글(플레이 메뉴와 동일, haptics.ts).
-    const hap = mkBtn(3, hapticsLabel(), 'purple', () => {
+    const hap = mkBtn(hapticsLabel(), 'purple', () => {
       toggleHaptics();
       setButtonLabel(hap, hapticsLabel());
       sfx('button');
     });
     // **레벨 설정**(개발/테스트) — 현재 진행 레벨을 임의 값으로 조정(상한 = 저작된 레벨 수).
-    mkBtn(4, '🎚 레벨 설정', 'orange', () => {
+    mkBtn('🎚 레벨 설정', 'orange', () => {
       sfx('button');
       layer.destroy();
       this.openLevelEditor();
     });
     // **리셋 관리**(개발/테스트) — 레벨·건설·이벤트 리셋 + 재화 재설정을 한 화면에 모아둔다(2026-07-19,
     //   예전엔 이 4개가 설정 목록에 낱개로 흩어져 있어 관리가 번거로웠다).
-    mkBtn(5, '🔄 리셋 관리', 'orange', () => {
+    mkBtn('🔄 리셋 관리', 'orange', () => {
       sfx('button');
       layer.destroy();
       this.openResetMenu();
     });
-    mkBtn(6, '✕ 닫기', 'red', () => {
+    mkBtn('✕ 닫기', 'red', () => {
       sfx('level_close');
       layer.destroy();
     });
@@ -3528,7 +3531,17 @@ ${mode} · ${cost}${boost}`);
     }
     const started = startBonusPlay();
     if (started === null) {
-      this.toast(`코인이 부족합니다 — 게임비 🪙${BONUS_PAID_FEE.toLocaleString()} (무료 ${BONUS_PLAYS_PER_DAY}판은 내일 다시 채워집니다)`);
+      // 코인 부족 — **광고 보상으로 무료 한 판** 제안(2026-09-02 광고 모델: 무료 재화 소진 구제).
+      //   광고 불가 타겟이면 기존 토스트 폴백. ⚠️ 홈 화면은 반드시 uiCam 을 넘긴다(공용 팝업 규칙).
+      const enterViaAd = (): void => {
+        const st = civicDeskStateOf(desk.role);
+        advanceCivicProgress(desk.role);
+        this.scene.start('playKlondike', { mode: st.mode, timed: st.timed, desk: desk.role, mult: st.mult });
+      };
+      const offered = offerAdFreePlay(this, { uiCam: this.uiCam, onGranted: enterViaAd });
+      if (!offered) {
+        this.toast(`코인이 부족합니다 — 게임비 🪙${BONUS_PAID_FEE.toLocaleString()} (무료 ${BONUS_PLAYS_PER_DAY}판은 내일 다시 채워집니다)`);
+      }
       this.repaintCivicDesks();
       return;
     }

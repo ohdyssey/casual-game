@@ -2,7 +2,13 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "types": ["vite/client"],
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": "../..",
+    "paths": {
+      "@casual/core": ["packages/core/src/index.ts"],
+      "@casual/core/*": ["packages/core/src/*"],
+      "@store": ["games/Grillking/src/store/web.ts"]
+    }
   },
   "include": ["src"]
 }

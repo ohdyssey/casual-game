@@ -4,6 +4,8 @@
 import './fonts/fonts.css';
 import type Phaser from 'phaser';
 import { createCasualGame } from '@casual/core';
+import { setStore } from '@casual/core/store/index.js';
+import storeAdapter from '@store';
 import { HomerunGame } from './game.js';
 import { resolveSwing, resolveTake } from './logic/judge.js';
 import { initAdsAndBanner, removeBanner } from './ads.js';
@@ -322,6 +324,7 @@ initViewportDebugOverlay();
 // 하단 배너 광고 + "광고 제거" 인앱결제(2,000원, 가격은 앱인토스 콘솔의 상품 등록 화면에서 설정).
 // 이미 구매했으면 배너를 아예 붙이지 않는다. onRemoved 콜백으로 ads.ts/iap.ts 가 서로 몰라도
 // 되게 main.ts 가 둘을 연결한다(순환 참조 방지).
+setStore(storeAdapter); // ads.ts/rewardedAd.ts 가 이 어댑터를 통해 광고를 튼다.
 const adsRemoved = isAdsRemoved();
 initAdsAndBanner(adsRemoved);
 void initNoAdsButton(() => removeBanner());

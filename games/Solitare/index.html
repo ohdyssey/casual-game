@@ -20,6 +20,19 @@
     <link rel="apple-touch-icon" href="pwa/apple-touch-icon.png" />
     <meta name="theme-color" content="#E86FA6" />
     <title>솔리테어 하이츠</title>
+    <!--
+      Google AdSense H5 게임 광고 — Ad Placement API 보일러플레이트(2026-09-02, 틱택토와 동일).
+      계정(pub-6271220374352684)은 심사 대기 중. 실제로 이 SDK 를 호출하는 건 `adsense` 타겟
+      (`npm run dev:adsense`)의 어댑터뿐 — 기본(web) 타겟은 태그만 실리고 안 쓴다.
+      ⚠️⚠️ `data-adbreak-test="on"` — 실서비스로 옮기기 전에 반드시 지울 것. Google 자체 테스트
+      모드(서버 요청 없이 목업 광고)라, 남아 있으면 승인 후에도 영원히 실광고가 안 뜬다.
+    -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js" data-ad-client="ca-pub-6271220374352684" data-adbreak-test="on" crossorigin="anonymous"></script>
+    <script>
+      window.adsbygoogle = window.adsbygoogle || [];
+      function adBreak(o) { adsbygoogle.push(o); }
+      function adConfig(o) { adsbygoogle.push(o); }
+    </script>
     <style>
       /* Baloo 2(라틴)+Pretendard(한글)+M PLUS(일본어) — OFL 본문 글꼴 스택 (P0 CDN, P1 셀프호스팅 전환). */
       html, body {

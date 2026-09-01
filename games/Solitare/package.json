@@ -8,6 +8,8 @@
     "dev": "npx vite",
     "build": "vite build",
     "preview": "vite preview --port 4209",
+    "dev:adsense": "npx vite --mode adsense",
+    "build:adsense": "vite build --mode adsense",
     "qa:play": "node scripts/qa-play-regression.mjs",
     "econ:sweep": "node scripts/dashboard-sweep.mjs",
     "gen:unused-assets": "node scripts/gen-unused-assets.mjs",
@@ -20,7 +22,9 @@
     "measure:textures": "node scripts/measure-textures.mjs",
     "gen:diet-hints": "node scripts/gen-diet-hints.mjs",
     "encode:astc": "python scripts/encode-astc.py --deploy d:/tmp/rl-deploy/solitaire --quality medium",
-    "verify:astc": "node scripts/verify-astc.mjs"
+    "verify:astc": "node scripts/verify-astc.mjs",
+    "verify:local-build": "node scripts/verify-local-build.mjs",
+    "verify:live": "node scripts/verify-live-deploy.mjs"
   },
   "dependencies": {
     "@casual/core": "*",

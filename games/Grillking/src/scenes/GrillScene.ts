@@ -7,7 +7,8 @@
  * 보드 로직은 logic/board.ts(순수)만 신뢰하고, 씬은 결과 이벤트를 연출한다.
  */
 import Phaser from 'phaser';
-import { startCountdown } from '@casual/core';
+import { isAdGateTurn, playGateAd, startCountdown } from '@casual/core';
+import { getStore } from '@casual/core/store/index.js';
 import { itemKey } from '../assets.js';
 import { isSfxOn, setSfxOn, sfx } from '../audio.js';
 import {
@@ -291,7 +292,7 @@ export class GrillScene extends Phaser.Scene {
     g.lineStyle(4, 0xff6a1a, 0.85).strokeRoundedRect(p.x - 38, p.y - 80, 77, 161, 20);
     const label = this.add
       .text(p.x, p.y, level > 1 ? `🔥\n${level}` : '🔥', {
-        fontFamily: '"Jua", sans-serif',
+        fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
         fontSize: '36px',
         color: '#ffcaa0',
         align: 'center',
@@ -664,7 +665,19 @@ export class GrillScene extends Phaser.Scene {
             label: isLast ? '다시 도전' : '다음 레벨',
             color: 0x3cb54a,
             onTap: () => {
-              this.scene.restart({ level: isLast ? this.levelNum : this.levelNum + 1 });
+              // 3레벨마다 관문(전면) 광고(`@casual/core` adPolicy, 2026-09-02) — 초반(≤4) 면제.
+              const next = (): void => {
+                this.scene.restart({ level: isLast ? this.levelNum : this.levelNum + 1 });
+              };
+              const { ads } = getStore();
+              const gate = isAdGateTurn({
+                count: this.levelNum,
+                adsUsable: ads.fullscreenSupported || ads.allowPlaceholders,
+                exempt: this.levelNum <= 4,
+                every: 3,
+              });
+              if (!gate) next();
+              else playGateAd(this, ads, next);
             },
           },
           { label: '홈으로', color: 0x7a9cc6, small: true, onTap: () => this.goHome() },
@@ -781,7 +794,7 @@ export class GrillScene extends Phaser.Scene {
     const btn = this.layout.byId<Phaser.GameObjects.Image>('layer_10_copy');
     this.shuffleLabel = this.add
       .text(btn.x, btn.y, '셔플\n무료 1회', {
-        fontFamily: '"Jua", sans-serif',
+        fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
         fontSize: '22px',
         color: '#fff6e6',
         align: 'center',

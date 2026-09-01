@@ -41,7 +41,10 @@ import { EDITOR_LEVELS_KEY } from '../logic/editorLevels.js';
 import { seededRng } from '../logic/deck.js';
 import { DYN_STOCK_REDUCE, dealDynamic } from '../logic/solvable.js';
 import type { Grade } from '../logic/difficulty.js';
-import { loadSave, writeSave, itemsOf, missionRewardOf, collectionOf, loadTipsSeen, markTipSeen, type SaveData } from '../save.js';
+import { loadSave, writeSave, itemsOf, missionRewardOf, collectionOf, loadTipsSeen, markTipSeen, hasNoAds, type SaveData } from '../save.js';
+import { isAdGateTurn, playGateAd } from '@casual/core';
+import { getStore } from '@casual/core/store/index.js';
+import { FONT as UI_FONT } from '../ui/uiKit.js';
 import { applyStars as applyMissionStars } from '../logic/missionReward.js';
 import { CARD_COMPLETE_COUNT, COLLECTIBLE_SETS, cardCount, grantCard, pickRandomCard, type CollectionSlot } from '../logic/collection.js';
 import { CARD_ART_SETS, collectionArtKey, collectionCardKey } from './collectionPopup.js';
@@ -6692,6 +6695,26 @@ export class PlayScene extends Phaser.Scene {
    *   재사용하라") — entryPopup.ts(blank.json SSOT, 홈의 "계속하기" 팝업과 완전히 동일한 화면)를 그린다.
    *   PLAY 에서 게임비 차감 후 다음 레벨 시작 — 무료 입장 없음. 홈에는 없는 "🏠 홈으로"(취소) 링크만 추가.
    */
+  /**
+   * 레벨 전환 **관문(전면) 광고** — 3레벨마다 1번(공통 정책 `@casual/core` adPolicy, 2026-09-02).
+   * 초반 레벨(≤4)·광고 제거 구매자(hasNoAds)는 면제. 광고가 **닫힌 뒤에** 다음 레벨 팝업을 연다
+   * (봐도 보상 없음 — 그냥 통과 관문. 도중 닫아도 통과).
+   */
+  private maybeGateThenNextLevel(): void {
+    const { ads } = getStore();
+    const gate = isAdGateTurn({
+      count: this.level,
+      adsUsable: ads.fullscreenSupported || ads.allowPlaceholders,
+      exempt: this.level <= 4 || hasNoAds(),
+      every: 3,
+    });
+    if (!gate) {
+      this.enterNextLevel();
+      return;
+    }
+    playGateAd(this, ads, () => this.enterNextLevel(), { fontFamily: UI_FONT });
+  }
+
   private enterNextLevel(): void {
     const next = this.level + 1;
     /*
@@ -6824,7 +6847,7 @@ export class PlayScene extends Phaser.Scene {
         cardKeys,
         hasNext,
         onHome: () => go(() => this.scene.start('home')),
-        onNext: () => go(() => this.enterNextLevel()),
+        onNext: () => go(() => this.maybeGateThenNextLevel()),
       });
       if (!handle) {
         console.warn('[result] 결과화면 저작(blank_2.json)을 그릴 수 없어 홈으로 이동');

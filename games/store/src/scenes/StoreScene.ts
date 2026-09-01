@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { isAdGateTurn, playGateAd } from '@casual/core';
+import { getStore } from '@casual/core/store/index.js';
 import { COLORS, startCountdown, strokeText } from '@casual/core';
 import { createState, tap, canPlace, hasLegalMove, markLost } from '../logic/storeMachine.js';
 import type { StoreState, LevelConfig, SlotRef, ProductKind } from '../logic/types.js';
@@ -1151,9 +1153,31 @@ export class StoreScene extends Phaser.Scene {
       buttons: {
         layer_2_copy: () => this.scene.start('StoreScene', { levelIndex: this.levelIndex }), // RETRY
         layer_2: () => this.scene.start('HomeScene'), // HOME
-        layer_2_copy2: () => this.scene.start('StoreScene', { levelIndex: this.levelIndex + 1 }), // NEXT
+        layer_2_copy2: () => this.gateThenNextLevel(), // NEXT — 3레벨마다 관문 광고(공통 광고 정책)
       },
     });
+  }
+
+  /**
+   * 레벨 전환 **관문(전면) 광고** — 3레벨마다 1번(`@casual/core` adPolicy, 2026-09-02 광고 모델).
+   * 초반(레벨 인덱스 ≤3 = 표시 레벨 ≤4)은 면제. 광고가 닫힌 **뒤에** 다음 레벨로 간다.
+   */
+  private gateThenNextLevel(): void {
+    const next = (): void => {
+      this.scene.start('StoreScene', { levelIndex: this.levelIndex + 1 });
+    };
+    const { ads } = getStore();
+    const gate = isAdGateTurn({
+      count: this.levelIndex + 1,
+      adsUsable: ads.fullscreenSupported || ads.allowPlaceholders,
+      exempt: this.levelIndex + 1 <= 4,
+      every: 3,
+    });
+    if (!gate) {
+      next();
+      return;
+    }
+    playGateAd(this, ads, next);
   }
 
   /** 실패 팝업 — RETRY/HOME. 점수 바인딩. */

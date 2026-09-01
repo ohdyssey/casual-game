@@ -95,6 +95,18 @@ export interface BonusStart {
  * ⚠️ 코인 차감과 판수 세기는 **한 번의 writeSave 로 함께** 한다 — 따로 쓰면 중간에 끊겼을 때
  *   돈만 내고 판이 안 세지거나 그 반대가 된다.
  */
+/**
+ * **광고 보상으로 한 판 시작** — 게임비 대신 **보상형 광고 시청 완료**를 값으로 받는 경로
+ * (2026-09-02, 광고 모델: "무료 재화 소진 후 광고로 1회 더"). 판수는 똑같이 센다(무제한 방지) —
+ * 게임비만 0 이다. ⚠️ 반드시 **광고 어댑터가 'rewarded' 를 돌려준 뒤에만** 호출할 것.
+ */
+export function startBonusPlayFromAd(now: Date = new Date()): BonusStart {
+  const save = loadSave();
+  save.bonusGame = consumeBonusPlay(save.bonusGame, now);
+  writeSave(save);
+  return { freeLeft: bonusPlaysLeft(save.bonusGame, now), paid: 0 };
+}
+
 export function startBonusPlay(now: Date = new Date()): BonusStart | null {
   const save = loadSave();
   const fee = bonusEntryFee(save.bonusGame, now);

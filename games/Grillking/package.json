@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "npx vite",
     "build": "vite build",
+    "dev:adsense": "npx vite --mode adsense",
+    "build:adsense": "vite build --mode adsense",
     "preview": "vite preview --port 4195"
   },
   "dependencies": {

@@ -177,7 +177,18 @@ function minifyLevelPack(): Plugin {
   };
 }
 
-export default defineConfig({
+/**
+ * 빌드 타겟 — vite `--mode` 로 고른다(`vite build --mode adsense`). 기본(모드 미지정/development/
+ * production)은 `web`. 타겟이 바뀌면 `@store` alias 가 `src/store/<target>.ts` 로 스왑된다
+ * (2026-09-02, 틱택토와 같은 패턴 — 기본 빌드는 web 타겟 그대로라 동작 불변).
+ */
+const STORE_TARGETS = ['web', 'adsense'] as const;
+type StoreTarget = (typeof STORE_TARGETS)[number];
+function storeTargetOf(mode: string): StoreTarget {
+  return (STORE_TARGETS as readonly string[]).includes(mode) ? (mode as StoreTarget) : 'web';
+}
+
+export default defineConfig(({ mode }) => ({
   base: './',
   resolve: {
     // RegExp 로 '@casual/core'(배럴)와 '@casual/core/...'(서브패스, 예: /liveops)를 구분.
@@ -185,6 +196,7 @@ export default defineConfig({
     alias: [
       { find: new RegExp('^@casual/core$'), replacement: `${coreSrc}/index.ts` },
       { find: new RegExp('^@casual/core/'), replacement: `${coreSrc}/` },
+      { find: new RegExp('^@store$'), replacement: fileURLToPath(new URL(`./src/store/${storeTargetOf(mode)}.ts`, import.meta.url)) },
     ],
   },
   // 포트 6209 = 라이브 라인업(…flockgo 6208) 다음 자리.
@@ -197,4 +209,4 @@ export default defineConfig({
   },
   // 게임은 허브에서 실행되는 콘텐츠 → 자체 PWA/서비스워커 없음(배포 즉시 반영 + 더블로딩 방지).
   plugins: [killSW(), saveFloorLevels(), saveCardLevels(), saveEconParams(), serveLevelReport(), minifyLevelPack()],
-});
+}));

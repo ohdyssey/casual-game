@@ -2,7 +2,16 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "types": ["vite/client"],
-    "noEmit": true
+    "noEmit": true,
+    // `paths` 는 병합이 아니라 **치환**이라 base 의 @casual/core 매핑도 함께 다시 적어야 한다.
+    "baseUrl": "../..",
+    "paths": {
+      "@casual/core": ["packages/core/src/index.ts"],
+      "@casual/core/*": ["packages/core/src/*"],
+      // 실제 어댑터는 빌드 시 vite alias 가 타겟별 파일로 스왑한다(src/store/<target>.ts).
+      // 타입체크 기준은 web — 모든 어댑터가 같은 StoreAdapter 계약을 구현한다.
+      "@store": ["games/Homerun/src/store/web.ts"]
+    }
   },
   "include": ["src"]
 }

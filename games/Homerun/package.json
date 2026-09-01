@@ -9,10 +9,13 @@
     "build": "vite build",
     "preview": "vite preview --port 4197",
     "fonts": "node ../../scripts/fonts-build.mjs .",
-    "build:toss": "node ../../scripts/fonts-check.mjs . && vite build && node ../../scripts/build-toss.mjs dist"
+    "build:toss": "node ../../scripts/fonts-check.mjs . && vite build --mode toss && node ../../scripts/build-toss.mjs dist",
+    "build:adsense": "vite build --mode adsense",
+    "dev:adsense": "npx vite --mode adsense",
+    "dev:toss": "npx vite --mode toss"
   },
   "dependencies": {
-    "@apps-in-toss/web-framework": "^2.10.8",
+    "@apps-in-toss/web-framework": "^3.0.3",
     "@casual/core": "*",
     "phaser": "3.90.0"
   },

@@ -15,6 +15,8 @@
  *   8~9) 점수 + 활은 오른쪽으로 회전하며 내려갔다 원위치. 3R×3발 후 총점/다시하기.
  */
 import Phaser from 'phaser';
+import { isAdGateTurn, playGateAd } from '@casual/core';
+import { getStore } from '@casual/core/store/index.js';
 import { FONT } from '@casual/core';
 import { ARROW_KEY, HOLE_KEY, SPARK_KEY, UI_LAYOUT_KEY } from '../assets.js';
 import { buildLayout, type LayoutDoc, type LayoutIndex } from '../ui/layoutLoader.js';
@@ -308,19 +310,19 @@ export class PlayScene extends Phaser.Scene {
 
     // 3) HUD 텍스트 (세로 HD).
     this.scoreText = this.add
-      .text(this.scale.width / 2, 131, '0', { fontFamily: '"Do Hyeon", sans-serif', fontSize: '69px', color: '#ffffff' })
+      .text(this.scale.width / 2, 131, '0', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '69px', color: '#ffffff' })
       .setOrigin(0.5)
       .setStroke('#0a2540', 12)
       .setDepth(22);
     this.windText = this.add
-      .text(this.scale.width / 2, 218, '', { fontFamily: '"Jua", sans-serif', fontSize: '30px', color: '#d7f5ff' })
+      .text(this.scale.width / 2, 218, '', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '30px', color: '#d7f5ff' })
       .setOrigin(0.5)
       .setStroke('#0a2540', 6)
       .setDepth(22);
     const badge = this.layout.nodeById(NODE.roundBadge);
     this.roundText = this.add
       .text(badge ? badge.x : 123, badge ? badge.y + 82 : 178, '', {
-        fontFamily: '"Jua", sans-serif',
+        fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
         fontSize: '30px',
         color: '#ffe082',
       })
@@ -334,12 +336,12 @@ export class PlayScene extends Phaser.Scene {
     this.windDialText = this.layout.tryById<Phaser.GameObjects.Text>(NODE.windDialText);
     this.timeDialText = this.layout.tryById<Phaser.GameObjects.Text>(NODE.timeDialText);
     this.promptText = this.add
-      .text(this.scale.width / 2, 2250, '', { fontFamily: '"Jua", sans-serif', fontSize: '39px', color: '#ffffff' })
+      .text(this.scale.width / 2, 2250, '', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '39px', color: '#ffffff' })
       .setOrigin(0.5)
       .setStroke('#0a2540', 9)
       .setDepth(22);
     this.popupText = this.add
-      .text(0, 0, '', { fontFamily: '"Do Hyeon", sans-serif', fontSize: '69px', color: '#ffffff' })
+      .text(0, 0, '', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '69px', color: '#ffffff' })
       .setOrigin(0.5)
       .setStroke('#0a2540', 11)
       .setDepth(25)
@@ -438,7 +440,17 @@ export class PlayScene extends Phaser.Scene {
 
   private onPointerDown(p: Phaser.Input.Pointer): void {
     if (this.phase === 'gameover') {
-      this.scene.restart();
+      // 3경기마다 관문(전면) 광고(`@casual/core` adPolicy, 2026-09-02 광고 모델).
+      //   경기 수는 localStorage 누적(앱을 껌다 켜도 주기 유지).
+      const played = this.bumpPlayCount();
+      const { ads } = getStore();
+      const gate = isAdGateTurn({
+        count: played,
+        adsUsable: ads.fullscreenSupported || ads.allowPlaceholders,
+        every: 3,
+      });
+      if (!gate) this.scene.restart();
+      else playGateAd(this, ads, () => this.scene.restart());
       return;
     }
     if (this.phase !== 'ready') return;
@@ -872,6 +884,17 @@ export class PlayScene extends Phaser.Scene {
 
   // ── 게임 종료 ─────────────────────────────────────────────────
 
+  /** 누적 경기 수 +1(localStorage) — 관문 광고 주기 판정용. */
+  private bumpPlayCount(): number {
+    try {
+      const n = Number(localStorage.getItem('archery_played') ?? 0) + 1;
+      localStorage.setItem('archery_played', String(n));
+      return n;
+    } catch {
+      return 0; // 저장 불가 — 관문 없이 진행(사용자를 가두지 않는다).
+    }
+  }
+
   private gameOver(): void {
     this.phase = 'gameover';
     this.refreshRank(); // 최종 총점 기준 등수를 왼쪽 패널에 확정 표시(그대로 남는다)
@@ -885,21 +908,21 @@ export class PlayScene extends Phaser.Scene {
 
     this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x06210b, 0.74).setDepth(40);
     this.add
-      .text(cx, cy - 281, '경기 종료', { fontFamily: '"Do Hyeon", sans-serif', fontSize: '84px', color: '#F9A825' })
+      .text(cx, cy - 281, '경기 종료', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '84px', color: '#F9A825' })
       .setOrigin(0.5)
       .setStroke('#0a2540', 12)
       .setDepth(41);
     this.add
-      .text(cx, cy - 56, `${this.totalScore}`, { fontFamily: '"Do Hyeon", sans-serif', fontSize: '180px', color: '#ffffff' })
+      .text(cx, cy - 56, `${this.totalScore}`, { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '180px', color: '#ffffff' })
       .setOrigin(0.5)
       .setStroke('#0a2540', 15)
       .setDepth(41);
     this.add
-      .text(cx, cy + 113, `/ ${max} 점`, { fontFamily: '"Jua", sans-serif', fontSize: '51px', color: '#e8f5e9' })
+      .text(cx, cy + 113, `/ ${max} 점`, { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '51px', color: '#e8f5e9' })
       .setOrigin(0.5)
       .setDepth(41);
     const again = this.add
-      .text(cx, cy + 338, '다시하기 — 화면을 탭', { fontFamily: '"Jua", sans-serif', fontSize: '45px', color: '#ffffff' })
+      .text(cx, cy + 338, '다시하기 — 화면을 탭', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '45px', color: '#ffffff' })
       .setOrigin(0.5)
       .setStroke('#0a2540', 9)
       .setDepth(41);

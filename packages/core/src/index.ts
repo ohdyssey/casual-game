@@ -13,6 +13,7 @@ export * from './ui.js';
 export * from './systems/textScript.js';
 export * from './systems/haptics.js';
 export * from './systems/pwa.js';
+export * from './systems/appLaunch.js';
 export * from './systems/backGuard.js';
 export * from './systems/immersive.js';
 // 프로덕션 헬스 모니터(블랭크 화면·런타임 오류·청크 로드 실패 감지 + 스테일 SW 자동복구). Phaser-free.
@@ -37,3 +38,7 @@ export * from './platform/index.js';
 export * from './portal/protocol.js';
 export * from './portal/bridge.js';
 export * from './portal/loadingScene.js';
+// 전면/보상형 광고 호스트 헬퍼(목업 폴백 포함, StoreAdapter.ads 를 받아 동작) — 게임 공용.
+export * from './ads/rewardedAdHost.js';
+export * from './ads/bannerHost.js';
+export * from './ads/adPolicy.js';

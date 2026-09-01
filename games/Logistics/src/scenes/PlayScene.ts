@@ -10,6 +10,8 @@
  * 규칙은 순수 로직(../logic/match3, ../logic/board). 씬은 렌더·입력·애니·영속만.
  */
 import Phaser from 'phaser';
+import { isAdGateTurn, playGateAd } from '@casual/core';
+import { getStore } from '@casual/core/store/index.js';
 import { loadProfile, saveProfile, applyReward, recordResult, haptics, startCountdown, type Profile } from '@casual/core';
 import { createGame, deliver, deployNext, isLevelComplete, isLevelFailed, type DeliverResult } from '../logic/board.js';
 import {
@@ -289,7 +291,7 @@ export class PlayScene extends Phaser.Scene {
 
     const doc = this.cache.json.get(UI_LAYOUT_KEY) as LayoutDoc | undefined;
     if (!doc) {
-      this.mkText(W / 2, H / 2, '레이아웃 로드 실패', { fontFamily: '"Jua"', fontSize: '28px', color: '#fff' }).setOrigin(0.5);
+      this.mkText(W / 2, H / 2, '레이아웃 로드 실패', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '28px', color: '#fff' }).setOrigin(0.5);
       return;
     }
     this.layout = buildLayout(this, doc);
@@ -331,7 +333,7 @@ export class PlayScene extends Phaser.Scene {
    */
   private mkTextLikeNode(id: string, x: number, y: number, s: string): Phaser.GameObjects.Text {
     const n = this.layout.nodeById(id);
-    const family = n?.fontFamily ? `"${n.fontFamily}", "Jua", sans-serif` : '"Jua", sans-serif';
+    const family = n?.fontFamily ? `"${n.fontFamily}", "Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif` : '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif';
     const t = this.mkText(x, y, s, {
       fontFamily: family,
       fontSize: `${n?.fontSize ?? 24}px`,
@@ -401,7 +403,7 @@ export class PlayScene extends Phaser.Scene {
     // **완성/전체 배송 수(시간 하단)** = 진행바 정중앙에 "🚚 dispatched / goal".
     const { x, y, w, h } = this.progressGeom;
     this.progressText = this.mkText(x + w / 2, y + h / 2, '', {
-      fontFamily: '"Do Hyeon", "Jua", sans-serif',
+      fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
       fontSize: '25px',
       color: '#ffffff',
       fontStyle: '700',
@@ -1732,7 +1734,7 @@ export class PlayScene extends Phaser.Scene {
     const y = view.clockY - 6;
     sfx('order_ping', { volume: 0.4, pitch: 1.25 });
     const label = this.mkText(x, y, `+${secs}초`, {
-      fontFamily: '"Do Hyeon", "Jua", sans-serif',
+      fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
       fontSize: '26px',
       color: '#37e07a',
       fontStyle: '700',
@@ -1763,7 +1765,7 @@ export class PlayScene extends Phaser.Scene {
   private spawnLineMultiplier(pos: Pos, mult: number): void {
     const fs = Math.min(72, 34 + mult * 5);
     const label = this.mkText(pos.x, pos.y, `×${mult}`, {
-      fontFamily: '"Do Hyeon", "Jua", sans-serif',
+      fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
       fontSize: `${fs}px`,
       color: '#ffe24a',
       fontStyle: '700',
@@ -1818,7 +1820,7 @@ export class PlayScene extends Phaser.Scene {
   private spawnCoinDrop(view: BayView, reward: number): void {
     const x = view.truck ? view.truck.x : view.homeX;
     const y = view.truckRestY;
-    const plus = this.mkText(x, y - 20, `+${reward}`, { fontFamily: '"Do Hyeon", "Jua", sans-serif', fontSize: '26px', color: '#ffd54a', fontStyle: '700' })
+    const plus = this.mkText(x, y - 20, `+${reward}`, { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '26px', color: '#ffd54a', fontStyle: '700' })
       .setOrigin(0.5)
       .setStroke('#7a5a00', 5)
       .setDepth(160);
@@ -2032,7 +2034,7 @@ export class PlayScene extends Phaser.Scene {
     if (!persist) return;
     // 폴백: 텍스트 스탬프(이미지 미로드 시).
     const label = this.mkText(view.homeX, view.iconY, done ? '배송완료' : '배송거부', {
-      fontFamily: '"Do Hyeon", "Jua", sans-serif',
+      fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
       fontSize: '30px',
       color: done ? '#2f9e44' : '#e03131',
       fontStyle: '700',
@@ -2082,7 +2084,7 @@ export class PlayScene extends Phaser.Scene {
       badge.fillCircle(bx, by, 15);
       badge.lineStyle(2, 0x5b3a86, 1);
       badge.strokeCircle(bx, by, 15);
-      this.powerCountTexts[pw.kind] = this.mkText(bx, by, String(this.powerCounts[pw.kind]), { fontFamily: '"Jua", sans-serif', fontSize: '20px', color: '#5b3a86' })
+      this.powerCountTexts[pw.kind] = this.mkText(bx, by, String(this.powerCounts[pw.kind]), { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '20px', color: '#5b3a86' })
         .setOrigin(0.5)
         .setDepth(112);
     }
@@ -2129,9 +2131,19 @@ export class PlayScene extends Phaser.Scene {
     this.coinsText?.setText(this.fmtCoins());
 
     // 자동 진행 대신 **"다음 레벨로 이동" 메시지 + OK 버튼** → OK 클릭 시 다음 레벨 시작(사용자 요청).
-    this.showResultPopup(POPUP_CLEAR_TEX, `레벨 ${cleared} 클리어!`, `다음 레벨로 이동합니다\n+${reward} 🪙`, '#3a6b1e', () =>
-      this.scene.restart(),
-    );
+    // 3레벨마다 관문(전면) 광고(`@casual/core` adPolicy, 2026-09-02) — 초반(≤4) 면제,
+    //   광고가 닫힌 뒤에 다음 레벨로 간다.
+    this.showResultPopup(POPUP_CLEAR_TEX, `레벨 ${cleared} 클리어!`, `다음 레벨로 이동합니다\n+${reward} 🪙`, '#3a6b1e', () => {
+      const { ads } = getStore();
+      const gate = isAdGateTurn({
+        count: cleared,
+        adsUsable: ads.fullscreenSupported || ads.allowPlaceholders,
+        exempt: cleared <= 4,
+        every: 3,
+      });
+      if (!gate) this.scene.restart();
+      else playGateAd(this, ads, () => this.scene.restart());
+    });
   }
 
   /** 미션 실패 — 글로벌 시간 초과(목표 미달) 또는 전 베이 배송거부. 코인 보상 없음 → OK 로 같은 레벨 재시도. */
@@ -2173,8 +2185,8 @@ export class PlayScene extends Phaser.Scene {
       cont.add(g);
     }
     // 제목(왕관 배너 아래) · 부제 · OK 버튼 — 패널 표시높이 비례 배치.
-    cont.add(this.mkText(0, -dh * 0.16, title, { fontFamily: '"Do Hyeon", "Jua", sans-serif', fontSize: '48px', color: textColor, align: 'center' }).setOrigin(0.5).setStroke('#ffffff', 5));
-    cont.add(this.mkText(0, dh * 0.02, subtitle, { fontFamily: '"Jua", sans-serif', fontSize: '32px', color: '#5a3a1a', align: 'center', lineSpacing: 8 }).setOrigin(0.5));
+    cont.add(this.mkText(0, -dh * 0.16, title, { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '48px', color: textColor, align: 'center' }).setOrigin(0.5).setStroke('#ffffff', 5));
+    cont.add(this.mkText(0, dh * 0.02, subtitle, { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '32px', color: '#5a3a1a', align: 'center', lineSpacing: 8 }).setOrigin(0.5));
 
     const btn = this.add.image(0, dh * 0.3, BTN_OK_TEX);
     const bScale = this.textures.exists(BTN_OK_TEX) ? Math.min((W * 0.32) / btn.width, 1.3) : 1;

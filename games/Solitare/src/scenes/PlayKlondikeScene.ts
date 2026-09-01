@@ -59,6 +59,7 @@ import { CIVIC_DESKS, DESK_ROUND_BONUS, DESK_ROUND_CAP, type CivicDesk } from '.
 import { animateClerkIdle } from './clerkIdle.js';
 import { creditEventItems, creditLeagueStars } from '../logic/collectRuntime.js';
 import { bonusLeft, bonusFee, startBonusPlay, bonusTimeLimitSec, recordBonusTimeWin } from '../logic/bonusRuntime.js';
+import { offerAdFreePlay } from '../ui/adOffer.js';
 import { bonusRoundStars, bonusStarsPreview } from '../logic/bonusStars.js';
 import { rollBonusMissionRewardAvoiding } from '../logic/economyRules.js';
 import { EMPTY_ROUND_REWARDS, addRewards, type RoundRewards } from '../logic/roundRewards.js';
@@ -2107,7 +2108,15 @@ export class PlayKlondikeScene extends Phaser.Scene {
       uiButton(this, cx, cy + 100, againLabel, 'green', () => {
         const started = startBonusPlay();
         if (started === null) {
-          this.toast(`코인이 부족합니다 — 게임비 🪙${BONUS_PAID_FEE.toLocaleString()}`);
+          // 코인 부족 — 광고 보상으로 무료 한 판 제안(광고 불가 타겟은 토스트 폴백).
+          const offered = offerAdFreePlay(this, {
+            depth: 4300,
+            onGranted: () => {
+              layer.destroy();
+              this.scene.restart({ mode: this.mode, timed: this.timed });
+            },
+          });
+          if (!offered) this.toast(`코인이 부족합니다 — 게임비 🪙${BONUS_PAID_FEE.toLocaleString()}`);
           return;
         }
         layer.destroy();
@@ -2169,10 +2178,15 @@ export class PlayKlondikeScene extends Phaser.Scene {
         depth: 3000,
         onHome: () => go(() => this.scene.start('home')),
         onNext: () => {
-          // 차감이 **먼저** — 모자라면 연출도 이동도 없이 안내만(보드·팝업은 그대로).
+          // 차감이 **먼저** — 모자라면 **광고 보상으로 무료 한 판** 제안(2026-09-02 광고 모델).
+          //   광고 불가 타겟이면 기존 토스트 폴백(보드·팝업은 그대로).
           const started = startBonusPlay();
           if (started === null) {
-            this.toast(`코인이 부족합니다 — 게임비 🪙${BONUS_PAID_FEE.toLocaleString()}`);
+            const offered = offerAdFreePlay(this, {
+              depth: 4300, // 결과 팝업(3000)·회수 연출(3100) 위.
+              onGranted: () => go(() => this.scene.restart({ mode: this.mode, timed: this.timed })),
+            });
+            if (!offered) this.toast(`코인이 부족합니다 — 게임비 🪙${BONUS_PAID_FEE.toLocaleString()}`);
             return;
           }
           go(() => this.scene.restart({ mode: this.mode, timed: this.timed }));

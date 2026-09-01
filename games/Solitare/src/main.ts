@@ -1,11 +1,14 @@
 /** 솔리테어 하이츠 진입점 — 코어 셸에 GameModule 을 넘겨 부팅. */
 import { createCasualGame } from '@casual/core';
+import { setStore } from '@casual/core/store/index.js';
+import storeAdapter from '@store';
 import { SolitaireGame } from './game.js';
 import type Phaser from 'phaser';
 import { installTextureUsage } from './ui/textureUsage.js';
 import { preloadAstcTable, deferredRemaining } from './assets.js';
 
 // **ASTC 표를 먼저**(assets.preloadAstcTable) — 조립본에만 있는 `ui-assets-astc.json`. 없으면(개발) 빈 표로 곧장 진행.
+setStore(storeAdapter); // 광고 어댑터(web=목업 / adsense=Ad Placement API) — 씬들이 getStore().ads 로 쓴다.
 const booted = preloadAstcTable().then(() => createCasualGame(SolitaireGame));
 
 // **QA 훅(dev 전용)** — 헤드리스 회귀(scripts/qa-play-regression.mjs)가 씬을 직접 잡아 시뮬을 돌린다.

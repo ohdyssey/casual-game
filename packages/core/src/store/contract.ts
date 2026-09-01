@@ -14,7 +14,7 @@
  * auth(토스 로그인 / Google / Apple)는 같은 원칙(추가-only)으로 뒤에 붙인다.
  */
 
-export type StoreTarget = 'web' | 'toss' | 'msstore' | 'android' | 'ios';
+export type StoreTarget = 'web' | 'adsense' | 'toss' | 'msstore' | 'android' | 'ios';
 
 // ── 광고 ──
 
