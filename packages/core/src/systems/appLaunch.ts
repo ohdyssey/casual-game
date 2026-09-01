@@ -87,20 +87,63 @@ async function isInstalledAndroidBestEffort(): Promise<boolean> {
 
 // ─────────────────────────── 설치 대상 = 게임이 아니라 허브(PlayPOP) ───────────────────────────
 //
-// 게임마다 자기 manifest 가 따로 있어(scope="./") `beforeinstallprompt` 를 그대로 쓰면
+// 게임마다 자기 manifest 가 따로 있으면(scope="./") `beforeinstallprompt` 를 그대로 썼을 때
 // "게임"이 설치돼 버린다(2026-09-01 PO 지시: "솔리테어를 설치하지 말고 플레이팝을 설치하라").
-// 그래서 게임 쪽은 이 이벤트를 preventDefault 로 **삼키기만**(브라우저 기본 설치 배너 억제) 하고,
-// 실제 "설치하기" 동작은 전부 허브로 이동시켜 허브 자신의 설치 플로우(games/hub/src/install.ts)에
-// 맡긴다 — 허브가 PlayPOP 이라는 이름으로 설치 가능한 진짜 대상이다.
-
+//
+// ⚠️ **2026-09-01 2차 수정** — 처음엔 이 이벤트를 그냥 preventDefault 로 삼키고 실제 설치는 전부
+//   허브로 이동시켜 거기서 다시 누르게 했는데(games/hub/src/install.ts), PO 가 "게임 화면에서 눌렀는데
+//   허브로 이동한 뒤 또 눌러야 한다 — 게임에서 바로 설치되게 하라"고 반려했다. 브라우저 설치 API 는
+//   **이벤트를 잡은 그 페이지에서만** `.prompt()` 를 부를 수 있어(다른 페이지/오리진으로 넘겨줄 방법이
+//   없다), 게임 페이지에서 진짜 "PlayPOP" 를 설치하려면 게임 페이지 자신이 **PlayPOP 매니페스트를
+//   가리켜야** 한다. 그래서 부팅 시 `<link rel="manifest">` 를 허브의 매니페스트로 바꿔치기한다 —
+//   그러면 크롬이 "이 페이지가 설치 가능한 앱"을 PlayPOP 으로 평가하고, 여기서 잡은
+//   `beforeinstallprompt` 를 그대로 `.prompt()` 하면 **이 화면을 벗어나지 않고** PlayPOP 이 설치된다.
+//   (iOS 는 애플이 프로그램적 설치 자체를 막아놔 이 방법이 안 통한다 — 허브로 보내 수동 안내를 받는
+//   기존 경로가 iOS 의 사실상 최선이다.)
 function captureInstallPrompt(): void {
   if (typeof window === 'undefined') return;
   window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault(); // 게임 자체를 설치하라는 브라우저 기본 배너를 띄우지 않는다.
+    e.preventDefault(); // 브라우저 기본 미니 설치 배너를 억제 — 우리 배너/버튼으로만 유도.
+    deferredPrompt = e as BeforeInstallPromptEvent;
+  });
+  window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    markPlayPopInstalled(); // 매니페스트를 허브 것으로 바꿔뒀으므로 이 이벤트는 진짜 PlayPOP 설치다.
   });
 }
 
-/** 허브로 이동시키는 콜백 — `mountAppLaunchGuard({ goToHub })` 로 주입(게임마다 hubPath 가 다를 수 있음). */
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+let deferredPrompt: BeforeInstallPromptEvent | null = null;
+
+/** 잡아 둔 설치 프롬프트가 있으면 **이 화면에서 바로** 띄운다(성공 시 true — 페이지 이동 불필요). */
+async function promptInstallInPlace(): Promise<boolean> {
+  if (!deferredPrompt) return false;
+  const p = deferredPrompt;
+  deferredPrompt = null;
+  void p.prompt();
+  const { outcome } = await p.userChoice;
+  if (outcome === 'accepted') markPlayPopInstalled();
+  return true; // 프롬프트 자체는 띄웠다(사용자가 거절해도 "시도"는 성공).
+}
+
+/**
+ * 이 페이지의 `<link rel="manifest">` 를 허브(PlayPOP)의 매니페스트로 바꿔 건다 — 그래야 브라우저가
+ * **이 게임 화면 자체**를 "PlayPOP 설치 가능" 으로 평가해 `beforeinstallprompt` 를 여기서 준다.
+ * 기존에 게임 자신의 매니페스트 링크가 있었으면 제거하고 하나만 남긴다(둘 다 있으면 결과가 불명확).
+ */
+function retargetManifestToHub(hubPath: string): void {
+  if (typeof document === 'undefined') return;
+  document.querySelectorAll('link[rel="manifest"]').forEach((l) => l.remove());
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = `${hubPath}manifest.webmanifest`;
+  document.head.appendChild(link);
+}
+
+/** 허브로 이동시키는 콜백 — `mountAppLaunchGuard({ goToHub })` 로 주입(게임마다 hubPath 가 다를 수 있음). iOS 등 직접 설치가 안 되는 경우의 폴백. */
 let goToHubImpl: (() => void) | null = null;
 
 // ─────────────────────────── 설치 여부 최선 추정(기억, 플랫폼 공통) ───────────────────────────
@@ -218,8 +261,10 @@ const IN_APP_LABEL: Record<Exclude<InAppHost, null>, string> = {
 };
 
 export interface AppLaunchOptions {
-  /** "설치하러 가기" 배너를 눌렀을 때 허브로 이동시키는 콜백(게임마다 hubPath 가 다를 수 있어 주입). */
+  /** "설치하러 가기" 배너를 눌렀을 때 허브로 이동시키는 콜백(iOS 등 직접 설치가 안 될 때의 폴백). */
   goToHub?: () => void;
+  /** 허브 상대 경로(기본 `../hub/`) — 이 페이지의 매니페스트를 허브 것으로 바꿔치기하는 데도 쓴다. */
+  hubPath?: string;
 }
 
 /**
@@ -230,6 +275,7 @@ export interface AppLaunchOptions {
 export function mountAppLaunchGuard(opts: AppLaunchOptions = {}): void {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
   goToHubImpl = opts.goToHub ?? null;
+  retargetManifestToHub(opts.hubPath ?? '../hub/'); // 이 화면에서 바로 PlayPOP 를 설치할 수 있게.
   captureInstallPrompt();
 
   if (isRunningStandalone()) {
@@ -273,6 +319,12 @@ export function mountAppLaunchGuard(opts: AppLaunchOptions = {}): void {
   });
 }
 
+/** "설치하러 가기" 클릭 — 이 화면에서 바로 설치 프롬프트를 띄울 수 있으면 그걸로, 없으면(iOS 등) 허브로. */
+async function handleInstallAction(): Promise<void> {
+  const prompted = await promptInstallInPlace();
+  if (!prompted) goToHubImpl?.();
+}
+
 /** 설치 안 됨 안내(닫기 있는 배너) — 이미 설치가 관측된 기기면 더는 권유하지 않는다. */
 function showInstallNag(): void {
   if (isPlayPopInstalled()) return;
@@ -283,23 +335,25 @@ function showInstallNag(): void {
         markPlayPopInstalled();
         return;
       }
-      // 설치 안 됨 — 실제 설치는 게임이 아니라 허브(PlayPOP)에서 이뤄진다.
+      // 이 화면 자체가 PlayPOP 매니페스트를 가리키도록 바꿔뒀으므로(retargetManifestToHub),
+      //   `beforeinstallprompt` 를 잡았다면 페이지 이동 없이 여기서 바로 설치된다.
       showBanner({
         title: 'PlayPOP 앱으로 설치하고 더 빠르게 즐기세요',
-        message: '허브에서 홈 화면에 추가하면 브라우저 없이 바로 실행돼요.',
-        actionLabel: '설치하러 가기',
-        onAction: () => goToHubImpl?.(),
+        message: '홈 화면에 추가하면 브라우저 없이 바로 실행돼요.',
+        actionLabel: '설치하기',
+        onAction: () => { void handleInstallAction(); },
       });
     });
     return;
   }
 
   if (isIOS()) {
+    // iOS 는 애플이 프로그램적 설치를 막아놔 이 화면에서 직접은 안 된다 — 허브에서 수동 안내를 받는다.
     showBanner({
       title: 'PlayPOP 앱으로 설치하고 더 빠르게 즐기세요',
       message: '허브로 이동해 공유 버튼(⬆️) → "홈 화면에 추가"를 선택해주세요.',
       actionLabel: '설치하러 가기',
-      onAction: () => goToHubImpl?.(),
+      onAction: () => { void handleInstallAction(); },
     });
   }
 }
@@ -315,11 +369,12 @@ export function canOfferInstall(): boolean {
 }
 
 /**
- * 설정 메뉴 등의 "홈 화면에 추가" 버튼 탭 핸들러에서 호출 — 실제 설치는 게임이 아니라
- * 허브(PlayPOP)에서 이뤄지므로, 여기서는 `mountAppLaunchGuard({ goToHub })` 로 주입된
- * 콜백을 따라 허브로 이동시킬 뿐이다.
+ * 설정 메뉴 등의 "홈 화면에 추가" 버튼 탭 핸들러에서 호출 — 이 화면에서 바로 설치 프롬프트를
+ * 띄울 수 있으면 그걸로(페이지 이동 없음), 없으면(iOS 등) `mountAppLaunchGuard({ goToHub })` 로
+ * 주입된 콜백을 따라 허브로 이동시킨다.
  */
-export async function triggerInstallFlow(): Promise<'redirected' | 'unavailable'> {
+export async function triggerInstallFlow(): Promise<'prompted' | 'redirected' | 'unavailable'> {
+  if (await promptInstallInPlace()) return 'prompted';
   if (goToHubImpl) {
     goToHubImpl();
     return 'redirected';

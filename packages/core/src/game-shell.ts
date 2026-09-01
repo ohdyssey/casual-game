@@ -354,7 +354,7 @@ export async function createCasualGame(mod: GameModule): Promise<Phaser.Game> {
       // 인앱 브라우저 탈출 + PWA 설치 유도(전 게임 공용). 설치 대상은 게임이 아니라 허브(PlayPOP) —
       // hubButton 과 같은 hubPath 로 goHub 를 주입해 "설치하러 가기" 클릭 시 허브로 이동시킨다.
       const hubOpts = typeof mod.hubButton === 'object' ? mod.hubButton : {};
-      mountAppLaunchGuard({ goToHub: () => goHub(hubOpts.hubPath, true) });
+      mountAppLaunchGuard({ goToHub: () => goHub(hubOpts.hubPath, true), hubPath: hubOpts.hubPath ?? '../hub/' });
     }
     const guardOpts = typeof mod.backGuard === 'object' ? mod.backGuard : {};
     installBackGuard({
