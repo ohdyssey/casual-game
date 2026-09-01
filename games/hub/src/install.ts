@@ -13,16 +13,21 @@
  *   · Android/데스크톱 Chromium → `beforeinstallprompt` 가로채 저장 → 배너/버튼 클릭 시 네이티브 설치 프롬프트.
  *
  * ⚠️ **배너는 하나만, 중복 없이**(PO 2026-09-01: "중복되지 않으면서도 강력어필") — 상단 아이콘
- *   버튼(`btn`)은 보조 진입점으로 남기되, 실제 안내·설치 유도는 전부 하단 배너 하나(`showBanner`)로
- *   통일한다. 상황별로 모달을 따로 띄우던 것(구 `showInAppGuide`)은 폐기 — 배너 하나가 그 내용을
- *   전부 담는다.
+ *   버튼(`btn`)은 보조 진입점으로(설치 후엔 자동 숨김) 독립적으로 남기고, 실제 안내·설치 유도는
+ *   전부 하단 배너 하나로 통일한다. 상황별로 모달을 따로 띄우던 것(구 `showInAppGuide`)은 폐기 —
+ *   배너 하나가 그 내용을 전부 담는다.
+ *
+ * ⚠️ **배너는 게임(솔리테어 등)과 완전히 같은 컴포넌트**를 쓴다(PO 2026-09-02: "솔리테어에 배너가
+ *   배치된 방식으로 배치") — 허브가 자체 `.a2hs` 스타일로 따로 그리던 걸 폐기하고 `@casual/core`
+ *   `appLaunch.ts` 의 `showBanner()` 를 그대로 가져다 쓴다. 배치·스타일이 게임과 100% 동일해지고,
+ *   구현이 하나로 합쳐져 "허브에서만 안 뜬다" 류의 별개 버그가 생길 여지도 없앤다.
  *
  * ⚠️ 하단 배너는 **설치 전까지 매 방문 다시 뜬다**(PO 2026-09-01: "설치되어 있지 않을 경우 계속 이
  *   배너를 배치하라"). 닫기는 이번 노출만 없앨 뿐 localStorage 로 기억하지 않는다 — 유일하게 사라지는
  *   조건은 실제 설치 관측(`markPlayPopInstalled`)이다. 이 기록은 게임 쪽(`@casual/core` appLaunch.ts)과
  *   **같은 키를 공유**해, 게임에서 먼저 설치를 관측했으면 허브도 다시 권유하지 않는다(반대도 마찬가지).
  */
-import { markPlayPopInstalled, isPlayPopInstalled } from '@casual/core/systems/appLaunch';
+import { markPlayPopInstalled, isPlayPopInstalled, showBanner, dismissBanner } from '@casual/core/systems/appLaunch';
 
 /** beforeinstallprompt 이벤트(표준 DOM 타입에 없어 직접 정의). */
 interface BeforeInstallPromptEvent extends Event {
@@ -86,12 +91,7 @@ const IOS_SHARE_SVG =
   `<path d="M7 11H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1"/>` +
   `</svg>`;
 
-/** 아래 방향 화살표(아이폰 하단 공유 버튼을 가리키는 힌트). */
-const DOWN_ARROW_SVG =
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">` +
-  `<path d="M12 4v15"/><path d="M6 13l6 6 6-6"/></svg>`;
-
-/** iOS '홈 화면에 추가' 3스텝(모달·자동 배너 공용). */
+/** iOS '홈 화면에 추가' 3스텝(모달 전용). */
 const IOS_STEPS_HTML =
   `<ol class="ios-steps">` +
   `<li><span class="n">1</span><span>하단(또는 상단)의 공유 버튼 ${IOS_SHARE_SVG} 을 누르세요.</span></li>` +
@@ -130,68 +130,15 @@ function showIosGuide(): void {
       : `<p class="modal-note ios-note">⚠️ iOS 에서는 <b>Safari</b> 브라우저에서 열어야 홈 화면에 추가할 수 있어요.</p>`);
 }
 
-interface BannerOpts {
-  readonly title: string;
-  readonly message: string;
-  /** 스텝 목록 등 추가 HTML(예: IOS_STEPS_HTML). */
-  readonly extraHtml?: string;
-  readonly buttonLabel?: string;
-  readonly onButton?: () => void;
-  /** 기본 true. false 면 닫기 버튼 없음(인앱 자동탈출 중처럼 꼭 봐야 하는 안내). */
-  readonly dismissible?: boolean;
-  /** 아이폰 하단 공유버튼을 가리키는 화살표 힌트. */
-  readonly arrow?: boolean;
-}
-
-/**
- * 하단 슬라이드업 배너 — **허브의 안내·설치 유도는 전부 이 하나로 통일한다**(PO 2026-09-01:
- *   "중복되지 않으면서도 강력어필"). 이미 하나 떠 있으면 새로 띄우지 않는다(중복 방지) — 대신
- *   내용을 교체한다(더 급한 안내가 오면 이전 것을 갈아치운다).
- */
-function showBanner(opts: BannerOpts): void {
-  document.querySelectorAll('.a2hs').forEach((el) => el.remove()); // 중복 없이 하나만.
-
-  const el = document.createElement('div');
-  el.className = 'a2hs';
-  el.setAttribute('role', 'dialog');
-  el.setAttribute('aria-label', opts.title);
-  el.innerHTML =
-    `<div class="a2hs-head"><h3>${opts.title}</h3>` +
-    (opts.dismissible !== false ? `<button class="a2hs-close" type="button" aria-label="닫기">✕</button>` : '') +
-    `</div>` +
-    `<p class="sub">${opts.message}</p>` +
-    (opts.extraHtml ?? '') +
-    (opts.buttonLabel ? `<button class="modal-cta" type="button">${opts.buttonLabel}</button>` : '') +
-    (opts.arrow ? `<div class="a2hs-arrow" aria-hidden="true">${DOWN_ARROW_SVG}</div>` : '');
-
-  const dismiss = (): void => {
-    el.classList.remove('show');
-    window.setTimeout(() => el.remove(), 400);
-  };
-  el.querySelector('.a2hs-close')?.addEventListener('click', dismiss);
-  if (opts.buttonLabel && opts.onButton) {
-    const onButton = opts.onButton;
-    el.querySelector('.modal-cta')!.addEventListener('click', () => {
-      dismiss();
-      onButton();
-    });
-  }
-  document.body.appendChild(el);
-  requestAnimationFrame(() => el.classList.add('show'));
-}
-
 /** 설치 유도 배너(미설치, 인앱 아님) — CTA 는 상단 설치 버튼(`btn`)을 그대로 클릭시켜 플랫폼별
  *   분기(네이티브 설치 프롬프트 / iOS 안내)를 중복 구현하지 않고 재사용한다. */
 function showInstallBanner(btn: HTMLElement): void {
   if (isPlayPopInstalled() || isStandalone()) return;
-  if (document.querySelector('.a2hs')) return;
-  const iphone = /iphone|ipod/i.test(navigator.userAgent);
   showBanner({
     title: '📲 PlayPOP 앱으로 설치하고 더 빠르게!',
-    message: '홈 화면에 추가하면 광고 없는 브라우저 화면 없이, 앱처럼 바로 실행돼요.',
-    buttonLabel: '홈 화면에 설치',
-    onButton: () => btn.click(),
-    arrow: iphone,
+    message: '홈 화면에 추가하면 브라우저 화면 없이, 앱처럼 바로 실행돼요.',
+    actionLabel: '홈 화면에 설치',
+    onAction: () => btn.click(),
   });
 }
 
@@ -207,9 +154,9 @@ function escapeToChromeAndroid(): void {
 function showIosInAppEscapeBanner(app: InApp, toast: (msg: string) => void): void {
   showBanner({
     title: '🚀 설치하려면 브라우저에서 열어주세요',
-    message: `지금은 ${labelOf(app)} 인앱 브라우저라 앱 설치가 안 돼요. 우측 상단 ••• (또는 공유) 버튼을 눌러 <b>"다른 브라우저로 열기"</b>를 선택하면 PlayPOP 을 설치할 수 있어요.`,
-    buttonLabel: '🔗 링크 복사하기',
-    onButton: () => {
+    message: `지금은 ${labelOf(app)} 인앱 브라우저라 앱 설치가 안 돼요. 우측 상단 ••• (또는 공유) 버튼을 눌러 "다른 브라우저로 열기"를 선택하면 PlayPOP 을 설치할 수 있어요.`,
+    actionLabel: '🔗 링크 복사하기',
+    onAction: () => {
       navigator.clipboard?.writeText(location.href).then(
         () => toast('링크를 복사했어요 · Safari에 붙여넣기 하세요'),
         () => window.prompt('아래 주소를 복사해 Safari 에 붙여넣으세요', location.href),
@@ -288,7 +235,7 @@ export function mountInstall(btn: HTMLElement, toast: (msg: string) => void, opt
     deferred = null;
     btn.hidden = true;
     markPlayPopInstalled();
-    document.querySelector('.a2hs')?.remove();
+    dismissBanner();
     toast('앱이 설치되었어요 🎉');
   });
 

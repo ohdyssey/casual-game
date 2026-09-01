@@ -175,11 +175,16 @@ export function isPlayPopInstalled(): boolean {
 // ─────────────────────────── 배너(DOM, Phaser 무관) ───────────────────────────
 
 const BANNER_ID = 'casual-app-launch-banner';
+
+/** 지금 떠 있는 배너를 지운다(없으면 무시) — 예: 설치 완료 직후 정리용. */
+export function dismissBanner(): void {
+  if (typeof document !== 'undefined') document.getElementById(BANNER_ID)?.remove();
+}
 // ⚠️ 설치 안내 배너는 더 이상 "닫으면 며칠간 숨김"으로 억제하지 않는다(PO 2026-09-01: "설치되어 있지
 //   않을 경우 계속 이 배너를 배치하라"). 닫기는 이번 화면 노출만 없애고, 다음 방문엔 다시 뜬다 —
 //   실제로 사라지는 유일한 조건은 `isPlayPopInstalled()` 가 true 가 되는 것(허브에서 설치 완료).
 
-interface BannerOpts {
+export interface BannerOpts {
   readonly title: string;
   readonly message: string;
   readonly actionLabel?: string;
@@ -187,8 +192,14 @@ interface BannerOpts {
   readonly dismissible?: boolean; // false 면 닫기 버튼 없음(인앱 탈출처럼 꼭 봐야 하는 안내).
 }
 
-function showBanner(opts: BannerOpts): void {
-  if (typeof document === 'undefined' || document.getElementById(BANNER_ID)) return;
+/**
+ * 화면 하단 고정 배너 — 전 게임·허브 공용(2026-09-02, 허브도 이 구현을 그대로 가져다 쓴다).
+ * 이미 하나 떠 있으면 **교체**한다(예전엔 조용히 무시했는데, 인앱 탈출 안내 → 설치 유도로
+ * 내용이 바뀌어야 하는 흐름에서 두 번째 호출이 무시돼 "안내가 안 뜬다"로 보일 수 있었다).
+ */
+export function showBanner(opts: BannerOpts): void {
+  if (typeof document === 'undefined') return;
+  document.getElementById(BANNER_ID)?.remove();
 
   const wrap = document.createElement('div');
   wrap.id = BANNER_ID;
