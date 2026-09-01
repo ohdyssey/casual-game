@@ -40,9 +40,6 @@ export const GRADE_BANDS: ReadonlyArray<{ from: number; to: number; grade: Grade
 /** 등급별 승률 하한(구간 시작점 기준 — 구간 안에서는 wrFloorFor 가 더 타이트하게 좁힌다). */
 export const WR_FLOOR: Record<Grade, number> = { 1: 0.8, 2: 0.55, 3: 0.35 };
 
-/** 승리 시 목표 평균 잔여 스톡(양방향 튜닝 기준점). */
-export const TARGET_LEFTOVER = 2.5;
-
 export function gradeFor(level: number): Grade {
   return GRADE_BANDS.find((b) => level >= b.from && level <= b.to)?.grade ?? 3;
 }

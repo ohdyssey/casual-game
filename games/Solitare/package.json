@@ -7,7 +7,20 @@
   "scripts": {
     "dev": "npx vite",
     "build": "vite build",
-    "preview": "vite preview --port 4209"
+    "preview": "vite preview --port 4209",
+    "qa:play": "node scripts/qa-play-regression.mjs",
+    "econ:sweep": "node scripts/dashboard-sweep.mjs",
+    "gen:unused-assets": "node scripts/gen-unused-assets.mjs",
+    "gen:asset-groups": "node scripts/gen-asset-groups.mjs",
+    "check:budget": "node scripts/check-texture-budget.mjs",
+    "qa:popups": "node scripts/qa-popups.mjs",
+    "qa:lots": "node scripts/qa-lots.mjs",
+    "qa:bonus": "node scripts/qa-bonus.mjs",
+    "qa:league": "node scripts/qa-league.mjs",
+    "measure:textures": "node scripts/measure-textures.mjs",
+    "gen:diet-hints": "node scripts/gen-diet-hints.mjs",
+    "encode:astc": "python scripts/encode-astc.py --deploy d:/tmp/rl-deploy/solitaire --quality medium",
+    "verify:astc": "node scripts/verify-astc.mjs"
   },
   "dependencies": {
     "@casual/core": "*",

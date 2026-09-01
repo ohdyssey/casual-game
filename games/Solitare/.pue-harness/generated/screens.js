@@ -4,6 +4,7 @@
 /** 화면 id */
 export const SCREENS = {
   BLANK: "blank",
+  BLANK_2: "blank_2",
   BLANK_COPY: "blank_copy",
   BLANK_COPY2: "blank_copy2",
   HOME: "home",
@@ -32,6 +33,30 @@ export const NODES = {
     LAYER_7_COPY: "layer_7_copy",   // 새 레이어 복사
     LAYER_6_COPY: "layer_6_copy",   // 새 레이어 복사
     LAYER_8: "layer_8",   // 새 레이어
+  },
+  BLANK_2: {
+    LAYER_1: "layer_1",   // 팝업창
+    LAYER_5: "layer_5",   // 홈버튼
+    LAYER_5_COPY: "layer_5_copy",   // 넥스트레벨
+    LAYER_6: "layer_6",   // 새 레이어
+    LAYER_6_COPY: "layer_6_copy",   // 새 레이어 복사
+    LAYER_6_COPY2: "layer_6_copy2",   // 새 레이어 복사
+    LAYER_2: "layer_2",   // 별
+    LAYER_2_COPY: "layer_2_copy",   // 별
+    LAYER_2_COPY2: "layer_2_copy2",   // 별
+    LAYER_2_COPY3: "layer_2_copy3",   // 별
+    LAYER_2_COPY4: "layer_2_copy4",   // 별
+    LAYER_3: "layer_3",   // 잘했어요!
+    LAYER_4: "layer_4",   // z
+    LAYER_7: "layer_7",   // 카드
+    LAYER_7_COPY: "layer_7_copy",   // 카드
+    LAYER_8: "layer_8",   // +1
+    LAYER_8_COPY2: "layer_8_copy2",   // +1 복사
+    LAYER_8_COPY4: "layer_8_copy4",   // +1 복사
+    LAYER_8_COPY5: "layer_8_copy5",   // +1 복사
+    LAYER_8_COPY3: "layer_8_copy3",   // +1 복사
+    LAYER_8_COPY6: "layer_8_copy6",   // +1 복사
+    LAYER_8_COPY: "layer_8_copy",   // +1 복사
   },
   BLANK_COPY: {
     LAYER_1: "layer_1",   // 새 레이어
@@ -80,19 +105,6 @@ export const NODES = {
     LAYER_5: "layer_5",   // 새 레이어
     LAYER_4_COPY: "layer_4_copy",   // 새 레이어 복사
     LAYER_3_COPY: "layer_3_copy",   // 텍스트 복사
-    LAYER_3: "layer_3",   // 새 레이어
-    LAYER_8: "layer_8",   // 새 레이어
-    LAYER_3_COPY3: "layer_3_copy3",   // 새 레이어 복사
-    LAYER_3_COPY4: "layer_3_copy4",   // 새 레이어 복사
-    LAYER_3_COPY5: "layer_3_copy5",   // 새 레이어 복사
-    LAYER_3_COPY6: "layer_3_copy6",   // 새 레이어 복사
-    LAYER_3_COPY7: "layer_3_copy7",   // 새 레이어 복사
-    LAYER_3_COPY8: "layer_3_copy8",   // 새 레이어 복사
-    LAYER_3_COPY9: "layer_3_copy9",   // 새 레이어 복사
-    LAYER_3_COPY10: "layer_3_copy10",   // 새 레이어 복사
-    LAYER_6: "layer_6",   // 새 레이어
-    LAYER_6_COPY: "layer_6_copy",   // 새 레이어 복사
-    LAYER_6_COPY2: "layer_6_copy2",   // 새 레이어 복사
     LAYER_6_COPY3: "layer_6_copy3",   // 새 레이어 복사
     LAYER_6_COPY4: "layer_6_copy4",   // 새 레이어 복사
     LAYER_6_COPY5: "layer_6_copy5",   // 새 레이어 복사
@@ -110,6 +122,11 @@ export const NODES = {
     LAYER_6_COPY17: "layer_6_copy17",   // 새 레이어 복사
     LAYER_7: "layer_7",   // 9
     LAYER_7_COPY: "layer_7_copy",   // 5 복사
+    LAYER_3: "layer_3",   // 새 레이어
+    LAYER_3_COPY3: "layer_3_copy3",   // 새 레이어 복사
+    LAYER_6: "layer_6",   // 새 레이어
+    LAYER_6_COPY: "layer_6_copy",   // 새 레이어 복사
+    LAYER_6_COPY2: "layer_6_copy2",   // 새 레이어 복사
   },
   HOME: {
     LAYER_14: "layer_14",   // 하늘
@@ -169,6 +186,7 @@ export const NODES = {
     LAYER_16_COPY: "layer_16_copy",   // 부지구입1
     LAYER_17: "layer_17",   // 스와이프 좌
     LAYER_17_COPY: "layer_17_copy",   // 스와이프 우
+    LAYER_18: "layer_18",   // 새 레이어
   },
   HOME_COPY: {
     LAYER_14: "layer_14",   // 하늘
@@ -402,6 +420,31 @@ export const LAYOUT = {
     LAYER_6_COPY: { x: 196, y: 851, w: 328, h: 110, pin: "none", space: "auto" },
     LAYER_8: { x: 554, y: 449, w: 88, h: 93, pin: "none", space: "auto" },
   },
+  BLANK_2: {
+    FRAME: { w: 1080, h: 2400 },
+    LAYER_1: { x: 28, y: 501, w: 1024, h: 1371, pin: "none", space: "auto" },
+    LAYER_5: { x: 191, y: 1641, w: 337, h: 115, pin: "none", space: "auto" },
+    LAYER_5_COPY: { x: 542, y: 1639, w: 337, h: 120, pin: "none", space: "auto" },
+    LAYER_6: { x: 273, y: 1367, w: 107, h: 111, pin: "none", space: "auto" },
+    LAYER_6_COPY: { x: 487, y: 1376, w: 107, h: 94, pin: "none", space: "auto" },
+    LAYER_6_COPY2: { x: 708, y: 1369, w: 107, h: 107, pin: "none", space: "auto" },
+    LAYER_2: { x: 418, y: 396, w: 212, h: 212, pin: "none", space: "auto" },
+    LAYER_2_COPY: { x: 284, y: 455, w: 154, h: 154, pin: "none", space: "auto" },
+    LAYER_2_COPY2: { x: 615, y: 455, w: 154, h: 154, pin: "none", space: "auto" },
+    LAYER_2_COPY3: { x: 178, y: 514, w: 122, h: 122, pin: "none", space: "auto" },
+    LAYER_2_COPY4: { x: 755, y: 514, w: 122, h: 122, pin: "none", space: "auto" },
+    LAYER_3: { x: 338, y: 725, w: 405, h: 108, pin: "none", space: "auto", approx: true },
+    LAYER_4: { x: 393, y: 960, w: 300, h: 48, pin: "none", space: "auto", approx: true },
+    LAYER_7: { x: 339, y: 1060, w: 161, h: 241, pin: "none", space: "auto" },
+    LAYER_7_COPY: { x: 574, y: 1060, w: 161, h: 241, pin: "none", space: "auto" },
+    LAYER_8: { x: 428, y: 1232, w: 50, h: 60, pin: "none", space: "auto", approx: true },
+    LAYER_8_COPY2: { x: 277, y: 1503, w: 92, h: 55, pin: "none", space: "auto", approx: true },
+    LAYER_8_COPY4: { x: 528, y: 1503, w: 23, h: 55, pin: "none", space: "auto", approx: true },
+    LAYER_8_COPY5: { x: 745, y: 1503, w: 46, h: 55, pin: "none", space: "auto", approx: true },
+    LAYER_8_COPY3: { x: 345, y: 1672, w: 80, h: 48, pin: "none", space: "auto", approx: true },
+    LAYER_8_COPY6: { x: 691, y: 1672, w: 80, h: 48, pin: "none", space: "auto", approx: true },
+    LAYER_8_COPY: { x: 671, y: 1232, w: 50, h: 60, pin: "none", space: "auto", approx: true },
+  },
   BLANK_COPY: {
     FRAME: { w: 720, h: 1600 },
     LAYER_1: { x: 28, y: 239, w: 666, h: 1245, pin: "none", space: "auto" },
@@ -444,48 +487,40 @@ export const LAYOUT = {
   },
   BLANK_COPY2: {
     FRAME: { w: 720, h: 1600 },
-    LAYER_1: { x: 40, y: 231, w: 641, h: 1216, pin: "none", space: "auto" },
-    LAYER_2: { x: 311, y: 1423, w: 99, h: 101, pin: "none", space: "auto" },
-    LAYER_4: { x: 211, y: 471, w: 70, h: 72, pin: "none", space: "auto" },
-    LAYER_3_COPY2: { x: 206, y: 522, w: 72, h: 43, pin: "none", space: "auto", approx: true },
-    LAYER_5: { x: 35, y: 109, w: 650, h: 315, pin: "none", space: "auto" },
-    LAYER_4_COPY: { x: 425, y: 472, w: 82, h: 69, pin: "none", space: "auto" },
-    LAYER_3_COPY: { x: 438, y: 522, w: 54, h: 43, pin: "none", space: "auto", approx: true },
-    LAYER_3: { x: 119, y: 608, w: 134, h: 203, pin: "none", space: "auto" },
-    LAYER_8: { x: 230, y: 606, w: 44, h: 50, pin: "none", space: "auto" },
-    LAYER_3_COPY3: { x: 295, y: 609, w: 134, h: 201, pin: "none", space: "auto" },
-    LAYER_3_COPY4: { x: 473, y: 609, w: 134, h: 201, pin: "none", space: "auto" },
-    LAYER_3_COPY5: { x: 119, y: 851, w: 134, h: 201, pin: "none", space: "auto" },
-    LAYER_3_COPY6: { x: 295, y: 851, w: 134, h: 201, pin: "none", space: "auto" },
-    LAYER_3_COPY7: { x: 473, y: 851, w: 134, h: 201, pin: "none", space: "auto" },
-    LAYER_3_COPY8: { x: 119, y: 1097, w: 134, h: 201, pin: "none", space: "auto" },
-    LAYER_3_COPY9: { x: 295, y: 1097, w: 134, h: 201, pin: "none", space: "auto" },
-    LAYER_3_COPY10: { x: 473, y: 1097, w: 134, h: 201, pin: "none", space: "auto" },
-    LAYER_6: { x: 168, y: 592, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY: { x: 346, y: 592, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY2: { x: 525, y: 592, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY3: { x: 154, y: 835, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY4: { x: 184, y: 835, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY5: { x: 332, y: 835, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY6: { x: 362, y: 835, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY7: { x: 511, y: 835, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY8: { x: 542, y: 835, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY9: { x: 142, y: 1080, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY10: { x: 172, y: 1080, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY11: { x: 202, y: 1080, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY12: { x: 318, y: 1080, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY13: { x: 347, y: 1080, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY14: { x: 377, y: 1080, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY15: { x: 500, y: 1080, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY16: { x: 530, y: 1080, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_6_COPY17: { x: 559, y: 1080, w: 29, h: 29, pin: "none", space: "auto" },
-    LAYER_7: { x: 328, y: 1368, w: 14, h: 34, pin: "none", space: "auto", approx: true },
-    LAYER_7_COPY: { x: 350, y: 1368, w: 56, h: 34, pin: "none", space: "auto", approx: true },
+    LAYER_1: { x: 5, y: 225, w: 716, h: 1271, pin: "none", space: "auto" },
+    LAYER_2: { x: 305, y: 1460, w: 110, h: 112, pin: "none", space: "auto" },
+    LAYER_4: { x: 195, y: 463, w: 78, h: 80, pin: "none", space: "auto" },
+    LAYER_3_COPY2: { x: 189, y: 519, w: 80, h: 48, pin: "none", space: "auto", approx: true },
+    LAYER_5: { x: 0, y: 89, w: 720, h: 349, pin: "none", space: "auto" },
+    LAYER_4_COPY: { x: 432, y: 464, w: 91, h: 76, pin: "none", space: "auto" },
+    LAYER_3_COPY: { x: 446, y: 519, w: 60, h: 48, pin: "none", space: "auto", approx: true },
+    LAYER_6_COPY3: { x: 132, y: 847, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_6_COPY4: { x: 165, y: 847, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_6_COPY5: { x: 329, y: 847, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_6_COPY6: { x: 362, y: 847, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_6_COPY7: { x: 527, y: 847, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_6_COPY8: { x: 561, y: 847, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_6_COPY9: { x: 118, y: 1106, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_6_COPY10: { x: 151, y: 1106, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_6_COPY11: { x: 185, y: 1106, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_6_COPY12: { x: 313, y: 1106, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_6_COPY13: { x: 345, y: 1106, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_6_COPY14: { x: 378, y: 1106, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_6_COPY15: { x: 515, y: 1106, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_6_COPY16: { x: 548, y: 1106, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_6_COPY17: { x: 580, y: 1106, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_7: { x: 324, y: 1418, w: 16, h: 37, pin: "none", space: "auto", approx: true },
+    LAYER_7_COPY: { x: 349, y: 1418, w: 62, h: 37, pin: "none", space: "auto", approx: true },
+    LAYER_3: { x: 89, y: 614, w: 154, h: 216, pin: "none", space: "auto" },
+    LAYER_3_COPY3: { x: 287, y: 615, w: 154, h: 215, pin: "none", space: "auto" },
+    LAYER_6: { x: 147, y: 591, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_6_COPY: { x: 344, y: 591, w: 32, h: 32, pin: "none", space: "auto" },
+    LAYER_6_COPY2: { x: 542, y: 591, w: 32, h: 32, pin: "none", space: "auto" },
   },
   HOME: {
     FRAME: { w: 1080, h: 2400 },
     LAYER_14: { x: -263, y: -937, w: 1586, h: 2993, pin: "none", space: "auto" },
-    LAYER_1_COPY: { x: -218, y: -362, w: 1517, h: 2822, pin: "none", space: "auto" },
+    LAYER_1_COPY: { x: -218, y: -364, w: 1498, h: 2824, pin: "none", space: "auto" },
     LAYER_1_COPY2: { x: -673, y: 1884, w: 2285, h: 592, pin: "none", space: "auto" },
     LAYER_1_COPY3: { x: 1595, y: 1885, w: 2285, h: 592, pin: "none", space: "auto" },
     LAYER_1_COPY4: { x: -2920, y: 1884, w: 2285, h: 592, pin: "none", space: "auto" },
@@ -525,7 +560,7 @@ export const LAYOUT = {
     LAYER_11_COPY: { x: 27, y: 376, w: 139, h: 166, pin: "none", space: "auto" },
     LAYER_13_COPY: { x: 63, y: 484, w: 68, h: 41, pin: "none", space: "auto", approx: true },
     LAYER_11_COPY2: { x: 27, y: 1045, w: 165, h: 185, pin: "none", space: "auto" },
-    LAYER_13_COPY2: { x: 61, y: 1164, w: 98, h: 47, pin: "none", space: "auto", approx: true },
+    LAYER_13_COPY2: { x: 61, y: 1165, w: 98, h: 47, pin: "none", space: "auto", approx: true },
     LAYER_13_COPY7: { x: 57, y: 1082, w: 100, h: 60, pin: "none", space: "auto", approx: true },
     LAYER_11_COPY3: { x: 915, y: 186, w: 139, h: 164, pin: "none", space: "auto" },
     LAYER_13_COPY3: { x: 965, y: 215, w: 34, h: 41, pin: "none", space: "auto", approx: true },
@@ -541,6 +576,7 @@ export const LAYOUT = {
     LAYER_16_COPY: { x: 1333, y: 1055, w: 819, h: 1137, pin: "none", space: "auto" },
     LAYER_17: { x: 12, y: 1682, w: 120, h: 145, pin: "none", space: "auto" },
     LAYER_17_COPY: { x: 944, y: 1683, w: 120, h: 143, pin: "none", space: "auto" },
+    LAYER_18: { x: 21, y: 570, w: 153, h: 152, pin: "none", space: "auto" },
   },
   HOME_COPY: {
     FRAME: { w: 1080, h: 2400 },

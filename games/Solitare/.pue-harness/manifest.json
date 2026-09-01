@@ -2,7 +2,7 @@
   "harnessVersion": 1,
   "domain": "ui",
   "project": null,
-  "generatedAt": "2026-07-28T11:30:05.720Z",
+  "generatedAt": "2026-08-31T03:21:37.436Z",
   "units": [
     {
       "unit": "main",
@@ -33,12 +33,13 @@
     },
     {
       "unit": "home",
-      "rev": "a0df0313",
+      "rev": "4e030c3e",
       "label": "타워",
-      "nodes": 57,
+      "nodes": 58,
       "refs": [
         "asset:up_Car_01",
         "asset:up_Car_02",
+        "asset:up_Homerun_UI_13",
         "asset:up_Slitare_BG_01_v3",
         "asset:up_Slitare_BG_02_v2",
         "asset:up_Slitare_BG_03_v2",
@@ -249,26 +250,35 @@
     },
     {
       "unit": "blank_copy2",
-      "rev": "29accfb9",
+      "rev": "b1d5ed19",
       "label": "콜렉션 카드1",
-      "nodes": 37,
+      "nodes": 29,
       "refs": [
-        "asset:up_01_v2",
-        "asset:up_02",
-        "asset:up_03",
-        "asset:up_04",
-        "asset:up_05",
-        "asset:up_06",
-        "asset:up_07",
-        "asset:up_08",
-        "asset:up_09",
+        "asset:up_ChatGPT_Image_2026__8__31_____02_41_37__1_",
+        "asset:up_ChatGPT_Image_2026__8__31_____02_41_39__3_",
         "asset:up_CollecttionCard_01",
         "asset:up_CollecttionCard_Frame",
         "asset:up_DailyMission_08-1_v2",
         "asset:up_PlayIn_02_v2",
         "asset:up_Solitare_UI_02_v4",
-        "asset:up_Solitare_UI_2-3_v4",
-        "asset:up_Solitare_UI_Play_03-3_v2"
+        "asset:up_Solitare_UI_2-3_v4"
+      ]
+    },
+    {
+      "unit": "blank_2",
+      "rev": "448098c3",
+      "label": "결과화면",
+      "nodes": 22,
+      "refs": [
+        "asset:up_02_v2",
+        "asset:up_06_v2",
+        "asset:up_Resurt_01",
+        "asset:up_Resurt_02",
+        "asset:up_Resurt_03",
+        "asset:up_Solitare_UI_02_v5",
+        "asset:up_Solitare_UI_02_v6",
+        "asset:up_Solitare_UI_2-2_v5",
+        "asset:up_Solitare_UI_2-3_v5"
       ]
     }
   ]

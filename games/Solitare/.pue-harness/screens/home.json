@@ -38,13 +38,13 @@
       "label": "원경",
       "rect": [
         -218,
-        -362,
-        1517,
-        2822
+        -364,
+        1498,
+        2824
       ],
       "center": [
-        541,
-        1049
+        531,
+        1048
       ],
       "z": 2,
       "space": "auto",
@@ -1099,7 +1099,7 @@
       "label": "t 복사",
       "rect": [
         61,
-        1164,
+        1165,
         98,
         47
       ],
@@ -1121,7 +1121,7 @@
       "style": {
         "stroke": "#5a3210",
         "strokeW": 4,
-        "fontSize": 39.13,
+        "fontSize": 39,
         "fontFamily": "Do Hyeon",
         "color": "#ffffff",
         "fontStyle": "500",
@@ -1575,11 +1575,34 @@
       "style": {
         "tintable": true
       }
+    },
+    {
+      "id": "layer_18",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        21,
+        570,
+        153,
+        152
+      ],
+      "center": [
+        97,
+        646
+      ],
+      "z": 58,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Homerun_UI_13",
+      "style": {
+        "tintable": true
+      }
     }
   ],
   "refs": [
     "asset:up_Car_01",
     "asset:up_Car_02",
+    "asset:up_Homerun_UI_13",
     "asset:up_Slitare_BG_01_v3",
     "asset:up_Slitare_BG_02_v2",
     "asset:up_Slitare_BG_03_v2",
@@ -1784,5 +1807,5 @@
     ],
     "note": "추정입니다 — 저작된 값이 아닙니다. 확정이 필요하면 에디터에서 「버튼」과 역할(action:이름)을 지정하세요. 구현 시에는 이 후보를 근거로 삼되, 코드에 TODO 로 남겨 사람이 확인할 수 있게 하세요."
   },
-  "rev": "a0df0313"
+  "rev": "4e030c3e"
 }

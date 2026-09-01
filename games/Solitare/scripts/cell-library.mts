@@ -217,3 +217,49 @@ export const CELLS: Record<string, CellShape> = (() => {
 })();
 
 export const CELL_NAMES: string[] = Object.keys(CELLS);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 계층(오픈 구조) 판정 — "각 카드는 계층화된 오픈 구조로 설계돼야 한다"(PO 2026-08-21)
+//
+// 실측 배경: 500레벨 전수 점검에서 **고아 카드**(시작부터 열려 있으면서 아무 카드도 덮지 않는, 계층
+// 그래프 바깥의 공짜 카드)가 708장(3.7%)·237레벨에서 나왔다. 원인은 두 가지였고 둘 다 여기서 막는다.
+//   ① 셀 자체가 계층적이지 않음 — 나선/ㄷ자/납작다이아처럼 **윗행에 덮개가 없는 카드**를 품은 조각.
+//   ② 좁은 셀 위에 넓은 셀을 얹음 — 기둥1 밑에 바3(`#.#.#`)을 붙이면 양 끝 2장이 덮이지 않는다.
+// ①은 LAYERED_CELLS 로 걸러내고, ②는 stacksOnto() 로 조립 단계에서 막는다.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 셀 안의 한 행에 있는 카드들의 **중심 기준 열 오프셋** — 셀은 중심 정렬로 쌓이므로(buildGroup) 이 값이 곧 상대 위치다. */
+function rowOffsets(s: CellShape, row: number): number[] {
+  return s.cells.filter((c) => c.row === row).map((c) => c.col - (s.cols - 1) / 2);
+}
+
+/** 셀의 최상단 행(= 이 셀이 위 셀에 얹힐 때 덮여야 하는 카드들). */
+export function topRowOffsets(s: CellShape): number[] {
+  return rowOffsets(s, 0);
+}
+
+/** 셀의 최하단 행(= 이 셀 아래에 얹히는 셀을 덮어 줄 카드들). */
+export function bottomRowOffsets(s: CellShape): number[] {
+  return rowOffsets(s, s.rows - 1);
+}
+
+/** 격자에서 (Δ열 ≤ 1) 이면 덮는다 — cell-grid 의 isCoveredInGrid 와 같은 규칙. */
+const coversCol = (upper: readonly number[], x: number): boolean => upper.some((u) => Math.abs(u - x) <= 1);
+
+/** 셀 **내부**가 계층적인가 — 최상단 행을 뺀 모든 카드가 바로 윗행에 덮개를 갖는가. */
+export function isSelfLayered(s: CellShape): boolean {
+  for (let r = 1; r < s.rows; r++) {
+    const up = rowOffsets(s, r - 1);
+    if (!rowOffsets(s, r).every((x) => coversCol(up, x))) return false;
+  }
+  return true;
+}
+
+/** `below` 를 `above` 바로 밑에 (중심 정렬로) 붙였을 때, below 의 최상단 행이 **전부** 덮이는가. */
+export function stacksOnto(above: CellShape, below: CellShape): boolean {
+  const bottom = bottomRowOffsets(above);
+  return topRowOffsets(below).every((x) => coversCol(bottom, x));
+}
+
+/** 자체 계층이 성립하는 셀 이름(스택 재료로 쓸 수 있는 것들) — 위반 20종은 제외된다. */
+export const LAYERED_CELLS: string[] = CELL_NAMES.filter((n) => isSelfLayered(CELLS[n]));

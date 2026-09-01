@@ -33,6 +33,12 @@ export interface PlayResult {
   readonly boardSize: number;
   /** 최장 연속 매칭 런. */
   readonly bestRun: number;
+  /**
+   * **완료된 콤보 런들의 길이** — 튜닝 계측용(밸런스 결정에 쓰고, 게임 로직은 보지 않는다).
+   * 예: 위클리 이벤트의 "N콤보마다 아이템 드랍"에서 N 을 정할 때 `Σ floor(len/N)` 로
+   *   판당 드랍 수를 바로 계산한다. 5 는 `sets` 와 같은 값이 나온다(교차 검증용).
+   */
+  readonly runs: readonly number[];
   /** **콤보 점수**(초선형) — 매치마다 현재 연속 콤보 길이(캡 적용)를 가산. 별 등급 축①. */
   readonly comboScore: number;
   /** 처음 받은 스톡 장수 — 별 등급 축②(남은 카드 수)의 정규화 분모. */
@@ -115,6 +121,7 @@ export function simulateGame(initial: GameState, rng: Rng, econ: EconParams): Pl
   let run = 0;
   let bestRun = 0;
   let comboScore = 0;
+  const runs: number[] = [];
   let draws = 0;
   let plays = 0;
   // **스톡 유입**(와일드·보너스·미션 보상) — 실게임과 동일하게 재현. 자세한 근거는 위 상수 주석 참조.
@@ -160,6 +167,7 @@ export function simulateGame(initial: GameState, rng: Rng, econ: EconParams): Pl
     } else if (s.stock.length > 0) {
       s = drawStock(s, rng); // 실게임과 동일: rng 전달 → 적응형/큐레이션 드로우.
       draws++;
+      if (run > 0) runs.push(run);
       run = 0; // 뽑기 = 콤보 끊김.
     } else {
       break; // 교착 + 스톡 소진 = 패배(부스터 미사용 봇).
@@ -175,6 +183,7 @@ export function simulateGame(initial: GameState, rng: Rng, econ: EconParams): Pl
     plays,
     boardSize,
     bestRun,
+    runs: run > 0 ? [...runs, run] : runs, // 마지막 런은 뽑기 없이 끝나므로 여기서 합친다.
     comboScore,
     stockSize: initial.stock.length,
   };

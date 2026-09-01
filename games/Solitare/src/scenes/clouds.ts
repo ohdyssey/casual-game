@@ -6,8 +6,9 @@
  *    구름을 **상단 순수 하늘 영역**(빌딩이 없는 높이)에만 띄워 빌딩을 덮지 않게 한다(=시각적으로 빌딩 뒤).
  */
 import Phaser from 'phaser';
+import { SAFE_W as W } from '../logic/responsiveFrame.js';
 
-const W = 1080;
+// 저작(=세이프존) 프레임 — 단일 출처는 logic/responsiveFrame.ts (캔버스 크기 아님).
 const CLOUD_KEYS = ['cloud_1', 'cloud_2', 'cloud_3'];
 const FILES = ['SC_BG_02-2', 'SC_BG_02-3', 'SC_BG_02-4'];
 const DEPTH = 1.5; // **하늘(depth 1) 바로 위, 원경(depth 2) 뒤** — 원경 건물 상층부 뒤에서 투명 하늘 틈으로 보인다.

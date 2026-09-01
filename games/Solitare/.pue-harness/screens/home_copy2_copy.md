@@ -116,7 +116,7 @@ bb222222cc
 | `layer_13_copy5` | t 복사 | text | (948,675) 68×41 | "Pass" · 크기 근사 |
 | `layer_15` | 자동차2 | image | (655,2183) 419×184 | 에셋 up_Car_01 |
 | `layer_15_copy` | 자동차1 | image | (41,2165) 455×208 | 에셋 up_Car_02 |
-| `layer_16` | 부지구입 | image | (-1033,1018) 819×1210 | 에셋 up_Slitare_BG_Ruin_01 |
+| `layer_16` | 부지��입 | image | (-1033,1018) 819×1210 | 에셋 up_Slitare_BG_Ruin_01 |
 | `layer_17` | 스와이프 좌 | image | (12,1682) 120×145 | 에셋 up_Solitare_UI_21-1 |
 | `layer_17_copy` | 스와이프 우 | image | (944,1683) 120×143 | 에셋 up_Solitare_UI_21-2 |
 | `layer_2` | 고수익 경쟁부지 | text | (420,996) 240×38 | "고수익 경쟁부지" · 크기 근사 |

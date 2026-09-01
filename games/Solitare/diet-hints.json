@@ -1,0 +1,412 @@
+{
+  "_": [
+    "diet-hints.json — **생성물이다. 직접 고치지 말 것** (`npm run measure:textures && npm run gen:diet-hints`).",
+    "",
+    "저작 레이아웃에 노드가 없는(=코드가 그리는) 업로드 이미지의 **실제 최대 표시 크기**(게임 px).",
+    "배포 다이어트가 여기에 resizeCap 을 곱해 리사이즈 상한으로 쓴다. 규칙은 scripts/gen-diet-hints.mjs.",
+    "",
+    "⚠️ 값이 실제보다 작으면 그 아트가 흐려진다 — 표시 크기를 바꾸는 수정 뒤에는 반드시 다시 계측할 것.",
+    "",
+    "_carried = 최근 계측에서 한 번도 안 그려져 **이전 값을 그대로 들고 온** 키. 그 화면을 주행에 넣으면",
+    "실측으로 바뀐다(scripts/measure-textures.mjs 의 돌아볼 목록을 넓힐 것)."
+  ],
+  "_carried": [
+    "up_Solitare_UI_28",
+    "up_Solitare_UI_29",
+    "up_Solitare_UI_30-1",
+    "up_Solitare_UI_30-2",
+    "up_Solitare_UI_30-3",
+    "up_Solitare_UI_30-4",
+    "up_Solitare_UI_30-5"
+  ],
+  "keys": {
+    "up_BR_Shop_03_v3": {
+      "w": 122,
+      "h": 118
+    },
+    "up_BR_UI_League_02_v2": {
+      "w": 1055,
+      "h": 1592
+    },
+    "up_BR_UI_League_04": {
+      "w": 518,
+      "h": 111
+    },
+    "up_BR_UI_League_05": {
+      "w": 818,
+      "h": 126
+    },
+    "up_BR_UI_League_05-1": {
+      "w": 63,
+      "h": 79
+    },
+    "up_BR_UI_League_05-2": {
+      "w": 63,
+      "h": 79
+    },
+    "up_BR_UI_League_05-3": {
+      "w": 63,
+      "h": 79
+    },
+    "up_BR_UI_League_05-4": {
+      "w": 78,
+      "h": 76
+    },
+    "up_BR_UI_League_07-1": {
+      "w": 107,
+      "h": 105
+    },
+    "up_BR_UI_League_07-2": {
+      "w": 107,
+      "h": 104
+    },
+    "up_BR_UI_League_07-3": {
+      "w": 388,
+      "h": 65
+    },
+    "up_BR_UI_League_07-6": {
+      "w": 261,
+      "h": 56
+    },
+    "up_BR_UI_League_08": {
+      "w": 378,
+      "h": 128
+    },
+    "up_BR_UI_League_09-1": {
+      "w": 67,
+      "h": 70
+    },
+    "up_BR_UI_League_09-2_v2": {
+      "w": 67,
+      "h": 67
+    },
+    "up_BR_UI_Profile_001": {
+      "w": 94,
+      "h": 94
+    },
+    "up_BR_UI_Profile_002": {
+      "w": 94,
+      "h": 92
+    },
+    "up_BR_UI_Profile_003": {
+      "w": 93,
+      "h": 93
+    },
+    "up_BR_UI_Profile_004": {
+      "w": 94,
+      "h": 93
+    },
+    "up_BR_UI_Profile_005": {
+      "w": 94,
+      "h": 94
+    },
+    "up_BR_UI_Profile_005_v5": {
+      "w": 104,
+      "h": 104
+    },
+    "up_ChatGPT_Image_2026__8__23_____04_55_21": {
+      "w": 991,
+      "h": 487
+    },
+    "up_ChatGPT_Image_2026__8__23_____05_06_27": {
+      "w": 840,
+      "h": 311
+    },
+    "up_ChatGPT_Image_2026__8__23_____05_10_46": {
+      "w": 1057,
+      "h": 348
+    },
+    "up_ChatGPT_Image_2026__8__23_____05_18_40": {
+      "w": 1014,
+      "h": 503
+    },
+    "up_ChatGPT_Image_2026__8__23_____05_26_23": {
+      "w": 953,
+      "h": 470
+    },
+    "up_CollectionCard02_01": {
+      "w": 53,
+      "h": 78
+    },
+    "up_DailyMission_08": {
+      "w": 114,
+      "h": 114
+    },
+    "up_DailyMission_08-1_v3": {
+      "w": 105,
+      "h": 103
+    },
+    "up_Event_02": {
+      "w": 122,
+      "h": 116
+    },
+    "up_Event_02_v2": {
+      "w": 91,
+      "h": 87
+    },
+    "up_Event_03": {
+      "w": 122,
+      "h": 100
+    },
+    "up_Event_06": {
+      "w": 85,
+      "h": 77
+    },
+    "up_Item_01_01-4": {
+      "w": 76,
+      "h": 84
+    },
+    "up_Item_02_10-1": {
+      "w": 83,
+      "h": 89
+    },
+    "up_LeaderBoard_05-1": {
+      "w": 65,
+      "h": 85
+    },
+    "up_LeaderBoard_05-2": {
+      "w": 65,
+      "h": 85
+    },
+    "up_LeaderBoard_05-3": {
+      "w": 65,
+      "h": 85
+    },
+    "up_Mode_09_v2": {
+      "w": 140,
+      "h": 138
+    },
+    "up_PVP_08-1_v3": {
+      "w": 155,
+      "h": 120
+    },
+    "up_Rewards_03": {
+      "w": 229,
+      "h": 92
+    },
+    "up_Slitare_BG_06": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Solirare_Chr_03_01": {
+      "w": 122,
+      "h": 255
+    },
+    "up_Solirare_Chr_03_02": {
+      "w": 101,
+      "h": 255
+    },
+    "up_Solirare_Chr_03_03": {
+      "w": 100,
+      "h": 255
+    },
+    "up_Solirare_Chr_03_04": {
+      "w": 121,
+      "h": 255
+    },
+    "up_Solirare_Chr_03_05": {
+      "w": 97,
+      "h": 255
+    },
+    "up_Solirare_Chr_03_06": {
+      "w": 88,
+      "h": 254
+    },
+    "up_Solirare_Chr_03_07": {
+      "w": 103,
+      "h": 255
+    },
+    "up_Solirare_Chr_03_08": {
+      "w": 103,
+      "h": 255
+    },
+    "up_Solirare_Chr_03_09": {
+      "w": 122,
+      "h": 255
+    },
+    "up_Solirare_Chr_03_10": {
+      "w": 122,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_01": {
+      "w": 119,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_02": {
+      "w": 90,
+      "h": 254
+    },
+    "up_Solirare_Chr_04_03": {
+      "w": 128,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_04": {
+      "w": 111,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_05": {
+      "w": 109,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_06": {
+      "w": 116,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_07": {
+      "w": 126,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_08": {
+      "w": 125,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_09": {
+      "w": 114,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_10": {
+      "w": 104,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_11": {
+      "w": 104,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_12": {
+      "w": 123,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_13": {
+      "w": 113,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_14": {
+      "w": 114,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_15": {
+      "w": 121,
+      "h": 255
+    },
+    "up_Solirare_Officer_01": {
+      "w": 112,
+      "h": 218
+    },
+    "up_Solitare_UI_06-1": {
+      "w": 133,
+      "h": 123
+    },
+    "up_Solitare_UI_07-1": {
+      "w": 115,
+      "h": 119
+    },
+    "up_Solitare_UI_08": {
+      "w": 101,
+      "h": 138
+    },
+    "up_Solitare_UI_08-2_v2": {
+      "w": 67,
+      "h": 79
+    },
+    "up_Solitare_UI_10-1_v4": {
+      "w": 1130,
+      "h": 212
+    },
+    "up_Solitare_UI_2-2_v2": {
+      "w": 59,
+      "h": 50
+    },
+    "up_Solitare_UI_2-2_v3": {
+      "w": 65,
+      "h": 55
+    },
+    "up_Solitare_UI_2-3": {
+      "w": 86,
+      "h": 87
+    },
+    "up_Solitare_UI_22": {
+      "w": 273,
+      "h": 113
+    },
+    "up_Solitare_UI_23_2": {
+      "w": 440,
+      "h": 129
+    },
+    "up_Solitare_UI_23_5": {
+      "w": 440,
+      "h": 126
+    },
+    "up_Solitare_UI_26": {
+      "w": 150,
+      "h": 150
+    },
+    "up_Solitare_UI_27": {
+      "w": 800,
+      "h": 1000
+    },
+    "up_Solitare_UI_28": {
+      "w": 1020,
+      "h": 760
+    },
+    "up_Solitare_UI_29": {
+      "w": 1020,
+      "h": 900
+    },
+    "up_Solitare_UI_2_2": {
+      "w": 101,
+      "h": 93
+    },
+    "up_Solitare_UI_30-1": {
+      "w": 700,
+      "h": 240
+    },
+    "up_Solitare_UI_30-2": {
+      "w": 700,
+      "h": 240
+    },
+    "up_Solitare_UI_30-3": {
+      "w": 700,
+      "h": 240
+    },
+    "up_Solitare_UI_30-4": {
+      "w": 700,
+      "h": 240
+    },
+    "up_Solitare_UI_30-5": {
+      "w": 700,
+      "h": 240
+    },
+    "up_Solitare_UI_ItemShop": {
+      "w": 905,
+      "h": 1832
+    },
+    "up_TopEvent_01": {
+      "w": 912,
+      "h": 1272
+    },
+    "up_TopEvent_03-1_v2": {
+      "w": 332,
+      "h": 79
+    },
+    "up_TopEvent_07-1": {
+      "w": 122,
+      "h": 116
+    },
+    "up_TopEvent_07-2": {
+      "w": 122,
+      "h": 120
+    },
+    "up_TopEvent_07-3": {
+      "w": 606,
+      "h": 114
+    },
+    "up_TopEvent_07-4": {
+      "w": 606,
+      "h": 115
+    },
+    "up_TopEvent_08": {
+      "w": 993,
+      "h": 235
+    }
+  }
+}

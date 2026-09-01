@@ -1,0 +1,882 @@
+{
+  "_": [
+    "texture-usage.json — **생성물**(`npm run measure:textures`). 게임을 돌며 잰 텍스처별 최대 표시 크기(월드 px).",
+    "여러 번 돌리면 최대치로 누적된다. 힌트 변환은 `npm run gen:diet-hints`.",
+    "⚠️ 여기 없는 키는 이번 주행에서 한 번도 안 그려진 것 — 힌트를 만들면 안 된다(그 화면에서 흐려진다)."
+  ],
+  "scenes": [
+    "home",
+    "load",
+    "play"
+  ],
+  "keys": {
+    "up_BR_Shop_03_v3": {
+      "w": 122,
+      "h": 118
+    },
+    "up_BR_Shop_03_v6": {
+      "w": 152,
+      "h": 148
+    },
+    "up_BR_UI_League_02_v2": {
+      "w": 1055,
+      "h": 1592
+    },
+    "up_BR_UI_League_04": {
+      "w": 518,
+      "h": 111
+    },
+    "up_BR_UI_League_05": {
+      "w": 818,
+      "h": 126
+    },
+    "up_BR_UI_League_05-1": {
+      "w": 63,
+      "h": 79
+    },
+    "up_BR_UI_League_05-2": {
+      "w": 63,
+      "h": 79
+    },
+    "up_BR_UI_League_05-3": {
+      "w": 63,
+      "h": 79
+    },
+    "up_BR_UI_League_05-4": {
+      "w": 78,
+      "h": 76
+    },
+    "up_BR_UI_League_06-1": {
+      "w": 122,
+      "h": 120
+    },
+    "up_BR_UI_League_06-2": {
+      "w": 122,
+      "h": 120
+    },
+    "up_BR_UI_League_07-1": {
+      "w": 107,
+      "h": 105
+    },
+    "up_BR_UI_League_07-2": {
+      "w": 107,
+      "h": 104
+    },
+    "up_BR_UI_League_07-3": {
+      "w": 388,
+      "h": 65
+    },
+    "up_BR_UI_League_07-4": {
+      "w": 2,
+      "h": 38
+    },
+    "up_BR_UI_League_07-6": {
+      "w": 261,
+      "h": 56
+    },
+    "up_BR_UI_League_08": {
+      "w": 378,
+      "h": 128
+    },
+    "up_BR_UI_League_09-1": {
+      "w": 67,
+      "h": 70
+    },
+    "up_BR_UI_League_09-2_v2": {
+      "w": 67,
+      "h": 67
+    },
+    "up_BR_UI_Profile_001": {
+      "w": 94,
+      "h": 94
+    },
+    "up_BR_UI_Profile_002": {
+      "w": 94,
+      "h": 92
+    },
+    "up_BR_UI_Profile_004": {
+      "w": 94,
+      "h": 93
+    },
+    "up_BR_UI_Profile_005": {
+      "w": 94,
+      "h": 94
+    },
+    "up_BR_UI_Profile_005_v5": {
+      "w": 104,
+      "h": 104
+    },
+    "up_Car_05": {
+      "w": 455,
+      "h": 204
+    },
+    "up_ChatGPT_Image_2026__8__23_____04_55_21": {
+      "w": 991,
+      "h": 487
+    },
+    "up_ChatGPT_Image_2026__8__23_____05_06_27": {
+      "w": 840,
+      "h": 311
+    },
+    "up_ChatGPT_Image_2026__8__23_____05_10_46": {
+      "w": 1058,
+      "h": 348
+    },
+    "up_ChatGPT_Image_2026__8__23_____05_18_40": {
+      "w": 1014,
+      "h": 503
+    },
+    "up_ChatGPT_Image_2026__8__23_____05_26_23": {
+      "w": 953,
+      "h": 470
+    },
+    "up_CollectionCard02_01": {
+      "w": 53,
+      "h": 78
+    },
+    "up_CollecttionCard_main": {
+      "w": 1110,
+      "h": 2467
+    },
+    "up_DailyMission_08": {
+      "w": 114,
+      "h": 114
+    },
+    "up_DailyMission_08-1_v3": {
+      "w": 105,
+      "h": 103
+    },
+    "up_Event_02": {
+      "w": 122,
+      "h": 116
+    },
+    "up_Event_02_v2": {
+      "w": 91,
+      "h": 87
+    },
+    "up_Event_03": {
+      "w": 122,
+      "h": 100
+    },
+    "up_Event_06": {
+      "w": 85,
+      "h": 77
+    },
+    "up_Homerun_UI_13": {
+      "w": 153,
+      "h": 152
+    },
+    "up_Item_01_01-4": {
+      "w": 76,
+      "h": 84
+    },
+    "up_LeaderBoard_02": {
+      "w": 329,
+      "h": 87
+    },
+    "up_LeaderBoard_03": {
+      "w": 329,
+      "h": 87
+    },
+    "up_LeaderBoard_04": {
+      "w": 1016,
+      "h": 130
+    },
+    "up_LeaderBoard_05-1": {
+      "w": 65,
+      "h": 85
+    },
+    "up_LeaderBoard_05-2": {
+      "w": 65,
+      "h": 85
+    },
+    "up_LeaderBoard_05-3": {
+      "w": 65,
+      "h": 85
+    },
+    "up_Mode_09_v2": {
+      "w": 140,
+      "h": 138
+    },
+    "up_PVP_08-1_v3": {
+      "w": 155,
+      "h": 120
+    },
+    "up_Rewards_01_v2": {
+      "w": 474,
+      "h": 135
+    },
+    "up_Rewards_02": {
+      "w": 79,
+      "h": 80
+    },
+    "up_Rewards_03": {
+      "w": 229,
+      "h": 92
+    },
+    "up_Rewards_04_v3": {
+      "w": 179,
+      "h": 41
+    },
+    "up_Slitare_BG_01-1": {
+      "w": 1129,
+      "h": 2193
+    },
+    "up_Slitare_BG_01-7_v4": {
+      "w": 1090,
+      "h": 1951
+    },
+    "up_Slitare_BG_01_v3": {
+      "w": 876,
+      "h": 518
+    },
+    "up_Slitare_BG_02_v2": {
+      "w": 859,
+      "h": 518
+    },
+    "up_Slitare_BG_Back01-1": {
+      "w": 1745,
+      "h": 3293
+    },
+    "up_Slitare_BG_Back01-10_v5": {
+      "w": 2285,
+      "h": 592
+    },
+    "up_Slitare_BG_Back01-11-1_v5": {
+      "w": 4341,
+      "h": 1087
+    },
+    "up_Slitare_BG_Back01-12-1": {
+      "w": 1798,
+      "h": 3473
+    },
+    "up_Slitare_BG_Glass": {
+      "w": 704,
+      "h": 111
+    },
+    "up_Slitare_BG_Item_01": {
+      "w": 79,
+      "h": 391
+    },
+    "up_Slitare_BG_Item_02": {
+      "w": 79,
+      "h": 119
+    },
+    "up_Slitare_BG_Item_04": {
+      "w": 112,
+      "h": 109
+    },
+    "up_Slitare_BG_Item_05": {
+      "w": 112,
+      "h": 113
+    },
+    "up_Slitare_BG_Ruin_02": {
+      "w": 760,
+      "h": 1239
+    },
+    "up_Slitare_BG_Ruin_03": {
+      "w": 760,
+      "h": 1183
+    },
+    "up_Slitare_BG_Ruin_04": {
+      "w": 760,
+      "h": 1023
+    },
+    "up_Slitare_BG_Ruin_05": {
+      "w": 760,
+      "h": 1056
+    },
+    "up_Slitare_BG_roof_v2": {
+      "w": 849,
+      "h": 298
+    },
+    "up_Slitare_Office_01": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_Office_02": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_Office_03": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_Office_roof": {
+      "w": 840,
+      "h": 478
+    },
+    "up_Solirare_Chr_01": {
+      "w": 155,
+      "h": 248
+    },
+    "up_Solirare_Chr_02": {
+      "w": 147,
+      "h": 248
+    },
+    "up_Solirare_Officer_01": {
+      "w": 112,
+      "h": 218
+    },
+    "up_Solirare_Officer_02": {
+      "w": 106,
+      "h": 249
+    },
+    "up_Solirare_Officer_03": {
+      "w": 110,
+      "h": 273
+    },
+    "up_Solitaire_BG_Back01": {
+      "w": 1080,
+      "h": 2400
+    },
+    "up_Solitare_UI_02_v2": {
+      "w": 64,
+      "h": 65
+    },
+    "up_Solitare_UI_06-1": {
+      "w": 133,
+      "h": 123
+    },
+    "up_Solitare_UI_07-1": {
+      "w": 115,
+      "h": 119
+    },
+    "up_Solitare_UI_08": {
+      "w": 101,
+      "h": 138
+    },
+    "up_Solitare_UI_08-2_v2": {
+      "w": 67,
+      "h": 79
+    },
+    "up_Solitare_UI_10-1_v4": {
+      "w": 1130,
+      "h": 212
+    },
+    "up_Solitare_UI_14_v3": {
+      "w": 1018,
+      "h": 104
+    },
+    "up_Solitare_UI_15": {
+      "w": 139,
+      "h": 164
+    },
+    "up_Solitare_UI_16_v2": {
+      "w": 139,
+      "h": 166
+    },
+    "up_Solitare_UI_18_v2": {
+      "w": 139,
+      "h": 164
+    },
+    "up_Solitare_UI_19_v2": {
+      "w": 139,
+      "h": 166
+    },
+    "up_Solitare_UI_2-2_v2": {
+      "w": 59,
+      "h": 50
+    },
+    "up_Solitare_UI_2-2_v3": {
+      "w": 65,
+      "h": 55
+    },
+    "up_Solitare_UI_2-2_v4": {
+      "w": 36,
+      "h": 31
+    },
+    "up_Solitare_UI_2-3": {
+      "w": 86,
+      "h": 87
+    },
+    "up_Solitare_UI_2-3_v3": {
+      "w": 36,
+      "h": 37
+    },
+    "up_Solitare_UI_20_v2": {
+      "w": 139,
+      "h": 167
+    },
+    "up_Solitare_UI_21-1": {
+      "w": 120,
+      "h": 145
+    },
+    "up_Solitare_UI_21-2": {
+      "w": 120,
+      "h": 143
+    },
+    "up_Solitare_UI_21-3": {
+      "w": 324,
+      "h": 132
+    },
+    "up_Solitare_UI_21_v2": {
+      "w": 295,
+      "h": 104
+    },
+    "up_Solitare_UI_22": {
+      "w": 273,
+      "h": 113
+    },
+    "up_Solitare_UI_23_2": {
+      "w": 440,
+      "h": 129
+    },
+    "up_Solitare_UI_23_5": {
+      "w": 440,
+      "h": 126
+    },
+    "up_Solitare_UI_24-1": {
+      "w": 98,
+      "h": 230
+    },
+    "up_Solitare_UI_24-2": {
+      "w": 230,
+      "h": 116
+    },
+    "up_Solitare_UI_24-3": {
+      "w": 104,
+      "h": 230
+    },
+    "up_Solitare_UI_25-1": {
+      "w": 554,
+      "h": 385
+    },
+    "up_Solitare_UI_25-2": {
+      "w": 554,
+      "h": 370
+    },
+    "up_Solitare_UI_25-3": {
+      "w": 554,
+      "h": 388
+    },
+    "up_Solitare_UI_26": {
+      "w": 119,
+      "h": 119
+    },
+    "up_Solitare_UI_27": {
+      "w": 800,
+      "h": 999
+    },
+    "up_Solitare_UI_2_2": {
+      "w": 101,
+      "h": 93
+    },
+    "up_Solitare_UI_ItemShop": {
+      "w": 905,
+      "h": 1832
+    },
+    "up_TopEvent_01": {
+      "w": 912,
+      "h": 1272
+    },
+    "up_TopEvent_03-1_v2": {
+      "w": 332,
+      "h": 79
+    },
+    "up_TopEvent_05-1": {
+      "w": 610,
+      "h": 108
+    },
+    "up_TopEvent_05-2": {
+      "w": 57,
+      "h": 65
+    },
+    "up_TopEvent_07": {
+      "w": 31,
+      "h": 948
+    },
+    "up_TopEvent_07-1": {
+      "w": 122,
+      "h": 116
+    },
+    "up_TopEvent_07-2": {
+      "w": 122,
+      "h": 120
+    },
+    "up_TopEvent_07-3": {
+      "w": 606,
+      "h": 114
+    },
+    "up_TopEvent_07-4": {
+      "w": 606,
+      "h": 115
+    },
+    "up_TopEvent_08": {
+      "w": 993,
+      "h": 235
+    },
+    "up_Car_09": {
+      "w": 583,
+      "h": 193
+    },
+    "up_Item_02_10-1": {
+      "w": 83,
+      "h": 89
+    },
+    "up_Slitare_BG_02_01": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_BG_02_02": {
+      "w": 859,
+      "h": 518
+    },
+    "up_Slitare_BG_02_03": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_02_04": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_02_05": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_02_06": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_02_07": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_02_08": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_02_09": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_02_10": {
+      "w": 872,
+      "h": 518
+    },
+    "up_Slitare_BG_03_v2": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_04_v3": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_05": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_06": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_07": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_08": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_09": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_10": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Solirare_Chr_02_01": {
+      "w": 126,
+      "h": 255
+    },
+    "up_Solirare_Chr_02_02": {
+      "w": 144,
+      "h": 255
+    },
+    "up_Solirare_Chr_02_03": {
+      "w": 131,
+      "h": 255
+    },
+    "up_Solirare_Chr_02_04": {
+      "w": 145,
+      "h": 255
+    },
+    "up_Solirare_Chr_02_05": {
+      "w": 145,
+      "h": 255
+    },
+    "up_Solirare_Chr_02_06": {
+      "w": 160,
+      "h": 256
+    },
+    "up_Solirare_Chr_02_07": {
+      "w": 136,
+      "h": 255
+    },
+    "up_Solirare_Chr_02_08": {
+      "w": 132,
+      "h": 255
+    },
+    "up_Solirare_Chr_02_09": {
+      "w": 160,
+      "h": 256
+    },
+    "up_Solirare_Chr_02_10": {
+      "w": 149,
+      "h": 256
+    },
+    "up_Solirare_Chr_03": {
+      "w": 125,
+      "h": 272
+    },
+    "up_Solirare_Chr_04": {
+      "w": 191,
+      "h": 256
+    },
+    "up_Solirare_Chr_05": {
+      "w": 116,
+      "h": 255
+    },
+    "up_Solirare_Chr_06": {
+      "w": 178,
+      "h": 256
+    },
+    "up_Solirare_Chr_07": {
+      "w": 140,
+      "h": 255
+    },
+    "up_Solirare_Chr_08": {
+      "w": 135,
+      "h": 255
+    },
+    "up_Solirare_Chr_09": {
+      "w": 158,
+      "h": 256
+    },
+    "up_Solirare_Chr_10": {
+      "w": 133,
+      "h": 255
+    },
+    "up_Solitare_UI_17_v2": {
+      "w": 182,
+      "h": 217
+    },
+    "up_BR_UI_Profile_003": {
+      "w": 93,
+      "h": 93
+    },
+    "up_Slitare_BG_03_01": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_BG_03_02": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_BG_03_03": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_BG_03_04": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_BG_03_05": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_BG_03_06": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_BG_03_07": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_BG_03_08": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_BG_03_09": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_BG_03_10": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_BG_04_01": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_BG_04_02": {
+      "w": 859,
+      "h": 518
+    },
+    "up_Slitare_BG_04_03": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_04_04": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_04_05": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_04_06": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_04_07": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_04_08": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_04_09": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_04_10": {
+      "w": 832,
+      "h": 517
+    },
+    "up_Slitare_BG_04_11": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_BG_04_12": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_BG_04_13": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_BG_04_14": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_BG_04_15": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_Office_04": {
+      "w": 858,
+      "h": 513
+    },
+    "up_Slitare_Office_05": {
+      "w": 859,
+      "h": 513
+    },
+    "up_Solirare_Chr_03_01": {
+      "w": 122,
+      "h": 255
+    },
+    "up_Solirare_Chr_03_02": {
+      "w": 101,
+      "h": 255
+    },
+    "up_Solirare_Chr_03_03": {
+      "w": 100,
+      "h": 255
+    },
+    "up_Solirare_Chr_03_04": {
+      "w": 121,
+      "h": 255
+    },
+    "up_Solirare_Chr_03_05": {
+      "w": 97,
+      "h": 255
+    },
+    "up_Solirare_Chr_03_06": {
+      "w": 88,
+      "h": 254
+    },
+    "up_Solirare_Chr_03_07": {
+      "w": 103,
+      "h": 255
+    },
+    "up_Solirare_Chr_03_08": {
+      "w": 103,
+      "h": 255
+    },
+    "up_Solirare_Chr_03_09": {
+      "w": 122,
+      "h": 255
+    },
+    "up_Solirare_Chr_03_10": {
+      "w": 122,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_01": {
+      "w": 119,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_02": {
+      "w": 90,
+      "h": 254
+    },
+    "up_Solirare_Chr_04_03": {
+      "w": 128,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_04": {
+      "w": 111,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_05": {
+      "w": 109,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_06": {
+      "w": 116,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_07": {
+      "w": 126,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_08": {
+      "w": 125,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_09": {
+      "w": 114,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_10": {
+      "w": 104,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_11": {
+      "w": 104,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_12": {
+      "w": 123,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_13": {
+      "w": 113,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_14": {
+      "w": 114,
+      "h": 255
+    },
+    "up_Solirare_Chr_04_15": {
+      "w": 121,
+      "h": 255
+    },
+    "up_Car_03": {
+      "w": 455,
+      "h": 195
+    }
+  }
+}

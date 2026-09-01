@@ -10,14 +10,15 @@
 | 화면 | 이름 | 노드 | rev |
 |---|---|---|---|
 | `main` | 플레이 화면 | 35 | `7421e494` |
-| `home` | 타워 | 57 | `a0df0313` |
+| `home` | 타워 | 58 | `4e030c3e` |
 | `home_copy` | 타워 건설 템플릿 | 34 | `f2869daa` |
 | `blank` | 플레이 진입 | 15 | `b7771502` |
 | `home_copy2` | 공공건물 | 47 | `15ac3cd7` |
 | `home_copy2_copy` | 판매건물 | 40 | `8cdb04a1` |
 | `blank_copy` | 데일리미션 | 37 | `e35f36bb` |
 | `home_copy2_copy2` | 경쟁부지 | 44 | `2362fcc6` |
-| `blank_copy2` | 콜렉션 카드1 | 37 | `29accfb9` |
+| `blank_copy2` | 콜렉션 카드1 | 29 | `b1d5ed19` |
+| `blank_2` | 결과화면 | 22 | `448098c3` |
 
 ## 좌표 규약 (반드시 읽을 것)
 
@@ -72,4 +73,4 @@ node "D:/Dev/phaser-ui-editor/scripts/pue.js" check     # 마지막 반영 이�
 node "D:/Dev/phaser-ui-editor/scripts/pue.js" sync      # 현재 상태를 "반영 완료"로 도장
 ```
 
-생성 시각: 2026-07-28T11:30:05.720Z · 하네스 v1
+생성 시각: 2026-08-31T03:21:37.436Z · 하네스 v1

@@ -27,13 +27,13 @@ import {
 import { GAME_FEE, plus5Cost, wildCost, stockBonusPerCard, starCoins } from '../save.js';
 
 describe('economy — 게임비 곡선(레벨 단위 계단, PO 2026-07-16, 2026-07-18 레벨캡 3배 확장)', () => {
-  it('기저 2,000 · 150레벨마다 ×1.129(구 50×3, 19단계 유지) · 100 단위 내림 — Lv3000 = 정확히 2만(비례)', () => {
-    expect(feeForLevel(DEFAULT_ECON, 1)).toBe(2000); // PO: 초기 2,000부터.
-    expect(feeForLevel(DEFAULT_ECON, 150)).toBe(2000); // 같은 단계 내 고정.
-    expect(feeForLevel(DEFAULT_ECON, 151)).toBe(2200); // 원값 2,258 → 100 단위 내림.
-    expect(feeForLevel(DEFAULT_ECON, 301)).toBe(2500); // 원값 2,549 → 2,500.
-    expect(feeForLevel(DEFAULT_ECON, 451)).toBe(2800); // 원값 2,878 → 2,800.
-    expect(feeForLevel(DEFAULT_ECON, 3000)).toBe(20000); // 원값 20,040 → 정확히 2만(시작값 비례, 구 Lv1000 목표를 Lv3000 에서 재현).
+  it('기저 1,500 · 150레벨마다 ×1.129(19단계 유지) · 100 단위 내림 — Lv3000 = 1만5천(시작값 비례)', () => {
+    expect(feeForLevel(DEFAULT_ECON, 1)).toBe(1500); // PO 2026-08-23: 2,000 → 1,500 하향.
+    expect(feeForLevel(DEFAULT_ECON, 150)).toBe(1500); // 같은 단계 내 고정.
+    expect(feeForLevel(DEFAULT_ECON, 151)).toBe(1600); // 원값 1,693 → 100 단위 내림.
+    expect(feeForLevel(DEFAULT_ECON, 301)).toBe(1900); // 원값 1,912 → 1,900.
+    expect(feeForLevel(DEFAULT_ECON, 451)).toBe(2100); // 원값 2,159 → 2,100.
+    expect(feeForLevel(DEFAULT_ECON, 3000)).toBe(15000); // 원값 15,041 → 1만5천(19단계 총 ×10.03 은 그대로).
     let prev = 0;
     for (let lv = 1; lv <= 3000; lv += 7) {
       const fee = feeForLevel(DEFAULT_ECON, lv);
@@ -56,28 +56,30 @@ describe('economy — 게임비 곡선(레벨 단위 계단, PO 2026-07-16, 2026
   });
 });
 
-describe('economy — 현행 게임(save.ts, 게임비 2000)과 정합', () => {
+describe('economy — 현행 게임(save.ts, 게임비 1500)과 정합', () => {
   // P3(게임이 economy.json 소비) 전까지 두 소스가 어긋나지 않는지 감시하는 계약 테스트.
-  const fee = GAME_FEE; // 2000 = 5층 시점 근사(곡선은 1900 — 라운딩 차이는 P3 재배선 때 흡수).
+  const fee = GAME_FEE; // 1500 — save.ts 사본. 실가동은 econRuntime(=public/econ/economy.json).
   it('별 보상 곡선(1~5★) — 모델·save.ts 정합', () => {
     for (let stars = 1; stars <= 5; stars++) {
       expect(starCoinsFor(DEFAULT_ECON, fee, stars)).toBe(starCoins(stars));
     }
-    expect(starCoins(3)).toBe(2600); // 게임비 2,000 × 1.3 = **흑자 전환점**(PO 2026-07-29).
-    expect(starCoins(3)).toBeGreaterThan(fee);
+    // PO 2026-08-23: 3★ = **손익분기**(게임비와 같다). 예전엔 ×1.3(2,600)이라 이기면 무조건 남았고,
+    //   그러면 코인을 사서 판을 더 해도 그 판이 또 벌어들여 **인앱결제가 필요 없어진다**.
+    expect(starCoins(3)).toBe(1500);
+    expect(starCoins(3)).toBe(fee);
   });
   it('남은카드 공식 동일 (부스터는 의도적 분기 — 모델 선행, 게임 미적용)', () => {
     expect(stockBonusFor(DEFAULT_ECON, fee, 1)).toBe(stockBonusPerCard());
     // 부스터는 PO 지시로 모델(economy.ts)만 신규 곡선 — 라이브(save.ts)는 현행 유지(P3 때 일괄 반영).
-    expect(plus5Cost(0)).toBe(6000); // 라이브: 게임비 2000×3.0 그대로.
-    expect(wildCost(0)).toBe(7200);
+    expect(plus5Cost(0)).toBe(4500); // 라이브: 게임비 1500×3.0.
+    expect(wildCost(0)).toBe(5400); // 1500×3.6.
   });
-  it('부스터 모델 곡선(시작값 연동): Lv1 +5=4,000·와일드=6,000(게임비 2,000×2/×3), 캡 ×1.5 램프', () => {
-    expect(plus5CostFor(DEFAULT_ECON, feeForLevel(DEFAULT_ECON, 1), 0, 1)).toBe(4000);
-    expect(wildCostFor(DEFAULT_ECON, feeForLevel(DEFAULT_ECON, 1), 0, 1)).toBe(6000);
-    const feeCap = feeForLevel(DEFAULT_ECON, DEFAULT_ECON.levelCap); // 20,000.
-    expect(plus5CostFor(DEFAULT_ECON, feeCap, 0, DEFAULT_ECON.levelCap)).toBe(60_000); // 20,000×2×1.5.
-    expect(wildCostFor(DEFAULT_ECON, feeCap, 0, DEFAULT_ECON.levelCap)).toBe(90_000);
+  it('부스터 모델 곡선(시작값 연동): Lv1 +5=3,000·와일드=4,500(게임비 1,500×2/×3), 캡 ×1.5 램프', () => {
+    expect(plus5CostFor(DEFAULT_ECON, feeForLevel(DEFAULT_ECON, 1), 0, 1)).toBe(3000);
+    expect(wildCostFor(DEFAULT_ECON, feeForLevel(DEFAULT_ECON, 1), 0, 1)).toBe(4500);
+    const feeCap = feeForLevel(DEFAULT_ECON, DEFAULT_ECON.levelCap); // 15,000.
+    expect(plus5CostFor(DEFAULT_ECON, feeCap, 0, DEFAULT_ECON.levelCap)).toBe(45_000); // 15,000×2×1.5.
+    expect(wildCostFor(DEFAULT_ECON, feeCap, 0, DEFAULT_ECON.levelCap)).toBe(67_500);
     // 과도 방지 가드: 캡에서 와일드가 게임비의 5배를 넘지 않는다.
     expect(wildCostFor(DEFAULT_ECON, feeCap, 0, DEFAULT_ECON.levelCap)).toBeLessThanOrEqual(feeCap * 5);
     // 100 단위 검증(중간 레벨·재사용 포함): 원값이 단위 미달이면 내림.
@@ -89,9 +91,14 @@ describe('economy — 현행 게임(save.ts, 게임비 2000)과 정합', () => {
       }
     }
   });
-  it('초기값(시작 게임비 연동): 코인 40,000 = 20판 분량 · 다이아 30', () => {
-    expect(DEFAULT_ECON.startCoins).toBe(40_000);
-    expect(DEFAULT_ECON.startCoins / feeForLevel(DEFAULT_ECON, 1)).toBe(20); // 20판 유지.
+  /**
+   * ⚠️ 게임비 하향(2,000→1,500)의 **부수 효과** — 시작 코인은 그대로인데 판수 환산이 20 → 26.7 판으로
+   *   늘었다. startCoins 를 줄여 20판으로 되돌릴지는 별도 PO 결정 사항이라 여기서는 사실만 고정한다.
+   *   PO 2026-08-23: 라이브 save.ts START_COINS 도 40,000 으로 맞춰 모델과 일치시켰다.
+   */
+  it('초기값(시작 게임비 연동): 코인 40,000 = 26.7판 분량 · 다이아 30', () => {
+    expect(DEFAULT_ECON.startCoins).toBe(20_000);
+    expect(DEFAULT_ECON.startCoins / feeForLevel(DEFAULT_ECON, 1)).toBeCloseTo(13.33, 1);
     expect(DEFAULT_ECON.startDiamonds).toBe(30);
   });
 });
@@ -181,10 +188,14 @@ describe('economy — coerceEcon(JSON 병합)', () => {
 describe('별 보상 곡선(1~5★) — 3★ 부터 게임비 이상 수익(PO 2026-07-29)', () => {
   const fee = feeForLevel(DEFAULT_ECON, 1);
 
-  /** 핵심 계약 — "별 3개를 획득했을 때 게임 비용 이상을 수익이 가능하도록". */
-  it('3★ 보상은 게임비를 넘는다(흑자)', () => {
-    expect(starCoinsFor(DEFAULT_ECON, fee, BREAKEVEN_STARS)).toBeGreaterThan(fee);
-    expect(starProfitFor(DEFAULT_ECON, fee, BREAKEVEN_STARS)).toBeGreaterThan(0);
+  /**
+   * 핵심 계약 — 3★ 이 **손익분기**(PO 2026-08-23 재조정).
+   * 여기가 흑자로 돌아가면 플레이가 코인을 버는 곳이 되어 결제 모델이 무너진다.
+   * 4★ 부터 남는다 — 잘한 만큼만 남는 구조.
+   */
+  it('3★ 은 본전, 4★ 부터 흑자', () => {
+    expect(starProfitFor(DEFAULT_ECON, fee, BREAKEVEN_STARS)).toBe(0);
+    expect(starProfitFor(DEFAULT_ECON, fee, BREAKEVEN_STARS + 1)).toBeGreaterThan(0);
   });
 
   it('1·2★ 는 게임비에 못 미친다(부스터를 쓴 판의 자리)', () => {
@@ -223,23 +234,40 @@ describe('별 보상 곡선(1~5★) — 3★ 부터 게임비 이상 수익(PO 2
   });
 });
 
-describe('층별 건설/매입 비용 — 코인 1.5K+0.5K/층 · 다이아 20+5/층(PO 2026-07-29·30 A안)', () => {
-  it('1층 1,500 에서 시작해 층마다 500씩 오른다', () => {
-    expect(storeAcquireCostFor(1).coins).toBe(1500);
-    expect(storeAcquireCostFor(2).coins).toBe(2000);
-    expect(storeAcquireCostFor(3).coins).toBe(2500);
-    expect(storeAcquireCostFor(30).coins).toBe(16000);
+describe('층별 건설/매입 비용 — 코인 배수 2층 ×20 → 30층 ×10(PO 2026-08-23) · 다이아 20+5/층', () => {
+  it('2층 ×20(40,000) — 지시된 초기 배수 그대로', () => {
+    expect(storeAcquireCostFor(2).coins).toBe(40000); // 2,000 × 20
   });
 
-  it('증분은 항상 정확히 500(선형 — 층수를 늘려도 폭주하지 않는다)', () => {
-    for (let f = 2; f <= 50; f++) {
-      expect(storeAcquireCostFor(f).coins - storeAcquireCostFor(f - 1).coins).toBe(STORE_COST_STEP_COINS);
+  /**
+   * ⚠️ **가장 중요한 계약** — 배수는 내려가지만 비용은 반드시 계속 올라야 한다.
+   *   배수 하한 도달 층을 30 으로 두면 28층이 정점이 되어 30층이 더 싸진다(실측). 도달 층을 40 으로
+   *   밀고 정점 직전에서 배수를 고정해 이 역전을 막는다 — 이 테스트가 그 방어선이다.
+   */
+  it('비용은 어떤 층에서도 이전 층보다 비싸다(역전 금지)', () => {
+    for (let f = 3; f <= 60; f++) {
+      expect(storeAcquireCostFor(f).coins).toBeGreaterThan(storeAcquireCostFor(f - 1).coins);
     }
   });
 
+  it('30층 ×12.6 수준(202,000) — 배수는 이후 ×10 근처로 수렴', () => {
+    expect(storeAcquireCostFor(30).coins).toBe(202000);
+    const mult = storeAcquireCostFor(30).coins / (STORE_COST_BASE_COINS + STORE_COST_STEP_COINS * 29);
+    expect(mult).toBeGreaterThan(12);
+    expect(mult).toBeLessThan(13);
+  });
+
   it('0·음수 층은 1층 비용으로 클램프', () => {
-    expect(storeAcquireCostFor(0).coins).toBe(STORE_COST_BASE_COINS);
-    expect(storeAcquireCostFor(-5).coins).toBe(STORE_COST_BASE_COINS);
+    expect(storeAcquireCostFor(0).coins).toBe(storeAcquireCostFor(1).coins);
+    expect(storeAcquireCostFor(-5).coins).toBe(storeAcquireCostFor(1).coins);
+  });
+
+  /** 이벤트 설계의 목표치 — 30층까지 건설비 합계(플레이 수입 ≈119만의 약 3배). */
+  it('2~30층 코인 누적이 설계 규모(≈399만) 범위 안이다', () => {
+    let sum = 0;
+    for (let f = 2; f <= 30; f++) sum += storeAcquireCostFor(f).coins;
+    expect(sum).toBeGreaterThan(3_800_000);
+    expect(sum).toBeLessThan(4_200_000);
   });
 
   /**

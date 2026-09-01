@@ -1,3 +1,4 @@
+import { texSize } from '../assets.js';
 /**
  * orderQueue.ts — **주문서 시스템**의 손님 대기열 연출 (PO 2026-07-17, 개념 v2 §14).
  *
@@ -14,6 +15,7 @@
  */
 import Phaser from 'phaser';
 import { sfx } from '../audio.js';
+import { orderItemCountForFloor, orderItemKeyForFloor } from './customers.js';
 
 // customers.ts 와 동일한 시트/프레임 규약(앞·옆좌·뒤·옆우).
 const KEYS = Array.from({ length: 10 }, (_, i) => `cust_${String(i + 1).padStart(2, '0')}`);
@@ -25,7 +27,6 @@ const SIDE_RIGHT = 3; // 오른쪽을 바라보는 옆모습(오른쪽으로 이
 const BUBBLE = 'ord_bubble_m'; // = up_Solitare_UI_11.
 const BUBBLE_TAIL = 0.5; // UI_11 꼬리 x 비율(폭 대비) — customers.ts 실측값.
 const STAR_KEY = 'up_Solitare_UI_02_v2'; // 별(게이지 별과 동일 아트).
-const itemKey = (stage: number, floor: number, v: number): string => `item_${stage}_${floor}_${v}`;
 
 export interface OrderQueueOpts {
   /** 카운터(맨 앞 손님) 발밑 기준. */
@@ -157,13 +158,15 @@ export class OrderQueue {
     bubble.setPosition(bx, by).setDepth(this.o.depth + 0.05);
     // **점포 테마 주문 아이템**(베이커리 등 — 점포 아트와 일치).
     const objs: Phaser.GameObjects.GameObject[] = [bubble];
-    const ik = itemKey(this.o.itemStage, this.o.itemFloor, this.itemV);
-    this.itemV = this.itemV % 4 + 1; // 다음 손님은 다른 상품(1..4 순환).
+    // **상품 층(1..20) 기준** — 2번 부지(11~20층)와 변형 수가 4 미만인 층(4층·10층)도 존재하는 키만 가리킨다.
+    //   (예전엔 `item_${stage}_${itemFloor}_${1..4}` 로 만들어 2번 부지에서 첫 손님부터 빈 말풍선이 떴다.)
+    const ik = orderItemKeyForFloor(this.o.itemFloor, this.itemV);
+    this.itemV = (this.itemV % orderItemCountForFloor(this.o.itemFloor)) + 1; // 다음 손님은 다른 상품(변형 수 안에서 순환).
     if (this.scene.textures.exists(ik)) {
       // 말풍선(UI_11)은 아래쪽에 꼬리가 있어 이미지 전체의 세로 중심(by)이 실제 "몸통" 중심보다 낮다 —
       //   아이템을 by 그대로 놓으면 처져 보인다(2026-07-18 QA). 살짝 위로 보정.
       const item = this.scene.add.image(bx, by - 8, ik).setDepth(this.o.depth + 0.06);
-      const s = this.scene.textures.get(ik).getSourceImage() as { width: number; height: number };
+      const s = texSize(this.scene.textures.get(ik));
       const iw = 78;
       item.setDisplaySize(iw, iw * (s.height / s.width)).setAlpha(0.55); // 미제조 = 반투명(실루엣 느낌).
       c.itemImg = item;

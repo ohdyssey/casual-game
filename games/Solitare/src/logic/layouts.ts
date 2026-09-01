@@ -8,6 +8,12 @@
  * 클래식 3피크뿐 아니라 임의 피라미드형 배치를 rowCols 만으로 파생할 수 있다(층별 형태 확장 여지).
  *
  * 렌더 좌표(px)는 씬에서 패널 rect 비례로 산출한다 — 로직은 위치(px)와 무관.
+ *
+ * ⚠️ **격자 빌더(buildPeakLayout / buildClusterLayout / buildFannedGrid / buildGroupsLayout,
+ *    CLASSIC_TRIPEAKS · IMAGE2_GRID)는 프로덕션에서 쓰이지 않는다 — 엔진 테스트 픽스처 전용.**
+ *    실제 게임 레벨은 전부 에디터 저작(`editorLevels.cardBoardToLayout`, 절대좌표 + 겹침 기반 커버)이다.
+ *    지우지 않는 이유는 tripeaks/solvable/simulate 테스트가 이 빌더로 보드를 만들기 때문 —
+ *    번들에는 트리셰이킹으로 포함되지 않는다. **게임 코드에서 새로 쓰지 말 것.**
  */
 
 export interface LayoutSlot {
@@ -84,28 +90,6 @@ export function buildPeakLayout(id: string, rowCols: readonly (readonly number[]
     }
   });
 
-  return { id, rowCount: rowCols.length, slots, order: slots.map((s) => s.id) };
-}
-
-/**
- * 하향 캐스케이드 — 각 카드는 **바로 윗 행(row-1)** 의 col±0.5 카드에 가려진다.
- *   즉 상단 카드를 제거해야 그 아래 카드가 노출된다(위→아래 오픈). 최상단(row0)만 초기 노출.
- *   (buildPeakLayout 과 커버 방향만 반대 — "위/아래 배치"가 곧 난이도 구조.)
- */
-export function buildCascade(id: string, rowCols: readonly (readonly number[])[]): PeakLayout {
-  const rows: { id: string; row: number; col: number }[][] = rowCols.map((cols, row) =>
-    cols.map((col, i) => ({ id: `r${row}c${i}`, row, col })),
-  );
-  const slots: LayoutSlot[] = [];
-  rows.forEach((rowSlots, row) => {
-    const above = rows[row - 1] ?? [];
-    for (const s of rowSlots) {
-      const coveredBy = above
-        .filter((a) => Math.abs(a.col - (s.col - 0.5)) < EPS || Math.abs(a.col - (s.col + 0.5)) < EPS)
-        .map((a) => a.id);
-      slots.push({ id: s.id, row: s.row, col: s.col, coveredBy });
-    }
-  });
   return { id, rowCount: rowCols.length, slots, order: slots.map((s) => s.id) };
 }
 

@@ -41,6 +41,12 @@
       "name": "콜렉션 카드1",
       "file": "ui/layouts/blank_copy2.json",
       "category": "custom"
+    },
+    {
+      "id": "blank_2",
+      "name": "결과화면",
+      "file": "ui/layouts/blank_2.json",
+      "category": "custom"
     }
   ]
 }

@@ -6,6 +6,8 @@
  *
  * 형제 게임 ZombieArrow 의 파일-오디오 패턴 계승. 믹싱 기본값은 사운드팩 README 권장치.
  */
+import { cueForCardPlace, cueForSfx, cueForStar, playCue, type HapticCue } from './haptics.js';
+
 const AUDIO_BASE = `${(import.meta.env?.BASE_URL as string | undefined) ?? '/'}audio/`;
 
 /** 단발 효과음 이름(파일명은 `sfx_${name}.m4a`). */
@@ -91,7 +93,9 @@ const buffers = new Map<string, AudioBuffer>();
 let bgmSrc: AudioBufferSourceNode | null = null;
 let currentBgm: Bgm | null = null;
 let desiredBgm: Bgm | null = null;
-let muted = false;
+/** 계측 모드(?lab=1) — **모든 소리 원천 차단**(PO 2026-08-25 "사운드는 출력하지 말 것"). */
+export const LAB_SILENT = typeof location !== 'undefined' && /[?&]lab=1/.test(location.search);
+let muted = LAB_SILENT;
 
 /**
  * **사운드 볼륨**(0~1, 마스터 게인) — PO 2026-07-28 "사운드볼륨 조절 버튼을 만드세요".
@@ -115,7 +119,7 @@ function loadVolume(): number {
 let volume = loadVolume();
 // BGM 기본값 — **dev=꺼짐 / 배포(PROD)=켜짐**(2026-07-16 지시: 개발 중 반복 재생 피로 방지).
 //   setBgmMuted() 로 런타임 토글 가능(효과음과 별개).
-let bgmMuted = import.meta.env.DEV;
+let bgmMuted = import.meta.env.DEV || LAB_SILENT;
 let gestureHooked = false;
 
 function ac(): AudioContext | null {
@@ -184,27 +188,33 @@ function playBuf(base: string, opts?: { volume?: number; pitch?: number }): void
   }
 }
 
+/**
+ * 햅틱 페어링 지점 — 소리와 촉각이 같은 순간에 나가도록 **여기 한 곳**에서 짝짓는다(haptics.ts 표).
+ * 음소거(`muted`/볼륨 0)와 무관하게 울린다 — 무음 플레이에서 진동이 유일한 피드백이다. 계측(lab)만 차단.
+ */
+function pair(cue: HapticCue): void {
+  if (LAB_SILENT) return;
+  playCue(cue);
+}
+
 /** 단발 효과음. */
 export function sfx(name: Sfx, opts?: { volume?: number; pitch?: number }): void {
   playBuf(`sfx_${name}`, opts);
+  pair(cueForSfx(name));
 }
 
-/** 카드 안착 — 변형 4종 랜덤 + 미세 피치 변주(README 권장). */
-export function sfxCardPlace(): void {
+/** 카드 안착 — 변형 4종 랜덤 + 미세 피치 변주(README 권장). `combo` 로 진동 굵기가 자란다(1~2 light·3~5 medium·6+ heavy). */
+export function sfxCardPlace(combo = 0): void {
   const base = CARD_PLACE_VARIANTS[Math.floor(Math.random() * CARD_PLACE_VARIANTS.length)];
   playBuf(base, { volume: 0.85, pitch: 0.96 + Math.random() * 0.08 });
+  pair(cueForCardPlace(combo));
 }
 
-/** 별 획득 — 1·2·3 단계별 상승 피치. */
+/** 별 획득 — 1·2·3 단계별 상승 피치 + 굵어지는 진동. */
 export function sfxStar(step: number): void {
   const n = Math.min(3, Math.max(1, Math.round(step)));
   playBuf(`sfx_star_0${n}`, { volume: 0.95 });
-}
-
-/** 미션 슬롯 채움 — 1~5칸 단계별. */
-export function sfxMissionSlot(step: number): void {
-  const n = Math.min(5, Math.max(1, Math.round(step)));
-  playBuf(`sfx_mission_slot_0${n}`, { volume: 0.85 });
+  pair(cueForStar(n));
 }
 
 /** 승리 스팅(정산) — 짧은 팡파레 위 레이어. */
@@ -275,11 +285,9 @@ function applyMasterGain(): void {
 
 /** 음소거 토글. */
 export function setMuted(m: boolean): void {
+  if (LAB_SILENT) { muted = true; return; } // 계측 중엔 해제 불가.
   muted = m;
   applyMasterGain();
-}
-export function isMuted(): boolean {
-  return muted;
 }
 
 /** 현재 볼륨(0~1). */
@@ -317,7 +325,4 @@ export function setBgmMuted(m: boolean): void {
   bgmMuted = m;
   if (m) stopBgm(0.2);
   else startDesiredBgm();
-}
-export function isBgmMuted(): boolean {
-  return bgmMuted;
 }

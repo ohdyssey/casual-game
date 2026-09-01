@@ -7,7 +7,7 @@
 import type { Card, Rank, Rng, Suit } from './types.js';
 import { rankAdjacent, SUITS } from './types.js';
 import { type PeakLayout, slotMap } from './layouts.js';
-import { type LuckState, feedProb, chainProb, afterDraw, afterPlay } from './luck.js';
+import { type LuckState, feedProb, chainProb, afterDraw, afterPlay, paceBoost, pressureBoost, withBoost, lastCardsHonesty } from './luck.js';
 
 export interface GameState {
   readonly layout: PeakLayout;
@@ -29,6 +29,23 @@ export interface GameState {
    *   미설정(레거시/에디터 고정딜/난이도 측정)이면 스톡 랭크를 그대로 뽑는다.
    */
   readonly luck?: LuckState;
+  /**
+   * **처음 받은 뽑기 장수**(진도 대비 소모를 재는 기준선). 없으면(레거시 상태) pace 구제는 꺼진다.
+   *   ＋5 구매로 스톡을 되채워도 이 값은 그대로 둔다 — 기준선이 움직이면 "뒤처짐"을 잴 수 없다.
+   */
+  readonly stockStart?: number;
+  /**
+   * **종반 구제(막힘 보정·잔량 압박)를 쓸 것인가** — 기본 켜짐(레거시 호환).
+   *   PO 2026-08-23: "10레벨이 넘어가면 마지막 단계에서 임의로 맞추는 로직을 제거하고 랜덤하게 뽑히게".
+   *   꺼지면 뽑기 랭크는 그 레벨의 기본 매칭 편향만 따르고, 막혔다고 맞춰 주지 않는다
+   *   (= 막히면 ＋5 를 사거나 진다). 초반 10레벨은 익히는 구간이라 켜 둔다.
+   */
+  readonly rescue?: boolean;
+  /**
+   * (구) ＋5 카드 레벨 기준 전량 보정 — **폐기**(PO 2026-08-25). 이제 drawStock 은 이 값을 보지 않고
+   *   카드별 assist(구매 회차 보조, economyRules.plus5AssistFor)만 따른다. 필드는 호환용으로만 남긴다.
+   */
+  readonly plus5Curated?: boolean;
 }
 
 /** 제거 1장당 기본 점수 + 콤보 보너스. */
@@ -56,6 +73,7 @@ export function deal(layout: PeakLayout, deck: readonly Card[]): GameState {
     board,
     cleared: new Set(),
     stock,
+    stockStart: stock.length,
     waste: [firstWaste],
     combo: 0,
     score: 0,
@@ -84,6 +102,7 @@ export function dealBoardStock(
     board,
     cleared: new Set(),
     stock: [...stockCards],
+    stockStart: stockCards.length,
     waste: [wasteCard],
     combo: 0,
     score: 0,
@@ -175,10 +194,10 @@ const wrapRank = (r: number): Rank => (((r - 1 + 13) % 13) + 1) as Rank;
  *   아니면 노출카드와 안 맞는 '헛뽑기' 랭크. 매칭을 줄 때는 chain 확률로 **가장 많은 노출카드와
  *   이어지는(연쇄) 랭크**를 우선한다. 노출카드가 없으면 무작위.
  */
-function chooseDynamicRank(exposed: readonly Rank[], luck: LuckState, rng: Rng, forceMatch = false): Rank {
+function chooseDynamicRank(exposed: readonly Rank[], luck: LuckState, rng: Rng, forceMatch = false, boost = 0): Rank {
   // forceMatch = **막힘 구제**(하이브리드 안전망): 현재 낼 수 있는 수가 없어 뽑기가 유일한 선택일 때는
   //   feedProb 확률을 무시하고 **반드시 노출카드와 ±1 로 맞는 랭크**를 준다 → 스톡이 남는 한 절대 교착 안 됨.
-  const wantMatch = exposed.length > 0 && (forceMatch || rng() < feedProb(luck));
+  const wantMatch = exposed.length > 0 && (forceMatch || rng() < withBoost(feedProb(luck), boost));
   if (wantMatch) {
     const cand = new Set<Rank>();
     for (const e of exposed) {
@@ -224,6 +243,19 @@ export const CURATION_ENABLED = false;
  * **절반 이하**로 낮춰 재도입 — 대부분은 매칭되지만 자주 안 되기도 하는 정도.
  */
 const MODERATE_FEED: Record<1 | 2 | 3, number> = { 1: 0.40, 2: 0.35, 3: 0.30 };
+/** 치운 보드 비율 0~1. */
+function clearedFraction(state: GameState): number {
+  const n = state.layout.slots.length;
+  return n > 0 ? state.cleared.size / n : 1;
+}
+
+/** 사용한 뽑기 비율 0~1 — 기준선(stockStart)이 없으면 0(구제 꺼짐). */
+function stockUsedFraction(state: GameState): number {
+  const start = state.stockStart;
+  if (!start || start <= 0) return 0;
+  return Math.max(0, Math.min(1, (start - state.stock.length) / start));
+}
+
 function curatedProb(state: GameState): number {
   if (!CURATION_ENABLED) return 0; // 전역 오프 — 모든 뽑기가 중립 랜덤.
   const n = state.layout.slots.length;
@@ -243,20 +275,58 @@ export function drawStock(state: GameState, rng?: Rng): GameState {
   let card = state.stock[state.stock.length - 1];
   let luck = state.luck;
   // 와일드 카드는 랭크를 재추첨하지 않는다(정체성 유지) — 뽑히면 기준이 되어 아무 카드나 낸다.
+  /*
+   * **＋5 로 산 카드 — 구매 회차별 매칭 보조**(PO 2026-08-25: "1차 랜덤 · 2차 30% · 3차+ 50%").
+   *   카드에 새겨진 assist 확률로만 도와준다: 당첨되면 노출 카드와 반드시 이어지는 랭크,
+   *   아니면 순수 랜덤(적응형 럭 미적용 — PO 2026-08-22 유지).
+   *   구 plus5Curated(레벨 기준 전량 보정)는 이 회차 보조로 **대체**되어 더 이상 참조하지 않는다.
+   *   `raw` 표시는 여기서 떼어 낸다(웨이스트로 갔다가 다시 ＋5 로 돌아오면 그때 다시 붙는다).
+   */
+  if (luck && rng && !card.wild && card.raw) {
+    const exposed = exposedRanks(state);
+    let rank: Rank;
+    if ((card.assist ?? 0) > 0 && rng() < (card.assist ?? 0)) {
+      rank = chooseDynamicRank(exposed, luck, rng, true, 1); // 보조 당첨 — 반드시 매칭되는 랭크.
+    } else {
+      rank = ALL_RANKS[Math.floor(rng() * ALL_RANKS.length)];
+    }
+    const suit = SUITS[Math.floor(rng() * SUITS.length)];
+    const drawn: Card = { ...card, rank, suit, raw: false, assist: undefined };
+    return {
+      ...state,
+      stock: state.stock.slice(0, -1),
+      waste: [...state.waste, drawn],
+      combo: 0,
+      moves: state.moves + 1,
+      luck: afterDraw(luck, exposed.some((e) => rankAdjacent(e, rank))),
+    };
+  }
   if (luck && rng && !card.wild) {
     const exposed = exposedRanks(state);
+    // **진도 대비 뽑기 소모 구제** — 뽑기를 쓴 비율이 보드를 치운 비율보다 앞서면 그만큼 매칭을 후하게.
+    //   뒤처진 판만 끌어올려 분산을 줄인다 → 튜너가 뽑기를 더 낮게 확정할 수 있고 승리 시 잔여가 준다.
+    const boardLeft = state.layout.slots.length - state.cleared.size;
+    const cleared = clearedFraction(state);
+    // 구제를 끈 판(11레벨~)은 **보정 0** — 진도가 뒤처져도, 종반에 몰려도 확률을 올리지 않는다.
+    const rescue = state.rescue !== false;
+    // ⚠️ 마지막 몇 장은 구제를 접는다(luck.lastCardsHonesty) — 진도 구제도 같은 계수를 탄다. 안 그러면
+    //   pace 쪽이 마지막 장에서 다시 매칭을 끌어올려 "마지막 장 기적"이 남는다.
+    const boost = rescue
+      ? Math.max(paceBoost(cleared, stockUsedFraction(state)), pressureBoost(boardLeft, state.stock.length, cleared)) * lastCardsHonesty(state.stock.length)
+      : 0;
     let rank: Rank;
     if (rng() < curatedProb(state)) {
       // **초반 큐레이션** — 적응형 피드/헛뽑기 + 막힘 구제(낼 수 없으면 반드시 낼 수 있는 랭크).
-      const stuck = availableMoves(state).length === 0;
-      rank = chooseDynamicRank(exposed, luck, rng, stuck);
+      // 막힘 구제도 같은 스위치를 탄다 — 켜져 있으면 "낼 수 없을 때는 반드시 낼 수 있는 랭크"를 준다.
+      const stuck = rescue && availableMoves(state).length === 0;
+      rank = chooseDynamicRank(exposed, luck, rng, stuck, boost);
     } else {
       // **약한 매칭 편향**(PO 2026-07-29, 2차 조정) — 처음엔 매칭 편향을 완전히 없앴더니(균등 랜덤
       // 13랭크) 난이도가 급상승했다(PO 실측: lv1 도 뽑기 비율 1.0=보드만큼 줘야 승률 46%). PO 지시로
       // "완전 랜덤 제거, 약간의 랜덤성만" — 즉 "바로바로 매칭되지 않을 정도"로만 편향을 낮춘다.
       // 예전 NEUTRAL_FEED(62~75%, "성공으로 유도하는 의도적 배치"로 지적받음)의 **절반 이하**로 낮춰
       // 대부분은 매칭되되 가끔은 안 되는 정도로 유지한다.
-      const wantMatch = exposed.length > 0 && rng() < MODERATE_FEED[luck.grade];
+      const wantMatch = exposed.length > 0 && rng() < withBoost(MODERATE_FEED[luck.grade], boost);
       if (wantMatch) {
         const cand = new Set<Rank>();
         for (const e of exposed) {
@@ -264,7 +334,13 @@ export function drawStock(state: GameState, rng?: Rng): GameState {
           cand.add(wrapRank(e + 1));
         }
         const arr = [...cand];
-        rank = arr[Math.floor(rng() * arr.length)];
+        // **연쇄 구제**(2026-08-25 부족 꼬리 대책) — 뒤처진 판(boost>0)은 매칭을 줄 때 그 확률만큼 **가장 많은
+        //   노출 카드와 이어지는 랭크**를 골라 준다. 한 장이 여러 장을 여는 방향의 도움(방해 없음)이라 반감이 없고,
+        //   feed 만 올리는 구제로는 못 줄이던 "매칭은 되는데 진도가 안 나가는" 부족 꼬리를 줄인다.
+        if (boost > 0 && rng() < boost) {
+          arr.sort((a, b) => matchCount(exposed, b) - matchCount(exposed, a));
+          rank = arr[0];
+        } else rank = arr[Math.floor(rng() * arr.length)];
       } else {
         rank = ALL_RANKS[Math.floor(rng() * ALL_RANKS.length)];
       }
@@ -323,6 +399,30 @@ export function bankWildToStock(state: GameState, slotId: string, rng?: Rng): Ga
 }
 
 /**
+ * **와일드 카드를 스톡에 넣는다**(미션 보상용, PO 2026-08-24).
+ *
+ * 보드의 와일드는 `bankWildToStock` 이 그 슬롯의 카드를 와일드로 바꿔 넣지만, 미션 보상 와일드는
+ * 근거가 될 보드 슬롯이 없다. 예전에는 이 경우를 `refillStock`(= 버린 더미 되돌리기)로 처리해
+ * **와일드가 한 장도 생기지 않았고**, 버린 더미가 비어 있으면 아무 일도 없이 사라졌다.
+ *
+ * 삽입 위치는 보드 와일드와 같은 규칙(중앙 1/3 구간의 임의 위치) — 맨 위에 얹으면 바로 써 버려
+ * "언제 나올까"라는 기대가 사라진다.
+ */
+export function addWildCards(state: GameState, count: number, rng?: Rng): GameState {
+  const n = Math.max(0, Math.floor(count));
+  if (n <= 0) return state;
+  let out = state;
+  for (let i = 0; i < n; i++) {
+    const len = out.stock.length;
+    const at = rng ? Math.floor(len * 0.34 + rng() * len * 0.32) : Math.floor(len / 2);
+    const idx = Math.max(0, Math.min(len, at));
+    const wildCard: Card = { id: `wild_gift_${out.moves}_${len}_${i}`, suit: 'S', rank: 1, wild: true };
+    out = { ...out, stock: [...out.stock.slice(0, idx), wildCard, ...out.stock.slice(idx)] };
+  }
+  return out;
+}
+
+/**
  * **스톡에 count 장 추가**(보너스 +N 카드용) — 새 카드를 스톡 top 쪽에 붙여 뽑기 수를 늘린다.
  *   동적 딜에서는 뽑는 순간 랭크가 결정되므로 여기서는 placeholder 카드(고유 id)만 넣는다.
  */
@@ -364,7 +464,7 @@ export function refillableCount(state: GameState): number {
  *    되돌리면 ＋5 를 쓸 때마다 **공짜 와일드가 무한 재활용**되고 기준 카드에 난데없이 WILD 아트가 뜬다.
  *    와일드는 웨이스트에 그대로 남겨 둔다(사라지지 않음 — 카드 총량 불변).
  */
-export function refillStock(state: GameState, count: number, rng: Rng): GameState {
+export function refillStock(state: GameState, count: number, rng: Rng, assist = 0): GameState {
   const pool = state.waste.slice(0, -1); // 현재 기준 카드(top)는 유지
   const order = pool.map((c, i) => (c.wild ? -1 : i)).filter((i) => i >= 0); // 쓴 와일드는 후보에서 제외.
   if (order.length === 0 || count <= 0) return state;
@@ -379,7 +479,8 @@ export function refillStock(state: GameState, count: number, rng: Rng): GameStat
   const top = state.waste[state.waste.length - 1];
   return {
     ...state,
-    stock: [...state.stock, ...picked],
+    // **＋5 로 돌아온 카드는 `raw`** + 구매 회차별 보조 확률(assist)을 새긴다(types.ts Card.assist 참고).
+    stock: [...state.stock, ...picked.map((c) => ({ ...c, raw: true, ...(assist > 0 ? { assist } : {}) }))],
     waste: [...rest, top],
     moves: state.moves + 1,
   };

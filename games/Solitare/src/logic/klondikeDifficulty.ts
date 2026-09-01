@@ -49,10 +49,10 @@ export function klondikeRound(level: number): number {
   return Math.max(1, Math.floor(level / 10));
 }
 
-/** 회차 → 등급 경계. 1~3회차(lv10~30)=쉬움 · 4~7회차(lv40~70)=보통 · 8회차(lv80~)부터 어려움. */
-export const GRADE_ROUND_CUTS = { easy: 3, medium: 7 } as const;
+/** 회차 → 등급 경계(표시·호환용). 1~5회차=쉬움 · 6~10회차=보통 · 11회차부터 어려움. */
+export const GRADE_ROUND_CUTS = { easy: 5, medium: 10 } as const;
 
-/** **난이도 배치의 유일한 기준점** — 저레벨일수록 쉬운 등급. 커브를 바꾸려면 여기만 고친다. */
+/** 등급(표시용). **실제 난이도는 아래 회차별 램프**가 정한다 — 등급은 라벨일 뿐이다. */
 export function gradeForKlondikeLevel(level: number): KGrade {
   const round = klondikeRound(level);
   if (round <= GRADE_ROUND_CUTS.easy) return 1;
@@ -61,13 +61,53 @@ export function gradeForKlondikeLevel(level: number): KGrade {
 }
 
 /**
- * 등급별 목표 그리디 승률(선택 시 근접도 비교용 — 튜닝 대상).
- *   실측 분포(ε=0.12·12판·무작위 딜 80개): 평균 0.40 · 승률0 46% · 승률1 21% · 그 사이 33%.
- *   승률 0 인 딜은 애초에 탈락시키므로(승리 가능 보장), 목표는 **0 초과 구간** 안에서 잡는다.
+ * ## 회차별 난이도 램프 — **난이도 배치의 유일한 기준점**(PO 2026-08-23 재설계)
+ *
+ * 예전엔 등급 3단 계단이었다. 그래서 3회차까지 그리디 승률 0.94 로 평탄하다가 **4회차에서 0.58 로
+ * 뚝 떨어졌다**(실측). 첫 판부터 클론다이크를 처음 만지는 플레이어에게는 이 계단이 "처음부터 어렵다"로
+ * 느껴진다 — 쉬운 구간이 짧고, 그 끝에서 갑자기 벽이 선다.
+ *
+ * → **회차마다 조금씩** 어려워지는 연속 램프로 바꾼다. 1회차는 거의 확실히 풀리는 판에서 시작해
+ *   `RAMP_ROUNDS` 회차에 걸쳐 목표치까지 내려간다. 계단이 없으니 벽도 없다.
+ *
+ * 커브를 바꾸려면 이 상수 5개만 고치면 된다.
  */
-export const GRADE_TARGET_WINRATE: Record<KGrade, number> = { 1: 1, 2: 0.6, 3: 0.25 };
-/** 등급별 목표 정적 ease(0..1) — 1차 정렬 기준. 실측 분포 p10 0.42 · p50 0.56 · p90 0.68 안에서 잡는다. */
-export const GRADE_TARGET_EASE: Record<KGrade, number> = { 1: 0.68, 2: 0.56, 3: 0.45 };
+const RAMP_ROUNDS = 15; // 이 회차에 최종 난이도 도달(이후 유지).
+const WINRATE_START = 1.0; // 1회차 목표 그리디 승률(=실수해도 풀린다).
+const WINRATE_END = 0.3; // 최종 목표 승률.
+const EASE_START = 0.75; // 1회차 목표 정적 ease.
+const EASE_END = 0.45; // 최종 목표 ease.
+
+/** 0(1회차) → 1(RAMP_ROUNDS 회차) 진행도. */
+function rampT(round: number): number {
+  return Math.min(1, Math.max(0, (round - 1) / (RAMP_ROUNDS - 1)));
+}
+
+/** 회차별 목표 그리디 승률 — 높을수록 쉬운 판. */
+export function targetWinRateForRound(round: number): number {
+  return WINRATE_START + (WINRATE_END - WINRATE_START) * rampT(round);
+}
+
+/** 회차별 목표 정적 ease. */
+export function targetEaseForRound(round: number): number {
+  return EASE_START + (EASE_END - EASE_START) * rampT(round);
+}
+
+/**
+ * 회차별 **깊이 묻힌 핵심 카드 허용치** — 초반일수록 엄격하다.
+ * 승률만으로는 "운 좋게 풀리지만 답답한 판"을 못 거른다(A·K 가 6장 밑에 깔린 판). 체감 난이도의
+ * 큰 축이라 회차에 따라 따로 푼다.
+ */
+export function maxDeepKeyForRound(round: number): number {
+  // ⚠️ 0(한 장도 허용 안 함)까지 조이면 **후보가 말라 폴백으로 빠진다** — 폴백 딜은 난이도 통제가
+  //   전혀 없어서 1·2회차가 3회차보다 어려워지는 역전이 났다(실측: 12판 중 4판 폴백, 승률 0.66).
+  //   실효 하한은 1 이다.
+  if (round <= 5) return 1;
+  if (round <= 8) return 2;
+  if (round <= 11) return 3;
+  return 99;
+}
+
 
 // ────────────────────────────────────────────────────────────────────────────
 // 2) 정적 지표 — 딜만 보고 계산(플레이아웃 없음, 매우 쌈).
@@ -109,7 +149,7 @@ const DEEP_BURIAL = 4;
  *
  *   실측(무작위 딜 200개 · 그리디 승률 12판, 2026-07-28) — 이 장수가 곧 난이도다:
  *     0장 0.59 · 1장 0.42 · 2장 0.28 · 4장 0.14 · 5장 0.24
- *   그래서 저레벨은 이 장수에 상한을 두고 거른다(`MAX_DEEP_KEY_BY_GRADE`).
+ *   그래서 저레벨은 이 장수에 상한을 두고 거른다(`maxDeepKeyForRound`).
  */
 export function deepKeyCards(state: KlondikeState): number {
   let deep = 0;
@@ -127,7 +167,6 @@ export function deepKeyCards(state: KlondikeState): number {
  *   저레벨(등급 1)은 1장까지만 허용(무작위 딜의 약 24%가 통과 · 그 집단 승률 0.46 vs 탈락군 0.31),
  *   보통은 3장까지(탈락군 승률 0.18 로 확실히 갈린다), 어려움은 제한 없음.
  */
-export const MAX_DEEP_KEY_BY_GRADE: Record<KGrade, number> = { 1: 1, 2: 3, 3: 99 };
 
 /** 오픈 7장 중 저랭크(A·2·3) 비율 → ease(파운데이션을 바로 시작할 수 있는가). 3장이면 만점. */
 function openLowEase(state: KlondikeState): number {
@@ -306,6 +345,11 @@ export function greedyKlondikePlayout(start: KlondikeState, rng: Rng, epsilon = 
   return isWon(state);
 }
 
+/** 감사 스크립트용 — 그리디 봇의 다음 수 하나(플레이아웃과 같은 ε-greedy 선택). */
+export function usefulMovesForAudit(state: KlondikeState, rng: Rng, epsilon = DEFAULT_EPSILON): KlondikeMove | null {
+  return pickMove(usefulMoves(state), rng, epsilon);
+}
+
 /** 그리디 플레이어의 승률(0..1) — tries 판 평균. 높을수록 **실수해도 풀리는 쉬운 판**. */
 export function greedyKlondikeWinRate(state: KlondikeState, tries: number, rng: Rng, epsilon = DEFAULT_EPSILON): number {
   if (tries <= 0) return 0;
@@ -329,8 +373,33 @@ export interface KlondikeDealBudget {
   /** 후보당 플레이아웃 횟수. */
   readonly tries: number;
 }
-/** 실측 ~80ms(딜 24개 스코어링 + 후보 6개 × 12판 플레이아웃) — 기존 DFS 경로(1초+)보다 훨씬 싸다. */
-export const DEFAULT_DEAL_BUDGET: KlondikeDealBudget = { candidates: 24, finalists: 6, maxMeasured: 12, tries: 12 };
+/**
+ * 실측 ~80ms(딜 스코어링 + 후보 6개 × 12판 플레이아웃) — 기존 DFS 경로(1초+)보다 훨씬 싸다.
+ *
+ * ⚠️ **`maxMeasured` 는 비용이 아니라 안전망이다.** 루프는 목표에 맞는 딜을 찾으면 `finalists` 에서
+ *   바로 빠져나오므로, 이 값을 키워도 **평소 비용은 그대로**고 "하나도 못 찾는 나쁜 경우"에만 더 쓴다.
+ *   예전엔 12 였는데, **3장 뽑기는 그리디가 승리를 증명해 내는 비율이 딜당 17%뿐**이라
+ *   `0.83¹² ≈ 11%` 가 검증 없는 폴백으로 샜다(실측 2026-08-29: lv150 3장 모드 40판 중 4판).
+ *   48 로 올리면 `0.83⁴⁸ ≈ 0.014%` 다.
+ *   ⚠️ **`maxMeasured` 를 위해 `candidates` 를 같이 올리지 말 것.** 후보 *생성*(딜 + 정적 지표)은
+ *   나쁜 경우가 아니라 **매번** 드는 선불 비용이다 — 24→48 로 올렸더니 딜 생성 p50 이
+ *   80ms 에서 323ms 로 뛰었다(실측 2026-08-29). 대신 풀을 다 쓰고도 증거를 못 찾았을 때만
+ *   **그 자리에서 새로 깔며 이어서 잰다**(아래 확장 루프). 그러면 안전망이 사실상 공짜가 된다.
+ */
+export const DEFAULT_DEAL_BUDGET: KlondikeDealBudget = { candidates: 24, finalists: 6, maxMeasured: 48, tries: 12 };
+
+/**
+ * 초반 회차 전용 예산 — 목표 승률이 1.0 에 가까울수록 **후보를 더 많이 재봐야** 그런 딜이 잡힌다.
+ * 6개만 재면 그중 최선이 0.6 이어도 채택되어 "쉬움"이 이름뿐이 된다. 초반만 넓히므로 비용도 초반에만 든다.
+ */
+const EARLY_DEAL_BUDGET: KlondikeDealBudget = { candidates: 40, finalists: 12, maxMeasured: 64, tries: 12 };
+/** 이 회차까지는 넓은 예산을 쓴다. */
+const EARLY_BUDGET_ROUNDS = 5;
+
+/** 회차에 맞는 탐색 예산(호출부가 명시로 넘기면 그것을 우선한다). */
+export function dealBudgetForRound(round: number): KlondikeDealBudget {
+  return round <= EARLY_BUDGET_ROUNDS ? EARLY_DEAL_BUDGET : DEFAULT_DEAL_BUDGET;
+}
 
 export interface KlondikeDealPick {
   readonly state: KlondikeState;
@@ -349,25 +418,38 @@ export interface KlondikeDealPick {
  *   승률 0 인 딜은 탈락(그리디가 이긴 수순 = 승리 가능 증거). finalists 가 전부 0 이면 maxMeasured 까지
  *   더 재보고, 그래도 없으면(실측 분포상 ~0.01%) 마지막 보루로 DFS 보장 딜을 쓴다.
  */
-export function pickKlondikeDeal(rng: Rng, level: number, budget: KlondikeDealBudget = DEFAULT_DEAL_BUDGET): KlondikeDealPick {
+export function pickKlondikeDeal(rng: Rng, level: number, budget?: KlondikeDealBudget, drawOverride?: 1 | 3): KlondikeDealPick {
   const grade = gradeForKlondikeLevel(level);
-  const drawCount = drawCountForLevel(level);
-  const targetEase = GRADE_TARGET_EASE[grade];
-  const targetWinRate = GRADE_TARGET_WINRATE[grade];
+  const round = klondikeRound(level);
+  const plan = budget ?? dealBudgetForRound(round);
+  // 뽑기 장수는 **보너스 모드가 정한다**(1장/3장 선택, 2026-08-29). 안 넘기면 종전 레벨 커브를 따른다.
+  const drawCount = drawOverride ?? drawCountForLevel(level);
+  const targetEase = targetEaseForRound(round);
+  const targetWinRate = targetWinRateForRound(round);
 
-  const all = Array.from({ length: Math.max(1, budget.candidates) }, () => {
+  const all = Array.from({ length: Math.max(1, plan.candidates) }, () => {
     const state = dealKlondike(rng, drawCount);
     return { state, ease: staticEase(state), deep: deepKeyCards(state) };
   });
   // **핵심 카드가 깊이 묻힌 딜 걸러내기**(PO 2026-07-28) — 저레벨일수록 엄격. 통과 후보가 **하나라도** 있으면
   //   그 안에서만 고른다(컷이 실제로 걸리도록). 하나도 없을 때만 전체를 쓴다 — 딜을 못 만드는 사고 방지.
-  const eligible = all.filter((c) => c.deep <= MAX_DEEP_KEY_BY_GRADE[grade]);
-  const pool = (eligible.length > 0 ? eligible : all).sort(
-    (a, b) => Math.abs(a.ease - targetEase) - Math.abs(b.ease - targetEase),
-  );
+  // ⚠️ 통과 후보가 없을 때 **전체로 되돌리면 컷이 사라진다** — 초반 회차(허용 0)가 오히려 가장 느슨해져
+  //   "저레벨이 고레벨보다 묻힌 카드가 많은" 역전이 났다(테스트가 잡았다). 그래서 조건을 **한 칸씩만 푼다**.
+  let limit = maxDeepKeyForRound(round);
+  let eligible = all.filter((c) => c.deep <= limit);
+  while (eligible.length === 0 && limit < 99) {
+    limit += 1;
+    eligible = all.filter((c) => c.deep <= limit);
+  }
+  const byEase = (a: { ease: number }, b: { ease: number }): number =>
+    Math.abs(a.ease - targetEase) - Math.abs(b.ease - targetEase);
+  // 통과 후보를 앞에, **나머지도 뒤에 붙인다** — 앞쪽이 전부 승률 0 이어도 뒤에서 계속 찾을 수 있어
+  //   난이도 통제가 없는 DFS 폴백까지 가는 일이 사실상 없어진다.
+  const rest = all.filter((c) => !eligible.includes(c)).sort(byEase);
+  const pool = [...eligible.sort(byEase), ...rest];
 
-  const minMeasured = Math.max(1, Math.min(budget.finalists, pool.length));
-  const maxMeasured = Math.max(minMeasured, budget.maxMeasured);
+  const minMeasured = Math.max(1, Math.min(plan.finalists, pool.length));
+  const maxMeasured = Math.max(minMeasured, plan.maxMeasured);
   let best: KlondikeDealPick | null = null;
   let bestGap = Number.POSITIVE_INFINITY;
   let measured = 0;
@@ -375,7 +457,7 @@ export function pickKlondikeDeal(rng: Rng, level: number, budget: KlondikeDealBu
     if (measured >= maxMeasured) break;
     if (measured >= minMeasured && best) break; // 목표치를 잴 만큼 쟀고 채택할 딜도 있다.
     measured++;
-    const winRate = greedyKlondikeWinRate(candidate.state, budget.tries, rng);
+    const winRate = greedyKlondikeWinRate(candidate.state, plan.tries, rng);
     if (winRate <= 0) continue; // 그리디가 한 번도 못 이긴 판 = 승리 가능 미확인 → 탈락.
     const gap = Math.abs(winRate - targetWinRate);
     if (gap < bestGap) {
@@ -383,13 +465,29 @@ export function pickKlondikeDeal(rng: Rng, level: number, budget: KlondikeDealBu
       best = { state: candidate.state, grade, winRate, ease: candidate.ease, matched: true };
     }
   }
+  /*
+   * 풀을 다 쟀는데 승리 증거가 없다 — 여기서 포기하면 **난이도 통제도 승리 보장도 없는 딜**이 나간다.
+   * 그러느니 새 딜을 깔며 `maxMeasured` 까지 이어서 잰다. 정렬된 후보가 아니라 난이도 통제는 느슨하지만,
+   * 검증 안 된 딜을 내보내는 것보다는 언제나 낫다. **이 루프는 나쁜 경우에만 돈다**(위에서 best 를
+   * 찾으면 애초에 들어오지 않는다) — 그래서 평소 딜 생성 비용은 그대로다.
+   */
+  while (!best && measured < maxMeasured) {
+    measured++;
+    const state = dealKlondike(rng, drawCount);
+    const winRate = greedyKlondikeWinRate(state, plan.tries, rng);
+    if (winRate <= 0) continue;
+    best = { state, grade, winRate, ease: staticEase(state), matched: true };
+  }
   if (best) return best;
 
-  const state = dealKlondikeWinnable(rng, drawCount); // 최후 폴백 — 난이도 통제는 못 해도 풀리는 판은 보장.
+  // 최후 폴백 — 난이도 통제는 못 해도 풀리는 판을 노린다. **여기까지 오는 것 자체가 이례적**이므로
+  //   (위 안전망을 지나야 한다) 재셔플 횟수를 넉넉히 준다. 12 로는 이 경로에서도 검증 못 한 딜이
+  //   나왔다(실측 2026-08-29: 폴백 5판 중 1판). 비용은 이 드문 경우에만 든다.
+  const state = dealKlondikeWinnable(rng, drawCount, 24);
   return { state, grade, winRate: 0, ease: staticEase(state), matched: false };
 }
 
 /** 씬용 얇은 래퍼 — 레벨 난이도에 맞는 딜 상태만 반환. */
-export function dealKlondikeForLevel(rng: Rng, level: number, budget?: KlondikeDealBudget): KlondikeState {
-  return pickKlondikeDeal(rng, level, budget).state;
+export function dealKlondikeForLevel(rng: Rng, level: number, budget?: KlondikeDealBudget, drawOverride?: 1 | 3): KlondikeState {
+  return pickKlondikeDeal(rng, level, budget, drawOverride).state;
 }

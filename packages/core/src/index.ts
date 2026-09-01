@@ -6,13 +6,20 @@
 export * from './tokens.js';
 export * from './scale.js';
 export * from './responsive.js';
+// 세이프존(저작 프레임) 중앙정렬 — 양축 가변 캔버스의 좌표 계약(전 게임 공통).
+export * from './safeZone.js';
 export * from './layout.js';
 export * from './ui.js';
+export * from './systems/textScript.js';
 export * from './systems/haptics.js';
 export * from './systems/pwa.js';
 export * from './systems/backGuard.js';
+export * from './systems/immersive.js';
 // 프로덕션 헬스 모니터(블랭크 화면·런타임 오류·청크 로드 실패 감지 + 스테일 SW 자동복구). Phaser-free.
 export * from './systems/healthMonitor.js';
+export * from './systems/errorLog.js';
+// `apps/api`(서버 권위 지갑) 얇은 클라이언트 — Phaser-free, 실패는 항상 null(게임플레이 비차단).
+export * from './net/apiClient.js';
 // 단계별 보상 게이지(EARN SPINS류 타임드 이벤트) — 프레임워크 무관 기본 시스템.
 export * from './systems/rewardGauge.js';
 // 타임어택 게임 공용 '3·2·1 → START!' 시작 카운트다운 오버레이.

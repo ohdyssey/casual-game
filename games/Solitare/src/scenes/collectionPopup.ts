@@ -1,3 +1,4 @@
+import { texSize } from '../assets.js';
 /**
  * collectionPopup.ts — **콜렉션 카드 개별 세트 화면**(1~10번 세트 상세, 2026-07-19).
  *   에디터 저작 blank_copy2.json(프레임·보상·9칸 카드 그리드·별 장식·닫기)을 SSOT 로 렌더한다.
@@ -16,9 +17,11 @@
  */
 import Phaser from 'phaser';
 import { sfx } from '../audio.js';
-import { cardCount, ownedCount, isNewCard, markSetSeen, type CollectionState } from '../logic/collection.js';
+import { cardCount, completedCount, isCardComplete, isNewCard, markSetSeen, CARD_COMPLETE_COUNT, type CollectionState } from '../logic/collection.js';
 import { collectionOf, collectionSeenOf, loadSave, writeSave } from '../save.js';
 import { popupOrganicIn, popupOrganicOut, popupOrganicPageSwap } from './popupFx.js';
+import { SAFE_H, SAFE_W, popupScale } from '../logic/responsiveFrame.js';
+import { overlayLayer, overlayScrim } from '../ui/overlay.js';
 
 /** 진입 팝업(entryPopup.ts)과 동일한 노드 상위집합 — layoutLoader 의 LayoutNode 텍스트 그림자 포함 버전. */
 export interface CollectionNode {
@@ -50,7 +53,7 @@ export interface CollectionDoc {
 export const UI_COLLECTION_KEY = 'ui_collection';
 export const UI_COLLECTION_PATH = 'ui/layouts/blank_copy2.json';
 
-export const SET_COUNT = 10; // up_CollecttionCard_01..10. collectionHub.ts 도 동일 개수 참조.
+export const SET_COUNT = 15; // 2026-08-31: 8~15 세트 추가(9장씩 이식) — collectionHub.ts 도 동일 개수 참조.
 const SWIPE_THRESHOLD = 60; // 이 이상 드래그해야 페이지 전환(px, 팝업 좌표계).
 
 /**
@@ -60,8 +63,15 @@ const SWIPE_THRESHOLD = 60; // 이 이상 드래그해야 페이지 전환(px, �
  */
 export const collectionCardKey = (set: number, card: number): string =>
   `up_CollectionCard${String(set).padStart(2, '0')}_${String(card).padStart(2, '0')}`;
-/** 카드 아트 이식이 끝난 세트 번호(2..SET_COUNT) — 디자이너가 새 세트를 저장하면 여기에 추가. */
-export const CARD_ART_SETS: ReadonlyArray<number> = [2, 3];
+/** 카드 아트 이식이 끝난 세트 번호(1..SET_COUNT) — 디자이너가 새 세트를 저장하면 여기에 추가. */
+/**
+ * 카드 아트 이식이 끝난 세트 — **1~7번 새 디자인**(PO 2026-08-31, `Card\CollectionCard\CollectionCard01~07`,
+ *   원본 ≈1086×1448(세트별 비례 상이) → 표시 규격 **211×320 으로 통일**(fill — 비례를 맞춰 늘림, PO "비례를
+ *   조정하더라도 동일 사이즈")). 1번 세트도 이제 저작 키(up_01_v2…)가 아니라 이식 아트를 쓴다 — 저작 키는
+ *   아트 로드 실패 시 폴백으로만 남는다.
+ *   **8~15번 추가**(PO 2026-08-31 2차, `CollectionCard08~15`) — 같은 규격·같은 절차로 이식.
+ */
+export const CARD_ART_SETS: ReadonlyArray<number> = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
 /**
  * **1번 세트 카드 아트 키**(blank_copy2.json 저작 슬롯 순서 그대로) — 팝업은 저작 노드에서 읽지만,
@@ -71,8 +81,7 @@ export const CARD_ART_SETS: ReadonlyArray<number> = [2, 3];
 export const SET1_CARD_KEYS: ReadonlyArray<string> = ['up_01_v2', 'up_02', 'up_03', 'up_04', 'up_05', 'up_06', 'up_07', 'up_08', 'up_09'];
 
 /** 세트·카드 번호(1-base) → 카드 아트 텍스처 키(1세트=저작 키, 2세트부터=이식 아트). */
-export const collectionArtKey = (set: number, card: number): string =>
-  set === 1 ? (SET1_CARD_KEYS[card - 1] ?? '') : collectionCardKey(set, card);
+export const collectionArtKey = (set: number, card: number): string => collectionCardKey(set, card); // 1번 세트도 이식 아트(2026-08-31).
 
 /** 보유 장수 배지 **원판 아트**(PO 2026-07-26 5차 지정: `SolitareHeights\UI\Solitare_UI_Play_03-1`). */
 export const COUNT_BADGE_KEY = 'up_Solitare_UI_Play_03-1';
@@ -92,18 +101,21 @@ export function makeCardCountBadge(
   h: number,
   count: number,
   depth?: number,
+  label?: string,
 ): Phaser.GameObjects.Container | null {
-  if (count < 2) return null; // 1장(기본 보유)은 배지 없이 카드만.
+  // 10장 규칙(2026-08-30): 미완성 카드는 `n/10` 진행 배지를 1장부터 붙인다(label). 완성 카드는 호출부가 배지를 생략한다.
+  if (count < 1 || (label === undefined && count < 2)) return null;
   const d = Math.max(30, Math.round(w * 0.4)); // 배지 지름 — 카드 폭 기준.
   const x = cx + w / 2; // 카드 **우상단 모서리 정중앙**(PO 스샷의 붉은 원 위치) — 절반이 카드 밖으로 걸친다.
   const y = cy - h / 2; //   → 저작된 별 장식(카드 상단 좌·중앙)과 겹치지 않는다.
   const box = scene.add.container(x, y);
   if (scene.textures.exists(COUNT_BADGE_KEY)) {
-    const src = scene.textures.get(COUNT_BADGE_KEY).getSourceImage() as { width: number; height: number };
+    const src = texSize(scene.textures.get(COUNT_BADGE_KEY));
     box.add(scene.add.image(0, 0, COUNT_BADGE_KEY).setDisplaySize(d, d * (src.height / src.width)));
   }
+  const text = label ?? `${count}`;
   const t = scene.add
-    .text(0, 0, `${count}`, { fontFamily: '"Jua", sans-serif', fontSize: `${Math.round(d * 0.62)}px`, color: '#7a3b00', fontStyle: '700' })
+    .text(0, 0, text, { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: `${Math.round(d * (text.length > 2 ? 0.4 : 0.62))}px`, color: '#7a3b00', fontStyle: '700' })
     .setOrigin(0.5);
   t.setShadow(0, 2, '#ffffffaa', 2, false, true);
   box.add(t);
@@ -126,17 +138,23 @@ export function makeNewCardBadge(scene: Phaser.Scene, cx: number, cy: number, w:
   const y = cy - h / 2;
   const box = scene.add.container(x, y);
   if (scene.textures.exists(NEW_CARD_BADGE_KEY)) {
-    const src = scene.textures.get(NEW_CARD_BADGE_KEY).getSourceImage() as { width: number; height: number };
+    const src = texSize(scene.textures.get(NEW_CARD_BADGE_KEY));
     box.add(scene.add.image(0, 0, NEW_CARD_BADGE_KEY).setOrigin(0, 0).setDisplaySize(d, d * (src.height / src.width)));
   } else {
     box.add(scene.add.circle(0, 0, d / 2, 0xe0453e).setStrokeStyle(2, 0xffffff));
-    box.add(scene.add.text(0, 0, 'NEW', { fontFamily: '"Jua", sans-serif', fontSize: `${Math.round(d * 0.32)}px`, color: '#ffffff' }).setOrigin(0.5));
+    box.add(scene.add.text(0, 0, 'NEW', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: `${Math.round(d * 0.32)}px`, color: '#ffffff' }).setOrigin(0.5));
   }
   if (depth != null) box.setDepth(depth);
   return box;
 }
 
 export interface CollectionPopupOpts {
+  /**
+   * 이 팝업이 붙는 **카메라**(선택). 홈 화면처럼 UI 전용 카메라가 따로 있으면 반드시 넘길 것 —
+   * 딤은 이 카메라가 보는 영역을 덮어야 한다. 안 넘기면 메인(월드) 카메라 기준으로 계산돼
+   * 화면 일부가 안 가려진다(실측: 홈 진입팝업 상·우·하 가장자리가 뚫림).
+   */
+  readonly uiCam?: Phaser.Cameras.Scene2D.Camera;
   readonly depth?: number; // 기본 4000.
   readonly pinToUi?: (o: Phaser.GameObjects.GameObject) => void; // HomeScene 스크롤 카메라 대응(선택).
   /** 허브(collectionHub.ts)에서 특정 세트를 골라 들어올 때 시작 페이지(1..SET_COUNT). 기본 1. */
@@ -155,15 +173,20 @@ export function buildCollectionPopup(scene: Phaser.Scene, opts: CollectionPopupO
   if (!doc || !Array.isArray(doc.nodes) || doc.nodes.length === 0) return null;
 
   const depth = opts.depth ?? 4000;
-  const W = scene.scale.width;
-  const H = scene.scale.height;
-  const scale = W / doc.frame.designW;
-  const layer = scene.add.container(0, 0).setDepth(depth);
+  // overlayLayer 안은 **세이프존 좌표계**(0..1080 × 0..2400)다 — 캔버스가 넓어지면 루트가
+  //   그만큼 밀려 있으므로 여기 W/H 는 저작 크기를 쓴다. 캔버스 전체를 덮는 딤은 overlayScrim 이 맡는다.
+  const W = SAFE_W;
+  const H = SAFE_H;
+  // 배율은 **세이프존 기준 고정**(720 → 1080 = ×1.5). 캔버스 폭으로 나누면 폭 가변 시 팝업이 통째로
+  //   커져 세로가 넘친다 — 넓어진 폭은 배치(중앙정렬)가 흡수한다.
+  const scale = popupScale(doc.frame.designW);
+  const layer = overlayLayer(scene, depth);
   opts.pinToUi?.(layer);
 
-  const scrim = scene.add.rectangle(0, 0, W, H, 0x140a1e, 0.86).setOrigin(0, 0).setInteractive();
+  const scrim = overlayScrim(scene, 0x140a1e, 0.86, opts.uiCam);
   layer.add(scrim);
-  // **유기체(젤리) 연출용 프레임**(popupFx) — 중심(W/2,H/2) 기준 스케일, inner 는 저작 절대좌표 유지용 역오프셋.
+  // **유기체(젤리) 연출용 프레임**(popupFx) — 중심(W/2,H/2) 기준 스케일, inner 는 저작 절대좌표 유지용
+  //   역오프셋. **세이프존 기준**이라 캔버스가 넓어지면 팝업이 자동으로 가운데 온다(1080 이면 종전과 동일).
   const frame = scene.add.container(W / 2, H / 2);
   layer.add(frame);
   const inner = scene.add.container(-W / 2, -H / 2);
@@ -185,19 +208,36 @@ export function buildCollectionPopup(scene: Phaser.Scene, opts: CollectionPopupO
 
   // 닫기(layer_2)만 고정 — 프레임(layer_1) 포함 나머지 전부는 pageGroup 으로 묶어 카드 전체가 함께 스와이프한다.
   const FIXED_IDS = new Set(['layer_2']);
-  // 카드 그리드 9칸(저작 노드) — 1번 세트는 저작 키 그대로, 2번부터는 세트별 아트(collectionCardKey)로
-  //   텍스처를 갈아끼운다(이식 안 된 세트는 그리드·장식 별 숨김 → 추후 아트 저장+CARD_ART_SETS 등록 시 노출).
-  const CARD_SLOT_IDS = ['layer_3', 'layer_3_copy3', 'layer_3_copy4', 'layer_3_copy5', 'layer_3_copy6', 'layer_3_copy7', 'layer_3_copy8', 'layer_3_copy9', 'layer_3_copy10'];
-  const slotMeta = CARD_SLOT_IDS.map((id) => {
-    const node = doc.nodes.find((n) => n.id === id);
-    return { id, authoredKey: node?.key, w: (node?.w ?? 0) * scale, h: (node?.h ?? 0) * scale };
-  });
-  const starIds: string[] = doc.nodes.filter((n) => n.id.startsWith('layer_6')).map((n) => n.id); // layer_6·layer_6_copy1..17(별 장식).
+  /*
+   * **카드 그리드 = 저작 견본에서 유도**(에디터 재저작 2026-08-31). 새 blank_copy2.json 은 카드 슬롯을 9칸
+   * 저작하지 않고 **견본 2칸**(layer_3·layer_3_copy3 — 자리·크기 표시용 임시 아트 + `__shadow` 자동 그림자)만
+   * 남겼다. 실제 9칸은 코드가 만든다:
+   *   · 열 x = [견본1.x, 견본2.x, 견본2.x×2 − 견본1.x] (등간격 3열 — 견본 간격이 곧 피치)
+   *   · 행 y = 별 장식(layer_6*) 세 줄의 y + (견본1.y − 첫 별줄 y) — 별 줄이 각 카드 줄의 상단 장식이다
+   *   · 크기 = 견본 노드 w×h
+   * ⚠️ 견본·그림자 노드는 **화면에 그리지 않는다**(TEMPLATE 스킵) — 임시 아트가 비쳐 보이면 안 된다.
+   * ⚠️ 저작을 또 바꾸면(견본 위치·별 줄 수) 이 유도 규칙이 함께 맞는지 볼 것.
+   */
+  const isTemplateId = (id: string): boolean => /^layer_3(_copy3)?(__shadow)?$/.test(id);
+  const t1 = doc.nodes.find((n) => n.id === 'layer_3');
+  const t2 = doc.nodes.find((n) => n.id === 'layer_3_copy3');
+  const starNodes = doc.nodes.filter((n) => n.id.startsWith('layer_6'));
+  const starRows = [...new Set(starNodes.map((n) => n.y))].sort((a, b) => a - b);
+  const slotW = (t1?.w ?? 139) * scale;
+  const slotH = (t1?.h ?? 195) * scale;
+  const colXs = t1 && t2 ? [t1.x, t2.x, 2 * t2.x - t1.x] : [185, 364, 543];
+  const rowDy = (t1?.y ?? 732) - (starRows[0] ?? 614); // 견본 행 중심 − 그 행 별줄 y.
+  const rowYs = (starRows.length >= 3 ? starRows.slice(0, 3) : [614, 859, 1093]).map((y) => y + rowDy);
+  const slotMeta = rowYs.flatMap((y) =>
+    colXs.map((x) => ({ id: `slot_${y}_${x}`, authoredKey: undefined as string | undefined, x: x * scale, y: y * scale, w: slotW, h: slotH })),
+  );
+  const starIds: string[] = starNodes.map((n) => n.id); // 별 장식(카드 줄 상단, 1·2·3개) — 아트 없는 세트에서 함께 숨긴다.
 
   const byId = new Map<string, Phaser.GameObjects.Image | Phaser.GameObjects.Text>();
   const pageGroup = scene.add.container(0, 0);
   for (const n of doc.nodes) {
     if (n.visible === false) continue;
+    if (isTemplateId(n.id)) continue; // 카드 견본·그림자는 그리지 않는다(위 그리드 유도의 원본일 뿐).
     let obj: Phaser.GameObjects.Image | Phaser.GameObjects.Text | null = null;
     if (n.type === 'image' && n.key) {
       if (!scene.textures.exists(n.key)) continue;
@@ -205,7 +245,7 @@ export function buildCollectionPopup(scene: Phaser.Scene, opts: CollectionPopupO
       if (n.w && n.h) img.setDisplaySize(n.w * scale, n.h * scale);
       obj = img;
     } else if (n.type === 'text') {
-      const family = n.fontFamily ? `"${n.fontFamily}", "Jua", sans-serif` : '"Jua", sans-serif';
+      const family = n.fontFamily ? `"${n.fontFamily}", "Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif` : '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif';
       const t = scene.add.text(n.x * scale, n.y * scale, n.text ?? '', {
         fontFamily: family,
         fontSize: `${Math.round((n.fontSize ?? 20) * scale)}px`,
@@ -224,6 +264,21 @@ export function buildCollectionPopup(scene: Phaser.Scene, opts: CollectionPopupO
       pageGroup.add(obj); // 프레임 포함 전부 — 컨테이너 좌표계로 재배치돼도 절대 위치는 그대로 유지(컨테이너가 (0,0)이므로).
     }
     byId.set(n.id, obj);
+  }
+  // **카드 9칸 생성**(그리드 유도 좌표) — 텍스처는 applyPageVisuals 가 세트별로 끼운다. 스와이프 그룹에 속한다.
+  for (const m of slotMeta) {
+    const img = scene.add.image(m.x, m.y, '__DEFAULT').setVisible(false);
+    pageGroup.add(img);
+    byId.set(m.id, img);
+  }
+  /*
+   * **별 장식을 카드 위로**(PO 2026-08-31) — 별(layer_6*)은 카드 줄 상단에 걸치는 장식이라 카드보다 **앞**이어야
+   *   한다. Container 는 add 순서로 그리는데(depth 자동정렬 없음 — 전 게임 공통 함정) 카드를 나중에 붙이므로
+   *   그대로 두면 카드가 별을 덮는다. 카드 생성 직후 별만 맨 위로 올린다.
+   */
+  for (const id of starIds) {
+    const st = byId.get(id);
+    if (st) pageGroup.bringToTop(st);
   }
   inner.add(pageGroup); // 카드 전체(프레임+내용물) 붙임.
   const closeObj = byId.get('layer_2');
@@ -257,7 +312,7 @@ export function buildCollectionPopup(scene: Phaser.Scene, opts: CollectionPopupO
     //   (예전엔 배너 바로 아래에 큼직하게 떠서 저작된 리본·보상 영역과 겹쳐 보였다 — 2026-07-26 PO 스샷 반영.)
     const pageText = scene.add
       .text(575 * scale, 1385 * scale, `${page} / ${SET_COUNT}`, {
-        fontFamily: '"Jua", sans-serif',
+        fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
         fontSize: `${Math.round(22 * scale)}px`,
         color: '#b08a5a',
       })
@@ -292,32 +347,42 @@ export function buildCollectionPopup(scene: Phaser.Scene, opts: CollectionPopupO
       slotMeta.forEach((m, i) => {
         const img = byId.get(m.id) as Phaser.GameObjects.Image | undefined;
         if (!img) return;
-        const key = p === 1 ? m.authoredKey : collectionCardKey(p, i + 1);
-        const ok = !!key && scene.textures.exists(key);
+        // 전 세트 이식 아트(2026-08-31 새 디자인 1~7) — 없으면 그 세트는 그리드 숨김(hasCards=false 경로).
+        const key = collectionCardKey(p, i + 1);
+        const ok = scene.textures.exists(key);
         img.setVisible(ok);
         if (ok && key) {
           img.setTexture(key);
           if (m.w && m.h) img.setDisplaySize(m.w, m.h); // setTexture 가 원본 크기로 되돌리므로 슬롯 크기 재적용.
           hasCards = true;
           const n = cardCount(state, p, i + 1);
-          if (n > 0) {
+          img.postFX?.clear();
+          /*
+           * **조각 3단계 표시**(PO 2026-08-31: "카드가 적용된 세트는 미보유도 회색 카드로"):
+           *   · 0조각  — **회색 카드**(그레이스케일 + 반투명). 예전 실루엣(형태만)은 아트 없는 시절의 표현이라 폐기.
+           *   · 1~9조각 — 회색 + `n/10` 진행 배지.
+           *   · 10조각 — 원색(완성), 배지 없음.
+           */
+          const complete = isCardComplete(state, p, i + 1);
+          if (complete) {
             img.clearTint();
             img.setAlpha(1);
-            // **2장 이상이면 우상단에 원문자 장수**(중복 보유 표시).
-            const badge = makeCardCountBadge(scene, img.x, img.y, img.displayWidth, img.displayHeight, n);
-            if (badge) {
-              pageGroup.add(badge); // 카드와 함께 스와이프되도록 같은 그룹에.
-              countBadges.push(badge);
-            }
-            // **NEW 배지(좌상단)** — 이 팝업을 열기 전 스냅샷(seenSnapshot) 대비 새로 늘어난 카드만.
-            if (isNewCard(state, seenSnapshot, p, i + 1)) {
-              const nb = makeNewCardBadge(scene, img.x, img.y, img.displayWidth, img.displayHeight);
-              pageGroup.add(nb);
-              newBadges.push(nb);
-            }
           } else {
-            img.setTintFill(0x2b1c3a); // 실루엣(형태만) — 보유 시 컬러로 밝아진다.
-            img.setAlpha(0.55);
+            img.clearTint();
+            img.setAlpha(n > 0 ? 1 : 0.82); // 미보유는 살짝 더 죽인다 — 진행 중과 눈으로 갈리게.
+            if (img.postFX) img.postFX.addColorMatrix().grayscale(1);
+            else img.setTint(0x9a9a9a);
+          }
+          const badge = complete || n === 0 ? null : makeCardCountBadge(scene, img.x, img.y, img.displayWidth, img.displayHeight, n, undefined, `${n}/${CARD_COMPLETE_COUNT}`);
+          if (badge) {
+            pageGroup.add(badge); // 카드와 함께 스와이프되도록 같은 그룹에.
+            countBadges.push(badge);
+          }
+          // **NEW 배지(좌상단)** — 이 팝업을 열기 전 스냅샷(seenSnapshot) 대비 새로 늘어난 카드만.
+          if (n > 0 && isNewCard(state, seenSnapshot, p, i + 1)) {
+            const nb = makeNewCardBadge(scene, img.x, img.y, img.displayWidth, img.displayHeight);
+            pageGroup.add(nb);
+            newBadges.push(nb);
           }
         }
       });
@@ -331,7 +396,7 @@ export function buildCollectionPopup(scene: Phaser.Scene, opts: CollectionPopupO
       }
       // 장식 별 — 카드가 보이는 세트에서만 노출(빈 세트에서 별만 떠 보이는 것 방지).
       for (const id of starIds) (byId.get(id) as Phaser.GameObjects.Image | undefined)?.setVisible(hasCards);
-      ownedText?.setText(hasCards ? `${ownedCount(state, p)}` : '0'); // 저작 하단 카운터("n / 9")의 앞 숫자.
+      ownedText?.setText(hasCards ? `${completedCount(state, p)}` : '0'); // 저작 하단 카운터("n / 9") — **완성한 종 수**(10장 규칙).
     };
 
     const groupW = (frameNode.w ?? bannerNode.w) * scale; // 둘 다 design-space 값(스케일 전).

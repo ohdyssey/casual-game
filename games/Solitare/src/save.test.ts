@@ -17,7 +17,8 @@ class MemoryStorage {
 const memoryStorage = new MemoryStorage();
 (globalThis as unknown as { localStorage: MemoryStorage }).localStorage = memoryStorage;
 
-import { loadSave, writeSave, resetProgress, collectionOf, SAVE_KEY } from './save.js';
+import { loadSave, writeSave, resetProgress, collectionOf, SAVE_KEY, floorLevelReq, lot2FloorLevelReq, hotelFloorLevelReq, MAX_FLOORS, LOT2_MAX_FLOORS } from './save.js';
+import { HOTEL_FLOOR_COUNT } from './config/hotelFloors.js';
 import { defaultCollection, grantCard, isOwned, ownedCount } from './logic/collection.js';
 
 describe('loadSave / writeSave — missionReward 필드 보존', () => {
@@ -98,5 +99,40 @@ describe('loadSave / writeSave — collection(컬렉션 카드 보유) 필드', 
   it('손상된 collection 은 초기 보유로 안전하게 폴백', () => {
     memoryStorage.setItem(SAVE_KEY, JSON.stringify({ coins: 100, collection: 'broken' }));
     expect(loadSave().collection).toEqual(defaultCollection());
+  });
+});
+
+describe('레벨 기반 층 해금 곡선(메인·2번라인·호텔) — 2026-08-31 재설계', () => {
+  const monotonicIncreasing = (arr: number[]): boolean => arr.every((v, i) => i === 0 || v > arr[i - 1]);
+
+  it('메인타워: 1층은 제한 없음, 2~10층은 순증가, 10층=250', () => {
+    expect(floorLevelReq(1)).toBe(1);
+    const seq = Array.from({ length: MAX_FLOORS - 1 }, (_, i) => floorLevelReq(i + 2));
+    expect(monotonicIncreasing(seq)).toBe(true);
+    expect(floorLevelReq(MAX_FLOORS)).toBe(250);
+  });
+
+  it('2번 라인: 1~20층 순증가, 1층은 메인타워 완공 근방(200 이상), 20층=1400', () => {
+    const seq = Array.from({ length: LOT2_MAX_FLOORS }, (_, i) => lot2FloorLevelReq(i + 1));
+    expect(monotonicIncreasing(seq)).toBe(true);
+    expect(seq[0]).toBeGreaterThanOrEqual(200);
+    expect(lot2FloorLevelReq(LOT2_MAX_FLOORS)).toBe(1400);
+  });
+
+  it('호텔: 1~15층 순증가, 15층 = 게임 최종 레벨(3000)', () => {
+    const seq = Array.from({ length: HOTEL_FLOOR_COUNT }, (_, i) => hotelFloorLevelReq(i + 1));
+    expect(monotonicIncreasing(seq)).toBe(true);
+    expect(hotelFloorLevelReq(HOTEL_FLOOR_COUNT)).toBe(3000);
+  });
+
+  it('세 구간은 순차로 이어진다(메인 마지막 < 2번라인 처음, 2번라인 마지막 < 호텔 처음)', () => {
+    expect(floorLevelReq(MAX_FLOORS)).toBeLessThan(lot2FloorLevelReq(1));
+    expect(lot2FloorLevelReq(LOT2_MAX_FLOORS)).toBeLessThan(hotelFloorLevelReq(1));
+  });
+
+  it('컨벡스 형태 — 초반 구간 폭이 후반 구간 폭보다 좁다(초반 빠르게·후반 느리게)', () => {
+    const firstGap = lot2FloorLevelReq(2) - lot2FloorLevelReq(1);
+    const lastGap = lot2FloorLevelReq(LOT2_MAX_FLOORS) - lot2FloorLevelReq(LOT2_MAX_FLOORS - 1);
+    expect(firstGap).toBeLessThan(lastGap);
   });
 });

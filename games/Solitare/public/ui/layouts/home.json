@@ -982,6 +982,20 @@
       "shadowY": 2,
       "shadowBlur": 2,
       "shadowAlpha": 0.4
+    },
+    {
+      "id": "layer_18",
+      "type": "image",
+      "name": "새 레이어",
+      "key": "up_Homerun_UI_13",
+      "x": 97,
+      "y": 646,
+      "w": 153,
+      "h": 152,
+      "visible": true,
+      "tintable": true,
+      "lockAspect": true,
+      "depth": 58
     }
   ],
   "groups": [

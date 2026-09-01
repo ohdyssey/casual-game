@@ -19,30 +19,34 @@ import {
   CARD_BACK_KEY,
   floorArtKey,
   CHAR_SHEETS,
-  uploadPath,
-  MISSION_BOX_PANEL_KEY,
-} from '../assets.js';
-import { buildLayout, type LayoutDoc, type LayoutIndex } from '../ui/layoutLoader.js';
+  uploadPath, texSize } from '../assets.js';
+import { anchorDoc, buildLayout, type LayoutDoc, type LayoutIndex } from '../ui/layoutLoader.js';
 import { Pedestrian, pathToWaypoints } from './pedestrians.js';
 import { CardView } from './cardView.js';
 import { levelDef, editorLevelCount, MAX_PROGRESS_LEVEL, FLOORS } from '../logic/levels.js';
-import { hasBonusAfter } from '../logic/klondike.js';
-import { preloadAudio, playBgm, sfx, sfxCardPlace, sfxStar, sfxWinSting, cycleVolume, volumeLabel } from '../audio.js';
+import { preloadAudio, playBgm, sfx, sfxCardPlace, sfxWinSting, cycleVolume, volumeLabel, LAB_SILENT } from '../audio.js';
+import { hapticsLabel, toggleHaptics } from '../haptics.js';
 import { buildTopHeader, type TopHeader } from './topHeader.js';
 import { openItemShop } from './itemShop.js';
 import { buildMissionRewardBanner, type MissionRewardBanner } from './missionRewardBanner.js';
 import { buildEntryPopup } from './entryPopup.js';
+import { squashInObjects } from './popupFx.js';
+import { beginPlaySession, endPlaySession, playSessionRewards, revokePlaySession } from '../logic/playSession.js';
+import { openStarterOffer } from './starterOffer.js';
+import { bumpMetrics } from '../logic/dailyMetrics.js';
 import { preloadCustomers, registerCustomerFrames, startCustomerVisits, type CustomerSpot } from './customers.js';
 import { OrderQueue } from './orderQueue.js';
 import type { CardBoardDoc } from '../logic/editorLevels.js';
 import { EDITOR_LEVELS_KEY } from '../logic/editorLevels.js';
 import { seededRng } from '../logic/deck.js';
-import { dealDynamic } from '../logic/solvable.js';
+import { DYN_STOCK_REDUCE, dealDynamic } from '../logic/solvable.js';
 import type { Grade } from '../logic/difficulty.js';
-import { loadSave, writeSave, itemsOf, missionRewardOf, collectionOf, type SaveData } from '../save.js';
-import { applyStars as applyMissionStars, type MissionRewardBox } from '../logic/missionReward.js';
-import { CARDS_PER_SET, COLLECTIBLE_SETS, grantCard, ownedCount, pickRandomCard, type CollectionSlot } from '../logic/collection.js';
+import { loadSave, writeSave, itemsOf, missionRewardOf, collectionOf, loadTipsSeen, markTipSeen, type SaveData } from '../save.js';
+import { applyStars as applyMissionStars } from '../logic/missionReward.js';
+import { CARD_COMPLETE_COUNT, COLLECTIBLE_SETS, cardCount, grantCard, pickRandomCard, type CollectionSlot } from '../logic/collection.js';
 import { CARD_ART_SETS, collectionArtKey, collectionCardKey } from './collectionPopup.js';
+import { UI_RESULT_KEY, UI_RESULT_PATH, buildResultPopup } from './resultPopup.js';
+import { collectResultRewards } from './rewardCollect.js';
 import {
   ECON_JSON_KEY,
   ECON_JSON_URL,
@@ -57,8 +61,19 @@ import {
   econ,
 } from '../econRuntime.js';
 import { incomePerPeriod, playIncomeFor, addToBank } from '../logic/storeIncome.js';
-import { STAR_CUTS, STAR_RATIO_CUTS, MAX_STARS, starsForQuality, starsForRatio, referenceQuality, matchGain, playingQuality, finalQuality } from '../logic/starRating.js';
-import { SUITS, RANKS, type Card, type Suit } from '../logic/types.js';
+import { pickTip, TIPS, type TipKey } from '../logic/tutorial.js';
+import { stockFanLayout } from '../logic/stockFan.js';
+import { pickBotMoves } from '../logic/botPolicy.js';
+import {
+  RESCUE_MAX_LEVEL, PLUS5_CURATED_MAX_LEVEL, bonusValueForLevel, pickSpecialSlots,
+  MISSION_REWARD_TABLE, MISSION_SET_SIZE, MISSION_STARS_MAX, MISSION_STARS_MIN, collectionWeightForLevel, missionStockAmount, stockIsAmple, clearRewardsForGrade,
+  type MissionRewardKind, plus5AssistFor } from '../logic/economyRules.js';
+import { GAUGE_STAR_XS, GAUGE_STAR_Y, GAUGE_STAR_SZ, GAUGE_BAR_GEOM } from '../ui/gaugeGeom.js';
+import { isShortMessage, shouldShowMessage } from '../logic/messageStyle.js';
+import { fitMessagePanel, GREEN_PANEL, YELLOW_PANEL } from '../ui/messagePanel.js';
+import { loadMessageCounts, saveMessageCounts } from '../save.js';
+import { STAR_CUTS, STAR_RATIO_CUTS, MAX_STARS, starsForQuality, starsForRatio, referenceQuality, matchGain, playingQuality, finalQuality, qualityWithCleanFloor } from '../logic/starRating.js';
+import { SUITS, RANKS, type Card, type Rank, type Suit } from '../logic/types.js';
 import {
   type GameState,
   wasteTop,
@@ -67,6 +82,8 @@ import {
   availableMoves,
   playCard,
   playWild,
+  addStockCards,
+  addWildCards,
   bankWildToStock,
   consumeBonusCard,
   drawStock,
@@ -78,9 +95,39 @@ import {
 } from '../logic/tripeaks.js';
 import type { LayoutSlot } from '../logic/layouts.js';
 import { autoTestState, recordAutoTestResult, exportAutoTestData, type LevelTestResult } from './autoTest.js';
+import { boardView, type BoardView, type SlotView } from '../logic/boardView.js';
+import { appendError } from '@casual/core';
+import { SAFE_H as H, SAFE_W as W } from '../logic/responsiveFrame.js';
+import { MAIN_ANCHOR } from '../ui/mainPins.js';
+import { SAFE_W, coverScale } from '../logic/responsiveFrame.js';
+import { fullBleedBounds, viewBounds } from '@casual/core';
+import { overlayLayer, overlayScrim } from '../ui/overlay.js';
+import { centerSafeZone } from '../ui/safeZone.js';
+import { uiButton } from '../ui/uiButton.js';
+import { creditEventItems, creditLeagueStars, previewEventItems, eventBannerView, leagueStageOf, leagueTargetFloor, openFloorOf } from '../logic/collectRuntime.js';
+import { backupTowerSnapshot, mirrorClearReward, mirrorLeagueGrand, mirrorRoundReport } from '../logic/serverSync.js';
+import { eventStageTarget, eventTargetIconKey, type EventTargetKind } from '../config/thiefEvent.js';
+import { floorItemKey } from '../config/floorItems.js';
+import { currentStore, type StoreRef } from '../logic/currentStore.js';
+import { attachLeagueBadge } from '../ui/leagueRail.js';
+import { openEventPanel } from '../ui/eventPanel.js';
+import { LEAGUE_STAGE_COUNT, leagueGrandCoins, stageCoins, stageGoal } from '../logic/dailyLeague.js';
+import { profileOf } from '../logic/leagueRuntime.js';
+import { openLeaguePanel } from '../ui/leaguePanel.js';
 
-const W = 1080;
-const H = 2400;
+import { progressNow as eventProgressNow, thiefPeriodId } from '../logic/thiefEvent.js';
+
+/**
+ * **수집 드랍 임계 콤보** — 뽑기 없이 이 수만큼 이어 내면 상품 1개가 떨어진다.
+ * 3 인 근거: 레벨 1~300 · 2,400판 실측에서 3콤보는 판당 2.47개(하루 10판 ≈ 25개)로
+ * "플레이하면 나온다"가 되지만, 5콤보는 0.72개라 절반 넘는 판에서 한 번도 안 나온다.
+ * 1~2연속(전체 런의 62%)에서는 안 나오므로 실력 보상 성격도 유지된다.
+ */
+import { topUiShift } from '../ui/safeAreaUi.js';
+
+// 저작(=세이프존) 프레임 — 좌표 계약의 단일 출처는 logic/responsiveFrame.ts 다.
+//   ⚠️ 이 값은 **캔버스 크기가 아니라 저작 크기**다. 캔버스는 앞으로 가변이 될 수 있으므로
+//      화면 전체를 덮는 요소(딤 등)는 W/H 가 아니라 scene.scale.width/height 를 써야 한다.
 /** 레벨 점검 시뮬레이션의 한 수 간격(게임시간 ms) — 실제 간격은 이 값 ÷ 배속. 1배속에서 0.7초/수. */
 const SIM_TICK_MS = 700;
 
@@ -93,20 +140,7 @@ const BONUS_ART: Record<number, string> = {
   3: 'up_Solitare_UI_08-3',
   5: 'up_Solitare_UI_08-4',
 };
-// 보너스 값 **역빈도(∝ 1/N) 정확 할당 패턴** — 확률 추첨은 표본 노이즈로 +5 가 +3 보다 자주 나오는
-//   역전이 생길 수 있어, 주기에 +1×30 · +2×15 · +3×10 · +5×6 (= 1/1:1/2:1/3:1/5)
-//   을 결정적 셔플로 미리 배치한다. 레벨→패턴 인덱스 고정 → 주기 안에서 비율이 정확히 역빈도.
-const BONUS_PATTERN: readonly number[] = (() => {
-  const counts: ReadonlyArray<readonly [number, number]> = [[1, 30], [2, 15], [3, 10], [5, 6]];
-  const arr: number[] = [];
-  for (const [v, c] of counts) for (let i = 0; i < c; i++) arr.push(v);
-  const rng = seededRng(424242); // 고정 시드 — 모든 클라에서 동일 패턴.
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-})();
+// 보너스 값 패턴·초반 상한은 logic/economyRules.ts(단일 출처 — 시뮬레이터와 공유).
 
 // 에디터 저작 레벨 팩(public/levels/cardLevels.json) 캐시 키.
 const EDITOR_PACK_KEY = 'editorLevelPack';
@@ -123,6 +157,23 @@ export const EDITOR_PACK_URL = import.meta.env.DEV
 // 부스터 코인 비용 — **경제모델(econRuntime) 적용**(P3): 레벨 곡선×램프×도전 배수, 재사용 가산.
 //   되돌리기도 유료(undoPriceAt, PO 2026-07-16). 보유 아이템이 있으면 코인 대신 아이템 소모(원문자 표시).
 const ADD5_COUNT = 5; // ＋5 카드 = 소모 카드 5장을 스톡으로 되돌림.
+/**
+ * **튜토리얼 글자 크기(저작 px)** — 안내 창마다 제각각이던 값을 한곳으로 모았다(PO 2026-08-22
+ * "폰트 사이즈가 통일되어 있지 않음"). 전체적으로 한 단계씩 키워 작은 화면에서도 읽히게 한다.
+ */
+const TIP_FONT_SIZE = { title: 58, body: 40, foot: 34, label: 36, tag: 34, caption: 34 } as const;
+/** 튜토리얼 포인터 아이콘(업로드 에셋). 없으면 이모지 폴백. */
+const TUTORIAL_POINTER_KEY = 'up_Solitare_UI_26';
+/** 메시지를 **그대로 유지**하는 시간(ms) — 이 뒤에 페이드아웃이 시작된다. */
+const TOAST_HOLD_MS = 1600;
+/** **작은 메시지 창**(노란 프레임, 1536×1024) — 코인 숫자·획득 안내 등 짧은 문구용. */
+const SMALL_MSG_PANEL_KEY = 'up_Solitare_UI_29';
+/** **일반 메시지 창**(초록 프레임, 가로 리본 2172×724) — 코인 부족 등 짧은 알림 전용. 튜토리얼 말풍선과 구분한다. */
+const MESSAGE_PANEL_KEY = 'up_Solitare_UI_28';
+/** 안내 말풍선 패널(업로드 에셋, 아래쪽 꼬리가 대상을 가리킨다). 없으면 사각형 폴백. */
+const TUTORIAL_PANEL_KEY = 'up_Solitare_UI_27';
+/** 패널 원본 비율(1122×1402) — 표시 크기는 폭으로 정하고 높이를 이 비율로 맞춘다. */
+const TUTORIAL_PANEL_RATIO = 1402 / 1122;
 
 /**
  * 되돌리기 히스토리 1스텝 — GameState + **GameState 밖 씬 래치**를 함께 스냅샷한다.
@@ -145,12 +196,39 @@ interface HistorySnap {
   readonly starGauge: number;
   readonly setsDone: number; // 완성 세트 수(별 판정 소스) — 게이지와 함께 되돌려 세트 파밍 방지.
   readonly wildActive: boolean; // **기준 위 와일드 활성 여부** — undo 가 되돌린 뒤 와일드가 사라지지 않도록(PO 2026-07-17).
+  /**
+   * **콤보 런**(수 직전) — 되돌리면 콤보도 그 수 직전으로 돌아간다(PO 2026-08-24: "되돌리기 아이템을
+   * 쓸 경우 콤보가 리셋되는 문제"). 예전엔 undo 가 무조건 `resetComboRun()` 을 불러, 애써 이어 온
+   * 콤보가 한 번의 되돌리기로 사라졌다 — 되돌리기를 쓸수록 손해라 아무도 쓰지 않게 된다.
+   */
+  readonly comboColors: readonly Suit[];
+  readonly melodyStep: number;
+  /**
+   * **미션 진행 래치**(PO 2026-08-24 신고: "되돌리기를 쓰면 보드에 아이템이 두 개 배치된다").
+   *
+   * 미션 보상은 콤보가 끝나는 순간 보드에 꽂힌다. 되돌리기는 판 상태만 되돌리고 **이미 꽂힌 물건**은
+   * 그대로 두었기 때문에, 같은 콤보를 다시 완성하면 **한 번 더** 꽂혔다. 수 직전에 "그때 꽂혀 있던
+   * 슬롯"을 적어 두고, 되돌릴 때 그 뒤에 생긴 것만 걷어낸다.
+   */
+  readonly pendingMissions: number;
+  readonly starSlots: readonly string[];
+  readonly stockSlots: readonly string[];
+  readonly boardCollections: readonly string[];
 }
 
 // ── 미션 콤보(에디터 크롬 전용) ────────────────────────────────────────
 // 콤보로 카드를 연속 매칭 → 오른쪽 상단 박스(PLAY MISSION)의 5칸이 맞춘 카드 색으로 채워진다.
 // 5칸이 다 차면 한 세트 완료. **별 = 완성 세트 수**(아래 SETS_FOR_*), 게이지는 시각 연출용.
-const SET_SIZE = 5; // 미션 1틱 = 5매칭(5·10·15…마다 미션 보상). 손님 주문 별은 이 배수로 큰별(=5) 탤리.
+const STOCK_REWARD_KINDS = new Set<MissionRewardKind>(['cards', 'plus5', 'wild']);
+/**
+ * "뽑기가 넉넉하다"의 기준 — 남은 보드 카드 대비 비율.
+ *   **2026-08-22 0.5 → 0.25** — 0.5 는 너무 후해서 중반에 거의 발동하지 않았다(남은 보드 20장이면
+ *   뽑기 10장을 들고 있어야 넉넉 판정). 그 사이 미션 보상이 계속 뽑기를 얹어, 콤보를 잘 잇는 판일수록
+ *   끝에 5~7장이 남았다(PO 실측 lv231). 연쇄 덕분에 뽑기 1장이 평균 2장 이상을 치우므로
+ *   `남은보드 × 0.25` 면 이미 충분하다.
+ */
+/** 위 비율의 하한(장) — 보드가 거의 끝났을 때 기준이 0 이 되는 걸 막는다. */
+const SET_SIZE = MISSION_SET_SIZE; // 미션 1틱 = 5매칭 — 값은 logic/economyRules.ts(시뮬레이터와 공유). 손님 주문 별도 이 배수.
 const SETS_TARGET = 5; // 별 최대 **5개**(최종 5별 구조) — 보상 팝업 별 아이콘 수.
 // 레벨 클리어 별 등급 = accumStars(좌측 5칸 게이지에 축적된 별 수, 0~5)로 판정(checkEnd).
 // 별 개수별 코인 보상 — save.ts starCoins(게임비 연동, 2별부터 순이익)로 이관(2026-07-16).
@@ -174,60 +252,33 @@ interface BoardCollection {
   played: boolean;
 }
 
-type MissionRewardKind = 'coins' | 'cards' | 'diamond' | 'wild' | 'plus5' | 'collection';
+// 미션 보상표·콜렉션 가중치·뽑기 넉넉 판정은 **logic/economyRules.ts 단일 출처**(시뮬레이터와 공유).
+//   여기는 씬 전용(아이콘·연출·CollectionSlot 확장)만 남긴다.
 interface MissionReward {
   readonly kind: MissionRewardKind;
   readonly amount: number;
   /** kind='collection' 일 때만 — 추첨된(예고된) 컬렉션 카드 슬롯. 지급 시 이미 보유했으면 재추첨. */
   readonly slot?: CollectionSlot;
 }
-// **보상 축소**(PO 2026-07-17 "보상이 너무 크다"·경제 시뮬 H안 하향) — 매 5-콤보 지급이라 인플레 유발 → 수량↓.
-//   경제 모델 정합(src/logic/economy.ts): 코인 40%·게임비×0.08, 다이아 6%(가중 6/100).
-const MISSION_REWARD_TABLE: readonly { kind: MissionRewardKind; weight: number; amount: number }[] = [
-  { kind: 'coins', weight: 38, amount: 0 }, // 자주 — amount 0 = 런타임 게임비 연동(×0.08).
-  { kind: 'cards', weight: 34, amount: 2 }, // 자주 — 스톡 +2(추가 카드).
-  { kind: 'plus5', weight: 8, amount: 3 }, // 드묾 — **뽑기 카드로 적용**(스톡 +3).
-  { kind: 'wild', weight: 8, amount: 2 }, // 드묾 — **뽑기 카드로 적용**(스톡 +2).
-  { kind: 'diamond', weight: 6, amount: 1 }, // 드묾 — **게임완성 보상풀**(pendingDiamonds, 레벨 클리어 시 지급).
-  // 드묾 — **컬렉션 카드 1장**(미보유 중 랜덤). 다 모았으면 rollMissionReward 가 코인으로 대체한다.
-  { kind: 'collection', weight: 6, amount: 1 },
-];
-/**
- * **콜렉션 드랍 가중치**(PO 2026-07-20 "초기 발생 확률을 높일 것" → 2026-07-27 "콜렉션 카드가 잘 안 나옵니다").
- *   레벨1은 기본치의 배수로 시작해 COLLECTION_BOOST_UNTIL_LEVEL 부터 기본치로 선형 감소.
- *
- * ⚠️ 체감 드랍률은 가중치만으로 정해지지 않는다 — **판당 미션 틱 수 × 추첨 확률 × 승률**이다(승리해야 확정).
- *   실측(2026-07-27, 저작 100레벨·레벨당 60판 시뮬): 판당 미션 틱 3.8회 · 승률 43% →
- *     기본 6  → 1틱당 6.0% → 확정 0.131장/판 = **1장에 7.6판**(PO 가 "잘 안 나온다"고 한 상태)
- *     기본 14 → 1틱당 13.0% → 확정 0.28장/판 = **1장에 3.6판**  ← 현재
- *   가중치를 만질 땐 이 세 요소를 같이 볼 것(승률이 반이면 체감 드랍률도 반이다).
- */
-const COLLECTION_WEIGHT_EARLY = 34;
-const COLLECTION_WEIGHT_BASE = 14;
-const COLLECTION_BOOST_UNTIL_LEVEL = 20;
-function collectionWeightForLevel(level: number): number {
-  if (level >= COLLECTION_BOOST_UNTIL_LEVEL) return COLLECTION_WEIGHT_BASE;
-  const t = Math.max(0, level - 1) / (COLLECTION_BOOST_UNTIL_LEVEL - 1);
-  return Math.round(COLLECTION_WEIGHT_EARLY - t * (COLLECTION_WEIGHT_EARLY - COLLECTION_WEIGHT_BASE));
-}
 const MISSION_ICON: Record<MissionRewardKind, string> = {
-  coins: 'up_Solitare_UI_2_3',
+  stars: 'up_Solitare_UI_02_v2', // 리그 별(좌측 게이지와 같은 아트).
   cards: 'up_Solitare_UI_08-2_v2',
   diamond: 'up_Solitare_UI_2_2',
   wild: 'up_Solitare_UI_08',
-  plus5: 'up_Solitare_UI_07',
+  // ⚠️ plus5 는 예전에 `up_Solitare_UI_07`(= **되돌리기 그림**)을 쓰고 있었다 — 화면엔 리와인드가 뜨는데
+  //    실제로는 뽑기 ＋3장이 나왔다(PO 2026-08-24 지적). 부스터 패널과 **같은 아트**로 맞춘다.
+  plus5: 'up_Solitare_UI_06-1', // ＋5 카드(부스터 layer_11 과 동일 아트).
+  undo: 'up_Solitare_UI_07-1', // 되돌리기(부스터 layer_10_copy 와 동일 아트).
   collection: 'up_CollecttionCard_Frame', // 폴백(슬롯 추첨 전) — 실제로는 추첨된 카드 아트로 대체된다.
 };
 // 컬렉션 카드가 "보관되는" 곳 — 콜렉션은 홈 상단 우측(Pass 아이콘)에서 열린다. 플레이 화면엔 아이콘이
 //   없으므로 헤더 우측 끝(메뉴 근처)을 보관함 방향으로 삼아 카드가 그쪽으로 빨려 들어간다.
 const COLLECTION_STORE_TARGET = { x: 1005, y: 90 } as const;
+/** 보드에 꽂히는 **투데이 리그 별** 아트 — 좌측 5별 게이지와 같은 그림(같은 것을 모은다는 신호). */
+const LEAGUE_STAR_KEY = 'up_Solitare_UI_02_v2';
 // 좌측 5별 게이지 위치 — HUD 배경 UI_10-1_v3 의 별 외곽선 5개 중심(정밀 측정, layer_15_copy3 x=104 정합).
-const GAUGE_STAR_XS = [104, 192, 280, 370, 459] as const;
-const GAUGE_STAR_Y = 760; // layer_15_copy3 y=760(2026-07-18 전체 하향 조정 반영).
-const GAUGE_STAR_SZ = 51; // layer_15_copy3 w=51.
-// 전체 스타 게이지(파란 바) 기하 — 에디터 layer_7(x=135 w=177 y=761 h=58 radius=17, #006eff) 값 하드코딩.
-//   (layer_7 은 DYNAMIC_NODE_IDS 로 정적 렌더 제외돼 chrome 에서 조회 불가 → 값 고정.)
-const GAUGE_BAR_GEOM = { left: 46, y: 761, h: 58, r: 17 };
+// 게이지 좌표는 **ui/gaugeGeom.ts 단일 출처** — 보너스 라운드(PlayKlondikeScene)가 같은 HUD 를 쓴다.
+//   여기서 베껴 두면 저작이 바뀔 때 한쪽만 따라가 어긋난다.
 // **콤보 점수 기반 별 등급** — 매치마다 현재 콤보 길이(캡)를 가산(초선형). 동기 누적이라 긴 콤보가
 //   마지막 정산에서 누락되던 역전이 없다. 가산량·컷은 starRating.ts(matchGain)가 정한다.
 // ⚠️ 별 컷·품질 공식은 **src/logic/starRating.ts 로 이관**(PO 2026-07-29) — 게임과 시뮬레이션이 같은 함수를
@@ -285,8 +336,14 @@ const BASE_CARD_H = 181;
  */
 const CARD_SIZE = 1.0;
 
-/** 실제 적용 상한 = 저작 카드 크기 그대로(1:1) × 미세조정 배수. 보드 여유 부족 레벨만 fit 으로 축소(오버플로 방지). */
-const ABS_CARD_MAX_SCALE = 1.0 * CARD_SIZE;
+/**
+ * 실제 적용 상한 — **1.15**(PO 2026-08-25 "좌우 패딩 줄여 카드 확대"). 보드 폭(970)보다 좁게 저작된 레벨은 최대 15% 까지
+ *   커지고, 보드를 다 쓰는 레벨은 1:1 그대로. 균일 스케일이라 커버 판정(15% 겹침)·정답 수순은 불변.
+ *   ⚠️ 레벨 간 카드 크기 편차가 최대 15% 생긴다 — 그 이상 올리지 말 것(구 1.0 = 편차 0 이 원래 의도였다).
+ */
+const ABS_CARD_MAX_SCALE = 1.15 * CARD_SIZE;
+/** 가로 fit 기준 = 보드 폭의 95% — 확대 시 카드가 암막 패널 가장자리에 붙어 답답해 보이지 않게 소량 여백을 남긴다. */
+const ABS_FIT_W_RATIO = 0.95;
 
 // 보드 영역 기본값(폴백) — 에디터 암막 패널(layer_4)이 있으면 그 세로 범위로 덮어쓴다(applyEditorChrome).
 /**
@@ -345,15 +402,163 @@ function alignStockRowToBottom(bottomY: number, cardH: number): void {
 // 간격을 좁혀(15→9) 더 많은 장수(16→26)를 같은 폭 안에 촘촘히 펼친다.
 /** 뽑기 더미(컨테이너 80·탭 존 85) 위로 올릴 UI depth — 겹치는 부스터 아이콘이 카드에 안 가리게. */
 const STOCK_OVERLAP_DEPTH = 95;
+/** 뽑기 비행이 이 시간 안에 끝나지 않으면 워치독이 강제 종료한다(보드 영구 잠금 방지). 최장 연출 0.56초의 여유 4배. */
+/**
+ * 연출 워치독은 **실시간(ms)** 기준이다.
+ *
+ * 예전엔 `time.delayedCall(3000)` 하나로 끝냈는데, 그 delay 는 **게임시간**이라 `time.timeScale` 에 나뉜다.
+ * QA 배속(8배)에서는 3000ms 가 실시간 375ms 로 줄어드는 반면 프레임은 5fps(200ms/프레임)라, 트윈 체인이
+ * **두 번째 프레임을 밟기도 전에** 워치독이 터졌다(실측: 매 레벨 1회 오발동, stage=fly-start·onUpdate 0회).
+ * 배속과 프레임레이트에 흔들리지 않도록 실시간으로 재고, 그 사이엔 짧게 폴링하며 완료를 확인한다.
+ */
+const DRAW_FLIGHT_WATCHDOG_REAL_MS = 3000;
+const FLIGHT_WATCHDOG_REAL_MS = 4000;
+/** 워치독 폴링 간격(게임시간) — 완료 여부만 확인하므로 가벼움. */
+const WATCHDOG_POLL_MS = 400;
 const STOCK_STACK_CAP = 26;
 const STOCK_FAN_STEP = 9; // 카드 한 장당 왼쪽 이동(px) — 좁게 겹치되 왼쪽 가장자리가 드러나 셀 수 있게.
+/** 펼침 간격을 줄일 수 있는 하한(px) — 이보다 좁으면 장수가 안 읽힌다 → 2열로 나눈다. */
+
+
+const STOCK_FAN_MIN_STEP = 4;
+/** ＋5 아이콘과 띄울 최소 간격(px). */
+const STOCK_FAN_MARGIN = 18;
+/** ＋5 아이콘을 못 찾을 때(비-에디터 크롬) 쓰는 왼쪽 한계선(저작 x). */
+const STOCK_FAN_LEFT_FALLBACK = 250;
 
 export class PlayScene extends Phaser.Scene {
   private level = 1;
+  /** dev 실측 전용 — 이 판의 런타임 뽑기 장수 강제값(real-measure.mjs 가 넣는다). */
+  private stockOverride?: number;
+  /** dev 실측 전용 — 시뮬 봇이 막혔을 때 ＋5 를 사게 할지 + 구매 횟수. */
+  simBuy = false;
+  simBuys = 0;
+  /** dev 실측 전용 — 한 판 구매 상한(econ-lab 이 정책별로 바꾼다). */
+  simMaxBuys = 12;
+  /**
+   * dev 실측 전용 — ＋5 를 **실제로 코인 내고** 살지.
+   *
+   * ⚠️ 기본값 false 는 뽑기 계측(stock-lab)용이다. 그쪽은 "카드가 몇 장 모자라나"만 보므로 지갑을
+   *   무시해야 표본이 코인 잔고에 오염되지 않는다. 반대로 **경제 계측(econ-lab)은 이걸 켜야 한다** —
+   *   끄고 재면 ＋5 지출이 세이브에 안 잡혀 수지가 통째로 흑자로 보인다.
+   */
+  simPayBuys = false;
+  /**
+   * **실측 대시보드(stock-lab.html)용 판 단위 계측** — 게임이 실제로 지급/소모한 값만 담는다.
+   *   예측 모델이 아니라 **이 판에서 진짜 일어난 일**의 기록이라, 대시보드가 그대로 데이터로 쓴다.
+   */
+  labRun: {
+    missionTicks: number;
+    maxCombo: number;
+    diamonds: number;
+    collection: number;
+    collectionCards: string[];
+    bonusValue: number;
+    /** 수집 드랍(3콤보) — 리그·주간이벤트 실데이터(PO 2026-08-23 "드랍률·보상구조 실데이터 확보"). */
+    drops: number;
+    /** 이번 판에 **투데이 리그로 보낸 별** 총수(미션 보상 회수분). */
+    leagueStars: number;
+    /** 이번 판에 **주간 이벤트로 보낸 상품** 총수(손님 3개 이상 정산분). */
+    eventItems: number;
+    dropCoins: number;
+    dropDiamonds: number;
+    leagueStages: number;
+    eventStages: number;
+    dropFloors: Record<number, number>;
+    /** 수입 분해(PO 2026-08-24 "보상·경제구조 파악") — dropCoins 를 출처별로 가른 것(합 = dropCoins). */
+    leagueCoins: number;
+    eventCoins: number;
+    /** 미션리워드 배너 **티어 박스** 보상(연속 플레이 별 수집) — 원장 미상 차액의 정체였다(실측 2026-08-24). */
+    tierCoins: number;
+    tierDiamonds: number;
+    /** 미션 보상 분해 — 종류별 지급 횟수/총량(설계표 MISSION_REWARD_TABLE 대비 실측). */
+    missionKinds: Record<string, number>;
+    missionAmounts: Record<string, number>;
+    /** 위클리 적립 분해 — 칸 타겟 종류별 적립 수(store/collection/diamond/cards/wild). */
+    eventKinds: Record<string, number>;
+    /** **핀치 이벤트** — 코인 부족으로 입장/＋5 를 못 한 횟수(PO 2026-08-25, 오퍼 시점 튜닝 근거). */
+    pinch: number;
+    /** 이 판의 부스터(＋5·와일드·되돌리기) 코인 지출 합 — 일일 지표(dailyMetrics)용. */
+    boosterCoins: number;
+    wildBanked: number;
+    wildUses: number;
+    plus5Uses: number;
+    undos: number;
+    stars: number;
+    coins: number;
+    startedAt: number;
+  } = PlayScene.emptyLabRun();
+
+  private static emptyLabRun(): PlayScene['labRun'] {
+    return {
+      missionTicks: 0, maxCombo: 0, diamonds: 0, collection: 0, collectionCards: [], leagueStars: 0, eventItems: 0,
+      bonusValue: 0, wildBanked: 0, wildUses: 0, plus5Uses: 0, undos: 0,
+      drops: 0, dropCoins: 0, dropDiamonds: 0, leagueStages: 0, eventStages: 0, dropFloors: {},
+      leagueCoins: 0, eventCoins: 0, tierCoins: 0, tierDiamonds: 0, missionKinds: {}, missionAmounts: {}, eventKinds: {}, pinch: 0, boosterCoins: 0,
+      stars: 0, coins: 0, startedAt: Date.now(),
+    };
+  }
+
+  /** 대시보드가 읽는 **현재 판 전체 상태** — 한 판이 끝나면 이 한 덩어리가 곧 실측 레코드가 된다. */
+  labSnapshot(): Record<string, unknown> {
+    const total = this.state?.layout?.slots?.length ?? 0;
+    const cleared = this.state?.cleared?.size ?? 0;
+    return {
+      level: this.level,
+      boardCards: total,
+      startStock: this.initialStock,
+      stock: this.state?.stock?.length ?? 0,
+      cleared,
+      boardLeft: total - cleared,
+      win: total > 0 && cleared === total,
+      buys: this.simBuys,
+      draws: this.drawsUsed,
+      moves: this.state?.moves ?? 0,
+      maxCombo: this.labRun.maxCombo, // 실제 플레이의 콤보 최댓값(자동테스트 모드와 무관하게 항상 기록).
+      missionTicks: this.labRun.missionTicks,
+      diamonds: this.labRun.diamonds,
+      collection: this.labRun.collection,
+      collectionCards: [...this.labRun.collectionCards],
+      bonusValue: this.labRun.bonusValue,
+      wildBanked: this.labRun.wildBanked,
+      wildUses: this.wildUses,
+      plus5Uses: this.plus5Uses,
+      undos: this.labRun.undos,
+      stars: this.labRun.stars,
+      coins: this.labRun.coins,
+      // 수집 드랍(투데이 리그·주간 이벤트) 실데이터.
+      drops: this.labRun.drops,
+      leagueStars: this.labRun.leagueStars,
+      eventItems: this.labRun.eventItems,
+      dropCoins: this.labRun.dropCoins,
+      dropDiamonds: this.labRun.dropDiamonds,
+      leagueStages: this.labRun.leagueStages,
+      eventStages: this.labRun.eventStages,
+      dropFloors: { ...this.labRun.dropFloors },
+      // 보상·경제구조 분해(PO 2026-08-24) — 대시보드 원장이 출처별로 나눠 그린다.
+      leagueCoins: this.labRun.leagueCoins,
+      eventCoins: this.labRun.eventCoins,
+      tierCoins: this.labRun.tierCoins,
+      tierDiamonds: this.labRun.tierDiamonds,
+      missionKinds: { ...this.labRun.missionKinds },
+      missionAmounts: { ...this.labRun.missionAmounts },
+      eventKinds: { ...this.labRun.eventKinds },
+      pinch: this.labRun.pinch,
+      leagueStageNow: leagueStageOf(loadSave()).stage,
+      eventStageNow: eventProgressNow(loadSave().thiefEvent, thiefPeriodId(new Date())).stage,
+      /** 정산(별·코인)이 끝났는가 — 대시보드는 이 값이 true 가 될 때까지 잠깐 기다린다. */
+      settled: this.finished,
+      ms: Date.now() - this.labRun.startedAt,
+    };
+  }
   // **점포(층) 테마 = 소유한 최고층 기준**(PO 2026-07-19) — 레벨 번호와 무관. 2층을 아직 매입 안 했으면
   //   몇 레벨을 플레이하든 항상 1층(편의점)에서 진행하고, 매입/건설로 최고 소유층이 오르면 그 층에서 진행한다.
   //   FLOORS 아트가 5종뿐이라 6층 이상은 순환(6층→1층 테마, …).
   private floorThemeIdx = 1;
+  /** **이 판의 상품 층**(1..20) — 위클리 이벤트가 모으는 상품과 같은 층. */
+  private playFloor = 1;
+  /** **이 판에 보여 줄 점포** — 홈 화면이 쓰는 것과 같은 아트(`logic/currentStore.ts`). */
+  private store: StoreRef = { lot: 1, floor: 1, itemFloor: 1, artKeys: [], clerkKeys: [] };
   private chMult = 1; // **도전 배수**(진입 팝업 선택) — 보상·부스터 가격에 적용. '베팅' 용어 금지.
   private orderQueue?: OrderQueue; // **주문 대기열**(상단 점포 손님 줄 — 주문서 시스템 연출).
   private state!: GameState;
@@ -361,7 +566,32 @@ export class PlayScene extends Phaser.Scene {
   // **다이아**(게임 중 카드에서 수집 — 판당 ~2개). 건물 업그레이드 재화.
   private diamondSlots = new Set<string>(); // 다이아가 끼워진 슬롯.
   private diamondViews = new Map<string, Phaser.GameObjects.Image>(); // 슬롯별 다이아 아이콘.
+  /** **투데이 리그 별이 꽂힌 슬롯** → 그 카드에 걸린 별 개수. 다이아와 같은 모델(카드 뒤). */
+  private starSlots = new Map<string, number>();
+  private starViews = new Map<string, { img: Phaser.GameObjects.Image; label?: Phaser.GameObjects.Text }>();
+  /**
+   * **＋카드가 꽂힌 슬롯** → 그 카드에 걸린 뽑기 장수(PO 2026-08-24: "미션에서 플러스 카드가 발생했을 때
+   * 뽑기 카드로 바로 들어온다. 보드카드에 배치되었다가 들어와야 한다").
+   * 별·다이아와 같은 모델 — 보드 카드 뒤에 꽂히고, 그 카드를 낼 때 뽑기 더미로 들어간다.
+   */
+  private stockSlots = new Map<string, { count: number; wild: boolean }>();
+  private stockViews = new Map<string, { img: Phaser.GameObjects.Image }>();
   private pendingDiamonds = 0; // **보관(미확정) 다이아** — 게임 중 수집분. **승리 시에만** save 에 확정.
+  /**
+   * **보관(미확정) 리그 별 · 이벤트 아이템** — 다이아와 같은 모델(PO 2026-08-30 "최종적인 게임결과로
+   *   수집되도록. 게임 중간에 지급되는 과정이 아닌").
+   *
+   * 판 중에는 **모으는 연출만** 하고 게이지는 미리보기로 움직인다. 실제 저장·코인 지급은 승리 시
+   * 한 번(`settleRoundCollectibles`). 지거나 나가면 사라진다 — "끝까지 푼다"가 곧 보상이다.
+   * ⚠️ 지급을 미루므로 **`notePlayReward`(중단 시 회수) 대상이 아니다** — 준 적이 없으니 회수할 것도 없다.
+   */
+  private pendingStars = 0;
+  /** 별 보관 배지(다이아 배지와 같은 줄) — 판 중 모인 별을 보여 준다. */
+  private starHold?: { icon: Phaser.GameObjects.Image; text: Phaser.GameObjects.Text };
+  /** 결과 확인 시 리그로 보낼 별 수와 **적립 직전** 리그 상태(게이지 출발점). */
+  private payoutStars = 0;
+  private payoutLeagueBefore?: ReturnType<typeof leagueStageOf>;
+  private pendingEventItems = 0;
   private diamondHold?: { icon: Phaser.GameObjects.Image; text: Phaser.GameObjects.Text }; // 다이아 완성 보상풀 표시(중앙 고정 슬롯).
   private missionDiamondPos?: { x: number; y: number }; // 중앙 다이아 슬롯 좌표(회수 목표점).
   // **컬렉션 카드 = 보드 투입형 보상**(PO 2026-07-26 2차) — 미션으로 뽑힌 카드는 즉시 지급되지 않고 보드의
@@ -371,6 +601,20 @@ export class PlayScene extends Phaser.Scene {
   //   그 판의 이후 컬렉션 카드가 전부 즉시지급(instant)으로 새어 나갔다(우상단으로 날아가 사라지는 것처럼
   //   보이던 그 현상). 이제 슬롯별로 독립 관리한다 — 상태 플래그도 카드마다 따로 가진다.
   private boardCollections = new Map<string, BoardCollection>();
+  /**
+   * **컬렉션 카드 흰 바탕**(PO 2026-08-24: "흰색 카드 바탕이 너무 좁습니다 — 약간 키워서 카드와 같은
+   * 느낌으로") — 카드 아트에 딸린 흰 테두리가 얇아 일러스트만 떠 있는 것처럼 보인다. 아트 뒤에
+   * **조금 큰 흰 라운드 판**을 깔아 진짜 카드처럼 보이게 한다.
+   *
+   * 아트는 트윈으로 계속 움직이고(확대·회전·흡입) 크기가 바뀌므로, 매 프레임 `update` 에서 따라붙인다.
+   * 아트가 파괴되면 바탕도 함께 정리된다 — 남으면 화면에 흰 판만 떠 있게 된다.
+   */
+  private cardBackings = new Map<Phaser.GameObjects.Image, Phaser.GameObjects.Graphics>();
+  /**
+   * **완성했지만 아직 지급하지 않은 미션 수** — 콤보 런 도중 5매치를 통과한 횟수.
+   * 콤보가 끝나 **매칭 수가 확정되는 순간** 그 수만큼 지급하고 0 으로 돌린다.
+   */
+  private pendingMissions = 0;
   private pendingCollection: CollectionSlot[] = []; // 열어서 확보한 카드(승리 시 save 에 확정).
   private cardBacking?: Phaser.GameObjects.Graphics; // 카드 바로 뒤 반투명 막(카드 위치에만)
   private wasteView?: CardView;
@@ -391,15 +635,57 @@ export class PlayScene extends Phaser.Scene {
   private dealing = false;
   // 공개 보류 플래그 — 카드를 낸 직후엔 아래 노출 카드를 바로 뒤집지 않고(뒷면 유지),
   //   낸 카드의 토스(튀어오름) 회수가 끝난 뒤 뒤집어 공개한다.
-  private suppressReveal = false;
+  /**
+   * **공개 보류 슬롯** — 카드를 내면 그 아래가 즉시 노출되지만, 회수 연출이 정점에 닿을 때까지 뒤집지 않는다.
+   *   예전에는 `suppressReveal` 플래그 + `revealHold` 카운터 + `view.isFaceUp()` 조합으로 암묵 처리했는데,
+   *   "지금 어떤 카드가 보류 중인가"가 어디에도 없어 불변식 검사가 오탐을 냈다. 명시 상태로 승격.
+   */
+  private readonly heldReveals = new Set<string>();
   // 에디터에 저작된 레벨 수(1부터 연속) — 승리 진행/다음 레벨 버튼을 이 범위로 클램프.
   private editorLevels = 1;
   // 부스터: 되돌리기 히스토리(**GameState 밖 래치까지 스냅샷** — undo 가 미션게이지·특수카드 상태를 정확히 되돌리도록) + 와일드 활성 + 버튼.
   private history: HistorySnap[] = [];
   /** 되돌리기로 취소된 **무작위 결과가 있는 수** 1건(뽑기/＋5) — 같은 자리에서 다시 하면 재현할 결과. */
   private undoneRandomStep?: { readonly kind: HistoryKind; readonly from: GameState; readonly to: GameState };
-  // **비행 중 카드 수**(매칭 토스·스톡 플립) — >0 이면 undo/+5 를 막아 orphan 뷰가 wasteView 를 덮는 레이스를 방지(카드 탭 자체는 계속 허용=동시 플레이).
+  /** 이번 판에서 이미 안내를 하나 띄웠는가 — 한 판에 하나만(logic/tutorial.ts). */
+  private tipShownThisRound = false;
+  /** 지금 안내 창이 떠 있는가 — 겹쳐 뜨는 것만 막는다(상황성 안내는 판당 제한을 받지 않는다). */
+  private tipOpen = false;
+  /** 문구별 표시 횟수 — 같은 메시지를 1~2회까지만 띄운다(logic/messageStyle.ts). */
+  private readonly msgCounts = loadMessageCounts();
+  /** 낸 카드가 기준 자리로 날아가는 중인 수 — 표시만 잡아 두고 탭은 막지 않는다(boardView.matchPending). */
+  private matchFlights = 0;
+  /** 스톡 부채가 실제로 차지한 폭(px) — 탭 존을 그만큼만 넓힌다. */
+  private stockFanWidth = 0;
+  /** 이미 본 안내 키 — refresh 마다 세이브를 읽지 않도록 판 시작 때 한 번만 읽는다. */
+  private tipsSeen: string[] = [];
+  /** **안내 중 정지** — 코치 카드가 떠 있는 동안엔 특수 카드 자동 소비·입력을 멈춘다. */
+  private coachHold = false;
+  /** 지금 화면에 떠 있는 코치 화살표(가리키기). */
+  private coachArrow?: Phaser.GameObjects.Container;
+  /** 초반 "이 카드를 탭하세요" 화살표를 몇 번 더 보여 줄지(레벨 시작 때 설정). */
+  private arrowHintsLeft = 0;
+  /** 지금 화살표가 **뽑기 더미**를 가리키는 중인가 — 실제로 뽑는 순간 '한 번 봤음'으로 영구 기록한다. */
+  private stockArrowActive = false;
+  // **비행 중 카드 수**(매칭 토스·스톡 플립) — >0 이면 undo/+5 를 막아 상태 갱신 레이스를 방지(카드 탭 자체는 계속 허용=동시 플레이).
+  //   ⚠️ 직접 증감하지 말 것 — beginFlight/endFlight 로만 다룬다(워치독이 누수를 되돌릴 수 있게).
   private flyingCards = 0;
+  /** 진행 중인 비행 토큰 → 강제 종료 시 실행할 정리(고스트 파기 등). */
+  private readonly activeFlights = new Map<number, (() => void) | undefined>();
+  private flightSeq = 0;
+  /**
+   * **공개 대기 중인 뽑기 비행 수**(스톡 탭·＋5 도드로우) — >0 이면 기준 카드 뷰를 **뒷면으로 둔다**.
+   *   뽑기는 "무엇이 나올지 모르는" 연출이라 목적지에 미리 그리면 카드가 두 번 바뀌어 보인다.
+   *   ⚠️ 이 값은 **표시만** 통제한다 — 상태상의 기준(state 의 waste top)은 이미 새 카드다(S1 단일 진실).
+   *   카드를 내는 토스(playCard)는 무엇이 올라가는지 플레이어가 이미 알므로 여기 포함되지 않는다 → 즉시 반영.
+   */
+  private drawFlights = 0;
+  /** 진행 중인 뽑기 비행 토큰 — 워치독이 개별 비행을 식별해 강제 종료할 수 있게 한다. */
+  private readonly activeDrawFlights = new Set<number>();
+  private drawFlightSeq = 0;
+  /** 이번 판에서 이미 기록한 불변식 위반 종류(같은 종류를 매번 쌓지 않게). */
+  private readonly loggedInvariants = new Set<string>();
+
   private wildActive = false;
   private wildBtn?: Phaser.GameObjects.Text;
   private undoBtn?: Phaser.GameObjects.Text;
@@ -441,6 +727,8 @@ export class PlayScene extends Phaser.Scene {
   private plus5CostLabel?: Phaser.GameObjects.Text;
   private wildCostLabel?: Phaser.GameObjects.Text;
   private undoCostLabel?: Phaser.GameObjects.Text;
+  /** '기준 카드' 라벨 — 하단 라벨 수평 정렬 대상. */
+  private wasteLabel?: Phaser.GameObjects.Text;
   private readonly rng: () => number = () => Math.random();
   // 크롬 소스 = 에디터 main.json(true) or 코드 폴백(false). true 면 코드 암막(drawBoardMask) 생략.
   private chromeFromEditor = false;
@@ -457,7 +745,6 @@ export class PlayScene extends Phaser.Scene {
   // 미션 크롬 오브젝트(에디터 노드 기반) — 게이지 채움/별/박스 칸/기준 색 표기.
   private header?: TopHeader; // 홈과 동일한 공통 상단 헤더(코인 패널).
   private missionBanner?: MissionRewardBanner; // 홈과 동일한 미션 리워드 배너(연속 플레이 별 수집).
-  private pendingMissionBox?: MissionRewardBox; // 이번 판에 미션 티어가 완료됐으면 결과 팝업 뒤에 보여줄 보상.
   private gaugeGeom = { left: 0, width: 0, y: 0, h: 0 }; // 5별 게이지 span(다이아 회수·주문 별 목표점 산출용).
   // **좌측 5별 스타축적 게이지**(손님이 지불한 별이 날아와 점등 축적) + **우측 MISSIONS 보상 예고**.
   private comboStars: Phaser.GameObjects.Image[] = []; // 좌측 5칸 게이지 별(손님 회수 별이 흡입되며 점등).
@@ -481,12 +768,10 @@ export class PlayScene extends Phaser.Scene {
   // **보드 와일드 카드** — 딜 때 지정한 슬롯 id. 노출되면 자동으로 스톡 중간에 삽입(뱅킹)된다.
   private wildSlotId?: string;
   private wildBanked = false; // 뱅킹 완료 여부(1회)
-  private pendingBankWild = false; // refresh 중 노출 감지 → 루프 후 뱅킹 트리거
   private wildBanking = false; // 뱅킹 비행 진행 중 — 스톡 더미에 와일드 아트를 아직 표시하지 않음(도착 후 표시)
   // **보드 보너스(+N) 카드** — 노출되면 스톡에 N장 추가(뒷면 흡입 연출) 후 사라진다.
   private bonusSlot?: { id: string; count: number };
   private bonusTriggered = false;
-  private pendingBonus = false;
   // 에디터 부스터 이미지(코드 텍스트 버튼 대신 사용).
   private wildImg?: Phaser.GameObjects.Image;
   private undoImg?: Phaser.GameObjects.Image;
@@ -506,13 +791,30 @@ export class PlayScene extends Phaser.Scene {
   //   진행도·보상이 오르지 않고 바에 결과만 표시한다. 레벨이 제대로 도는지 눈으로 확인하는 용도.
   private simRunning = false;
   /** 1=보통(사람이 눈으로 따라갈 수 있는 속도) · 2 · 4배속. 눌러서 1→2→4→1 로 순환. */
-  private simSpeed: 1 | 2 | 4 = 1;
+  /**
+   * 시뮬 배속 — 화면 토글은 1/2/4 지만, **실측 러너(stock-lab)는 더 큰 값**을 넣어 최대 속도로 돌린다
+   *   (PO 2026-08-23 "테스트 속도를 최대로"). 값이 커지면 틱 간격(SIM_TICK_MS/배속)도 함께 짧아진다.
+   */
+  simSpeed: number = 1;
   private simTimer?: Phaser.Time.TimerEvent;
   private simBar?: Phaser.GameObjects.Container;
   private simPlayBtn?: Phaser.GameObjects.Text;
   private simSpeedBtn?: Phaser.GameObjects.Text;
   private simStatus?: Phaser.GameObjects.Text;
   private autoRunCombo = 0; // 현재 진행 중인 콤보 런 길이(뽑기/승리 시 comboRuns 로 확정).
+  /**
+   * **실제 플레이의 콤보 런** — 뽑기 없이 이어 낸 매치 수(별 판정 축① 소스).
+   * ⚠️ 위 `autoRunCombo` 는 자동 테스트 봇 전용이라 실제 입력에서는 오르지 않는다 — 별도 카운터가 필요하다.
+   */
+  private collectRun = 0;
+  /** 리그 아이콘의 화면 위치 — 수집 연출의 도착점 중 하나. */
+  private leagueIconAt?: { x: number; y: number };
+  /** 리그 아이콘 바로 아래 — 수집 중에만 뜨는 별 게이지의 중심 y(아이콘 참조가 없을 때의 폴백). */
+  private leagueGaugeY?: number;
+  /** 리그 아이콘 본체 — 게이지가 이걸 따라다닌다(좌표를 베끼지 않는다). */
+  private leagueIconImg?: Phaser.GameObjects.Image;
+  /** 수집 중에만 존재하는 별 게이지 컨테이너. */
+  private leagueGaugeBox?: Phaser.GameObjects.Container;
   private autoComboRuns: number[] = []; // 이번 판에서 끊긴 콤보 런들의 길이 목록.
   private autoDrawCount = 0;
   private autoBtn?: Phaser.GameObjects.Text;
@@ -525,14 +827,24 @@ export class PlayScene extends Phaser.Scene {
     super('play');
   }
 
-  init(data: { level?: number; mult?: number }): void {
+  init(data: { level?: number; mult?: number; stockOverride?: number }): void {
     // 명시 레벨이 없으면 저장된 진행 레벨로 이어서 플레이.
     this.level = data?.level ?? loadSave().level;
+    // **실측 러너 전용**(dev) — 뽑기 장수를 강제로 지정해 실게임으로 장수별 결과를 잰다(real-measure.mjs).
+    this.stockOverride = import.meta.env.DEV ? data?.stockOverride : undefined;
     // **도전 배수**(진입 팝업에서 선택) — 보상·부스터 가격에 함께 적용. 미지정=x1.
     this.chMult = Math.max(1, Math.floor(data?.mult ?? 1));
-    // **점포 테마 = 소유 최고층**(1층은 항상 소유) — 매입/건설 전이면 무조건 1층에서 진행.
-    const ownedFloors = Math.max(1, loadSave().ownedFloors ?? 1);
-    this.floorThemeIdx = ((ownedFloors - 1) % 5) + 1;
+    /*
+     * **점포 = 플레이어의 현재 최고 층**(PO 2026-08-24: "플레이시 나타는 점포가 항상 똑같습니다 …
+     *   그래야 수집이 의미가 있습니다").
+     *
+     * 예전엔 `ownedFloors`(매입한 부지) 를 5로 나눈 나머지를 썼는데, 위클리 이벤트가 모으는 상품은
+     * `openFloorOf`(= builtFloors) 층 것이라 **화면의 점포와 모으는 물건이 서로 달랐다**. 둘을 같은
+     * 값으로 묶어, 지금 짓고 있는 층의 점포에서 그 층의 상품을 모으게 한다.
+     */
+    this.store = currentStore(loadSave());
+    this.playFloor = this.store.itemFloor;
+    this.floorThemeIdx = ((this.store.floor - 1) % PlayScene.FLOOR_ART_COUNT) + 1;
   }
 
   preload(): void {
@@ -549,6 +861,8 @@ export class PlayScene extends Phaser.Scene {
     }
     // 에디터 저작 레벨 팩(번들·배포용). 없거나 비어도 무해({}) — localStorage(dev 즉시적용)가 우선.
     this.load.json(EDITOR_PACK_KEY, EDITOR_PACK_URL);
+    // **결과화면 저작**(blank_2.json) — 레벨 클리어 팝업의 배치 SSOT(resultPopup.ts).
+    if (!this.cache.json.exists(UI_RESULT_KEY)) this.load.json(UI_RESULT_KEY, UI_RESULT_PATH);
     // **결과/메뉴 버튼**(UI_23: 1 다음레벨·2 홈·4 재시도·5 계속·6 확인·7 닫기) — 친절한 이미지 버튼.
     for (const n of ['1', '2', '4', '5', '6', '7']) {
       const k = `up_Solitare_UI_23_${n}`;
@@ -575,13 +889,13 @@ export class PlayScene extends Phaser.Scene {
   private uiButton(x: number, y: number, key: string, on: () => void, targetW = 430): Phaser.GameObjects.GameObject {
     if (!this.textures.exists(key)) {
       return this.add
-        .text(x, y, '버튼', { fontFamily: '"Jua", sans-serif', fontSize: '44px', color: '#2a1830', backgroundColor: '#ffd166', padding: { x: 40, y: 16 } })
+        .text(x, y, '버튼', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '44px', color: '#2a1830', backgroundColor: '#ffd166', padding: { x: 40, y: 16 } })
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', on);
     }
     const img = this.add.image(x, y, key).setInteractive({ useHandCursor: true });
-    const src = img.texture.getSourceImage() as { width: number; height: number };
+    const src = texSize(img.texture);
     img.setDisplaySize(targetW, targetW * (src.height / src.width));
     const bsx = img.scaleX;
     const bsy = img.scaleY;
@@ -594,11 +908,29 @@ export class PlayScene extends Phaser.Scene {
   }
 
   create(): void {
+    /*
+     * 플레이 중에도 눌릴 수 있는 팝업 아트를 **한가할 때 미리** 받아 둔다 — 누르면 기다림 0.
+     *   예산(assetBudget)을 넘으면 받지 않으므로 상주 총량은 그림 수와 무관하게 유지된다.
+     *   ⚠️ 딜 연출과 겹치지 않게 한 프레임 뒤에 건다.
+     */
+    this.time.delayedCall(0, () => {
+      if (!this.scene.isActive()) return;
+      // 팝업 아트는 전부 부팅 상주다(2026-08-31 그룹 해제).
+    });
+    // **세이프존을 화면 가운데로** — 이 한 줄로 저작 노드·코드 HUD·팝업이 전부 같은 좌표계에 정렬된다.
+    //   (캔버스가 저작 크기와 같으면 스크롤 0 = 종전과 동일)
+    centerSafeZone(this);
     setEconFromJson(this.cache.json.get(ECON_JSON_KEY)); // 경제 SSOT 적용(없으면 기본값).
     playBgm('play'); // 플레이 BGM 으로 전환(첫 제스처에서 시작·홈 BGM 크로스페이드).
     this.cards.clear();
     this.busy = false;
     this.flyingCards = 0; // 씬 재사용 대비: 비행 카운터 리셋(중단된 애니의 onComplete 미발화 대비).
+    this.activeFlights.clear();
+    this.matchFlights = 0;
+    this.drawFlights = 0;
+    this.activeDrawFlights.clear();
+    this.loggedInvariants.clear();
+    this.heldReveals.clear();
     this.dealing = false;
     this.ended = false;
     this.stuckLogged = false;
@@ -616,6 +948,7 @@ export class PlayScene extends Phaser.Scene {
     this.plus5CostLabel = undefined;
     this.wildCostLabel = undefined;
     this.undoCostLabel = undefined;
+    this.wasteLabel = undefined;
     this.chromeFromEditor = false;
     // 미션 상태 초기화(씬 재사용 대비).
     this.chrome = undefined;
@@ -642,22 +975,32 @@ export class PlayScene extends Phaser.Scene {
     this.wildMarker = undefined;
     this.wildSlotId = undefined;
     this.wildBanked = false;
-    this.pendingBankWild = false;
     this.wildBanking = false;
     this.bonusSlot = undefined;
     this.bonusTriggered = false;
-    this.pendingBonus = false;
     this.emptyStockPlus5 = undefined;
     this.emptyStockPending = false;
     this.wildImg = undefined;
     this.undoImg = undefined;
     // 다이아 상태 초기화(씬 재사용 대비).
     this.diamondSlots.clear();
+    this.starSlots.clear();
+    this.starViews.clear();
+    this.stockSlots.clear();
+    this.stockViews.clear();
     this.diamondViews.clear();
     this.pendingDiamonds = 0;
+    this.pendingStars = 0;
+    this.pendingEventItems = 0;
+    this.labRun = PlayScene.emptyLabRun(); // 실측 계측도 판마다 새로.
     this.diamondHold = undefined;
     this.missionDiamondPos = undefined;
     // 컬렉션 카드(보드 투입) 상태 초기화 — 보관분은 승리에서만 확정되므로 씬 재시작 시 전부 버린다.
+    this.pendingMissions = 0;
+    this.leagueIconImg = undefined;
+    this.leagueGaugeBox = undefined;
+    for (const [, bg] of this.cardBackings) bg.destroy();
+    this.cardBackings.clear();
     this.boardCollections.clear();
     this.pendingCollection = [];
     this.addImg = undefined;
@@ -704,7 +1047,10 @@ export class PlayScene extends Phaser.Scene {
 
     // 화면 크롬 = 에디터 저작 main.json 이 SSOT. 저작된 이미지 크롬이 있으면 그것을 렌더하고 보드
     // 영역을 암막 패널(layer_4)에 맞춘다. 없으면(디자인 미완) 코드 배경/타워/암막으로 폴백.
-    const mainDoc = (this.cache.json.get(UI_MAIN_KEY) ?? null) as LayoutDoc | null;
+    // **앵커 변환은 여기 한 번뿐** — 아래로 내려가는 모든 측정(보드 영역·동선·게이지)이 렌더와
+    //   같은 좌표를 보게 한다. 현재 캔버스(고정 1080×2400)에서는 여분 0이라 원본 그대로다.
+    const rawMainDoc = (this.cache.json.get(UI_MAIN_KEY) ?? null) as LayoutDoc | null;
+    const mainDoc = rawMainDoc ? anchorDoc(this, rawMainDoc, MAIN_ANCHOR) : null;
     if (this.hasEditorChrome(mainDoc)) {
       this.applyEditorChrome(mainDoc!);
     } else {
@@ -725,10 +1071,12 @@ export class PlayScene extends Phaser.Scene {
       this.state = dealDynamic(layout, rng, grade, {
         board: layout.initialDeal.board,
         waste: layout.initialDeal.waste,
-        stockCount: layout.initialDeal.stock.length,
+        stockCount: this.stockOverride != null ? Math.round(this.stockOverride / DYN_STOCK_REDUCE) : layout.initialDeal.stock.length,
+        rescue: this.level <= RESCUE_MAX_LEVEL,
+        plus5Curated: this.level <= PLUS5_CURATED_MAX_LEVEL,
       });
     } else {
-      this.state = dealDynamic(layout, rng, grade, { stockCount: layout.stock ?? undefined });
+      this.state = dealDynamic(layout, rng, grade, { stockCount: this.stockOverride != null ? Math.round(this.stockOverride / DYN_STOCK_REDUCE) : (layout.stock ?? undefined), rescue: this.level <= RESCUE_MAX_LEVEL, plus5Curated: this.level <= PLUS5_CURATED_MAX_LEVEL });
     }
     this.boardSlots = Math.max(1, Object.keys(this.state.board).length); // 별 등급 축① 정규화 기준(보드 크기).
     this.initialStock = this.state.stock.length; // 축②(남은 카드 수) 분모 — **뽑기 전** 장수로 고정.
@@ -741,7 +1089,14 @@ export class PlayScene extends Phaser.Scene {
     if (boosterBottom != null) alignStockRowToBottom(boosterBottom, this.geom.cardH);
     this.buildStockAndWaste();
     this.drawBoosters();
-    this.placeDiamonds(); // 카드 2장에 다이아 끼우기(수집 시 별 게이지 옆에 보관).
+    this.alignBottomLabels(); // 하단 라벨 5개를 한 줄로.
+    this.playWindowEntrance(); // 창(배경 제외)이 살짝 찌그러졌다 펴지며 등장.
+    /*
+     * **보상 회수 표식 시작**(PO 2026-08-24) — 이 판에서 나갈 보상을 되돌릴 수 있게 지금 상태를 찍는다.
+     *   세이브에 남으므로 앱을 강제 종료해도 다음 부팅에서 회수된다.
+     */
+    beginPlaySession();
+    this.placeDiamonds(); // 카드 2장에 다이아 끼우기(수집 시 별 게이지 옆에 보관) — PO 2026-08-24 재요청으로 복원.
     this.designateWild(); // 보드 카드 하나를 와일드로 지정(노출 시 자동으로 스톡에 삽입).
     this.refresh();
     // 최초 딜 연출 — 폴드 먼저 차르륵, 오픈 카드는 좌우에서 날아와 안착(가속 리듬).
@@ -751,11 +1106,318 @@ export class PlayScene extends Phaser.Scene {
     if (autoTestState.running) this.startAutoTest();
     // 레벨 점검용 시뮬레이션 바(하단 중앙) — 켠 채로 레벨을 옮겨도 자동 진행되지 않게 항상 꺼진 상태로 시작.
     this.drawSimBar();
+    this.tipShownThisRound = false;
+    /*
+     * **안내는 기기당 딱 한 번**(PO 2026-08-24: "이 화면은 한번만 표시하세요 · 반복 표시 금지").
+     *   예전 규칙 "레벨 1 은 언제나 튜토리얼부터"(PO 2026-08-23)는 레벨 1 진입마다 기록을
+     *   지웠는데(resetTipsSeen), 그래서 1레벨을 다시 할 때마다 뽑기 등 모든 안내가 또 떴다 —
+     *   최신 지시로 대체한다. 처음 설치한 기기는 기록이 비어 있으므로 첫 1레벨 튜토리얼은 그대로 나온다.
+     *   (되살리려면 save.ts 의 resetTipsSeen 을 리셋 메뉴 등에서 부르면 된다 — 지금은 호출처 없음.)
+     */
+    this.tipsSeen = loadTipsSeen();
+    // 초반 몇 수는 "이 카드를 탭하세요" 화살표를 반복해 보여 준다(레벨 1~3 한정).
+    this.arrowHintsLeft = this.level <= 3 ? 5 : 0;
+    this.tryTip('match'); // 판 시작 — 아직 기본 규칙을 안 본 유저에게만 뜬다.
+  }
+
+
+  /** 미션 보상으로 나올 리그 별 개수 — 1~10 랜덤(PO 2026-08-24). */
+  private rollStarAmount(): number {
+    return Phaser.Math.Between(MISSION_STARS_MIN, MISSION_STARS_MAX);
+  }
+
+  /**
+   * **＋카드 배치**(PO 2026-08-24) — 미션이 준 뽑기 보충분을 **보드 카드 뒤에 꽂아 둔다**.
+   *   그 자리에서 바로 스톡에 넣으면 "저절로 늘었다"가 되고, 무엇을 받았는지 볼 틈도 없다.
+   *   그 카드를 내는 순간(`onCardTap`) 뽑기 더미로 날아 들어간다 — 받는 것도 플레이어의 행동이 된다.
+   *
+   * @returns 꽂힌 좌표(예고 아이콘이 정확히 그 자리로 날아온다). 자리가 없으면 null.
+   */
+  private placeStockCards(count: number, wild = false, artKey?: string): { x: number; y: number } | null {
+    const key = artKey ?? (wild ? MISSION_ICON.wild : MISSION_ICON.plus5);
+    if (!this.textures.exists(key)) return null;
+    const want = Math.max(0, Math.floor(count));
+    if (want <= 0) return null;
+    const exposedNow = new Set(this.state.layout.slots.filter((sl) => isExposed(this.state, sl.id)).map((sl) => sl.id));
+    const taken = (id: string): boolean =>
+      this.diamondSlots.has(id) || id === this.wildSlotId || id === this.bonusSlot?.id ||
+      this.boardCollections.has(id) || this.starSlots.has(id) || this.stockSlots.has(id);
+    const hidden = [...this.cards.keys()].filter((id) => !exposedNow.has(id) && !taken(id));
+    const any = [...this.cards.keys()].filter((id) => !taken(id));
+    const pool = hidden.length ? hidden : any; // 가려진 자리 우선(열릴 때 드러나는 맛).
+    if (!pool.length) return null;
+    const got = this.pickVisibleSlot(pool); // 가장 잘 드러나는 카드에 꽂는다.
+    if (!got) return null;
+    const { id, spot } = got;
+    const view = this.cards.get(id);
+    if (!view) return null;
+    this.stockSlots.set(id, { count: want, wild });
+    const img = this.add.image(0, 0, key).setDepth((view.depth ?? 100) - PlayScene.BADGE_BEHIND);
+    const sz = this.geom.cardW * 0.62;
+    const src = texSize(img.texture);
+    img.setDisplaySize(sz, sz * (src.height / src.width));
+    const baseSX = img.scaleX;
+    const baseSY = img.scaleY;
+    img.setPosition(spot.x, spot.y);
+    img.setAlpha(0).setScale(baseSX * 1.7, baseSY * 1.7);
+    this.tweens.add({ targets: img, alpha: 1, scaleX: baseSX, scaleY: baseSY, duration: 240, ease: 'Back.easeOut' });
+    this.stockViews.set(id, { img });
+    return { x: img.x, y: img.y };
+  }
+
+  /** 꽂혀 있던 ＋카드를 **뽑기 더미로** 회수한다 — 카드를 낸 순간에 불린다. */
+  private collectStockCards(gift: { count: number; wild: boolean }, sv?: { img: Phaser.GameObjects.Image }): void {
+    const { count: n, wild } = gift;
+    /*
+     * ⚠️ 와일드는 `refillStock` 으로 줄 수 없다(PO 2026-08-24 신고: "미션 보상으로 확보된 와일드
+     *   카드는 어디에도 표시되지 않고 사라진다"). 그 함수는 **버린 더미의 카드를 되돌리는** 것이라
+     *   와일드를 한 장도 만들지 않고, 버린 더미가 비어 있으면 아무 일도 없이 끝난다.
+     *   와일드는 `addWildCards` 로 **새로 만들어** 스톡 중간에 섞어 넣는다.
+     */
+    /*
+     * ⚠️ `refillStock` 을 쓰면 안 된다(PO 2026-08-24 신고: "연출은 일어나지만 실제로 뽑기 카드에
+     *   반영되지 않습니다"). 그 함수는 **버린 더미(waste)의 카드를 되돌리는** 것이라, 아직 버린 카드가
+     *   없으면 조용히 아무 일도 하지 않는다 — 판 초반 미션 보상에서 정확히 그 상황이 된다.
+     *   보드 보너스(+N)와 같은 `addStockCards` 로 **새 카드를 실제로 얹는다**.
+     */
+    const before = this.state.stock.length;
+    if (sv?.img.active) {
+      // ＋카드·와일드도 위클리 수집 대상(PO 2026-08-24).
+      this.creditEventFromPlay(n, { x: sv.img.x, y: sv.img.y }, wild ? 'wild' : 'cards');
+    }
+    this.state = wild ? addWildCards(this.state, n, this.rng) : addStockCards(this.state, n);
+    if (this.state.stock.length === before) return; // 방어 — 늘지 않았으면 연출도 하지 않는다.
+    /*
+     * ⚠️ **표시 상한을 걸지 않는다**(PO 2026-08-24 신고: "뽑기 더미에 카드가 없을 경우 추가된 카드가
+     *   표시되지 않는다").
+     *
+     * 보너스(+N) 카드는 회수 카드가 **한 장씩 날아오며** 상한을 1씩 올려 순차 노출한다. 그런데 여기서는
+     * 아이콘 **하나만** 날아가므로 상한을 올려 줄 사람이 없다 — 더미가 비어 있었다면(`before === 0`)
+     * 상한이 0 에 묶여 **추가된 카드가 영영 안 보인다**. 도착하는 순간 전량 표시한다.
+     */
+    this.stockRevealMax = 999;
+    this.buildStockPile();
+    this.refresh();
+    if (wild) this.labRun.wildBanked += n;
+    sfx('card_deal');
+    this.toast(wild ? `🃏 와일드 +${n} — 뽑기 더미에 섞였어요` : `🃏 뽑기 +${n}`);
+    if (!sv?.img.active) return;
+    const img = sv.img;
+    this.tweens.killTweensOf(img);
+    img.setDepth(6900);
+    // 확대했다가 뽑기 더미로 빨려 들어간다(별과 같은 문법 — 커졌다가 목적지로).
+    this.tweens.add({
+      targets: img,
+      scaleX: img.scaleX * 1.6,
+      scaleY: img.scaleY * 1.6,
+      duration: 180,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        if (!img.active) return;
+        this.tweens.add({
+          targets: img,
+          x: STOCK.x,
+          y: STOCK.y,
+          scaleX: img.scaleX * 0.3,
+          scaleY: img.scaleY * 0.3,
+          duration: 460,
+          ease: 'Cubic.easeIn',
+          onComplete: () => {
+            img.destroy();
+            if (!this.scene.isActive()) return;
+            this.buildStockPile(); // 도착과 함께 더미가 늘어난 모습으로 갱신.
+            this.refresh();
+          },
+        });
+      },
+    });
+  }
+
+  /**
+   * **보드에 꽂히는 미션 보상을 실제로 꽂는다**(PO 2026-08-24) — **미션이 완료되는 그 순간**
+   * (5매치 달성 = `grantMissionReward`)에 불린다. 지급·연출·다음 예고 교체까지 여기서 끝낸다.
+   *
+   * @param rw     미션이 예고해 둔 보상(별 또는 컬렉션 카드).
+   * @param filled 그 시점까지 매칭한 수 — 별 개수는 이 값이다(랜덤이 아니다).
+   */
+  private placeBoardMissionReward(rw: MissionReward, filled: number): void {
+    if (rw.kind === 'stars') {
+      const landing = this.placeLeagueStars(filled);
+      /*
+       * 꽂은 별은 **날아온 아이콘이 도착할 때까지 숨긴다**. 먼저 보이면 "이미 있던 별"과 "날아온 별"이
+       *   따로 놀아 두 개처럼 읽힌다. 도착 순간에 등장 트윈을 돌려 하나로 이어 붙인다.
+       */
+      const placed = landing ? [...this.starViews.values()].pop() : undefined;
+      if (placed) {
+        this.tweens.killTweensOf(placed.img);
+        placed.img.setAlpha(0);
+      }
+      this.missionRewardBurst(rw, landing ?? undefined, () => {
+        if (!placed?.img.active) return;
+        const sx = placed.img.scaleX;
+        const sy = placed.img.scaleY;
+        placed.img.setScale(sx * 1.7, sy * 1.7);
+        this.tweens.add({ targets: placed.img, alpha: 1, scaleX: sx, scaleY: sy, duration: 240, ease: 'Back.easeOut' });
+      });
+      this.rerollMissionPreview(); // 지급을 마쳤으니 이제 다음 미션으로.
+      return;
+    }
+    if (rw.kind === 'plus5' || rw.kind === 'wild' || rw.kind === 'cards') {
+      const landing = this.placeStockCards(rw.amount, rw.kind === 'wild', MISSION_ICON[rw.kind]);
+      const placed = landing ? [...this.stockViews.values()].pop() : undefined;
+      if (placed) {
+        this.tweens.killTweensOf(placed.img);
+        placed.img.setAlpha(0);
+      }
+      this.missionRewardBurst(rw, landing ?? undefined, () => {
+        if (!placed?.img.active) return;
+        const sx = placed.img.scaleX;
+        const sy = placed.img.scaleY;
+        placed.img.setScale(sx * 1.7, sy * 1.7);
+        this.tweens.add({ targets: placed.img, alpha: 1, scaleX: sx, scaleY: sy, duration: 240, ease: 'Back.easeOut' });
+      });
+      this.rerollMissionPreview();
+      return;
+    }
+    if (rw.kind !== 'collection') return;
+    const save = loadSave();
+    const slot = this.resolveCollectionSlot(rw.slot);
+    if (!slot) {
+      // 다 모았다 → 리그 별로 대체 지급(빈손 방지). 개수는 마찬가지로 매칭 수.
+      this.placeLeagueStars(filled);
+      this.toast(`미션 보상  ⭐ 리그 별 +${filled}`);
+      this.rerollMissionPreview();
+      return;
+    }
+    // **보드 투입** — 카드가 보드의 가려진 카드에 꽂히고, 열릴 때 스타게이지로 획득된다.
+    const entry = this.awardCollectionCard(save, slot);
+    writeSave(save);
+    this.tryTip('collection'); // 컬렉션 카드를 처음 받았을 때 한 번 설명.
+    this.playCollectionCardReveal(slot, entry);
+    this.toast(entry ? '미션 보상  🧩 컬렉션 조각 → 보드에 꽂혔어요' : `미션 보상  🧩 컬렉션 조각 ${slot.set}-${slot.card}`);
+    this.rerollMissionPreview();
+  }
+
+  /**
+   * **투데이 리그 별 배치**(PO 2026-08-24) — 미션(5매치)을 완성하면 그 보상으로 보드에 별이 꽂힌다.
+   *
+   * ## 왜 보드에 꽂는가
+   * 그 자리에서 바로 날아가면 "저절로 생긴 것"이 된다. 다이아·컬렉션 카드처럼 **가려진 카드 뒤에**
+   * 꽂아 두면, 그 카드를 여는 것이 곧 회수다 — 보상을 받는 것도 플레이어의 행동이 된다.
+   *
+   * ⚠️ 이 별은 **그 판의 등급(1★~5★) 판정과 완전히 무관**하다. 좌측 5별 게이지(품질)는 건드리지 않고
+   *   오직 투데이 리그 점수로만 들어간다. 둘을 섞으면 리그를 돌리려고 등급이 오르는 착시가 생긴다.
+   */
+  private placeLeagueStars(count: number): { x: number; y: number } | null {
+    if (!this.textures.exists(LEAGUE_STAR_KEY)) return null;
+    const want = Math.max(0, Math.floor(count));
+    if (want <= 0) return null;
+    const exposedNow = new Set(this.state.layout.slots.filter((sl) => isExposed(this.state, sl.id)).map((sl) => sl.id));
+    // 자리 다툼 방지 — 다이아·와일드·보너스·컬렉션·이미 꽂힌 별이 쓰는 슬롯은 뺀다(겹치면 뒤가 안 보인다).
+    const taken = (id: string): boolean =>
+      this.diamondSlots.has(id) || id === this.wildSlotId || id === this.bonusSlot?.id ||
+      this.boardCollections.has(id) || this.starSlots.has(id) || this.stockSlots.has(id);
+    const hidden = [...this.cards.keys()].filter((id) => !exposedNow.has(id) && !taken(id));
+    const any = [...this.cards.keys()].filter((id) => !taken(id));
+    const pool = hidden.length ? hidden : any; // 가려진 자리 우선(열릴 때 드러나는 맛).
+    if (!pool.length) return null;
+    /*
+     * **한 곳에 몰아서 놓는다**(PO 2026-08-24). 여러 카드에 흩뿌리면 몇 개를 받았는지 세어야 하고,
+     *   회수도 찔끔찔끔 나뉘어 "한 방"이 없다. 한 카드에 크게 하나 두고 **개수 배지**로 양을 보여준 뒤,
+     *   그 카드를 열 때 그 자리에서 터지듯 흩어져 리그로 들어가는 편이 읽기도 쉽고 손맛도 있다.
+     */
+    const got = this.pickVisibleSlot(pool); // 가장 잘 드러나는 카드에 꽂는다.
+    if (!got) return null;
+    const { id, spot } = got;
+    const view = this.cards.get(id);
+    if (!view) return null;
+    this.starSlots.set(id, want);
+    const img = this.add.image(0, 0, LEAGUE_STAR_KEY).setDepth((view.depth ?? 100) - PlayScene.BADGE_BEHIND);
+    const sz = this.geom.cardW * 0.62 * 0.96; // 다이아 기준 **96%**(PO 2026-08-24: 120% 에서 다시 80% 로).
+    img.setDisplaySize(sz, sz);
+    const baseSX = img.scaleX;
+    const baseSY = img.scaleY;
+    img.setPosition(spot.x, spot.y);
+    img.setAlpha(0).setScale(baseSX * 1.7, baseSY * 1.7);
+    // ⚠️ delay 트윈 금지 — 씬 재시작 시 대기 트윈이 파괴된 오브젝트를 물고 루프를 멈춘다(전 게임 공통).
+    this.tweens.add({ targets: img, alpha: 1, scaleX: baseSX, scaleY: baseSY, duration: 240, ease: 'Back.easeOut' });
+    /*
+     * **숫자를 적지 않는다**(PO 2026-08-24). 보드 위는 카드가 주인공이라 배지가 붙으면 시선을 뺏고
+     *   다이아·와일드와도 격이 어긋난다. 몇 개인지는 **회수 순간 흩어지는 개수**로 보여 준다.
+     */
+    this.starViews.set(id, { img });
+    return { x: img.x, y: img.y }; // 미션 예고 아이콘이 **정확히 이 자리로** 날아온다.
+  }
+
+  /**
+   * **보드에 꽂는 물건(다이아·별·＋카드)이 실제로 보이는 자리**를 찾는다(PO 2026-08-24).
+   *
+   * 이 게임의 보드는 카드가 세로로 촘촘히 겹치고 열 사이 간격도 좁다. 한 방향으로만 삐져나오게 두면
+   * 그 방향에 카드가 있는 순간 **완전히 가려져 "배치가 안 됐다"로 보인다**(다이아가 안 보인다는 신고).
+   * 네 방향(우·좌·위·아래)을 놓고 **덮는 카드와의 여유(clear)를 실제로 재서** 가장 트인 쪽을 쓴다.
+   *
+   * @returns 절대 좌표 + 기울임 + `clear`(0=완전히 겹침, 1=아무 것도 안 겹침).
+   */
+  private bestBadgeSpot(view: Phaser.GameObjects.GameObject & { x: number; y: number; depth?: number }): {
+    x: number;
+    y: number;
+    angle: number;
+    clear: number;
+  } {
+    const cw = this.geom.cardW;
+    const ch = this.geom.cardH;
+    const cands = [
+      { x: view.x + cw * 0.62, y: view.y + ch * 0.16, angle: 13 },
+      { x: view.x - cw * 0.62, y: view.y + ch * 0.16, angle: -13 },
+      { x: view.x, y: view.y - ch * 0.66, angle: -13 },
+      { x: view.x, y: view.y + ch * 0.66, angle: 13 },
+    ];
+    /** 그 지점을 **앞에서 덮는** 카드와 얼마나 떨어져 있나(가장 가까운 것 기준, 0..1). */
+    const clearOf = (px: number, py: number): number => {
+      let worst = 1;
+      for (const [, cv] of this.cards) {
+        if (cv === view) continue;
+        if ((cv.depth ?? 0) < (view.depth ?? 0)) continue; // 먼저 그려진(뒤) 카드는 배지를 가리지 않는다.
+        const dx = Math.abs(cv.x - px) / (cw * 0.5);
+        const dy = Math.abs(cv.y - py) / (ch * 0.5);
+        const overlap = Math.min(1, Math.max(0, 1 - dx)) * Math.min(1, Math.max(0, 1 - dy));
+        worst = Math.min(worst, 1 - overlap);
+      }
+      return worst;
+    };
+    let best = { ...cands[0], clear: -1 };
+    for (const c of cands) {
+      const clear = clearOf(c.x, c.y);
+      if (clear > best.clear) best = { ...c, clear };
+      if (clear >= 1) break; // 완전히 트였으면 더 볼 것 없다.
+    }
+    return best;
+  }
+
+  /**
+   * 후보 슬롯 중 **꽂은 물건이 가장 잘 드러나는** 카드를 고른다.
+   *   무작위로 고르면 조밀한 한복판이 뽑혀 아무리 놓아도 안 보인다.
+   *   자리 값이 같으면 앞쪽(무작위로 섞인 순서)을 쓴다 — 매번 같은 카드에 몰리지 않게.
+   */
+  private pickVisibleSlot(pool: readonly string[]): { id: string; spot: { x: number; y: number; angle: number } } | null {
+    let best: { id: string; spot: { x: number; y: number; angle: number }; clear: number } | null = null;
+    const order = [...pool].sort(() => Phaser.Math.FloatBetween(-1, 1));
+    for (const id of order) {
+      const view = this.cards.get(id);
+      if (!view) continue;
+      const spot = this.bestBadgeSpot(view);
+      if (!best || spot.clear > best.clear) best = { id, spot, clear: spot.clear };
+      if (spot.clear >= 0.98) break;
+    }
+    return best ? { id: best.id, spot: best.spot } : null;
   }
 
   /**
    * **다이아 배치** — 보드 카드 중 2장에 다이아를 끼운다(초기 노출 팁은 피해 '중간에 낀' 느낌).
    *   위치: 카드 **오른쪽**에 자리가 있으면 옆, 없으면 왼쪽, 그것도 없으면 **위/아래**.
+   *
+   * ⚠️ 2026-08-24 에 한 번 제거했다가 **같은 날 복원**했다(PO 재요청). 새 보상(리그 별·＋카드·와일드)이
+   *   보드 자리를 함께 쓰므로, 자리 다툼 목록(`taken`)에 다이아가 빠지지 않게 유지할 것.
    */
   private placeDiamonds(): void {
     if (!this.textures.exists('up_Solitare_UI_2_2')) return;
@@ -769,26 +1431,35 @@ export class PlayScene extends Phaser.Scene {
     const bonusRng = seededRng(this.level * 271 + 89);
     const count = Math.min(pool.length, bonusRng() < 0.2 ? 2 : 1);
     const rng = seededRng(this.level * 131 + 57);
-    const picked = pool
-      .map((id) => ({ id, r: rng() }))
-      .sort((a, b) => a.r - b.r)
-      .slice(0, count)
-      .map((o) => o.id);
-    picked.forEach((id, i) => {
+    const shuffled = pool.map((id) => ({ id, r: rng() })).sort((a, b) => a.r - b.r).map((o) => o.id);
+    // **가장 잘 보이는 카드부터** count 개(무작위 한복판에 놓으면 옆 카드에 덮여 안 보인다).
+    const picked: { id: string; spot: { x: number; y: number; angle: number } }[] = [];
+    const rest = [...shuffled];
+    for (let k = 0; k < count; k++) {
+      const got = this.pickVisibleSlot(rest);
+      if (!got) break;
+      picked.push(got);
+      rest.splice(rest.indexOf(got.id), 1);
+    }
+    picked.forEach(({ id, spot }) => {
       const view = this.cards.get(id);
       if (!view) return;
       this.diamondSlots.add(id);
       // **카드 뒤**(depth − 0.3)에 배치 → 카드가 사라지면(플레이) 드러나 획득. 위/아래로 살짝 삐져나오게.
-      const gem = this.add.image(0, 0, 'up_Solitare_UI_2_2').setDepth((view.depth ?? 100) - 0.3);
-      const src = gem.texture.getSourceImage() as { width: number; height: number };
-      const gs = this.geom.cardW * 0.62; // 조금 더 크게.
+      const gem = this.add.image(0, 0, 'up_Solitare_UI_2_2').setDepth((view.depth ?? 100) - PlayScene.BADGE_BEHIND);
+      const src = texSize(gem.texture);
+      const gs = this.geom.cardW * 0.62;
       gem.setDisplaySize(gs, gs * (src.height / src.width));
-      const ch = this.geom.cardH;
-      const top = i % 2 === 0; // 번갈아 위/아래로 삐져나옴.
-      gem.setPosition(view.x, view.y + (top ? -ch * 0.6 : ch * 0.6)); // 카드 위/아래로 **더 많이 삐져나옴**(중심이 가장자리 바깥).
-      gem.setAngle(top ? -13 : 13); // 살짝 기울임.
-      gem.setAlpha(0); // 딜 연출 후 페이드인(카드 안착 뒤 드러나게).
-      this.tweens.add({ targets: gem, alpha: 1, delay: 900, duration: 300 });
+      /*
+       * **좌우로 비켜 놓는다**(PO 2026-08-24 신고: "다이아 복원되지 않았습니다. 화면에 안 보임").
+       *   실제로는 배치돼 있었지만 **위/아래로 삐져나오게** 두어, 세로로 촘촘히 겹친 열에서는
+       *   바로 위·아래 카드에 완전히 가려졌다. 별(우상)·＋카드(좌상)와 같이 옆으로 내보내면
+       *   열이 아무리 겹쳐도 드러난다.
+       */
+      gem.setPosition(spot.x, spot.y);
+      gem.setAngle(spot.angle);
+      gem.setAlpha(0);
+      this.tweens.add({ targets: gem, alpha: 1, duration: 300 }); // ⚠️ delay 트윈 금지(씬 재시작 시 루프 정지).
       this.diamondViews.set(id, gem);
     });
   }
@@ -803,46 +1474,16 @@ export class PlayScene extends Phaser.Scene {
     const exposedNow = new Set(
       this.state.layout.slots.filter((s) => isExposed(this.state, s.id)).map((s) => s.id),
     );
-    const covered = [...this.cards.keys()].filter((id) => !exposedNow.has(id) && !this.diamondSlots.has(id));
-    let pool = (covered.length ? covered : [...this.cards.keys()].filter((id) => !exposedNow.has(id))).slice();
-    if (!pool.length) return;
-    // **가장 늦게(=거의 다 클리어된 시점) 노출되는 구간은 후보에서 뺀다**(PO 2026-07-29 "와일드/보너스가
-    // 가장 아래쪽에 나와 사실상 쓸 필요가 없다 — 마지막에 뽑힌 와일드·추가 카드가 무슨 의미가 있나").
-    // 커버 그래프 깊이(=노출까지 남은 단계)를 BFS 로 계산해 남은 깊이의 마지막 35%는 제외한다.
-    // 걸러지고 남는 후보가 없으면(아주 얕은 보드) 원래 후보 전체로 되돌린다.
-    const depth = new Map<string, number>();
-    {
-      const cleared = new Set(exposedNow);
-      let frontier = [...exposedNow];
-      for (const id of frontier) depth.set(id, 0);
-      let d = 0;
-      while (frontier.length) {
-        d++;
-        const next: string[] = [];
-        for (const s of this.state.layout.slots) {
-          if (cleared.has(s.id)) continue;
-          if (s.coveredBy.every((c) => cleared.has(c))) next.push(s.id);
-        }
-        for (const id of next) { cleared.add(id); depth.set(id, d); }
-        frontier = next;
-      }
-    }
-    const maxDepth = Math.max(0, ...pool.map((id) => depth.get(id) ?? 0));
-    const cutoff = Math.floor(maxDepth * 0.65);
-    const shallow = pool.filter((id) => (depth.get(id) ?? 0) <= cutoff);
-    if (shallow.length) pool = shallow;
-    const rng = seededRng(this.level * 733 + 991);
-    const shuffled = pool.map((id) => ({ id, r: rng() })).sort((a, b) => a.r - b.r).map((o) => o.id);
-    // 첫 슬롯 = 와일드.
-    this.wildSlotId = shuffled[0];
+    // 위치·값 규칙은 **logic/economyRules.ts 단일 출처**(시뮬레이터와 공유) — 여기선 아트 유무만 얹는다.
+    const picked = pickSpecialSlots(this.state.layout, exposedNow, this.level, this.diamondSlots);
+    if (!picked.wildSlotId) return;
+    this.wildSlotId = picked.wildSlotId;
     this.wildBanked = false;
-    // 둘째 슬롯(있으면) = 보너스 +N. 값은 레벨 시드로 결정적 선택.
     const values = BONUS_VALUES.filter((v) => this.textures.exists(BONUS_ART[v]));
-    if (shuffled.length >= 2 && values.length) {
-      // **역빈도 패턴 할당** — 레벨→패턴 인덱스 고정(+1 최다 … +10 최희귀, 64레벨 주기 비율 보장).
-      const want = BONUS_PATTERN[(this.level - 1) % BONUS_PATTERN.length];
+    if (picked.bonusSlotId && values.length) {
+      const want = bonusValueForLevel(this.level);
       const count = values.includes(want) ? want : values[0]; // 아트 미로드 시 +1 폴백.
-      this.bonusSlot = { id: shuffled[1], count };
+      this.bonusSlot = { id: picked.bonusSlotId, count };
       this.bonusTriggered = false;
     }
   }
@@ -856,6 +1497,7 @@ export class PlayScene extends Phaser.Scene {
     if (!sp || this.bonusTriggered) return;
     this.bonusTriggered = true;
     const { id: slot, count } = sp;
+    this.labRun.bonusValue += count; // 실측: 이 판에서 보너스로 늘어난 뽑기 장수.
     const view = this.cards.get(slot);
     this.cards.delete(slot);
     const preStock = this.state.stock.length; // 보너스 전 스톡 수(순차 노출 시작점).
@@ -865,6 +1507,7 @@ export class PlayScene extends Phaser.Scene {
     this.buildStockPile();
     sfx('card_deal');
     this.toast(`🎁 +${count} 카드! 뽑기 더미가 늘어났어요`);
+    this.tryTip('bonusCard');
     if (!view) {
       this.refresh();
       return;
@@ -956,12 +1599,14 @@ export class PlayScene extends Phaser.Scene {
     const slot = this.wildSlotId;
     if (!slot || this.wildBanked) return;
     this.wildBanked = true;
+    this.labRun.wildBanked += 1; // 실측: 보드 와일드가 뽑기 더미로 회수된 횟수.
     this.wildBanking = true; // 비행 도착 전까지 더미에 와일드 아트를 표시하지 않음
     const view = this.cards.get(slot);
     this.cards.delete(slot);
     this.state = bankWildToStock(this.state, slot, this.rng); // 스톡 중간(임의 순서) 삽입 + 슬롯 클리어
     sfx('card_deal');
     this.toast('🃏 와일드 카드 발견! 뽑기 더미 속으로 들어갔어요');
+    this.tryTip('wildCard');
     if (!view) {
       this.wildBanking = false;
       this.refresh();
@@ -1018,6 +1663,8 @@ export class PlayScene extends Phaser.Scene {
    */
   private collectDiamond(gem: Phaser.GameObjects.Image): void {
     sfx('coin_burst', { volume: 0.3 }); // 수집음(대용).
+    // **다이아 위치를 가리켜** 안내한다(PO 2026-08-22) — 말풍선 꼬리가 그 다이아를 향하고, 창 안에도 다이아를 띄운다.
+    this.tryTipAt('diamond', { x: gem.x, y: gem.y }, gem.texture.key);
     const s0 = gem.scaleX;
     gem.setDepth(1500).setAlpha(1);
     // ① 크게 팝업(위로 살짝).
@@ -1061,15 +1708,16 @@ export class PlayScene extends Phaser.Scene {
    */
   private holdDiamond(n: number): void {
     this.pendingDiamonds += n;
+    this.labRun.diamonds += n;
     const t = this.diamondHoldTarget();
     if (!this.diamondHold) {
       const icon = this.add.image(t.x, t.y, 'up_Solitare_UI_2_2').setDepth(75);
       if (this.textures.exists('up_Solitare_UI_2_2')) {
-        const src = icon.texture.getSourceImage() as { width: number; height: number };
+        const src = texSize(icon.texture);
         icon.setDisplaySize(46, 46 * (src.height / src.width));
       }
       const text = this.add
-        .text(t.x + 26, t.y, '', { fontFamily: '"Jua", sans-serif', fontSize: '34px', color: '#ffffff', stroke: '#5a1a6a', strokeThickness: 6 })
+        .text(t.x + 26, t.y, '', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '34px', color: '#ffffff', stroke: '#5a1a6a', strokeThickness: 6 })
         .setOrigin(0, 0.5)
         .setDepth(75);
       this.diamondHold = { icon, text };
@@ -1089,10 +1737,54 @@ export class PlayScene extends Phaser.Scene {
    *   layer_4 처럼 화면 대부분을 덮는 rect(암막 보드 패널)을 찾아 그 세로 범위를 보드 상단으로 채택 →
    *   코드 암막(drawBoardMask)은 생략(중복 방지). 하단은 스톡(STOCK.y) 위 여백을 유지.
    */
+  /**
+   * **배경은 축소(fit)하지 않고 크롭/확장(cover)** 한다(화면비 표준 4절) — 캔버스가 저작 프레임보다
+   * 커졌을 때 배경 옆·위아래가 비지 않게 덮을 때까지만 키운다. 앵커가 이미 배경을 캔버스 중앙에
+   * 놓았으므로 크기만 손보면 된다.
+   *
+   * ⚠️ **이 게임의 플레이 배경(layer_1)은 저작 폭과 정확히 같은 1080×2400 이고 원본 PNG 는 841×1870**
+   *   이다 — 가로 블리드가 0이라, 폭이 늘어나면 세로가 크게 잘리고(1520 폭에서 상하 각 489px)
+   *   원본 대비 1.8배 업스케일이 된다. 그래서 양축 가변은 아직 켜지 않았다(game.ts 참조).
+   *   여기 코드는 **블리드 포함 배경 에셋이 들어오면 곧바로 동작**하도록 미리 배선해 둔 것이고,
+   *   현재 고정 캔버스에서는 배율이 정확히 1이라 아무 일도 하지 않는다.
+   */
+  private applyBackgroundCover(): void {
+    const bg = this.chrome?.tryById<Phaser.GameObjects.Image>('layer_1');
+    const node = this.chrome?.nodeById('layer_1');
+    if (!bg || !node?.w || !node?.h) return;
+    const v = viewBounds(this); // 줌이 걸리면 "화면 전체"는 캔버스 크기가 아니다.
+    const s = coverScale(node.w, node.h, v.w, v.h);
+    if (s === 1) return; // 여분 0 — 저작 그대로(현재 경로).
+    bg.setDisplaySize(node.w * s, node.h * s);
+  }
+
+  /** 암막 보드 패널(layer_4)의 라운드 반경(px) — 폭이 넓어져 모서리가 드러날 때만 적용. */
+  private static readonly BOARD_PANEL_RADIUS = 36;
+
+  /**
+   * **암막 보드 패널의 귀퉁이 라운드** — 캔버스 폭이 저작 폭보다 넓어지면 패널(layer_4, 저작 폭 1106)이
+   * 화면을 다 덮지 못해 **네 귀퉁이가 배경 위에 그대로 드러난다**. 저작값은 radius 0 이라 직각으로
+   * 잘린 사각형이 보인다(PO 지적 2026-08-21) — 그럴 때만 같은 자리에 라운드로 다시 그린다.
+   *
+   * 저작 폭과 같을 때는(여분 0) 모서리가 화면 밖이라 손대지 않는다 — 기존 화면과 100% 동일.
+   */
+  private roundBoardPanelCorners(): void {
+    if (viewBounds(this).w <= SAFE_W) return; // 보이는 폭이 저작 폭 이하면 귀퉁이가 화면 밖이다.
+    const node = this.chrome?.nodeById('layer_4');
+    const g = this.chrome?.tryById<Phaser.GameObjects.Graphics>('layer_4');
+    if (!node || !g || node.type !== 'rect' || !node.w || !node.h) return;
+    const r = Math.min(PlayScene.BOARD_PANEL_RADIUS, node.w / 2, node.h / 2);
+    g.clear();
+    g.fillStyle(Phaser.Display.Color.HexStringToColor(node.fill ?? '#000000').color, node.fillAlpha ?? 1);
+    g.fillRoundedRect(node.x - node.w / 2, node.y - node.h / 2, node.w, node.h, r);
+  }
+
   private applyEditorChrome(doc: LayoutDoc): void {
     // 동적 노드(게이지 채움·박스 칸·보상 팝업 목업)는 코드가 직접 제어하므로 정적 렌더에서 제외.
     const staticDoc: LayoutDoc = { ...doc, nodes: doc.nodes.filter((n) => !DYNAMIC_NODE_IDS.has(n.id)) };
     this.chrome = buildLayout(this, staticDoc);
+    this.applyBackgroundCover();
+    this.roundBoardPanelCorners();
     this.chromeFromEditor = true;
     const panel = doc.nodes
       .filter((n) => n.type === 'rect' && (n.h ?? 0) >= 800)
@@ -1112,11 +1804,19 @@ export class PlayScene extends Phaser.Scene {
     //    삭제되면서 죽은 코드가 돼 제거했다 — 코인 표시는 전적으로 이 헤더가 담당한다.)
     // ⚠️ 이 시점엔 아직 딜(this.state) 전이라 baseCoins 만 사용(점수 반영은 refresh 가 갱신).
     this.header = buildTopHeader(this, this.baseCoins, loadSave().diamonds ?? 0, this.level, () => this.openPlayMenu());
+    /**
+     * **상점·리그 아이콘 — 플레이 중에도 항상 표시**(PO 2026-08-22 상점 · 2026-08-23 리그).
+     *
+     * 코인이 모자라면 여기서 바로 충전하고, 지금 모으는 상품이 리그 어디쯤인지도 나가지 않고 본다.
+     * ⚠️ 예전 상점은 **맨 텍스트에 반투명 배경**이라 홈의 레일 아이콘과 모양이 달랐고, 상단 배너·
+     *   가게 아트에 반쯤 가려 보였다(사용자 리포트). 홈과 **같은 저작 아트**를 좌우 대칭으로 놓는다.
+     */
+    this.buildPlayRail();
     // 플레이 화면 닫기(✕) 버튼 = layer_20(up_DailyMission_08-1_v3, 우상단) — 저작만 돼 있고 미배선이었다
     //   (2026-07-19 PO 지시). ☰메뉴의 "홈으로"와 동일 동작 — 별도 확인창 없이 바로 홈으로.
     this.chrome?.tryById<Phaser.GameObjects.Image>('layer_20')?.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
       sfx('level_close');
-      this.scene.start('home');
+      this.confirmQuit(); // 보상 회수 경고 후 이동(PO 2026-08-24).
     });
     // **미션 리워드 배너**(연속 플레이 별 수집) — 홈과 동일 위치/구성. 만료됐으면 여기서도 즉시 리셋 반영.
     //   손님을 정산할 때마다 creditMissionStars 가 실시간으로 저장까지 확정한다(PO 2026-07-18 3차) — 여기서는
@@ -1125,7 +1825,21 @@ export class PlayScene extends Phaser.Scene {
     const mrState = missionRewardOf(mrSave, Date.now());
     mrSave.missionReward = mrState;
     writeSave(mrSave);
-    this.missionBanner = buildMissionRewardBanner(this, mrState, 0, 1580, () => this.resetExpiredMissionTier());
+    // ⚠️ 침범분은 **offsetY 인자로**(생성 뒤 이동은 setState 가 되돌린다).
+    this.missionBanner = buildMissionRewardBanner(this, mrState, topUiShift(this), 1580, () => this.resetExpiredMissionTier());
+    // **배너 = 주간 이벤트**(PO 2026-08-23) — 지금 모으는 층 상품 · 진행 · 코인 보상을 보여 준다.
+    this.refreshEventBanner();
+    /*
+     * **플레이 화면에서도 배너를 눌러 위클리 팝업을 연다**(PO 2026-08-24). 홈에서만 열리면
+     *   판을 도는 동안에는 목표를 확인할 길이 없다.
+     *
+     * ⚠️ 배너 **오브젝트마다** `setInteractive()` 를 걸면 안 된다(2026-08-24 사고). 크기가 없는
+     *   오브젝트(Graphics 등)는 히트영역 콜백이 만들어지지 않아 `input.hatAreaCallback is not a
+     *   function` 예외가 나고, 그러면 **그 프레임의 히트테스트 전체가 중단**된다 —
+     *   보드 카드까지 한 장도 눌리지 않는다(PO 신고: "각 카드 클릭이 안 됩니다").
+     *   대신 배너 영역을 덮는 **Zone 하나**만 둔다.
+     */
+    this.addBannerHit();
   }
 
   /**
@@ -1134,6 +1848,153 @@ export class PlayScene extends Phaser.Scene {
    *   부스터가 계속 비활성으로 보인다.
    *   depth 는 플레이 메뉴(3000)보다 높게 잡아 메뉴 위에 뜬다.
    */
+  /**
+   * 플레이 화면 좌우 상단 레일 — 좌 상점 / 우 리그. 홈 레일과 같은 아트·같은 크기.
+   * 배너(중앙)와 겹치지 않도록 화면 **가장자리**에 붙이고, 넓은 화면에서는 함께 바깥으로 나간다.
+   */
+  private buildPlayRail(): void {
+    /*
+     * **홈과 같은 아이콘·같은 크기·같은 구조**(PO 2026-08-24: "메인화면에서 배치된 아이콘 사이즈와
+     *   구조를 동일하게 적용해야 함"). 예전엔 홈의 85%(118×139)로 줄이고 아래에 'Shop'·'League'
+     *   글자를 따로 그려서, 같은 아트인데 두 화면이 달라 보였다. 라벨은 아트에 들어 있다.
+     */
+    const SIZE = { w: 139, h: 164 }; // 홈 저작값(home.json layer_11 / layer_11_copy3).
+    const y = 250 + topUiShift(this);
+    const edge = Math.max(0, (this.scale.width - W) / 2); // 넓어진 폭만큼 바깥으로.
+    const mk = (x: number, key: string, label: string, onTap: () => void): void => {
+      const cx = x + (x < W / 2 ? -edge : edge);
+      if (this.textures.exists(key)) {
+        const icon = this.add
+          .image(cx, y, key)
+          .setDisplaySize(SIZE.w, SIZE.h)
+          .setDepth(1610)
+          .setInteractive({ useHandCursor: true });
+        icon.on('pointerdown', () => { sfx('button'); onTap(); });
+        if (label === 'League') this.leagueIconImg = icon; // 게이지가 따라붙을 기준.
+      }
+      /*
+       * 라벨 — 홈 저작값 그대로(`layer_13` "Shop": 아이콘 중심 y=268 기준 **+45**, 34px).
+       * ⚠️ 리그 아이콘에는 라벨을 달지 않는다 — 홈도 그 자리에 **순위·남은 시간**을 쓰기 때문이다.
+       */
+      if (label) {
+        this.add
+          .text(cx, y + 45, label, { fontFamily: PlayScene.TIP_FONT, fontSize: '34px', color: '#ffffff' })
+          .setOrigin(0.5)
+          .setDepth(1611)
+          .setStroke('#3a2410', 6);
+      }
+    };
+    mk(100, 'up_Solitare_UI_15', 'Shop', () => this.openShop());
+    mk(W - 100, 'up_Solitare_UI_18_v2', '', () => this.openLeagueFromPlay()); // 라벨 없음(순위·시간이 그 자리).
+    this.leagueIconAt = { x: W - 100 + edge, y }; // 수집 연출 도착점(리그로 가는 드랍).
+    // **순위 + 남은 시간** — 홈 리그 아이콘과 같은 규약(ui/leagueRail.ts).
+    attachLeagueBadge(this, W - 100 + edge, y, 1611);
+    // 별 수집 게이지가 붙을 자리 — 아이콘·배지 **바로 아래**(PO 2026-08-24).
+    this.leagueGaugeY = y + SIZE.h * 0.5 + 49; // 게이지 상하폭 30→40 확대 반영(+5).
+  }
+
+  /**
+   * **플레이 창 등장 연출**(PO 2026-08-24) — 팝업과 같은 "찌그러졌다 펴짐"을 판이 열릴 때도 준다.
+   *
+   * ⚠️ **배경은 제외**한다(`layer_1` 하늘·거리). 배경까지 흔들면 화면 전체가 출렁여 멀미가 난다 —
+   *   움직여야 하는 것은 **창**(점포·매장·암막 패널과 그 위 장식)뿐이다.
+   */
+  private playWindowEntrance(): void {
+    /*
+     * 대상 = **창 전체**(점포 · 매장 인테리어 · 암막 패널 · 카드 · 부스터). 배경(하늘·거리)과 상단
+     * HUD(헤더 · Shop/League 레일 · 배너)는 뺀다 — 배경이 흔들리면 화면 전체가 출렁여 멀미가 나고,
+     * HUD 는 창 밖의 고정 요소다.
+     *
+     * ⚠️ 저작 노드만 모으면 **점포가 빠진다**: `setupStorefrontLife` 가 저작 점포(layer_2)를 숨기고
+     *   **코드로 다시 그린다**(홈과 같은 아트 + 점원 + 유리). 그래서 노드 목록이 아니라 **깊이 범위**로
+     *   훑는다(창 요소는 전부 depth ≤ 1300, HUD 는 1580 이상, 배경은 음수).
+     */
+    /*
+     * ⚠️ **보드 카드는 뺀다**. 카드는 같은 순간 `dealInAnimation` 이 자리로 날려 보내는 중이라,
+     *   여기서도 매 프레임 x/y 를 덮어쓰면 두 연출이 서로 밀어내며 딜이 뭉개지고 계산도 두 배가 된다
+     *   (2026-08-24 점검). 창(점포·매장·암막·프레임)만 일렁이면 충분하다.
+     */
+    /*
+     * ⚠️ **자체 트윈이 걸린 오브젝트도 뺀다**(PO 2026-08-25: "플레이 진입 시 첫 손님의 말풍선이 없어진다").
+     *   `squashInObjects` 는 시작 순간의 scale 을 스냅샷해 매 프레임 되쓴다. 주문 말풍선·아이템은
+     *   그 순간 팝인 트윈 시작값(scale 0)이라 **0 으로 굳어 끝까지 보이지 않았다**(실측: 10초 뒤에도
+     *   scaleX 0, 팝인 트윈은 밀려나 소멸). 손님 숨쉬기 트윈도 같은 이유로 창 연출과 충돌한다.
+     */
+    const cardSet = new Set<Phaser.GameObjects.GameObject>(this.cards.values());
+    const objs = this.children.list.filter((o) => {
+      if (cardSet.has(o)) return false;
+      if (this.tweens.getTweensOf(o).length > 0) return false; // 자체 연출 중(말풍선 팝인·손님 숨쉬기 등).
+      const d = (o as Phaser.GameObjects.GameObject & { depth?: number }).depth ?? 0;
+      if (d < 0 || d > PlayScene.WINDOW_MAX_DEPTH) return false; // 배경·HUD 제외.
+      const key = (o as Phaser.GameObjects.Image).texture?.key;
+      return key !== BACK_BG_KEY; // 코드로 그린 뒤 배경도 제외.
+    });
+    if (!objs.length) return;
+    squashInObjects(this, objs, { x: W / 2, y: DARK_TOP + (H - DARK_TOP) * 0.35 });
+  }
+
+  /** 배너를 덮는 탭 영역 하나 — 오브젝트 각각에 입력을 걸지 않는다(히트테스트 사고 방지). */
+  private addBannerHit(): void {
+    const objs = (this.missionBanner?.objects ?? []).filter(
+      (o): o is Phaser.GameObjects.GameObject & { getBounds: () => Phaser.Geom.Rectangle } =>
+        typeof (o as { getBounds?: unknown }).getBounds === 'function',
+    );
+    if (!objs.length) return;
+    let box: Phaser.Geom.Rectangle | undefined;
+    for (const o of objs) {
+      const b = o.getBounds();
+      if (b.width <= 0 || b.height <= 0) continue;
+      box = box ? Phaser.Geom.Rectangle.Union(box, b) : Phaser.Geom.Rectangle.Clone(b);
+    }
+    if (!box) return;
+    this.add
+      .zone(box.centerX, box.centerY, box.width, box.height)
+      .setDepth(1650)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        sfx('button');
+        this.openWeeklyFromPlay();
+      });
+  }
+
+  /** 플레이 중 **주간 이벤트 팝업** — 홈과 같은 화면(ui/eventPanel). */
+  private openWeeklyFromPlay(): void {
+    this.openWeeklyFromPlayNow(); // 부팅 상주(그룹 해제 2026-08-31).
+  }
+
+  private openWeeklyFromPlayNow(): void {
+    let panel: Phaser.GameObjects.Container | undefined;
+    panel = openEventPanel(this, {
+      depth: 4300,
+      itemFloor: this.playFloor, // 지금 점포의 상품(배너와 같은 값).
+      onClose: () => {
+        panel?.destroy();
+        panel = undefined;
+      },
+    });
+  }
+
+  /** 플레이 중 리그 팝업 — 홈과 같은 화면(ui/leaguePanel). */
+  private openLeagueFromPlay(): void {
+    this.openLeagueFromPlayNow(); // ⚠️ 리그는 **지연 로드하지 않는다**(PO 2026-08-31 — 후반 로딩 중 아트가 깨졌다). 부팅 상주.
+  }
+
+  private openLeagueFromPlayNow(): void {
+    const save = loadSave();
+    const me = profileOf(save);
+    let panel: Phaser.GameObjects.Container | undefined;
+    panel = openLeaguePanel(this, {
+      depth: 4300,
+      myName: me.name,
+      myPoints: save.leaguePoints ?? 0,
+      stageFloor: leagueTargetFloor(save),
+      onClose: () => {
+        panel?.destroy();
+        panel = undefined;
+      },
+    });
+  }
+
   private openShop(): void {
     openItemShop(this, {
       depth: 4500,
@@ -1143,7 +2004,7 @@ export class PlayScene extends Phaser.Scene {
         this.updateBoosters(); // 살 수 있게 된 부스터를 즉시 활성화.
       },
       onDiamonds: (total) => this.header?.setDiamonds(total),
-      toast: (msg) => this.toast(msg),
+      toast: (msg) => this.toast(msg, true), // 팝업 메시지는 항상 표시.
     });
   }
 
@@ -1157,7 +2018,16 @@ export class PlayScene extends Phaser.Scene {
     const next = missionRewardOf(save, Date.now());
     save.missionReward = next;
     writeSave(save);
-    this.missionBanner?.setState(next);
+    /*
+     * ⚠️ **배너에 티어 숫자를 다시 그리지 않는다**(PO 2026-08-24 신고: "플레이상에서 표현되는
+     *   위클리미션과 팝업화면의 숫자가 다르다").
+     *
+     * 이 배너는 **주간 이벤트**를 보여 주기로 정해져 있다(2026-08-23). 그런데 미션 리워드 **티어**
+     * (또 다른 시스템, 목표 35·50·70…)가 `setState` 로 같은 배너를 덮어써서, 플레이 중에는 티어
+     * 진행(예: 41/50)이 보이고 팝업에서는 이벤트 진행이 보였다 — 같은 배너에 두 시스템의 숫자.
+     * 티어 적립 자체는 그대로 두고, **표시는 이벤트 하나로** 고정한다.
+     */
+    this.refreshEventBanner();
   }
 
   /**
@@ -1176,20 +2046,78 @@ export class PlayScene extends Phaser.Scene {
     if (node.w && node.h) interior.setDisplaySize(node.w, node.h); // 저작 표시 크기 유지(텍스처 교체가 크기 리셋하므로 재적용).
   }
 
+  /**
+   * **중단 경고창**(PO 2026-08-24) — 판을 중간에 그만두면 **이미 받은 보상이 회수된다**는 사실을
+   * 먼저 알린다. 모르고 나갔다가 코인이 줄어 있으면 버그로 오해한다.
+   *
+   * ⚠️ 게임비와 판 중에 쓴 부스터 비용은 **돌려주지 않는다** — 이미 소비한 것이고, 환불하면
+   *   "중단해서 부스터를 무르는" 다른 구멍이 생긴다. 문구에도 그대로 적는다.
+   */
+  private confirmQuit(): void {
+    if (this.ended) {
+      this.scene.start('home'); // 이미 끝난 판은 회수할 것이 없다.
+      return;
+    }
+    const got = playSessionRewards();
+    const layer = overlayLayer(this, 5200);
+    layer.add(overlayScrim(this, 0x140a1e, 0.86));
+    const lines = [
+      '판을 중간에 그만두시겠어요?',
+      '',
+      got.coins > 0 || got.diamonds > 0
+        ? `이번 판에서 받은 보상이 회수됩니다${String.fromCharCode(10)}🪙 ${got.coins.toLocaleString()}${got.diamonds > 0 ? `   💎 ${got.diamonds}` : ''}`
+        : '이번 판에서 받은 보상은 회수됩니다',
+      '',
+      '게임비와 사용한 부스터 비용은',
+      '돌려드리지 않습니다',
+    ].join(String.fromCharCode(10));
+    layer.add(
+      this.add
+        .text(W / 2, H * 0.38, lines, {
+          fontFamily: PlayScene.TIP_FONT,
+          fontSize: '46px',
+          color: '#ffffff',
+          align: 'center',
+          lineSpacing: 10,
+        })
+        .setOrigin(0.5)
+        .setStroke('#4a1030', 8),
+    );
+    let closing = false; // 중복 클릭 가드(연출 중 재클릭 방지).
+    layer.add(
+      this.uiButton(W / 2, H * 0.62, 'up_Solitare_UI_23_2', () => {
+        if (closing) return;
+        closing = true;
+        sfx('button');
+        const back = revokePlaySession(); // **여기서 실제로 회수한다.**
+        if (back.coins > 0 || back.diamonds > 0) this.baseCoins = loadSave().coins;
+        layer.destroy();
+        this.scene.start('home');
+      }, 440),
+    );
+    layer.add(
+      this.uiButton(W / 2, H * 0.74, 'up_Solitare_UI_23_5', () => {
+        if (closing) return;
+        sfx('level_close');
+        layer.destroy();
+      }, 440),
+    );
+  }
+
   /** 플레이 상단 헤더의 메뉴(☰) — 사운드 토글 + 홈으로. */
   private openPlayMenu(): void {
     sfx('button');
-    const layer = this.add.container(0, 0).setDepth(3000);
-    layer.add(this.add.rectangle(0, 0, W, H, 0x140a1e, 0.88).setOrigin(0, 0).setInteractive());
+    const layer = overlayLayer(this, 3000);
+    layer.add(overlayScrim(this, 0x140a1e, 0.88));
     layer.add(
       this.add
-        .text(W / 2, 620, '⚙ 메뉴', { fontFamily: '"Jua", sans-serif', fontSize: '80px', color: '#ffe066', stroke: '#7a2d9a', strokeThickness: 9 })
+        .text(W / 2, 620, '⚙ 메뉴', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '80px', color: '#ffe066', stroke: '#7a2d9a', strokeThickness: 9 })
         .setOrigin(0.5),
     );
     const mk = (y: number, label: string, bg: string, fn: () => void): Phaser.GameObjects.Text => {
       const t = this.add
         .text(W / 2, y, label, {
-          fontFamily: '"Jua", sans-serif',
+          fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
           fontSize: '52px',
           color: '#ffffff',
           backgroundColor: bg,
@@ -1206,21 +2134,27 @@ export class PlayScene extends Phaser.Scene {
     };
     // **상점**(PO 2026-07-29 "게임플레이시 숍메뉴에 접근할 수 있어야 함") — 홈과 같은 아이템샵 화면.
     //   부스터를 살 코인이 모자랄 때 홈으로 나갔다 오지 않아도 되게, 메뉴 최상단에 둔다.
-    mk(760, '🛒 상점', '#c25e00', () => {
+    mk(720, '🛒 상점', '#c25e00', () => {
       sfx('button');
       this.openShop();
     });
     // **사운드 볼륨**(PO 2026-07-28) — 누를 때마다 100→75→50→25→꺼짐 순환. 마지막 단계가 음소거라 별도 on/off 없음.
-    const snd = mk(880, volumeLabel(), '#4a3a5a', () => {
+    const snd = mk(840, volumeLabel(), '#4a3a5a', () => {
       const v = cycleVolume();
       snd.setText(volumeLabel());
       if (v > 0) sfx('button'); // 바뀐 볼륨을 바로 귀로 확인시켜 준다(꺼짐이면 무음).
+    });
+    // **진동**(2026-08-25) — 켜짐/꺼짐 토글. 켜는 순간 한 번 울려 손으로 확인시킨다(haptics.ts).
+    const hap = mk(960, hapticsLabel(), '#4a3a5a', () => {
+      toggleHaptics();
+      hap.setText(hapticsLabel());
+      sfx('button');
     });
     // **자동테스트 표시 토글**(dev 빌드 전용) — QA 버튼 묶음을 화면에서 켜고 끈다.
     let autoUiBtn: Phaser.GameObjects.Text | undefined;
     if (import.meta.env.DEV) {
       const autoUiLabel = (): string => `🧪 자동테스트 표시: ${autoTestState.uiVisible ? '켜짐' : '꺼짐'}`;
-      autoUiBtn = mk(1000, autoUiLabel(), '#4a3a5a', () => {
+      autoUiBtn = mk(1080, autoUiLabel(), '#4a3a5a', () => {
         this.toggleAutoTestUI();
         autoUiBtn?.setText(autoUiLabel());
         sfx('button');
@@ -1230,7 +2164,8 @@ export class PlayScene extends Phaser.Scene {
     layer.add(
       this.uiButton(W / 2, 1160, 'up_Solitare_UI_23_2', () => {
         sfx('button');
-        this.scene.start('home');
+        layer.destroy();
+        this.confirmQuit(); // 보상 회수 경고 후 이동(PO 2026-08-24).
       }, 440),
     );
     layer.add(
@@ -1286,6 +2221,39 @@ export class PlayScene extends Phaser.Scene {
   /** Phaser 씬 루프 — 보행 캐릭터를 매 프레임 전진(맥동·교차 회피 포함)시킨다. */
   update(_time: number, delta: number): void {
     for (const p of this.pedestrians) p.update(delta, this.pedestrians);
+    this.syncCardBackings();
+    this.syncLeagueGauge();
+  }
+
+  /** 컬렉션 카드 흰 바탕을 아트에 붙여 둔다(위치·크기·각도·투명도·깊이). 아트가 사라지면 같이 지운다. */
+  private syncCardBackings(): void {
+    for (const [img, bg] of this.cardBackings) {
+      if (!img.active || !bg.active) {
+        bg.destroy();
+        this.cardBackings.delete(img);
+        continue;
+      }
+      const k = (img.displayWidth * PlayScene.CARD_BACK_PAD) / PlayScene.CARD_BACK_UNIT;
+      bg.setPosition(img.x, img.y).setAngle(img.angle).setAlpha(img.alpha).setDepth(img.depth - 0.01);
+      bg.setScale(k, (img.displayHeight * PlayScene.CARD_BACK_PAD) / (PlayScene.CARD_BACK_UNIT * 1.4));
+    }
+  }
+
+  /**
+   * 아트 뒤에 **흰 카드 판**을 깔아 준다 — 카드 아트의 흰 테두리가 좁아 보이는 문제를 덮는다.
+   * 반환값은 없다(수명은 `cardBackings` 가 아트에 묶어 관리한다).
+   */
+  private addCardBacking(img: Phaser.GameObjects.Image): void {
+    const U = PlayScene.CARD_BACK_UNIT;
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.22);
+    g.fillRoundedRect(-U / 2 + 2, -U * 0.7 + 4, U, U * 1.4, U * 0.12); // 얕은 그림자 — 카드가 떠 보이게.
+    g.fillStyle(0xffffff, 1);
+    g.fillRoundedRect(-U / 2, -U * 0.7, U, U * 1.4, U * 0.12);
+    g.lineStyle(4, 0xe6dccb, 1);
+    g.strokeRoundedRect(-U / 2, -U * 0.7, U, U * 1.4, U * 0.12);
+    this.cardBackings.set(img, g);
+    this.syncCardBackings();
   }
 
   // ── 미션 크롬(게이지·별·박스) 배선 ──────────────────────────────────
@@ -1529,13 +2497,16 @@ export class PlayScene extends Phaser.Scene {
           const b3 = u * u * u;
           const x = b0 * sx + b1 * p1x + b2 * p2x + b3 * ttx;
           const y = b0 * sy + b1 * p1y + b2 * p2y + b3 * ty;
-          // **수직 오픈/폴드 반복** — scaleY 를 |cos(3π·u)| 로(높이가 위아래로 접혔다 열렸다, u=0.5 에서 엣지온).
-          const flip = Math.abs(Math.cos(u * Math.PI * 3));
+          // **수직 오픈/폴드** — scaleY 를 접었다 편다.
+          //   ⚠️ 예전엔 |cos(3π·u)| 를 그대로 곱해 **높이가 0 에 붙는 순간**이 세 번이나 있었다. 그 프레임이
+          //   잡히면 카드가 **잘려 보인다**(PO 2026-08-22 지적). 접힘은 한 번만, 그리고 최소 높이를 남긴다.
+          const FLIP_MIN = 0.34;
+          const flip = FLIP_MIN + (1 - FLIP_MIN) * Math.abs(Math.cos(u * Math.PI));
           if (u < 0.5) {
             // 카드 단계 — 떨어졌다 솟으며 **약간 작아지고** 세로로 오픈/폴드(위아래 접힘).
             const shrink = cardSX * (1 - 0.22 * (u / 0.5));
             card.setPosition(x, y);
-            card.setScale(shrink, Math.max(0.001, shrink * flip));
+            card.setScale(shrink, shrink * flip);
           } else {
             // **별로 변환**(엣지온에서 교체) — 별도 세로로 열렸다 접히며 커져 게이지로 빨려들어감.
             if (!star) {
@@ -1572,14 +2543,639 @@ export class PlayScene extends Phaser.Scene {
     sfx('star', { volume: 0.4 });
   }
 
+
   /**
-   * **미션 리워드 실시간 정산**(PO 2026-07-18 3차 수정) — 손님이 모은 별이 **3개 미만이면 무반응**, 3개
-   *   이상이면 그 정확한 개수(3,4,5,6…)를 레벨 등급과 무관하게(무제한) **지금 즉시 저장까지 확정**한다.
-   *   손님을 정산하는 매 순간이 적립 시점 — 여러 판(레벨)에 걸쳐 계속 쌓이고, 이 판 도중에 티어(35)를
-   *   완료해도 재화는 즉시 지급(보상 박스 팝업만 다음 승리 화면에서 노출).
+   * **판 결과로 수집물을 확정한다**(PO 2026-08-30 "최종적인 게임결과로 수집되도록").
+   *
+   * 판 중에는 별·이벤트 아이템을 **모으는 연출만** 하고 보관해 두었다가, 여기서 한 번에 적립한다.
+   * 지거나 나가면 이 함수를 지나지 않으므로 **아무것도 지급되지 않는다** — 다이아·컬렉션 카드와 같은 모델.
+   *
+   * ⚠️ 두 함수 모두 **스스로 loadSave/writeSave** 한다 — 호출부의 `save` 스냅샷을 되쓰기 **전**에
+   *   부르면 적립이 통째로 사라진다(리그 정산에서 실제로 겪은 사고와 같은 함정).
+   * @returns 이번 정산으로 받은 코인·다이아(결과 화면 표시용).
    */
+  private settleRoundCollectibles(): { coins: number; diamonds: number } {
+    let coins = 0;
+    let diamonds = 0;
+    if (this.pendingStars > 0) {
+      const r = creditLeagueStars(this.pendingStars);
+      coins += r.coins;
+      diamonds += r.diamonds; // 완주 그랜드 다이아(톱니바퀴 배율) — 2026-08-31 추가.
+      this.labRun.dropCoins += r.coins;
+      this.labRun.leagueCoins += r.coins;
+      this.labRun.dropDiamonds += r.diamonds;
+      if (r.stagesCleared) this.labRun.leagueStages += 1;
+      if (r.diamonds > 0) mirrorLeagueGrand(); // 서버 원장 미러링(추가만, 로컬 권위는 그대로) — 2026-09-01.
+      this.pendingStars = 0;
+    }
+    if (this.pendingEventItems > 0) {
+      const r = creditEventItems(this.pendingEventItems);
+      coins += r.coins;
+      diamonds += r.diamonds;
+      this.labRun.dropCoins += r.coins;
+      this.labRun.eventCoins += r.coins;
+      this.labRun.dropDiamonds += r.diamonds;
+      if (r.stagesCleared) this.labRun.eventStages += 1;
+      this.pendingEventItems = 0;
+    }
+    return { coins, diamonds };
+  }
+
+  /** 별 **보관 배지** 위치 — 다이아 보관 배지 왼쪽(같은 줄에 나란히). */
+  private starHoldTarget(): { x: number; y: number } {
+    const d = this.diamondHoldTarget();
+    return { x: d.x - 120, y: d.y };
+  }
+
+  /**
+   * **리그 별 보관**(미확정) — 다이아(`holdDiamond`)와 **완전히 같은 모델**.
+   *
+   * PO 2026-08-30 "별이 바로 투데이리그로 들어간다": 예전에는 별을 먹는 즉시 리그 아이콘으로 날아가고
+   * 게이지가 차고 코인이 터졌다 — 저장을 미뤄도 **보이는 과정이 그대로면 바로 들어간 것으로 읽힌다.**
+   * 이제 판 중에는 **보관 배지로만** 모이고, 리그로 들어가는 연출은 **판이 끝난 뒤** 한 번 돈다.
+   */
+  private holdLeagueStars(
+    n: number,
+    fallback: { x: number; y: number },
+    sv?: { img: Phaser.GameObjects.Image; label?: Phaser.GameObjects.Text },
+  ): void {
+    if (n <= 0) return;
+    this.pendingStars += n;
+    this.labRun.leagueStars += n; // 실측 계측 — 코인은 확정 시점에 센다.
+    const t = this.starHoldTarget();
+    if (!this.starHold) {
+      const icon = this.add.image(t.x, t.y, LEAGUE_STAR_KEY).setDepth(75);
+      if (this.textures.exists(LEAGUE_STAR_KEY)) {
+        const src = texSize(icon.texture);
+        icon.setDisplaySize(46, 46 * (src.height / src.width));
+      }
+      const text = this.add
+        .text(t.x + 26, t.y, '', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '34px', color: '#ffffff', stroke: '#5a1a6a', strokeThickness: 6 })
+        .setOrigin(0, 0.5)
+        .setDepth(75);
+      this.starHold = { icon, text };
+    }
+    /*
+     * **보드에 있던 그 별을 그대로 들어 올려 보관 배지로 보낸다.**
+     *
+     * ⚠️ 원본 뷰(`sv`)를 **반드시 여기서 치워야 한다.** 예전엔 이 정리를 리그 정산 연출이 하고 있었는데,
+     *   그 연출이 판 끝으로 옮겨 가면서 판 중에는 아무도 안 치웠다 → **카드 뒤에 있던 별이 보드에
+     *   그대로 남았다**(PO 2026-08-30 신고). 새 스프라이트를 따로 띄우는 방식은 원본이 남는 이 사고를
+     *   숨기기만 하므로, 원본을 그대로 날린다.
+     * ⚠️ 진행 중이던 등장 트윈을 **먼저 끊는다** — 안 끊으면 이 트윈과 겹쳐 크기가 튀고, 파괴 뒤에
+     *   옛 트윈이 살아 있으면 게임 루프가 멈춘다(전 게임 공통 함정).
+     */
+    const from = { x: sv?.img.x ?? fallback.x, y: sv?.img.y ?? fallback.y };
+    if (sv?.label) {
+      this.tweens.killTweensOf(sv.label);
+      sv.label.destroy(); // 숫자 배지가 남으면 별만 떠나는 그림이 어긋나 보인다.
+    }
+    const moving = sv?.img;
+    if (moving?.active) {
+      this.tweens.killTweensOf(moving);
+      moving.setDepth(6901);
+      this.tweens.add({
+        targets: moving,
+        x: t.x,
+        y: t.y,
+        scaleX: moving.scaleX * 0.45,
+        scaleY: moving.scaleY * 0.45,
+        duration: 460,
+        ease: 'Cubic.easeIn',
+        onComplete: () => moving.destroy(),
+      });
+    } else if (this.textures.exists(LEAGUE_STAR_KEY)) {
+      // 원본 뷰가 없는 경로(등급 별 등) — 위치만 알고 있으므로 임시 스프라이트로 보여 준다.
+      const fly = this.add.image(from.x, from.y, LEAGUE_STAR_KEY).setDepth(6901).setDisplaySize(60, 60);
+      this.tweens.add({
+        targets: fly,
+        x: t.x,
+        y: t.y,
+        scaleX: fly.scaleX * 0.5,
+        scaleY: fly.scaleY * 0.5,
+        duration: 460,
+        ease: 'Cubic.easeIn',
+        onComplete: () => fly.destroy(),
+      });
+    }
+    this.starHold.text.setText(`+${this.pendingStars}`);
+    this.tweens.add({ targets: [this.starHold.icon, this.starHold.text], scaleX: '*=1.3', scaleY: '*=1.3', duration: 120, yoyo: true, ease: 'Quad.easeOut' });
+  }
+
+  private playLeagueStarPayout(
+    n: number,
+    before: ReturnType<typeof leagueStageOf>,
+    fallback: { x: number; y: number },
+    sv?: { img: Phaser.GameObjects.Image; label?: Phaser.GameObjects.Text },
+  ): void {
+    /*
+     * ⚠️ **여기서는 적립하지 않는다** — 이 함수는 **판이 끝난 뒤** 확정분을 보여 주는 연출이다
+     *   (PO 2026-08-30 "별이 바로 투데이리그로 들어간다"). 적립은 `settleRoundCollectibles` 가
+     *   이미 끝냈고, `before` 는 그 **적립 직전** 상태여야 게이지가 올바른 지점에서 출발한다.
+     */
+
+    const target = this.leagueIconAt ?? { x: W - 100, y: 250 };
+    const at = { x: sv?.img.x ?? fallback.x, y: sv?.img.y ?? fallback.y };
+    const size = sv?.img.displayWidth ?? this.geom.cardW * 0.74;
+
+    /*
+     * **한 알씩 채워지는 계단**(PO 2026-08-24) — 별이 리그에 하나 도착할 때마다 게이지가 어디까지
+     *   찼는지 미리 계산해 둔다. 단계를 넘기면 1.0(가득)을 한 번 찍고 다음 단계의 분모로 갈아탄다 —
+     *   그래야 "채웠다 → 새 칸이 열렸다"가 눈에 보인다.
+     */
+    /*
+     * **누적 계단**(PO 2026-08-24: "게이지는 별을 수집하면서 누적되어 표시되어야 합니다").
+     *   단계별 진행(count/goal)만 그리면 단계가 오를 때마다 0 으로 돌아가 "계속 0에서 쌓는 연출"이 된다.
+     *   그래서 **오늘 모은 총량 / 다음 단계까지의 누적 목표**로 잰다 — 막대가 한 방향으로만 자란다.
+     */
+    /*
+     * **게이지는 지금 단계의 진행**(PO 2026-08-24: "1단계 완성 후 2단계 식으로 10단계를 완성하면서
+     *   소보상을 받습니다").
+     *
+     * 단계를 채우면 그 자리에서 소보상이 터지고 막대는 **다음 단계**로 넘어간다 — 그래서 "다음 단계"가
+     * 늘 보인다. (한때 분모를 하루 총 목표로 뒀는데, 그건 보상이 완주에만 나올 때의 이야기였다.)
+     * ⚠️ 단계가 오를 때 막대가 0 으로 돌아가는 것은 **정상**이다 — 라벨에 단계 번호를 함께 적어
+     *   "줄어든 것"이 아니라 "다음 칸으로 넘어간 것"으로 읽히게 한다.
+     */
+    /*
+     * **순서: 게이지 100% → 코인 보상 → 남은 게이지**(PO 2026-08-24).
+     *   한 별이 단계를 채우는 순간을 표시해 두고(`fullGoal`·`coins`), 그 별이 도착하면 ① 막대를 끝까지
+     *   채우고 ② 그 단계 보상을 날린 뒤 ③ 다음 별부터 새 단계를 0 에서 다시 채운다.
+     */
+    const steps: {
+      fill: number;
+      count: number;
+      goal: number;
+      stage: number;
+      /** 이 별로 단계를 채웠으면 그 단계의 목표(막대를 끝까지 채워 보여 줄 값). */
+      fullGoal?: number;
+      /** 이 별로 받은 보상(단계 소보상 + 완주면 그랜드). */
+      coins?: number;
+      /** 보상을 준 단계 번호(0-based). */
+      paidStage?: number;
+      /**
+       * 이 별이 **얼마나 늦게 도착해야 하는지**(ms). 앞에서 단계를 채운 적이 있으면 그만큼 밀린다 —
+       * 보상 연출이 끝난 뒤에 다음 별이 들어와야 "100% → 보상 → 남은 게이지" 순서가 지켜진다.
+       */
+      holdMs: number;
+    }[] = [];
+    /** 이 배치에서 지금까지 채운 단계 수 — 뒤따르는 별들을 그만큼 밀어 준다. */
+    let completions = 0;
+    const HOLD_PER_REWARD = 1200;
+    let stg = before.stage;
+    let cnt = before.count;
+    for (let i = 0; i < n; i++) {
+      cnt += 1;
+      let fullGoal: number | undefined;
+      let coins: number | undefined;
+      let paidStage: number | undefined;
+      if (cnt >= stageGoal(stg) && stg < LEAGUE_STAGE_COUNT) {
+        fullGoal = stageGoal(stg);
+        coins = stageCoins(stg);
+        paidStage = stg;
+        cnt -= stageGoal(stg); // 남는 만큼 이월(logic/dailyLeague.addCollected 와 같은 규칙).
+        stg += 1;
+        if (stg >= LEAGUE_STAGE_COUNT) coins += leagueGrandCoins(); // 완주 그랜드 프라이즈(배율 반영).
+      }
+      const g = stageGoal(stg);
+      steps.push({
+        fill: stg >= LEAGUE_STAGE_COUNT ? 1 : cnt / g,
+        count: cnt,
+        goal: g,
+        stage: stg,
+        fullGoal,
+        coins,
+        paidStage,
+        holdMs: completions * HOLD_PER_REWARD,
+      });
+      if (fullGoal != null) completions += 1; // 이 별이 단계를 채웠다 → 다음 별부터 기다린다.
+    }
+    const g0 = stageGoal(before.stage);
+    const gauge = this.showLeagueMiniGauge(
+      before.stage >= LEAGUE_STAGE_COUNT ? 1 : before.count / g0,
+      before.count,
+      g0,
+      before.stage,
+    );
+
+    /** 큰 별에서 **한 알씩** 떨어져 나와, 작아지면서 리그 아이콘으로 빨려 들어간다. */
+    const emit = (from: { x: number; y: number }): void => {
+      if (!this.textures.exists(LEAGUE_STAR_KEY)) {
+        gauge?.finish(1);
+        // 연출이 없으면 곧바로 전액 — 액수·단계는 위에서 계산한 steps 에서 가져온다(적립 전이라 r 이 없다).
+        const last = steps[steps.length - 1];
+        this.queueLeagueCoins(steps.reduce((a, st) => a + (st.coins ?? 0), 0), last?.stage ?? before.stage, 120);
+        return;
+      }
+      const shown = Math.min(n, 14); // 시각 방어 — 너무 많으면 줄이 끝나지 않는다(적립은 n 그대로).
+      for (let i = 0; i < shown; i++) {
+        const stFor = steps[Math.min(steps.length - 1, Math.floor(((i + 1) / shown) * n) - 1)] ?? steps[steps.length - 1];
+        const fly = this.add.image(from.x, from.y, LEAGUE_STAR_KEY).setDepth(6901);
+        fly.setDisplaySize(size * 1.5, size * 1.5); // 큰 별에서 그대로 떨어져 나온 크기.
+        const st = steps[Math.min(steps.length - 1, Math.floor(((i + 1) / shown) * n) - 1)] ?? steps[steps.length - 1];
+        this.tweens.add({
+          targets: fly,
+          x: target.x,
+          y: target.y,
+          scaleX: fly.scaleX * 0.22, // **하나씩 작아지면서** 리그로 들어간다.
+          scaleY: fly.scaleY * 0.22,
+          delay: i * 170 + (stFor?.holdMs ?? 0), // 한 알씩 또렷하게 + 보상 연출만큼 기다린다.
+          duration: 560,
+          ease: 'Cubic.easeIn',
+          onComplete: () => {
+            if (!fly.active) return;
+            fly.destroy();
+            if (!this.scene.isActive()) return;
+            sfx('coin_tick', { volume: 0.25 });
+            if (st?.fullGoal != null && st.paidStage != null) {
+              // ① 막대를 그 단계 끝까지 채워 보여 주고 → ② 그 단계 보상을 날린다.
+              gauge?.setFill(1, st.fullGoal, st.fullGoal, st.paidStage);
+              this.queueLeagueCoins(st.coins ?? 0, st.paidStage, 350); // 가득 찬 걸 보고 **바로** 보상.
+              /*
+               * ③ 다음 칸은 **보상 연출이 끝난 뒤** 0 부터 다시 찬다. 뒤따르는 별들도 `holdMs` 만큼
+               *    밀려 있으므로, 이 전환만 같은 간격으로 맞춰 주면 순서가 어긋나지 않는다.
+               */
+              this.tweens.addCounter({
+                from: 0,
+                to: 1,
+                duration: 1100,
+                onComplete: () => {
+                  if (!this.scene.isActive()) return;
+                  gauge?.setFill(st.fill, st.count, st.goal, st.stage);
+                },
+              });
+            } else if (st) {
+              gauge?.setFill(st.fill, st.count, st.goal, st.stage);
+            }
+            if (i === shown - 1) gauge?.finish(steps[steps.length - 1]?.fill ?? 1);
+          },
+        });
+      }
+    };
+
+    if (sv) {
+      // 배지는 먼저 치운다 — 별이 떠오르는데 숫자가 남아 있으면 어긋나 보인다.
+      if (sv.label) {
+        this.tweens.killTweensOf(sv.label);
+        sv.label.destroy();
+      }
+      /*
+       * ⚠️ 진행 중이던 등장 트윈을 **먼저 끊는다**. 안 끊으면 이 확대 트윈과 겹쳐 크기가 튀고,
+       *   파괴 뒤에 옛 트윈이 살아 있으면 게임 루프가 멈춘다(전 게임 공통 함정).
+       */
+      this.tweens.killTweensOf(sv.img);
+      const img = sv.img;
+      img.setDepth(6900);
+      /*
+       * **크게 공중으로 떠오른다**(PO 2026-08-24) — 흩뿌리지 않는다. 별 하나가 보드 위로 올라와
+       *   크게 머물고, 거기서 낱개가 한 알씩 떨어져 나가 리그로 들어간다. 무엇이 어디로 가는지가
+       *   한 줄기로 읽힌다.
+       */
+      const up = { x: img.x, y: Math.max(H * 0.18, img.y - this.geom.cardH * 1.4) };
+      this.tweens.add({
+        targets: img,
+        x: up.x,
+        y: up.y,
+        scaleX: img.scaleX * 1.9,
+        scaleY: img.scaleY * 1.9,
+        duration: 360,
+        ease: 'Back.easeOut',
+        onComplete: () => {
+          if (!img.active) return;
+          const p = { x: img.x, y: img.y };
+          img.destroy();
+          if (!this.scene.isActive()) return;
+          emit(p);
+        },
+      });
+    } else {
+      emit(at);
+    }
+
+  }
+
+  /**
+   * **별 연출이 끝난 뒤에** 코인 보상을 터뜨린다(PO 2026-08-24: "동시에 일어나지 않고 순차적으로").
+   *
+   * 별이 아직 게이지로 날아가는 중에 코인까지 쏟아지면 화면에 두 줄기가 겹쳐, 무엇 때문에 코인을
+   * 받았는지가 읽히지 않는다. **게이지가 다 찬 것을 보여 준 다음** 코인이 헤더로 향한다.
+   *
+   * @param afterMs 게이지가 가득 찬 뒤 코인이 튀기까지의 사이(연출이 겹치지 않게 두는 틈).
+   */
+  private queueLeagueCoins(coins: number, stage: number, afterMs = 900): void {
+    if (coins <= 0) return;
+    // ⚠️ delay 트윈 금지(씬 재시작 시 루프 정지) — 대상 없는 카운터 트윈으로 시간만 센다.
+    this.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: afterMs,
+      onComplete: () => {
+        if (!this.scene.isActive()) return;
+        this.playLeagueCoinBurst(coins, stage);
+      },
+    });
+  }
+
+  /**
+   * **리그 단계 완성 보상 연출**(PO 2026-08-24: "코인이 쏟아지면서 코인 표시 상단 헤더로 코인이
+   * 수집이동됨. 숫자를 표시").
+   *
+   * 게이지가 가득 찬 자리(리그 아이콘 아래)에서 코인이 **쏟아져 나와** 흩어졌다가, 하나씩 상단
+   * 헤더의 코인 칸으로 빨려 들어간다. 마지막 코인이 도착할 때 잔고를 갱신한다 — 숫자가 먼저 올라
+   * 버리면 "이미 받은 뒤 연출"이 되어 인과가 뒤집힌다.
+   */
+  private playLeagueCoinBurst(coins: number, stage: number, origin?: { x: number; y: number }, label = '⭐ 리그 보상'): void {
+    void stage; // 보상 문구에는 단계 번호를 쓰지 않는다(막대가 이미 보여 준다).
+    if (coins <= 0) return;
+    /*
+     * **큰 코인 하나 + 숫자**(PO 2026-08-24: "코인이 너무 작습니다 … 하나만 나타나서 헤더 코인
+     *   영역으로 이동하면서 +2000 식으로 숫자로 표현").
+     *
+     * 예전엔 작은 코인 12개를 뿌렸는데, 개수가 금액과 무관해 "얼마 받았는지"가 안 읽히고 잔상만 남았다.
+     * 크게 하나 띄우고 금액을 옆에 붙여 헤더로 보낸다 — 무엇이 얼마나 늘어나는지가 한 줄로 읽힌다.
+     */
+    const key = 'up_Solitare_UI_2-3'; // 헤더·배너와 같은 골드 코인.
+    const from =
+      origin ??
+      (this.leagueGaugeBox?.active
+        ? { x: this.leagueGaugeBox.x, y: this.leagueGaugeBox.y }
+        : (this.leagueIconAt ?? { x: W - 100, y: 250 }));
+    const to = this.header?.coinAnchor ?? { x: 550, y: 90 };
+    const commit = (): void => {
+      this.baseCoins += coins;
+      this.header?.setCoins(this.baseCoins);
+    };
+
+    const box = this.add.container(from.x, from.y).setDepth(6910);
+    const COIN = 150; // 크게(예전 56px 은 화면에서 티끌이었다).
+    if (this.textures.exists(key)) {
+      const img = this.add.image(0, 0, key);
+      const src = texSize(img.texture);
+      img.setDisplaySize(COIN, COIN * (src.height / src.width)); // ⚠️ 비율 유지.
+      box.add(img);
+    }
+    const amount = this.add
+      .text(COIN * 0.62, 0, `+${coins.toLocaleString()}`, {
+        fontFamily: PlayScene.TIP_FONT, fontSize: '62px', color: '#ffe9a8', fontStyle: '700',
+      })
+      .setOrigin(0, 0.5)
+      .setStroke('#7a3b00', 10);
+    box.add(amount);
+    box.setScale(0.4).setAlpha(0);
+    sfx('coin_burst', { volume: 0.5 });
+    this.toast(`${label} +🪙 ${coins.toLocaleString()}`, true);
+
+    // ① 크게 튀어나온다 → ② 잠깐 머문다 → ③ 헤더 코인 칸으로 빨려 들어간다.
+    this.tweens.add({
+      targets: box,
+      scaleX: 1,
+      scaleY: 1,
+      alpha: 1,
+      y: from.y - 60,
+      duration: 320,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        if (!box.active) return;
+        this.tweens.add({
+          targets: box,
+          x: to.x,
+          y: to.y,
+          scaleX: 0.25,
+          scaleY: 0.25,
+          alpha: 0.9,
+          delay: 620,
+          duration: 620,
+          ease: 'Cubic.easeIn',
+          onComplete: () => {
+            box.destroy();
+            if (!this.scene.isActive()) return;
+            sfx('coin_tick', { volume: 0.3 });
+            commit(); // 도착한 뒤에 잔고가 오른다.
+          },
+        });
+      },
+    });
+  }
+
+  /** 게이지 라벨 — 완주하면 단계 번호 대신 **완주** 라고 쓴다(11단계 같은 존재하지 않는 칸 방지). */
+  private static gaugeLabel(stage: number, count: number, goal: number): string {
+    if (stage >= LEAGUE_STAGE_COUNT) return '완주!';
+    return `${stage + 1}단계  ${count}/${goal}`;
+  }
+
+  /**
+   * **리그 미니 게이지**(PO 2026-08-24) — 별이 회수되는 **그 순간에만** 리그 아이콘에 붙어 뜬다.
+   *
+   * 리그 패널을 열지 않아도 "지금 이 별이 어디까지 채웠는지"가 보여야, 별을 모을 이유가 생긴다.
+   * 상시 표시하면 플레이 화면이 지표로 뒤덮이므로 **수집 중에만** 띄우고 끝나면 사라진다.
+   *
+   * ⚠️ 아이콘은 화면 폭(가변 캔버스)·상단 인셋에 따라 자리가 바뀌므로 **좌표를 베껴 두지 않는다**.
+   *   컨테이너를 아이콘 밑에 두고 `update` 에서 따라붙여, 아이콘이 움직이면 게이지도 함께 움직인다.
+   *
+   * @returns setFill(비율,현재,목표) 로 채우고 finish() 로 잠시 뒤 사라진다.
+   */
+  private showLeagueMiniGauge(
+    fill0: number,
+    count0: number,
+    goal0: number,
+    stage0: number,
+  ): { setFill: (f: number, c: number, g: number, stage: number) => void; finish: (f: number) => void } | null {
+    const BAR_W = 150;
+    const BAR_H = 40; // 상하 폭을 키운다(PO 2026-08-24 "너무 좁다" 재지적: 30 → 40) — 얇으면 차오르는 게 안 보인다.
+    const R = BAR_H / 2; // **양쪽 끝을 라운드**(PO 2026-08-24) — 알약 모양.
+    const box = this.add.container(0, 0).setDepth(6902);
+    const bg = this.add.graphics();
+    bg.fillStyle(0x0d2340, 0.92);
+    bg.fillRoundedRect(-BAR_W / 2, -BAR_H / 2, BAR_W, BAR_H, R);
+    bg.lineStyle(3, 0x2e5c94, 1);
+    bg.strokeRoundedRect(-BAR_W / 2, -BAR_H / 2, BAR_W, BAR_H, R);
+    const bar = this.add.graphics();
+    const inner = BAR_W - 6;
+    const innerH = BAR_H - 8;
+    /** 채움 막대를 다시 그린다 — 짧을 때도 끝이 둥글게 남도록 최소 길이를 지름으로 잡는다. */
+    const draw = (f: number): void => {
+      if (!bar.active) return;
+      bar.clear();
+      const t = Phaser.Math.Clamp(f, 0, 1);
+      if (t <= 0) return;
+      const w = Math.max(innerH, inner * t);
+      bar.fillStyle(0xffc63f, 1);
+      bar.fillRoundedRect(-inner / 2, -innerH / 2, w, innerH, innerH / 2);
+    };
+    draw(fill0);
+    const label = this.add
+      .text(0, 0, PlayScene.gaugeLabel(stage0, count0, goal0), {
+        fontFamily: PlayScene.TIP_FONT, fontSize: '22px', color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setStroke('#1d3f6b', 6);
+    box.add([bg, bar, label]);
+    box.setAlpha(0);
+    this.leagueGaugeBox = box; // update 가 리그 아이콘에 붙여 준다.
+    this.syncLeagueGauge();
+    this.tweens.add({ targets: box, alpha: 1, duration: 160 });
+
+    let shown = Phaser.Math.Clamp(fill0, 0, 1);
+    /*
+     * ⚠️ 채움 보간 트윈은 **한 번에 하나만** 살려 둔다. 별이 빠르게 연달아 도착하면 보간 트윈이
+     *   여러 개 겹치는데, 먼저 시작한(낮은 값에서 출발한) 트윈이 나중에 그려져 막대가 **뒤로 튄다**
+     *   — PO 가 본 "증가했다 감소했다"의 나머지 절반이다. 새 값이 오면 이전 것을 멈춘다.
+     */
+    let fillTween: Phaser.Tweens.Tween | undefined;
+    return {
+      setFill: (f, c, g, stage) => {
+        if (!bar.active) return;
+        const to = Phaser.Math.Clamp(f, 0, 1);
+        // 단계가 오르면 막대는 정상적으로 0 부터 다시 찬다 — 그때만 되돌림을 허용한다.
+        const stepUp = label.active && label.text !== PlayScene.gaugeLabel(stage, c, g) && !label.text.startsWith(`${stage + 1}단계`);
+        if (to < shown && !stepUp) return;
+        if (stepUp) shown = 0;
+        fillTween?.stop();
+        /*
+         * **쭈욱 차오르게**(PO 2026-08-24: "너무 빠르게 연출하여 알아보지 못하도록 하는 게 아니라
+         *   쭈욱쭈욱 끝까지 차오르는 게이지 연출로 정확하게 인지"). 200ms 는 눈으로 좇기 전에 끝났다.
+         *   많이 오를수록 더 오래 끌어(최대 900ms) "얼마나 찼는지"가 보이게 한다.
+         */
+        const span = Math.max(0, to - shown);
+        fillTween = this.tweens.addCounter({
+          from: shown,
+          to,
+          duration: Math.round(320 + span * 900),
+          ease: 'Sine.easeInOut',
+          onUpdate: (tw) => draw(tw.getValue() ?? to),
+          onComplete: () => draw(to),
+        });
+        shown = to;
+        if (label.active) label.setText(PlayScene.gaugeLabel(stage, c, g));
+      },
+      finish: (f) => {
+        if (!bar.active) return;
+        fillTween?.stop();
+        draw(Math.max(shown, Phaser.Math.Clamp(f, 0, 1)));
+        // 다 들어간 뒤 잠깐 보여 주고 사라진다(연출이 끝나기 전에 없어지면 확인할 틈이 없다).
+        this.tweens.add({
+          targets: box,
+          alpha: 0,
+          delay: 1400, // 결과를 읽을 시간(PO 2026-08-24) — 700ms 는 눈이 따라가기 전에 사라졌다.
+          duration: 320,
+          onComplete: () => {
+            box.destroy();
+            if (this.leagueGaugeBox === box) this.leagueGaugeBox = undefined;
+          },
+        });
+      },
+    };
+  }
+
+  /** 게이지를 리그 아이콘 **바로 아래**에 붙여 둔다 — 아이콘이 움직이면 함께 움직인다. */
+  private syncLeagueGauge(): void {
+    const box = this.leagueGaugeBox;
+    if (!box) return;
+    if (!box.active) { this.leagueGaugeBox = undefined; return; }
+    const icon = this.leagueIconImg;
+    const x = icon?.active ? icon.x : (this.leagueIconAt?.x ?? W - 100);
+    const y = icon?.active
+      ? icon.y + icon.displayHeight * 0.5 + 31 // 아이콘 하단 + 'League' 라벨 아래(게이지 40px 반영 +5).
+      : (this.leagueGaugeY ?? (this.leagueIconAt?.y ?? 250) + 82);
+    box.setPosition(x, y);
+  }
+
+  /**
+   * **주간 이벤트 적립**(PO 2026-08-24) — 손님이 **3개 이상** 모으고 떠날 때 그 숫자만큼 들어간다.
+   *
+   * 무엇을 모으는지는 **지금 열린 최고층의 상품**이다(`openFloorOf`). 층 일치 조건은 없앴다 —
+   * 예전 규칙은 층을 올릴수록 이벤트가 멈췄다.
+   */
+  private creditEventFromCustomer(count: number, src: { x: number; y: number }): void {
+    this.creditEventFromPlay(count, src, 'store'); // 손님이 가져가는 것 = 점포 상품.
+  }
+
+  /**
+   * **주간 이벤트 적립 — 판에서 모은 아이템이면 무엇이든**(PO 2026-08-24: "각 플레이에서 미션으로
+   * 수집되는 다이아 · 되돌리기 · 플러스카드 등 다양한 아이템을 위클리 목표 아이템으로").
+   *
+   * 예전에는 손님이 3개 이상 모아 떠날 때(점포 상품)만 셌다. 그 경로 하나로는 사람 손으로 모으기가
+   * 너무 느려 사다리가 멈춰 보였다. 이제 **보드에서 회수하는 것들**도 같은 통에 담는다:
+   *   · 점포 상품(손님 3개 이상) · 다이아 · ＋카드 · 와일드 · 컬렉션 카드
+   *
+   * @param artKey 배너로 날아갈 아이콘. 없으면 그 층의 대표 상품(콜라 등)으로 그린다.
+   */
+  private creditEventFromPlay(count: number, src: { x: number; y: number }, kind: EventTargetKind): void {
+    if (count <= 0) return;
+    /*
+     * **그 칸의 타겟만 인정한다**(PO 2026-08-24). 목표가 다이아인 칸에서 크루아상이 날아가면
+     *   무엇을 모아야 하는지가 화면과 어긋난다. 타겟이 아니면 적립도 연출도 하지 않는다.
+     */
+    const save = loadSave();
+    const stage = eventProgressNow(save.thiefEvent, thiefPeriodId(new Date())).stage;
+    if (eventStageTarget(stage) !== kind) return;
+    const artKey = eventTargetIconKey(kind, floorItemKey(openFloorOf(save)));
+    /*
+     * **적립하지 않고 보관한다**(PO 2026-08-30) — 화면에는 지금 모은 만큼 반영된 결과를 보여 주되
+     *   저장·지급은 판이 끝날 때 한 번(`settleRoundCollectibles`).
+     */
+    const r = previewEventItems(this.pendingEventItems, count);
+    this.pendingEventItems += count;
+    this.labRun.eventItems += count;
+    this.labRun.eventKinds[kind] = (this.labRun.eventKinds[kind] ?? 0) + count; // 타겟 종류별 적립.
+
+    const target = this.missionBanner?.itemAnchor ?? { x: W / 2, y: 260 };
+    const flyKey = artKey && this.textures.exists(artKey) ? artKey : r.itemKey;
+    if (this.textures.exists(flyKey)) {
+      const shown = Math.min(count, 10);
+      for (let i = 0; i < shown; i++) {
+        const fly = this.add
+          .image(src.x + Phaser.Math.Between(-12, 12), src.y + Phaser.Math.Between(-10, 10), flyKey)
+          .setDisplaySize(76, 76)
+          .setDepth(6900);
+        this.tweens.add({
+          targets: fly,
+          x: target.x,
+          y: target.y,
+          scaleX: fly.scaleX * 0.6,
+          scaleY: fly.scaleY * 0.6,
+          delay: i * 60,
+          duration: 520,
+          ease: 'Cubic.easeIn',
+          onComplete: () => fly.destroy(),
+        });
+      }
+    }
+    this.time.delayedCall(560, () => this.refreshEventBanner());
+    /*
+     * ⚠️ **판 중에는 보상 연출을 하지 않는다**(PO 2026-08-30 "게임 중간에 지급되는 과정이 아닌").
+     *   적립을 미뤘으므로 여기서 코인이 쏟아지면 **주지도 않은 것을 준 것처럼** 보인다 — 실제로
+     *   "별이 바로 리그로 들어간다"는 신고의 정체가 이 종류(저장은 미뤘는데 연출은 그대로)였다.
+     *   단계 보상은 판이 끝날 때 `settleRoundCollectibles` 가 확정하고, 배너가 그때 갱신된다.
+     */
+    /*
+     * ⚠️ **판 중에는 단계 보상 연출을 하지 않는다.** 예전엔 여기서 코인이 쏟아지고 헤더로 빨려 들어갔는데
+     *   (PO 2026-08-24 요청), 적립을 판 끝으로 미룬 지금 그 연출을 남기면 **주지도 않은 것을 준 것처럼**
+     *   보인다 — "별이 바로 리그로 들어간다"는 신고의 정체가 정확히 이 종류였다(저장은 미뤘는데 연출은 그대로).
+     *   단계 보상은 `settleRoundCollectibles` 가 확정하고 결과 화면이 보여 준다.
+     */
+  }
+
+  /** 상단 배너를 주간 이벤트 현재 상태로 다시 그린다. */
+  private refreshEventBanner(): void {
+    const v = eventBannerView(loadSave());
+    this.missionBanner?.setView(v);
+  }
+
   private creditMissionStars(count: number, src: { x: number; y: number }): void {
     if (count < 3) return; // 게이트: 3개 미만은 무반응(PO 확정).
+    /*
+     * **주간 이벤트 적립 지점**(PO 2026-08-24) — 손님이 3개 이상 모으고 떠나는 바로 이 순간이다.
+     *   리그(별)와 이벤트(상품)가 서로 다른 행동을 보상하도록 출처를 갈랐다:
+     *     · 리그  = 미션(5매치) 완성 보상으로 꽂힌 별을 회수 → "잘 이어 냈는가"
+     *     · 이벤트 = 손님을 3개 이상으로 보내기          → "손님을 오래 붙잡았는가"
+     */
+    /*
+     * **상품은 손님 머리 위에서 떠오른다**(PO 2026-08-24: "상단 수집아이템은 캐릭터 머리 위쪽에서
+     *   올라가고"). 별(`suckStarsIntoGauge`)은 손님 자리에서 그대로 나가므로, 둘이 같은 점에서
+     *   출발하면 겹쳐 보인다. 상품만 머리 위로 올려 두 줄기를 분리한다.
+     */
+    this.creditEventFromCustomer(count, { x: src.x, y: src.y - PlayScene.CUSTOMER_HEAD_DY });
     const save = loadSave();
     const result = applyMissionStars(missionRewardOf(save, Date.now()), count, Date.now());
     save.missionReward = result.state;
@@ -1588,6 +3184,8 @@ export class PlayScene extends Phaser.Scene {
       const box = result.reward;
       save.coins += box.coins ?? 0;
       save.diamonds = (save.diamonds ?? 0) + (box.diamonds ?? 0);
+      this.labRun.tierCoins += box.coins ?? 0; // 실측 원장 — 티어 박스 코인(미기록 시 미상 수입으로 뜬다).
+      this.labRun.tierDiamonds += box.diamonds ?? 0;
       if (box.boosters) {
         const cur = itemsOf(save);
         save.items = {
@@ -1599,12 +3197,11 @@ export class PlayScene extends Phaser.Scene {
       // **티어 박스의 컬렉션 카드**(MISSION_TIERS 3·4티어 collectionCards) — 미보유 카드 중 랜덤 지급.
       //   지금까지 데이터에만 있고 지급되지 않던 항목을 컬렉션 도입(2026-07-26)에 맞춰 배선.
       grantedCards = this.grantCollectionCards(save, box.collectionCards ?? 0);
-      this.pendingMissionBox = box; // 다음 승리 팝업(showMissionReward 이후)에서 노출.
       this.baseCoins += box.coins ?? 0; // 재화는 즉시 반영(다음 refresh 에서 헤더에 표시).
     }
     writeSave(save);
     this.missionBanner?.animateTo(result.state, src);
-    if (result.completed && result.reward) this.playMissionBoxRewardBurst(result.reward);
+
     // 재화 회수 연출과 겹치지 않게 살짝 뒤로 미뤄 카드 획득 연출을 재생(여러 장이면 순차).
     grantedCards.forEach((g, i) => this.time.delayedCall(900 + i * 1700, () => this.playCollectionCardReveal(g.card, g.entry)));
   }
@@ -1624,34 +3221,6 @@ export class PlayScene extends Phaser.Scene {
     return granted;
   }
 
-  /**
-   * **미션 티어 완료 보상 연출**(PO 2026-07-18: "다이아가 커졌다가 저장소로 빨려들어가는 연출, 코인도
-   *   마찬가지") — 배너의 보상 미리보기 아이콘(rewardAnchor, 이미 커졌다 작아지는 펄스 재생 중)에서
-   *   출발해 헤더의 재화 카운터로 낙하→상승 회수되는 입자를 날린다(rewardBurstFly 재사용).
-   *   ⚠️ **이 티어의 대표 보상 하나만** 연출한다(2026-07-18 QA "다이아 내려오는데 코인도 같이 내려온다") —
-   *   배너 미리보기도 한 번에 한 아이템만 보여주므로, 박스에 코인+다이아가 함께 들어있어도 연출은
-   *   미리보기에 표시된 것과 동일한 하나만 재생한다(재화 지급 자체는 creditMissionStars 에서 이미
-   *   전부 반영됨 — 여기서 하나만 스킵해도 안 준 게 아니라 "연출만" 생략).
-   */
-  private playMissionBoxRewardBurst(box: MissionRewardBox): void {
-    const from = this.missionBanner?.rewardAnchor;
-    if (!from) return;
-    this.time.delayedCall(220, () => {
-      const diamonds = box.diamonds ?? 0;
-      const coins = box.coins ?? 0;
-      if (diamonds > 0) {
-        // 배너 미리보기가 현재 다이아만 표시하므로(코인 미리보기 아트 미저작) 다이아를 우선.
-        const diamondTarget = this.header?.diamondAnchor ?? { x: 780, y: 90 };
-        this.rewardBurstFly(from.x, from.y, 'up_Solitare_UI_2-2_v3', Math.min(diamonds, 10), diamondTarget, 44);
-        sfx('coin_burst', { volume: 0.3 });
-      } else if (coins > 0) {
-        const coinTarget = this.header?.coinAnchor ?? { x: 550, y: 90 };
-        const coinN = Phaser.Math.Clamp(Math.round(coins / 250), 6, 12);
-        this.rewardBurstFly(from.x, from.y, 'up_Solitare_UI_2-3_v2', coinN, coinTarget, 40);
-        sfx('coin_burst', { volume: 0.3 });
-      }
-    });
-  }
 
 
   /** 미션 보상 1건 추첨(가중) — 코인·추가카드 자주, 다이아·부스터·컬렉션카드 드묾(레벨20까지는 부스트). 코인 수량은 게임비 연동. */
@@ -1667,14 +3236,34 @@ export class PlayScene extends Phaser.Scene {
         break;
       }
     }
-    const coinAmount = (): number => Math.max(100, Math.round((entryFeeFor(this.level, 1) * 0.08) / 100) * 100); // 게임비×0.08(경제 H안 하향), 100 단위.
     if (picked.kind === 'collection') {
       // **미보유 카드 중 랜덤 예고** — 아트가 없으면(로딩 실패 등) 그 슬롯은 못 쓰므로 텍스처 유무까지 확인.
       const slot = this.rollCollectionSlot();
-      if (!slot) return { kind: 'coins', amount: coinAmount() }; // 다 모았으면 코인으로 대체.
+      if (!slot) return { kind: 'stars', amount: this.rollStarAmount() }; // 다 모았으면 리그 별로 대체.
       return { kind: 'collection', amount: 1, slot };
     }
-    return { kind: picked.kind, amount: picked.kind === 'coins' ? coinAmount() : picked.amount };
+    /*
+     * **뽑기 공급 억제는 종류가 아니라 장수로**(PO 2026-08-24 "정해진 확률대로 나타나야 한다").
+     *   예전에는 뽑기가 넉넉하면(`stockIsAmple`) cards/plus5/wild 를 통째로 stars 로 바꿨다. 그런데 그
+     *   조건은 초반(스톡 많음)에도 후반(남은 보드가 작아 기준선이 하한 3으로 내려감)에도 거의 항상 참이라,
+     *   보상표의 절반(가중 50/108 = 44.5%)이 화면에 아예 안 나왔다 — 실측 2.9%, 그만큼이 stars 로 몰려 76%.
+     *   이제 **종류는 뽑힌 그대로 두고 장수만** 최소로 깎는다(missionStockAmount) — 출현 비율 = 보상표.
+     */
+    if (STOCK_REWARD_KINDS.has(picked.kind)) {
+      return { kind: picked.kind, amount: missionStockAmount(picked.amount, this.stockIsAmple()) };
+    }
+    return { kind: picked.kind, amount: picked.kind === 'stars' ? this.rollStarAmount() : picked.amount };
+  }
+
+  /**
+   * **뽑기가 넉넉한가** — 남은 보드 카드를 지금 가진 뽑기로 감당할 수 있는가.
+   *   생산적인 뽑기 한 장은 연쇄 덕분에 평균 2장 남짓을 치우므로, `뽑기 ≥ 남은보드 × 0.5` 면 이미 충분하다.
+   *   하한(3장)은 보드가 거의 끝난 상황에서 0장이 기준이 되는 걸 막는다.
+   */
+  private stockIsAmple(): boolean {
+    if (!this.state) return false;
+    const left = remaining(this.state);
+    return stockIsAmple(left, this.state.stock.length); // 판정은 economyRules(시뮬레이터와 공유).
   }
 
   /** 저장된 보유 상태 기준으로 **아트가 준비된 미보유 카드**를 하나 추첨(전부 모았으면 null). */
@@ -1729,18 +3318,20 @@ export class PlayScene extends Phaser.Scene {
     const exposedNow = new Set(this.state.layout.slots.filter((s) => isExposed(this.state, s.id)).map((s) => s.id));
     // 이미 다른 컬렉션 카드가 꽂힌 슬롯도 제외 — 한 카드에 두 장이 겹치지 않게.
     const busy = (id: string): boolean =>
-      this.diamondSlots.has(id) || id === this.wildSlotId || id === this.bonusSlot?.id || this.boardCollections.has(id);
+      this.diamondSlots.has(id) || id === this.wildSlotId || id === this.bonusSlot?.id || this.boardCollections.has(id) ||
+      this.starSlots.has(id) || this.stockSlots.has(id);
     const pool = [...this.cards.keys()].filter((id) => !busy(id) && !exposedNow.has(id)); // **가려진 카드만**.
     if (!pool.length) return null;
     const slotId = pool[Phaser.Math.Between(0, pool.length - 1)];
     const view = this.cards.get(slotId);
     if (!view) return null;
     // 카드 **뒤**(depth − 0.3)에 두고 위로 삐져나오게 — 카드 앞면을 가리지 않으면서 "꽂혀 있는" 느낌.
-    const img = this.add.image(view.x, view.y - this.geom.cardH * 0.5, key).setDepth((view.depth ?? 100) - 0.3);
-    const src = img.texture.getSourceImage() as { width: number; height: number };
-    const h = this.geom.cardH; // 기본 크기 = 보드 카드 높이(오픈 시 1.5배의 기준).
+    const img = this.add.image(view.x, view.y - this.geom.cardH * 0.5, key).setDepth((view.depth ?? 100) - PlayScene.BADGE_BEHIND);
+    const src = texSize(img.texture);
+    const h = this.geom.cardH * 0.88; // 보드 카드보다 **조금 작게**(PO 2026-08-24) — 카드를 덜 가린다.
     img.setDisplaySize(h * (src.width / src.height), h);
     img.setAngle(-10).setAlpha(0);
+    this.addCardBacking(img); // 흰 카드 판 — 아트의 얇은 테두리를 넓혀 카드처럼 보이게.
     const entry: BoardCollection = { slotId, card, view: img, opened: false, armed: false, played: false };
     this.boardCollections.set(slotId, entry);
     return entry;
@@ -1760,18 +3351,17 @@ export class PlayScene extends Phaser.Scene {
     const key = this.missionIconKey(rw);
     if (!this.textures.exists(key)) return;
     img.setTexture(key); // ⚠️ displaySize 가 텍스처 원본 크기로 리셋됨 → 아래서 상자에 맞춰 재축소.
-    const src = img.texture.getSourceImage() as { width: number; height: number };
+    const src = texSize(img.texture);
     const box = this.missionIconBox;
     const scale = Math.min(box.w / src.width, box.h / src.height); // contain(넘치지 않게).
     img.setDisplaySize(src.width * scale, src.height * scale);
   }
 
   /**
-   * **미션 실패 재추첨**(PO 2026-07-27) — 5매치를 못 채우고 콤보가 끊기면 예고 보상을 새로 뽑아 갈아끼운다.
-   *   예고 아이콘이 조용히 바뀌면 눈치채기 어려워, **뒤집히듯 축소→교체→확대**하는 짧은 연출로 바뀐 걸 알린다.
-   *   ⚠️ 지급은 없다 — 실패했으니 보상은 못 받고 **목표(예고 보상)만** 바뀐다.
+   * **다음 미션 예고 갈아끼우기** — 보상을 **실제로 지급한 뒤에만** 부른다(PO 2026-08-24).
+   *   예고 아이콘이 조용히 바뀌면 눈치채기 어려워, **뒤집히듯 축소→교체→확대**하는 짧은 연출로 알린다.
    */
-  private rerollMissionOnFail(): void {
+  private rerollMissionPreview(): void {
     const prev = this.missionReward;
     this.missionReward = this.rollMissionReward();
     const img = this.missionRewardImg;
@@ -1818,13 +3408,55 @@ export class PlayScene extends Phaser.Scene {
     this.undoCostLabel = this.makeBoosterCostLabel(this.undoImg); // 되돌리기도 유료(PO) — 가격/원문자 라벨.
   }
 
+  /**
+   * **하단 라벨 5개를 한 기준선에 맞춘다**(PO 2026-08-24: "폰트 크기를 약간 키우고 수평정렬을
+   * 정확히 하세요. 너무 들쭉날쭉합니다").
+   *
+   * ＋5·되돌리기·와일드 비용 라벨은 **각자 아이콘 하단**에 붙어 있었고(아이콘 높이가 제각각이라
+   * 세로가 어긋났다), 뽑기·기준 카드 라벨은 **카드 하단**을 따랐다. 다섯이 서로 다른 기준을 쓰니
+   * 한 줄로 보이지 않았다. 부스터 아이콘의 **가장 아래 모서리**를 공통 기준선으로 삼고, 글자 크기와
+   * 외곽선도 하나로 맞춘다.
+   */
+  private alignBottomLabels(): void {
+    const labels = [this.plus5CostLabel, this.wildCostLabel, this.undoCostLabel, this.stockCountText, this.wasteLabel]
+      .filter((t): t is Phaser.GameObjects.Text => !!t && t.active);
+    if (!labels.length) return;
+    const icons = [this.addImg, this.wildImg, this.undoImg].filter(
+      (i): i is Phaser.GameObjects.Image => !!i && i.active,
+    );
+    /*
+     * 기준선 = **부스터 아이콘 하단과 카드 하단 중 더 아래**.
+     * 아이콘만 기준으로 잡으면 그보다 아래로 내려오는 뽑기·기준 카드 위에 글자가 얹혀 읽히지 않는다.
+     */
+    const cardBottom = this.geom.cardH / 2;
+    const bottoms = [
+      ...icons.map((i) => i.y + i.displayHeight / 2),
+      STOCK.y + cardBottom,
+      WASTE.y + cardBottom,
+    ];
+    const baseline = bottoms.length
+      ? Math.max(...bottoms) + PlayScene.BOTTOM_LABEL_GAP + PlayScene.BOTTOM_LABEL_SIZE / 2
+      : Math.max(...labels.map((t) => t.y));
+    /*
+     * ⚠️ `setFontSize`·`setStroke` 는 그때마다 **텍스트 텍스처를 다시 굽는다**. 예전엔 이 함수를
+     *   `updateBoosters`(매 매칭·구매마다 호출)에서도 불러 라벨 5개를 계속 재렌더했다 — 판이 무거워지는
+     *   원인 중 하나였다(2026-08-24 점검). 지금은 **판을 만들 때 한 번만** 부른다.
+     */
+    for (const t of labels) {
+      t.setFontSize(PlayScene.BOTTOM_LABEL_SIZE);
+      t.setOrigin(0.5);
+      t.setStroke('#4a2a10', 6);
+      t.setY(baseline);
+    }
+  }
+
   /** 부스터 이미지 하단에 코인 비용 라벨 생성(이미지 없으면 undefined). */
   private makeBoosterCostLabel(img?: Phaser.GameObjects.Image): Phaser.GameObjects.Text | undefined {
     if (!img) return undefined;
     const y = img.y + img.displayHeight / 2 - 6; // 이미지 하단 안쪽.
     return this.add
       .text(img.x, y, '', {
-        fontFamily: '"Jua", sans-serif',
+        fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
         fontSize: '26px',
         color: '#ffe9a0',
         stroke: '#4a2a10',
@@ -1838,7 +3470,7 @@ export class PlayScene extends Phaser.Scene {
   private drawBackground(tint: number): void {
     if (this.textures.exists(BACK_BG_KEY)) {
       const img = this.add.image(W / 2, H / 2, BACK_BG_KEY).setDepth(-100);
-      const src = img.texture.getSourceImage() as { width: number; height: number };
+      const src = texSize(img.texture);
       const scale = Math.max(W / src.width, H / src.height);
       img.setScale(scale);
       return;
@@ -1847,10 +3479,11 @@ export class PlayScene extends Phaser.Scene {
     const g = this.add.graphics().setDepth(-100);
     const top = Phaser.Display.Color.IntegerToColor(tint);
     const bot = Phaser.Display.Color.IntegerToColor(0x2a1830);
+    const fb = fullBleedBounds(this); // 캔버스 전체를 채운다(저작 크기로 그리면 가장자리가 뚫린다).
     for (let i = 0; i < 48; i++) {
       const c = Phaser.Display.Color.Interpolate.ColorWithColor(top, bot, 100, (i / 47) * 100);
       g.fillStyle(Phaser.Display.Color.GetColor(c.r, c.g, c.b), 1);
-      g.fillRect(0, (H / 48) * i, W, H / 48 + 1);
+      g.fillRect(fb.x, fb.y + (fb.h / 48) * i, fb.w, fb.h / 48 + 1);
     }
   }
 
@@ -1869,14 +3502,14 @@ export class PlayScene extends Phaser.Scene {
       // 폴백: 예전 baked 아트(up_Solitaire_BG) 또는 색 사각.
       const key = floorArtKey(idx);
       if (this.textures.exists(key)) {
-        const src = this.textures.get(key).getSourceImage() as { width: number; height: number };
+        const src = texSize(this.textures.get(key));
         this.add.image(W / 2, cy, key).setScale(FLOOR_ART_H / src.height).setDepth(30);
       } else {
         this.add.rectangle(W / 2, cy, 900, FLOOR_ART_H, FLOORS[(idx - 1) % FLOORS.length].tint, 0.9).setDepth(30);
       }
       return;
     }
-    const src = this.textures.get(bareKey).getSourceImage() as { width: number; height: number };
+    const src = texSize(this.textures.get(bareKey));
     const scale = FLOOR_ART_H / src.height;
     const artW = src.width * scale;
     const cx = W / 2;
@@ -1933,14 +3566,16 @@ export class PlayScene extends Phaser.Scene {
     const D_CLERK = 2.3;
     const D_CUST = 2.5;
     const D_GLASS = 2.7; // 모두 인테리어(3)보다 뒤 → 보드에 하단이 가림.
-    // 순수 층 아트(홈 사이즈).
-    if (this.textures.exists('up_Slitare_BG_02_v2')) {
-      this.add.image(cx, cyFloor, 'up_Slitare_BG_02_v2').setDisplaySize(ART_W, ART_H).setDepth(D_ART);
+    // 순수 층 아트 — **지금 층의 점포**(최신 버전 _v3 > _v2 > base 순, 홈과 같은 규칙).
+    const artKey = this.floorArtKeyFor();
+    if (artKey) {
+      this.add.image(cx, cyFloor, artKey).setDisplaySize(ART_W, ART_H).setDepth(D_ART);
     }
-    // 점원(베이커) — 홈 사이즈·오프셋 + idle 애니.
+    // 점원 — 그 층의 점원(Chr_NN). 층 아트에는 사람이 없어 코드로 카운터에 세운다.
+    const clerkKey = this.floorClerkKeyFor();
     let clerkBottom = cyFloor + CLERK_DY + CLERK_H / 2;
-    if (this.textures.exists('up_Solirare_Chr_02')) {
-      const chr = this.add.image(cx + CLERK_DX, cyFloor + CLERK_DY, 'up_Solirare_Chr_02').setDisplaySize(CLERK_W, CLERK_H).setDepth(D_CLERK);
+    if (clerkKey) {
+      const chr = this.add.image(cx + CLERK_DX, cyFloor + CLERK_DY, clerkKey).setDisplaySize(CLERK_W, CLERK_H).setDepth(D_CLERK);
       clerkBottom = chr.y + chr.displayHeight / 2;
       this.animateClerk(chr);
     }
@@ -1953,9 +3588,9 @@ export class PlayScene extends Phaser.Scene {
       groundY: clerkBottom,
       height: CLERK_H * 0.92,
       depth: D_CUST, // 점원 앞, 유리 뒤, 인테리어(3) 뒤.
-      // **점포 이미지와 일치하는 주문 아이템**(PO) — 플레이 점포 아트=골든크러스트 베이커리(floor2)
-      //   이므로 아이템도 베이커리 세트(Item_01_02-N: 빵·크루아상 등). 층 테마 연동 확장 시 함께 변경.
-      itemFloor: 2,
+      // **점포 이미지와 일치하는 주문 아이템** — 화면의 점포가 곧 이 층이므로 주문도 그 층 상품이다.
+      //   위클리 이벤트가 모으는 상품과도 같은 층이라, 손님 주문 → 수집이 한 줄로 이어진다.
+      itemFloor: this.playFloor,
       starTarget: this.gaugeGeom.width > 0 ? { x: this.gaugeGeom.left + this.gaugeGeom.width / 2, y: this.gaugeGeom.y } : { x: 200, y: DARK_TOP + 40 },
       // **손님 별 회수(흡입) 연출** — 정산 시 쌓인 정확한 별 개수를 게이지 끝으로 커지며 순차 흡입 + 게이지 동시 변화.
       onCollectStars: (count, src) => this.suckStarsIntoGauge(count, src),
@@ -1965,6 +3600,16 @@ export class PlayScene extends Phaser.Scene {
       const glass = this.add.image(cx, cyFloor + GLASS_DY, 'up_Slitare_BG_Glass').setDepth(D_GLASS);
       glass.setDisplaySize(GLASS_W, glass.height * (GLASS_W / glass.width));
     }
+  }
+
+  /** 층 아트 키 — 최신 버전(_v3 > _v2 > base) 우선. 없으면 undefined(폴백은 호출부 판단). */
+  private floorArtKeyFor(): string | undefined {
+    return [...this.store.artKeys, 'up_Slitare_BG_02_v2'].find((k) => this.textures.exists(k));
+  }
+
+  /** 지금 점포의 점원 키 — 없으면 2층 베이커로 폴백(아트 누락에도 카운터가 비지 않게). */
+  private floorClerkKeyFor(): string | undefined {
+    return [...this.store.clerkKeys, 'up_Solirare_Chr_02'].find((k) => this.textures.exists(k));
   }
 
   /** 점원 idle 애니(발밑 고정 + 좌우 갸웃 + 숨쉬기) — 홈과 동일 느낌. */
@@ -2021,16 +3666,16 @@ export class PlayScene extends Phaser.Scene {
     //   아이콘(✉·☰) 뒤에 겹쳐 유령 텍스트로 비쳤다 → 전면 생략으로 제거.)
     if (this.chromeFromEditor) return;
     this.coinText = this.add
-      .text(44, 56, '🪙 30,140', { fontFamily: '"Jua", sans-serif', fontSize: '44px', color: '#ffe9a0' })
+      .text(44, 56, '🪙 30,140', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '44px', color: '#ffe9a0' })
       .setOrigin(0, 0.5)
       .setDepth(60);
     this.comboText = this.add
-      .text(44, 112, '콤보 x0', { fontFamily: '"Jua", sans-serif', fontSize: '30px', color: '#ffffff' })
+      .text(44, 112, '콤보 x0', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '30px', color: '#ffffff' })
       .setOrigin(0, 0.5)
       .setDepth(60);
     this.remainText = this.add
       .text(W - 44, 56, '남은 카드 18', {
-        fontFamily: '"Jua", sans-serif',
+        fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
         fontSize: '34px',
         color: '#ffffff',
         stroke: '#3a1030',
@@ -2040,7 +3685,7 @@ export class PlayScene extends Phaser.Scene {
       .setDepth(60);
     this.add
       .text(W - 44, 112, '⌂ 홈', {
-        fontFamily: '"Jua", sans-serif',
+        fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
         fontSize: '32px',
         color: '#ffffff',
         stroke: '#3a1030',
@@ -2049,7 +3694,7 @@ export class PlayScene extends Phaser.Scene {
       .setOrigin(1, 0.5)
       .setDepth(60)
       .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.scene.start('home'));
+      .on('pointerdown', () => this.confirmQuit());
   }
 
   // ── 좌표(동적 — 배치를 보드 영역에 맞춰 스케일·중앙배치) ─────────────────
@@ -2058,13 +3703,6 @@ export class PlayScene extends Phaser.Scene {
     cardW: BASE_CARD_W,
     cardH: BASE_CARD_H,
     cx: W / 2,
-    topY: BOARD_TOP,
-    colMid: 0,
-    minRow: 0,
-    pxUnit: BASE_CARD_W,
-    pyUnit: BASE_CARD_H,
-    // 에디터 절대배치 렌더용(abs 레이아웃일 때만).
-    absMode: false,
     absOriginX: 0,
     absOriginY: 0,
     /** 세로 좌표 배율 = scale × 조밀도. 카드 **크기는 그대로** 두고 세로 간격만 조이는 축(fitVertical 참조). */
@@ -2095,7 +3733,7 @@ export class PlayScene extends Phaser.Scene {
   /**
    * 에디터 절대배치(abs) 기하 — 저작 카드 바운딩(디자인 px)을 보드 영역에 배치한다.
    *   **에디터에서 설정한 카드 크기(최소/저작 크기)를 기준(1:1)으로 표시** — 에디터·게임 모두 1080×2400 이므로
-   *   editor px = game px. 남아도 확대하지 않는다(레벨마다 카드 크기가 달라지지 않게).
+   *   editor px = game px. 남는 폭은 ABS_CARD_MAX_SCALE(1.15) 까지만 확대한다(레벨 간 편차 제한).
    *   세로가 넘치면 카드를 줄이기 전에 **먼저 조밀도**(fitVertical)로 흡수한다.
    */
   private computeAbsGeom(abs: NonNullable<import('../logic/layouts.js').PeakLayout['abs']>): void {
@@ -2108,7 +3746,7 @@ export class PlayScene extends Phaser.Scene {
     const spread = Math.max(0, contentH - abs.cardH); // 카드 중심들의 세로 퍼짐.
 
     // 카드 크기는 **가로 기준**으로만 정한다(세로 때문에 작아지지 않게) → 세로는 조밀도가 맡는다.
-    const fit = PlayScene.fitVertical(spread, abs.cardH, Math.min(ABS_CARD_MAX_SCALE, boardW / contentW), availH);
+    const fit = PlayScene.fitVertical(spread, abs.cardH, Math.min(ABS_CARD_MAX_SCALE, (boardW * ABS_FIT_W_RATIO) / contentW), availH);
     const scale = fit.scale;
     const scaleY = scale * fit.compact;
 
@@ -2124,73 +3762,37 @@ export class PlayScene extends Phaser.Scene {
       cardW: abs.cardW * scale,
       cardH: abs.cardH * scale,
       cx: (BOARD_LEFT + BOARD_RIGHT) / 2,
-      absMode: true,
       absOriginX: originX,
       absOriginY: originY,
       absScaleY: scaleY,
     };
   }
 
+  /**
+   * 보드 기하 — **에디터 절대배치(abs) 전용**.
+   *   게임에 노출되는 레이아웃은 전부 `cardBoardToLayout` 산출이라 `abs` 가 항상 있다
+   *   (저작 레벨이 없으면 애초에 플레이가 시작되지 않는다).
+   *
+   *   예전에는 (row,col) 격자 폴백 경로가 함께 있었으나 **프로덕션에서 도달 불가**였고,
+   *   그 경로의 depth 규약이 커버 그래프와 **반대**여서(커버는 아래 행이 앞인데 depth 는 뒤)
+   *   되살아나면 곧바로 "보이는 카드가 안 눌리는" 버그가 되는 지뢰였다 → 제거했다.
+   */
   private computeGeom(): void {
-    if (this.state.layout.abs) {
-      this.computeAbsGeom(this.state.layout.abs);
+    const abs = this.state.layout.abs;
+    if (!abs) {
+      this.logInvariant('layout-without-abs', this.state.layout.id);
       return;
     }
-    this.geom = { ...this.geom, absMode: false };
-    const slots = this.state.layout.slots;
-    const cols = slots.map((s) => s.col);
-    const rows = slots.map((s) => s.row);
-    const minC = Math.min(...cols);
-    const maxC = Math.max(...cols);
-    const minR = Math.min(...rows);
-    const maxR = Math.max(...rows);
-    // 세로(커버 관계)만 겹치고, **같은 행 가로 이웃은 미세 간격 유지**(겹침 금지).
-    //   col 1칸 간격 = pxUnit0 > 카드폭 → 같은 행 카드 사이에 흰 프레임(±6px)까지 안 닿는 작은 틈.
-    const pxUnit0 = BASE_CARD_W * 1.03; // col 1칸당 x 간격 — 가로 이웃 비겹침(헤어라인 미세 틈)
-    const pyUnit0 = BASE_CARD_H * 0.58; // row 1칸당 y 간격 — 그룹 내부 세로 겹침(커버, 의도)
-    const neededW = (maxC - minC) * pxUnit0 + BASE_CARD_W;
-    const boardW = BOARD_RIGHT - BOARD_LEFT;
-    // **상하 여백 보장 + 세로 조밀도**(abs 경로와 동일 규칙, PO 2026-07-28).
-    const availTop = this.boardTop + BOARD_PAD_TOP;
-    const availH = Math.max(1, this.boardBottom - BOARD_PAD_BOTTOM - availTop);
-    const spread = (maxR - minR) * pyUnit0; // 행 간격의 총 퍼짐(카드 1장 높이는 별도).
-    // **카드 크기 상한(1.35)** — 종전 0.91 대비 +48%(체감 강화 피드백으로 상향). 가로 기준으로만 정하고,
-    //   세로가 넘치면 카드를 줄이기 전에 행 간격(pyUnit)을 조인다.
-    const fit = PlayScene.fitVertical(spread, BASE_CARD_H, Math.min(1.35, boardW / neededW), availH);
-    const scale = fit.scale;
-    const room = Math.max(0, availH - scale * (spread * fit.compact + BASE_CARD_H));
-    this.geom = {
-      scale,
-      cardW: BASE_CARD_W * scale,
-      cardH: BASE_CARD_H * scale,
-      cx: (BOARD_LEFT + BOARD_RIGHT) / 2,
-      topY: availTop + room / 2 + Math.min(room / 2, BOARD_DOWN_BIAS) + (BASE_CARD_H * scale) / 2,
-      colMid: (minC + maxC) / 2,
-      minRow: minR,
-      pxUnit: pxUnit0 * scale,
-      pyUnit: pyUnit0 * scale * fit.compact, // 행 간격에만 조밀도 반영(카드 크기는 그대로).
-      absMode: false,
-      absOriginX: 0,
-      absOriginY: 0,
-      absScaleY: scale,
-    };
+    this.computeAbsGeom(abs);
   }
 
   private slotPos(slot: LayoutSlot): { x: number; y: number; depth: number } {
     const g = this.geom;
-    if (g.absMode && slot.ax != null && slot.ay != null) {
-      // 에디터 절대배치 — 저작 px 를 보드 영역 스케일로 매핑. 높은 레이어(row)=앞(높은 depth).
-      return {
-        x: g.absOriginX + slot.ax * g.scale,
-        y: g.absOriginY + slot.ay * g.absScaleY, // 세로만 조밀도 반영(카드 크기는 scale 그대로).
-        depth: 100 + slot.row * 10,
-      };
-    }
+    // 저작 px 를 보드 영역 스케일로 매핑. 높은 레이어(row)=앞(높은 depth) — 커버 그래프와 같은 방향.
     return {
-      x: g.cx + (slot.col - g.colMid) * g.pxUnit,
-      y: g.topY + (slot.row - g.minRow) * g.pyUnit,
-      // 위 행(작은 row)이 앞(높은 depth) — 상단 카드가 아래 카드를 덮는다.
-      depth: 100 + (this.state.layout.rowCount - slot.row) * 10,
+      x: g.absOriginX + (slot.ax ?? 0) * g.scale,
+      y: g.absOriginY + (slot.ay ?? 0) * g.absScaleY, // 세로만 조밀도 반영(카드 크기는 scale 그대로).
+      depth: 100 + slot.row * 10,
     };
   }
 
@@ -2252,17 +3854,21 @@ export class PlayScene extends Phaser.Scene {
     const folds = items.filter((it) => !it.exposed);
     const opens = items.filter((it) => it.exposed);
 
-    // ── 폴드(뒷면) — 위에서 비껴 떨어지며 가속 스태거로 차르륵 깔린다. ──
-    const FOLD_SPAN = 500; // 폴드 시작딜레이 창(전체)
-    const FOLD_DUR = 175; // 개별 낙하 시간
+    // ── 폴드(뒷면) — **화면 밖 먼 곳에서** 날아와 제자리에 깔린다(PO 2026-08-22
+    //    "주변에서 나타나는 방식이 아니라 화면을 벗어난 먼 곳에서 날아와 배치"). ──
+    //    출발점은 위쪽 화면 밖(카드 한 장 높이 + 여유). 좌우로도 살짝 벌려 부채처럼 모이게 한다.
+    const FOLD_SPAN = 520; // 폴드 시작딜레이 창(전체)
+    const FOLD_DUR = 320; // 개별 비행 시간(먼 거리라 조금 길게)
     const n = Math.max(1, folds.length);
+    const offTop = -this.geom.cardH * 1.6; // 화면 위 바깥
     folds.forEach((it, i) => {
       const delay = FOLD_SPAN * (i / n) ** 1.7; // 뒤로 갈수록 촘촘 → 가속하는 리듬
+      const side = it.fx < boardCx ? -1 : 1;
       it.view
-        .setPosition(it.fx - 44, it.fy - 62)
+        .setPosition(it.fx + side * this.geom.cardW * 1.2, offTop)
         .setAlpha(0)
-        .setAngle(it.fa - 9)
-        .setScale(it.fsx * 0.92, it.fsy * 0.92);
+        .setAngle(it.fa - side * 16)
+        .setScale(it.fsx * 0.86, it.fsy * 0.86);
       this.tweens.add({
         targets: it.view,
         x: it.fx,
@@ -2273,18 +3879,18 @@ export class PlayScene extends Phaser.Scene {
         scaleY: it.fsy,
         delay,
         duration: FOLD_DUR,
-        ease: 'Quad.easeIn', // 낙하가 가속되며 안착
+        ease: 'Cubic.easeOut', // 멀리서 빠르게 들어와 슬롯에서 감속
       });
     });
 
     // ── 오픈(앞면) — 폴드가 거의 깔린 뒤 좌우 화면 밖에서 날아와 안착. ──
     const OPEN_BASE = FOLD_SPAN * 0.8 + 40;
     const OPEN_STAGGER = 78;
-    const OPEN_DUR = 300;
+    const OPEN_DUR = 380;
     let lastEnd = folds.length > 0 ? FOLD_SPAN + FOLD_DUR : 0;
     opens.forEach((it, i) => {
       const side = it.fx < boardCx ? -1 : 1;
-      const startX = side < 0 ? -this.geom.cardW : W + this.geom.cardW;
+      const startX = side < 0 ? -this.geom.cardW * 2.2 : W + this.geom.cardW * 2.2; // 화면 밖 먼 곳
       const delay = OPEN_BASE + i * OPEN_STAGGER;
       it.view.setPosition(startX, it.fy).setAlpha(it.fAlpha).setAngle(side * 14).setScale(it.fsx, it.fsy);
       this.tweens.add({
@@ -2326,7 +3932,7 @@ export class PlayScene extends Phaser.Scene {
     this.stockContainer = this.add.container(STOCK.x, STOCK.y).setDepth(80);
     this.buildStockPile(); // 보유 수량만큼 카드를 왼쪽으로 펼친다.
     // 탭 입력 Zone — 왼쪽으로 펼쳐진 더미 전체를 덮도록 왼쪽으로 넓게 잡는다(펼친 카드 어디를 눌러도 뽑힘).
-    const fanW = (STOCK_STACK_CAP - 1) * STOCK_FAN_STEP;
+    const fanW = Math.max(this.stockFanWidth, (STOCK_STACK_CAP - 1) * STOCK_FAN_MIN_STEP);
     this.add
       .zone(STOCK.x - fanW / 2, STOCK.y + 10, cw + fanW + 60, ch + 120)
       .setDepth(85)
@@ -2334,16 +3940,16 @@ export class PlayScene extends Phaser.Scene {
       .on('pointerdown', () => this.onStockTap());
     this.stockCountText = this.add
       .text(STOCK.x, STOCK.y + ch / 2 + 24, '', {
-        fontFamily: '"Jua", sans-serif',
+        fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
         fontSize: '28px',
         color: '#ffffff',
       })
       .setOrigin(0.5)
       .setDepth(81);
 
-    this.add
+    this.wasteLabel = this.add
       .text(WASTE.x, WASTE.y + ch / 2 + 24, '기준 카드', {
-        fontFamily: '"Jua", sans-serif',
+        fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
         fontSize: '24px',
         color: '#e9d9ff',
       })
@@ -2379,15 +3985,22 @@ export class PlayScene extends Phaser.Scene {
     //   단, 뱅킹 비행 중(wildBanking)에는 아직 표시하지 않는다(도착 후 표시).
     const wildIdx = this.wildBanking ? -1 : this.state.stock.findIndex((c) => c.wild);
     const wildFanI = wildIdx >= 0 ? Math.round((wildIdx / Math.max(1, len - 1)) * (count - 1)) : -1;
-    // 왼쪽으로 펼친 부채 — i=0(맨 아래)=가장 왼쪽, i=count-1(맨 위, 다음에 뽑힐 카드)=원점(뽑기 시작 위치).
+    // **왼쪽 ＋5 아이콘을 침범하지 않게** 펼침 폭을 제한한다(PO 2026-08-22).
+    //   여유 폭 안에 못 들어가면 ① 간격을 좁히고 ② 그래도 넘치면 **2열**로 나눠 쌓는다.
+    const leftLimit = (this.addImg?.getBounds().right ?? STOCK_FAN_LEFT_FALLBACK) + STOCK_FAN_MARGIN;
+    const avail = Math.max(0, STOCK.x - cw / 2 - leftLimit);
+    const layout = stockFanLayout(count, avail, STOCK_FAN_STEP, STOCK_FAN_MIN_STEP);
+    // i=0(맨 아래)=가장 왼쪽, i=count-1(맨 위, 다음에 뽑힐 카드)=원점(뽑기 시작 위치).
     for (let i = 0; i < count; i++) {
       const isWild = i === wildFanI;
-      // 와일드는 살짝 위로 띄워(y=-ch*0.16) 부채 사이로 확실히 보이게. 크기는 스톡 카드와 동일.
-      const back = new CardView(this, -(count - 1 - i) * STOCK_FAN_STEP, isWild ? -ch * 0.16 : 0, cw, ch, false);
+      const slot = layout.at(i);
+      // 와일드는 살짝 위로 띄워 부채 사이로 확실히 보이게. 크기는 스톡 카드와 동일.
+      const back = new CardView(this, slot.x, slot.y * ch + (isWild ? -ch * 0.16 : 0), cw, ch, false);
       if (isWild) back.showWild();
       else back.showBack();
       cont.add(back);
     }
+    this.stockFanWidth = layout.width;
     this.lastStockCount = this.state.stock.length;
   }
 
@@ -2403,18 +4016,77 @@ export class PlayScene extends Phaser.Scene {
       starGauge: this.starGauge,
       setsDone: this.setsDone,
       wildActive: this.wildActive, // 기준 위 와일드 활성 상태도 저장(undo 시 복원).
+      comboColors: [...this.comboColors], // 얕은 복사 — 되돌리면 콤보도 그 수 직전으로.
+      melodyStep: this.melodyStep,
+      pendingMissions: this.pendingMissions,
+      starSlots: [...this.starSlots.keys()],
+      stockSlots: [...this.stockSlots.keys()],
+      boardCollections: [...this.boardCollections.keys()],
     });
     if (this.history.length > 40) this.history.shift();
   }
 
   /** 코인 차감(뱅크된 코인 기준). 부족하면 false. */
-  private spend(cost: number): boolean {
+  /** 부스터 아이콘 위치 — 코인 부족 안내 창의 꼬리가 그 버튼을 가리키게 한다(없으면 하단 중앙). */
+  private boosterAnchor(kind: 'plus5' | 'wild' | 'undo'): { x: number; y: number } {
+    const img = kind === 'plus5' ? this.addImg : kind === 'wild' ? this.wildImg : this.undoImg;
+    const btn = kind === 'plus5' ? this.addBtn : kind === 'wild' ? this.wildBtn : this.undoBtn;
+    const o = img ?? btn;
+    return o ? { x: o.x, y: o.y } : { x: W / 2, y: H * 0.82 };
+  }
+
+  /**
+   * **행운 카드 연출**(PO 2026-08-25) — ＋5 보조 카드가 매칭 랭크로 공개된 순간, 기준 카드 자리에
+   * 금빛 링 + "행운 카드!" 라벨을 잠깐 띄운다. 숫자(확률)는 보여주지 않는다 — 체감만 남긴다.
+   */
+  private luckyCardFx(): void {
+    if (this.ended) return;
+    const x = WASTE.x;
+    const y = WASTE.y;
+    const ring = this.add.graphics().setDepth(2300);
+    ring.lineStyle(10, 0xffd94a, 0.95).strokeCircle(0, 0, this.geom.cardW * 0.62);
+    ring.setPosition(x, y).setAlpha(0.9).setScale(0.6);
+    const label = this.add
+      .text(x, y - this.geom.cardH * 0.85, '✨ 행운 카드!', {
+        fontFamily: PlayScene.TIP_FONT, fontSize: '34px', color: '#ffd94a', fontStyle: '800',
+      })
+      .setOrigin(0.5)
+      .setDepth(2301)
+      .setStroke('#5a3210', 8)
+      .setAlpha(0);
+    this.tweens.add({ targets: ring, scale: 1.25, alpha: 0, duration: 620, ease: 'Cubic.easeOut', onComplete: () => ring.destroy() });
+    this.tweens.add({ targets: label, alpha: 1, y: label.y - 26, duration: 240, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: label, alpha: 0, delay: 760, duration: 260, onComplete: () => label.destroy() });
+    sfx('set_complete', { volume: 0.25 });
+  }
+
+  private spend(cost: number, at?: { x: number; y: number }): boolean {
     if (this.baseCoins < cost) {
       sfx('no_coin');
-      this.toast('코인이 부족해요 — ☰ 메뉴 › 🛒 상점에서 충전할 수 있어요');
+      this.labRun.pinch += 1; // **핀치 계측**(PO 2026-08-25) — "코인 부족" 순간(오퍼 노출 시점 튜닝의 근거).
+      /*
+       * **핀치 순간의 초회 오퍼**(PO 2026-08-25) — 코인이 모자란 바로 그 순간이 최적 접점이다.
+       *   스타터 팩(초회 한정)이 남아 있으면 상점 안내 대신 팩을 제안하고, 이미 샀으면 기존 흐름(상점).
+       */
+      /*
+       * ⚠️ **시뮬(계측 봇) 중에는 오퍼를 띄우지 않는다**(2026-08-25 실측: 봇이 와일드/되돌리기를 쓰다
+       *   코인이 부족해지면 팝업이 입력을 막아 계측이 멈췄다). 오퍼는 실유저 전용 — 봇은 핀치 계측만 남긴다.
+       */
+      if (!this.simRunning && openStarterOffer(this, {
+        toast: (m) => this.toast(m, true),
+        onGranted: () => {
+          this.baseCoins = loadSave().coins; // 지급 즉시 잔액 동기화 — 하던 결제를 그대로 이어간다.
+          this.header?.setCoins(this.baseCoins);
+          this.updateBoosters();
+        },
+      })) return false;
+      // **코인이 없으면 알리고 바로 상점을 연다**(PO 2026-08-22) — 메뉴를 찾아 들어가라고 안내만 하면
+      //   거기서 흐름이 끊긴다. 충전하면 onCoins 가 잔액·부스터 상태를 즉시 맞춰 그대로 이어서 할 수 있다.
+      this.showMessage('코인이 부족합니다.\n상점에서 충전하고 이어서 하세요.', () => this.openShop(), at);
       return false;
     }
     this.baseCoins -= cost;
+    this.labRun.boosterCoins += cost; // 일일 지표 — 부스터 실지출(판 정산 때 합산).
     const s = loadSave();
     s.coins = Math.max(0, s.coins - cost);
     writeSave(s);
@@ -2438,7 +4110,7 @@ export class PlayScene extends Phaser.Scene {
   private mkBooster(x: number, y: number, label: string, on: () => void): Phaser.GameObjects.Text {
     return this.add
       .text(x, y, label, {
-        fontFamily: '"Jua", sans-serif',
+        fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
         fontSize: '30px',
         color: '#2a1830',
         backgroundColor: '#ffd166',
@@ -2505,7 +4177,7 @@ export class PlayScene extends Phaser.Scene {
     // 보유 아이템 우선 소모(무료) → 없으면 코인 결제(모델 가격).
     const cost = this.wildPrice();
     const usedItem = this.consumeItem('wild');
-    if (!usedItem && !this.spend(cost)) return;
+    if (!usedItem && !this.spend(cost, this.boosterAnchor('plus5'))) return;
     this.wildUses += 1; // 다음 사용부터 비용 상승.
     sfx('wild_activate');
     this.wildActive = true;
@@ -2542,6 +4214,7 @@ export class PlayScene extends Phaser.Scene {
         if (this.wildActive) {
           this.showWildMarker();
           this.toast('🃏 와일드! 아무 노출 카드나 탭하세요');
+          this.tryTip('wildUse');
         }
         this.refresh();
       },
@@ -2603,8 +4276,9 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     // 되돌리기도 유료(PO) — 보유 아이템 우선, 없으면 모델 가격.
-    if (!this.consumeItem('undo') && !this.spend(this.undoPrice())) return;
+    if (!this.consumeItem('undo') && !this.spend(this.undoPrice(), this.boosterAnchor('undo'))) return;
     sfx('undo');
+    this.labRun.undos += 1;
     const undoneState = this.state; // 되돌리기 **직전** 상태 = 취소되는 수의 결과.
     const prev = this.history.pop();
     if (!prev) return;
@@ -2622,11 +4296,68 @@ export class PlayScene extends Phaser.Scene {
     this.wildMarker?.destroy();
     this.wildMarker = undefined;
     this.wildActive = prev.wildActive;
-    this.resetComboRun(); // 되돌리면 콤보 런은 끊긴다(원 설계 유지): comboColors=[] + 게이지 별 리셋.
+    /*
+     * **콤보 복원**(PO 2026-08-24) — 예전엔 여기서 `resetComboRun()` 으로 콤보를 끊었다. 그러면
+     *   되돌리기가 "실수를 무르는 도구"가 아니라 "콤보를 버리는 대가"가 되어 쓸 이유가 사라진다.
+     *   수 직전에 저장해 둔 콤보를 그대로 되살린다.
+     */
+    this.comboColors = [...prev.comboColors];
+    this.melodyStep = prev.melodyStep;
+    this.comboCountText?.setText(`+${this.comboColors.length}`);
+    /*
+     * 손님 주문 표시도 같이 되돌린다 — 콤보만 되살리고 말풍선 별을 그대로 두면 숫자가 어긋난다.
+     * 별 표시를 한 번 비운 뒤(`onRunReset`) 복원할 개수만큼 다시 채운다(기존 API 재사용).
+     */
+    this.orderQueue?.onRunReset();
+    for (let i = 1; i <= this.comboColors.length; i++) this.orderQueue?.onMatch(i);
+    this.pendingMissions = prev.pendingMissions;
+    this.revertBoardItems(prev);
     this.rebuildBoard(); // 뽑은 와일드는 여기서 와일드 아트로 표시된다.
     // **부스터 와일드**(기준 카드 자체는 와일드 아님)면 기준 위에 와일드 마커를 다시 얹는다.
     if (this.wildActive && !wasteTop(this.state)?.wild) this.showWildMarker();
     this.updateBoosters();
+  }
+
+  /**
+   * **되돌린 뒤 보드 아이템 정리** — 스냅샷 이후에 꽂힌 별·＋카드·컬렉션 카드를 걷어낸다.
+   *
+   * 안 걷어내면 같은 콤보를 다시 완성했을 때 **두 개가 겹쳐 꽂힌다**(PO 2026-08-24 신고).
+   * ⚠️ 컬렉션 카드는 꽂히는 순간 세이브에 이미 지급됐다 — 보드 표시만 정리하고 **보유는 되돌리지
+   *   않는다**(받은 것을 뺏지 않는다). 다시 완성하면 새 카드가 나오지만 중복 표시는 사라진다.
+   */
+  private revertBoardItems(prev: HistorySnap): void {
+    const drop = <T>(map: Map<string, T>, keep: readonly string[], destroy: (id: string) => void): void => {
+      const keepSet = new Set(keep);
+      for (const id of [...map.keys()]) {
+        if (keepSet.has(id)) continue;
+        destroy(id);
+        map.delete(id);
+      }
+    };
+    drop(this.starSlots, prev.starSlots, (id) => {
+      const v = this.starViews.get(id);
+      if (v) {
+        this.tweens.killTweensOf(v.img);
+        v.img.destroy();
+        v.label?.destroy();
+      }
+      this.starViews.delete(id);
+    });
+    drop(this.stockSlots, prev.stockSlots, (id) => {
+      const v = this.stockViews.get(id);
+      if (v) {
+        this.tweens.killTweensOf(v.img);
+        v.img.destroy();
+      }
+      this.stockViews.delete(id);
+    });
+    drop(this.boardCollections, prev.boardCollections, (id) => {
+      const bc = this.boardCollections.get(id);
+      if (bc) {
+        this.tweens.killTweensOf(bc.view);
+        bc.view.destroy();
+      }
+    });
   }
 
   /**
@@ -2642,10 +4373,10 @@ export class PlayScene extends Phaser.Scene {
     }
     const cost = this.plus5Price();
     const usedItem = this.consumeItem('plus5'); // 보유 아이템 우선(무료).
-    if (!usedItem && !this.spend(cost)) return; // 코인 부족 시 spend 가 토스트 후 중단.
+    if (!usedItem && !this.spend(cost, this.boosterAnchor('plus5'))) return; // 코인 부족 시 spend 가 안내 후 중단.
     this.plus5Uses += 1; // 다음 사용부터 비용 상승.
     this.pushHistory('plus5');
-    this.state = this.replayUndone('plus5') ?? refillStock(this.state, ADD5_COUNT, this.rng);
+    this.state = this.replayUndone('plus5') ?? refillStock(this.state, ADD5_COUNT, this.rng, plus5AssistFor(this.plus5Uses)); // 회차 보조(1차 0·2차 30%·3차+ 50%).
     sfx('add5');
     this.refresh(); // 즉시 스톡 더미에 반영(바로 배치) + 부스터 비용 라벨 갱신.
     this.toast(usedItem ? `＋${ADD5_COUNT} 카드 · 아이템 사용 (남음 ${this.itemCount('plus5')})` : `＋${ADD5_COUNT} 카드  🪙 ${cost.toLocaleString()}`);
@@ -2670,7 +4401,7 @@ export class PlayScene extends Phaser.Scene {
     }
     // '+5' 크게.
     const plus = this.add
-      .text(6, -ch * 0.06, `+${ADD5_COUNT}`, { fontFamily: '"Jua", sans-serif', fontSize: `${Math.round(ch * 0.44)}px`, color: '#ffe14d' })
+      .text(6, -ch * 0.06, `+${ADD5_COUNT}`, { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: `${Math.round(ch * 0.44)}px`, color: '#ffe14d' })
       .setOrigin(0.5)
       .setStroke('#7a3b00', 9);
     cont.add(plus);
@@ -2678,7 +4409,7 @@ export class PlayScene extends Phaser.Scene {
     const owned = this.itemCount('plus5');
     const label = owned > 0 ? `${circledCount(owned)} 보유` : `🪙 ${this.plus5Price().toLocaleString()}`;
     const priceTxt = this.add
-      .text(0, ch * 0.64, label, { fontFamily: '"Jua", sans-serif', fontSize: '30px', color: '#ffd166' })
+      .text(0, ch * 0.64, label, { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '30px', color: '#ffd166' })
       .setOrigin(0.5)
       .setStroke('#4a2a00', 6);
     cont.add(priceTxt);
@@ -2705,20 +4436,21 @@ export class PlayScene extends Phaser.Scene {
     }
     const cost = this.plus5Price();
     const usedItem = this.consumeItem('plus5');
-    if (!usedItem && !this.spend(cost)) return;
+    if (!usedItem && !this.spend(cost, this.boosterAnchor('wild'))) return;
     this.plus5Uses += 1;
     this.pushHistory('plus5draw');
     const replayed = this.replayUndone('plus5draw'); // 되돌렸던 ＋5＋도드로우면 같은 결과를 재현.
     if (replayed) {
       this.state = replayed;
     } else {
-      this.state = refillStock(this.state, ADD5_COUNT, this.rng); // ＋5 채움.
+      this.state = refillStock(this.state, ADD5_COUNT, this.rng, plus5AssistFor(this.plus5Uses)); // ＋5 채움(회차 보조).
       this.state = drawStock(this.state, this.rng); // 그 중 1장을 기준(웨이스트)으로 도드로우.
       this.drawsUsed += 1;
     }
-    // 상태는 이미 바뀌었지만 화면의 기준 카드는 **연출이 끝나야** 바뀐다 — 그 사이 다른 refresh 가
-    //   syncWasteView 로 먼저 바꿔버리지 않도록 지금부터 비행 중으로 표시한다.
-    this.flyingCards += 1;
+    // 뽑기 계열이므로 **공개 전까지 기준 카드 뷰를 뒷면으로 둔다**(상태상의 기준은 이미 새 카드 — S1).
+    let flyGhost: CardView | undefined; // 아래 연출에서 만들어지는 고스트 — 워치독이 치울 수 있게 잡아 둔다.
+    const flId = this.beginFlight(() => flyGhost?.destroy(), 'plus5');
+    const dfId = this.beginDrawFlight();
     sfx('add5');
     const drawn = wasteTop(this.state);
     // **와일드 상태 전환**(PO 2026-07-28 버그수정) — 이 경로는 도드로우로 **기준 카드가 바뀌는데도**
@@ -2735,7 +4467,8 @@ export class PlayScene extends Phaser.Scene {
     this.emptyStockPlus5 = undefined; // hide 대상에서 분리(안착 연출로 소멸).
     this.toast(usedItem ? `＋${ADD5_COUNT} 카드 · 아이템 (남음 ${this.itemCount('plus5')})` : `＋${ADD5_COUNT} 카드  🪙 ${cost.toLocaleString()}`);
     if (!cont) {
-      this.flyingCards = Math.max(0, this.flyingCards - 1); // 연출 없이 즉시 반영(sync 가 기준 카드 갱신).
+      this.endFlight(flId); // 연출 없이 즉시 반영(sync 가 기준 카드 갱신).
+      this.endDrawFlight(dfId);
       this.refresh();
       return;
     }
@@ -2753,6 +4486,7 @@ export class PlayScene extends Phaser.Scene {
         this.buildStockPile(); // 채워진 스톡 더미 표시.
         // ② 한 장이 뒤집히며 기준 카드로 이동.
         const fly = new CardView(this, STOCK.x, STOCK.y, this.geom.cardW, this.geom.cardH, false);
+        flyGhost = fly;
         fly.setDepth(1000);
         fly.showBack();
         const baseSX = fly.scaleX;
@@ -2773,16 +4507,12 @@ export class PlayScene extends Phaser.Scene {
             fly.scaleX = baseSX * Math.abs(Math.cos(t * Math.PI)); // 옆으로 뒤집기.
           },
           onComplete: () => {
-            // ⚠️ **여기서 fly 를 파괴하면 안 된다**(2026-07-26 버그 수정) — 파괴하면 그 아래 남아 있던
-            //   **직전 기준 카드 뷰**가 다시 드러나, 방금 뒤집어 보여준 카드가 아닌 **다른 카드가 잠깐
-            //   나타났다가** 다음 수에서야 바뀌는 문제가 있었다(refresh 는 기준 카드 뷰를 갱신하지 않는다).
-            //   onStockTap 과 동일하게 **날아온 카드를 그대로 새 기준 카드 뷰로 승격**한다.
-            fly.setPosition(WASTE.x, WASTE.y);
-            fly.scaleX = baseSX;
-            if (this.wasteView && this.wasteView !== fly) this.wasteView.destroy();
-            this.wasteView = fly;
-            this.flyingCards = Math.max(0, this.flyingCards - 1);
-            this.refresh(); // 하이라이트·스톡 갱신.
+            // **고스트 파기**(S1) — 2026-07-26 에는 여기서 파괴하면 그 아래 **낡은 기준 카드 뷰**가 드러나는
+            //   문제가 있어 승격으로 막았지만, 이제 `wasteView` 는 상태가 바뀐 순간 이미 새 top 을 그린 채
+            //   숨어 있다. 파괴하면 그 카드가 그대로 드러난다(같은 그림 → 끊김 없음).
+            this.endFlight(flId); // 고스트 파기 포함(정리 콜백).
+            this.endDrawFlight(dfId);
+            this.refresh(); // 기준 카드 뷰 표시 + 하이라이트·스톡 갱신.
           },
         });
       },
@@ -2795,39 +4525,480 @@ export class PlayScene extends Phaser.Scene {
     for (const v of this.cards.values()) v.destroy();
     this.cards.clear();
     this.buildBoard();
-    // 기준(웨이스트) 카드 — **뽑은 와일드면 와일드 아트로**(showFace 는 와일드를 안 그려 undo 후 사라지던 문제 수정).
-    const top = wasteTop(this.state);
-    if (top?.wild) this.wasteView?.showWild();
-    else this.wasteView?.showFace(top);
+    // 기준(웨이스트) 카드는 여기서 손대지 않는다 — `refresh()` 끝의 `syncWasteView` 가 유일한 갱신 지점(S1).
+    //   (와일드 아트 복원도 거기서 함께 처리된다.)
     this.refresh();
   }
 
-  private toast(msg: string): void {
-    // **안내 메시지는 20레벨까지만**(PO 2026-07-18) — 이후엔 숙련 유저라 화면 정리.
-    if (this.level > 20) return;
+  /**
+   * @param important 코인 부족처럼 **반드시 보여야 하는** 메시지. 레벨 억제를 무시한다.
+   */
+  /** 안내 카드 글꼴 — 게임 공통 스택. */
+  /** 흰 바탕을 그리는 기준 단위(로컬 좌표) — 실제 크기는 아트에 맞춰 스케일로 맞춘다. */
+  /** 층 아트가 준비된 개수(up_Slitare_BG_01..10 · up_Solirare_Chr_01..10). 넘으면 순환한다. */
+  private static readonly FLOOR_ART_COUNT = 10;
+  /**
+   * 보드에 꽂는 물건(다이아·별·＋카드)은 **자기 카드 바로 뒤**에 둔다(PO 2026-08-24: "다이아가 카드
+   * 뒤에 배치되어야 합니다").
+   *
+   * 예전 값(−0.3)은 **다른 카드보다도 뒤로** 밀려, 열이 촘촘한 이 보드에서는 옆 카드가 통째로 덮어
+   * 아무 것도 안 보였다. 아주 살짝만(−0.01) 뒤로 두면 **자기 카드에는 가리고 그보다 먼저 그려진
+   * 카드들 위로는 드러난다** — "카드 뒤에 꽂혀 있다"와 "보인다"를 둘 다 만족한다.
+   * 어느 카드에 꽂을지는 `pickVisibleSlot` 이 **가려지는 정도까지 재서** 고른다.
+   */
+  private static readonly BADGE_BEHIND = 0.01;
+  /** 하단 라벨(부스터 비용·뽑기·기준 카드) 공통 글자 크기 — 예전엔 24·26·28 이 섞여 있었다. */
+  /** 손님 정산 지점에서 **머리 위**까지의 거리 — 위클리 상품이 여기서 떠오른다. */
+  private static readonly CUSTOMER_HEAD_DY = 130;
+  /** 등장 일렁임 대상의 깊이 상한 — 이보다 위는 상단 HUD(헤더·레일·배너)라 흔들지 않는다. */
+  private static readonly WINDOW_MAX_DEPTH = 1300;
+  /** 하단 라벨(부스터 비용·뽑기·기준 카드) 공통 글자 크기 — 예전엔 24·26·28 이 섞여 있었다. */
+  private static readonly BOTTOM_LABEL_SIZE = 30;
+  /** 부스터 아이콘 하단에서 라벨까지의 간격. */
+  private static readonly BOTTOM_LABEL_GAP = 6;
+  private static readonly CARD_BACK_UNIT = 200;
+  /**
+   * 아트 대비 바탕 배율 — 외곽 여백은 8% → **5%**(PO 2026-08-24: "약간만 더 줄이세요").
+   * 카드 아트 자체도 보드 카드 높이의 88% 로 낮춰 카드를 덜 가리게 했다.
+   */
+  private static readonly CARD_BACK_PAD = 1.05;
+  private static readonly TIP_FONT = '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif';
+
+  /**
+   * **상황별 튜토리얼 안내**(logic/tutorial.ts) — 그 요소를 **처음 만나는 순간** 한 번만 설명한다.
+   *   기능을 잠그지 않는다(PO 2026-08-22: "배치는 하되 사용법을 순차적으로 안내"). 화면에 실제로
+   *   나타난 것만 설명하므로 순서는 플레이가 정한다. 본 안내는 세이브에 남겨 다시 뜨지 않는다.
+   */
+  /** 특정 위치를 가리키며(꼬리가 그쪽을 향하게) 안내한다 — 아이콘 키를 주면 창 안에도 그 아이콘을 띄운다. */
+  private tryTipAt(key: TipKey, at: { x: number; y: number }, iconKey?: string): void {
+    if (this.ended || this.tipOpen || this.tipsSeen.includes(key)) return;
+    this.tipsSeen = [...this.tipsSeen, key];
+    markTipSeen(key);
+    const tip = TIPS[key];
+    this.showTipCard(tip.title, tip.subtitle, tip.body, [{ x: at.x, y: at.y }], false, iconKey);
+  }
+
+  private tryTip(...keys: TipKey[]): void {
+    if (this.ended || this.tipOpen) return;
+    // **상황성 안내**(그 순간에만 볼 수 있는 것)는 "한 판에 하나" 제한을 받지 않는다 —
+    //   다이아·미션·컬렉션은 놓치면 그 판에서 다시 볼 기회가 없다(PO 2026-08-22 "다이아도 최초 발생 시 안내").
+    const situational: TipKey[] = ['diamond', 'mission', 'collection', 'customerStar', 'emptyStock', 'wildUse'];
+    const budgeted = keys.some((k) => !situational.includes(k)) && this.tipShownThisRound;
+    const key = pickTip(this.tipsSeen, keys, budgeted);
+    if (!key) return;
+    if (!situational.includes(key)) this.tipShownThisRound = true;
+    this.tipsSeen = [...this.tipsSeen, key];
+    markTipSeen(key);
+    const tip = TIPS[key];
+    // **즉시 표시** — 예전엔 딜 연출 뒤로 미루려고 time.delayedCall 을 썼는데, 씬 생성 직후에 건 타이머가
+    //   환경에 따라 발화하지 않아 안내가 통째로 사라졌다(실측). 안내는 진행을 막지 않는 가벼운 카드이므로
+    //   지연 없이 바로 띄운다.
+    //   기본 규칙 안내에는 **기준 카드**를 손가락으로 함께 가리킨다(PO 2026-08-22) — 말로만 하면
+    //   "기준 카드"가 무엇인지 초보는 못 찾는다.
+    const points = key === 'match' ? [{ x: WASTE.x, y: WASTE.y, label: '기준 카드' }] : [];
+    this.showTipCard(tip.title, tip.subtitle, tip.body, points, key === 'match');
+  }
+
+  /**
+   * 아직 안 본 안내면 **정지 안내**를 띄우고 true 를 돌려준다(호출부는 그 동작을 미룬다).
+   *   이미 봤거나 안내 중이면 false — 평소처럼 바로 진행한다.
+   */
+  private coachIfNew(key: TipKey, slotId: string | undefined, onDone: () => void): boolean {
+    if (this.coachHold || this.tipsSeen.includes(key)) return false;
+    // ⚠️ 특수 카드 안내는 **"한 판에 하나" 예산을 쓰지 않는다** — 이걸 쓰게 했더니 와일드/보너스가 뜬 판에서는
+    //   뽑기·미션·손님별 안내가 영영 차례를 못 잡았다(실측: 6레벨을 돌려도 3종만 노출).
+    this.tipsSeen = [...this.tipsSeen, key];
+    markTipSeen(key);
+    const tip = TIPS[key];
+    this.showCoachAt(slotId, tip.title, tip.subtitle, tip.body, onDone);
+    return true;
+  }
+
+  /**
+   * **초반 반복 화살표** — "지금 낼 수 있는 카드"를 가리킨다. 한 번 보고 마는 게 아니라
+   *   초반 몇 수 동안 반복해 규칙이 손에 익게 한다(PO 2026-08-22 "여러 번 안내").
+   */
+  private updateMoveHint(): void {
+    this.stockArrowActive = false;
+    if (this.coachHold || this.ended || this.dealing || this.arrowHintsLeft <= 0) { this.hideArrow(); return; }
+    const moves = availableMoves(this.state).filter((id) => this.isTappable(id));
+    if (moves.length) {
+      const view = this.cards.get(moves[0]);
+      if (!view) { this.hideArrow(); return; }
+      this.showArrowAt(view.x, view.y, '이 카드를 탭하세요');
+      return;
+    }
+    /*
+     * **낼 수 있는 카드가 없으면 뽑기를 가리킨다**(PO 2026-08-22) — 초보는 여기서 손이 멈춘다.
+     *   단 **딱 한 번만**(PO 2026-08-24: "뽑기 안내를 반복 표시하지 말 것") — 한 번 뽑아 본 순간
+     *   `onStockTap` 이 'drawArrow' 를 영구 기록하고, 그 뒤로는 다시 가리키지 않는다.
+     *   ("이 카드를 탭하세요"의 초반 반복과는 별개 예산이다.)
+     */
+    if (this.state.stock.length > 0 && !this.tipsSeen.includes('drawArrow')) {
+      this.showArrowAt(STOCK.x, STOCK.y, '뽑기를 눌러 새 카드를 꺼내세요');
+      this.stockArrowActive = true;
+      return;
+    }
+    this.hideArrow();
+  }
+
+  /**
+   * **안내 말풍선** — 지정 아트(up_Solitare_UI_27)를 쓰고, 없으면 흰 사각형으로 폴백한다.
+   *   아트는 **아래쪽에 꼬리**가 있어 대상 위에 놓으면 자연스럽게 그 카드를 가리킨다.
+   * @param cx 가로 중심 · @param bottomY 패널 **아래끝**(꼬리 끝)이 놓일 y
+   * @returns 텍스트를 얹을 안쪽 영역(제목/본문 y 기준)
+   */
+  private makeTipPanel(
+    layer: Phaser.GameObjects.Container,
+    cx: number,
+    bottomY: number,
+    opts: { widthRatio?: number; example?: boolean } = {},
+  ): { titleY: number; subtitleY: number; exampleY: number; bodyY: number; footY: number; width: number } {
+    const pw = W * (opts.widthRatio ?? 0.74);
+    const ph = pw * TUTORIAL_PANEL_RATIO;
+    const top = bottomY - ph;
+    const cy = top + ph / 2;
+    if (this.textures.exists(TUTORIAL_PANEL_KEY)) {
+      layer.add(this.add.image(cx, cy, TUTORIAL_PANEL_KEY).setDisplaySize(pw, ph));
+    } else {
+      layer.add(this.add.rectangle(cx, cy, pw * 0.92, ph * 0.78, 0xfff2df, 0.98).setStrokeStyle(6, 0x2da9f5));
+    }
+    // 아트 해부: 파란 **제목 탭**이 세로 5~17%, 크림 안쪽이 13~86%, 아래 꼬리가 86~100%.
+    //   제목은 탭 안에, 나머지는 크림 영역에 배치한다. 예시 그림이 없으면 본문을 위로 올려 여백을 줄인다.
+    //   **부제**(한 줄 요약)는 크림 영역 맨 위, 본문은 그 아래(PO 2026-08-23 "제목은 짧게 · 아래 부제 · 그 아래 내용").
+    return opts.example
+      ? { titleY: top + ph * 0.115, subtitleY: top + ph * 0.245, exampleY: top + ph * 0.44, bodyY: top + ph * 0.66, footY: top + ph * 0.79, width: pw * 0.74 }
+      : { titleY: top + ph * 0.115, subtitleY: top + ph * 0.265, exampleY: top + ph * 0.44, bodyY: top + ph * 0.50, footY: top + ph * 0.73, width: pw * 0.74 };
+  }
+
+  /**
+   * 튜토리얼 포인터 — 업로드 아이콘(up_Solitare_UI_26)을 쓰고, 없으면 이모지로 폴백한다.
+   *   ⚠️ 원본이 1254×1254 로 커서 **반드시 표시 크기를 지정**한다(PO 2026-08-22 "사이즈를 줄여서 적용").
+   */
+  private makePointer(x: number, y: number, scale = 0.63): Phaser.GameObjects.GameObject & { y: number } {
+    const size = Math.round(this.geom.cardH * scale);
+    if (this.textures.exists(TUTORIAL_POINTER_KEY)) {
+      return this.add.image(x, y, TUTORIAL_POINTER_KEY).setDisplaySize(size, size).setOrigin(0.5, 0);
+    }
+    return this.add.text(x, y, '👆', { fontSize: `${size}px` }).setOrigin(0.5, 0);
+  }
+
+  /**
+   * **가리키기 화살표** — 대상 카드 아래에서 위를 향해 까딱인다(튜토리얼용).
+   *   좌표는 저작 좌표계(카드 뷰의 x/y)를 그대로 쓴다.
+   */
+  private showArrowAt(x: number, y: number, label?: string, depth = 1900): void {
+    this.hideArrow();
+    const box = this.add.container(0, 0).setDepth(depth);
+    const hand = this.makePointer(x, y + this.geom.cardH * 0.3);
+    box.add(hand);
+    if (label) {
+      const t = this.add
+        .text(x, y + this.geom.cardH * 1.06, label, {
+          fontFamily: PlayScene.TIP_FONT, fontSize: `${TIP_FONT_SIZE.label}px`, color: '#ffffff',
+          backgroundColor: '#00000099', padding: { x: 16, y: 8 },
+        })
+        .setOrigin(0.5, 0);
+      box.add(t);
+    }
+    // 위아래로 까딱 — 멈춰 있으면 눈에 안 들어온다.
+    this.tweens.add({ targets: hand, y: hand.y - 22, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.coachArrow = box;
+  }
+
+  private hideArrow(): void {
+    if (!this.coachArrow) return;
+    this.tweens.killTweensOf(this.coachArrow.list);
+    this.coachArrow.destroy();
+    this.coachArrow = undefined;
+  }
+
+  /**
+   * **정지 안내** — 화면을 덮고(입력 차단) 대상 카드를 밝게 띄운 뒤 화살표+설명을 보여 준다.
+   *   탭해야 넘어간다(빠르게 지나가지 않게). 닫히면 `onDone` 이 불린다 — 특수 카드 소비는 그때 진행된다.
+   */
+  private showCoachAt(slotId: string | undefined, title: string, subtitle: string, body: string, onDone: () => void): void {
+    const view = slotId ? this.cards.get(slotId) : undefined;
+    this.coachHold = true;
+    const layer = overlayLayer(this, 2000).setName('coach');
+    const dim = overlayScrim(this, 0x000000, 0.62);
+    layer.add(dim);
+    // 대상 카드를 딤 위로 복제해 **그 카드만 밝게** 보이도록(원본은 딤 아래에 그대로 둔다).
+    if (view) {
+      const spot = this.add.image(view.x, view.y, view.texture.key).setDisplaySize(view.displayWidth, view.displayHeight);
+      layer.add(spot);
+      this.tweens.add({ targets: spot, scaleX: spot.scaleX * 1.08, scaleY: spot.scaleY * 1.08, duration: 620, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      for (const o of this.pointerAt(view.x, view.y)) layer.add(o);
+    }
+    // **말풍선 꼬리가 설명 대상을 가리키게**(PO 2026-08-22) — 중앙 고정이 아니라 대상 **바로 위**에 놓는다.
+    //   아트의 꼬리는 아래쪽 가운데에 있으므로, 패널의 x 를 대상 x 에 맞추고 아래끝을 카드 살짝 위에 둔다.
+    //   화면 밖으로 나가지 않게 좌우는 클램프한다(꼬리가 조금 어긋나도 대상은 하이라이트로 구분된다).
+    const pwRatio = 0.66;
+    const pw = W * pwRatio;
+    const ph = pw * TUTORIAL_PANEL_RATIO;
+    const cx = view ? Phaser.Math.Clamp(view.x, pw / 2 + 24, W - pw / 2 - 24) : W / 2;
+    const bottomY = Math.max(ph + 40, (view ? view.y : H * 0.62) - this.geom.cardH * 0.55);
+    const box = this.makeTipPanel(layer, cx, bottomY, { widthRatio: pwRatio });
+    const t1 = this.add
+      .text(cx, box.titleY, title, {
+        fontFamily: PlayScene.TIP_FONT, fontSize: `${TIP_FONT_SIZE.title}px`, color: '#ffffff', fontStyle: 'bold',
+        stroke: '#0f6fb0', strokeThickness: 6,
+      })
+      .setOrigin(0.5);
+    // **부제** — 제목은 탭에 들어갈 만큼 짧으므로, 무엇에 대한 안내인지는 이 한 줄이 말해 준다.
+    const tSub = this.add
+      .text(cx, box.subtitleY, subtitle, {
+        fontFamily: PlayScene.TIP_FONT, fontSize: `${TIP_FONT_SIZE.label}px`, color: '#c25e00', fontStyle: 'bold',
+        align: 'center', wordWrap: { width: box.width },
+      })
+      .setOrigin(0.5);
+    const t2 = this.add
+      .text(cx, box.bodyY, body, {
+        fontFamily: PlayScene.TIP_FONT, fontSize: `${TIP_FONT_SIZE.body}px`, color: '#6b4a2a', align: 'center', wordWrap: { width: box.width },
+      })
+      .setOrigin(0.5);
+    const t3 = this.add
+      .text(cx, box.footY, '탭해서 계속', { fontFamily: PlayScene.TIP_FONT, fontSize: `${TIP_FONT_SIZE.foot}px`, color: '#a98763' })
+      .setOrigin(0.5);
+    layer.add([t1, tSub, t2, t3]);
+    dim.once('pointerdown', () => {
+      this.tweens.killTweensOf(layer.list);
+      layer.destroy();
+      this.coachHold = false;
+      onDone();
+      this.refresh();
+    });
+    sfx('button');
+  }
+
+  /**
+   * 안내 카드 — 말풍선 패널(UI_27) + **가리킬 대상**(손가락 아이콘). 아무 곳이나 탭하면 닫힌다.
+   *   `points` 를 주면 그 위치를 손가락으로 가리키고, 패널은 첫 대상 **위**에 놓여 꼬리가 그 카드를 향한다.
+   */
+  private showTipCard(
+    title: string,
+    subtitle: string,
+    body: string,
+    points: ReadonlyArray<{ x: number; y: number; label?: string }> = [],
+    example = false,
+    iconKey?: string,
+  ): void {
+    this.tipOpen = true;
+    const layer = overlayLayer(this, 2000).setName('tipCard');
+    const dim = overlayScrim(this, 0x000000, 0.55);
+    layer.add(dim);
+    const target = points[0];
+    // 패널은 대상 **바로 위**에 — 아트 아래쪽 꼬리가 그 카드를 가리킨다(대상이 없으면 화면 중앙).
+    const pwRatio = example || iconKey ? 0.74 : 0.66;
+    const pw = W * pwRatio;
+    const ph = pw * TUTORIAL_PANEL_RATIO;
+    const cx = target ? Phaser.Math.Clamp(target.x, pw / 2 + 24, W - pw / 2 - 24) : W / 2;
+    const bottomY = target ? Math.max(ph + 40, target.y - this.geom.cardH * 0.6) : H * 0.72;
+    const box = this.makeTipPanel(layer, cx, bottomY, { widthRatio: pwRatio, example: example || !!iconKey });
+    const t1 = this.add
+      .text(cx, box.titleY, title, {
+        fontFamily: PlayScene.TIP_FONT, fontSize: `${TIP_FONT_SIZE.title}px`, color: '#ffffff', fontStyle: 'bold',
+        stroke: '#0f6fb0', strokeThickness: 6,
+      })
+      .setOrigin(0.5);
+    // **부제** — 제목은 탭에 들어갈 만큼 짧으므로, 무엇에 대한 안내인지는 이 한 줄이 말해 준다.
+    const tSub = this.add
+      .text(cx, box.subtitleY, subtitle, {
+        fontFamily: PlayScene.TIP_FONT, fontSize: `${TIP_FONT_SIZE.label}px`, color: '#c25e00', fontStyle: 'bold',
+        align: 'center', wordWrap: { width: box.width },
+      })
+      .setOrigin(0.5);
+    const t2 = this.add
+      .text(cx, box.bodyY, body, {
+        fontFamily: PlayScene.TIP_FONT, fontSize: `${TIP_FONT_SIZE.body}px`, color: '#6b4a2a', align: 'center', wordWrap: { width: box.width },
+      })
+      .setOrigin(0.5);
+    const t3 = this.add
+      .text(cx, box.footY, '탭해서 계속', { fontFamily: PlayScene.TIP_FONT, fontSize: `${TIP_FONT_SIZE.foot}px`, color: '#a98763' })
+      .setOrigin(0.5);
+    layer.add([t1, tSub, t2, t3]);
+    if (example) this.buildMatchExample(layer, cx, box.exampleY);
+    // 아이콘 안내(다이아 등) — 창 안에 그 아이템을 크게 띄워 무엇을 말하는지 바로 보이게.
+    if (iconKey && this.textures.exists(iconKey)) {
+      const size = Math.round(this.geom.cardH * 0.7);
+      layer.add(this.add.image(cx, box.exampleY, iconKey).setDisplaySize(size, size));
+    }
+    for (const pt of points) for (const o of this.pointerAt(pt.x, pt.y, pt.label)) layer.add(o);
+    dim.once('pointerdown', () => {
+      this.tweens.killTweensOf(layer.list);
+      layer.destroy();
+      this.tipOpen = false;
+      this.updateMoveHint(); // 안내를 닫으면 곧바로 "이 카드를 탭하세요" 화살표로 이어 준다.
+    });
+    sfx('button');
+  }
+
+  /**
+   * **매칭 규칙 예시 그림** — 가운데 기준 카드, 좌우에 −1 / +1 카드. "무늬는 달라도 된다"를 그림으로 보인다.
+   *   (말로만 설명하면 초보는 무늬까지 맞춰야 하는 줄 안다 — PO 2026-08-22)
+   */
+  private buildMatchExample(layer: Phaser.GameObjects.Container, cx: number, cy: number): void {
+    const cw = W * 0.125; // 카드가 크면 팝업을 잡아먹는다 — 예시는 작게.
+    const ch = cw * (164 / 120);
+    const gap = cw * 1.55;
+    // **지금 화면의 기준 카드**를 그대로 예시로 쓴다(PO 2026-08-22) — 임의의 7♠ 를 보여 주면
+    //   플레이어가 화면과 대조하지 못한다. 좌우는 그 랭크의 −1 / +1 (A↔K 순환 포함).
+    const top = this.state ? wasteTop(this.state) : undefined;
+    const baseRank = (top?.rank ?? 7) as Rank;
+    const wrap = (r: number): Rank => (((r - 1 + 13) % 13) + 1) as Rank;
+    const mid: Card = { id: 'ex-mid', suit: top?.suit ?? 'S', rank: baseRank };
+    const low: Card = { id: 'ex-low', suit: 'H', rank: wrap(baseRank - 1) };
+    const high: Card = { id: 'ex-high', suit: 'D', rank: wrap(baseRank + 1) };
+    const mk = (x: number, card: Card, highlight = false): void => {
+      const v = new CardView(this, x, cy, cw, ch, false);
+      v.showFace(card, highlight);
+      layer.add(v);
+    };
+    // 가운데 **기준 카드**는 골드 테두리로 강조(실제 기준 카드와 같은 표시).
+    layer.add(this.add.rectangle(cx, cy, cw * 1.36, ch * 1.2, 0xffd166, 0.32).setStrokeStyle(5, 0xffb703));
+    mk(cx - gap, low);
+    mk(cx, mid, true);
+    mk(cx + gap, high);
+    // 라벨: 위쪽 한 줄만(겹침 방지). 기준은 조금 더 크게.
+    const tag = (x: number, text: string, color: string, size = TIP_FONT_SIZE.tag): void => {
+      layer.add(
+        this.add
+          .text(x, cy - ch * 0.82, text, { fontFamily: PlayScene.TIP_FONT, fontSize: `${size}px`, color, fontStyle: 'bold' })
+          .setOrigin(0.5),
+      );
+    };
+    tag(cx - gap, '−1', '#2e9e4f');
+    tag(cx, '기준 카드', '#c25e00');
+    tag(cx + gap, '+1', '#2e9e4f');
+    // 기준에서 **바깥으로** 향하는 화살표 — 양쪽 다 낼 수 있다는 뜻.
+    for (const dir of [-1, 1]) {
+      layer.add(
+        this.add
+          .text(cx + dir * gap * 0.52, cy, dir < 0 ? '◀' : '▶', { fontFamily: PlayScene.TIP_FONT, fontSize: `${TIP_FONT_SIZE.caption}px`, color: '#2e9e4f' })
+          .setOrigin(0.5),
+      );
+    }
+  }
+
+  /**
+   * **일반 메시지 팝업**(PO 2026-08-22 "다양한 메시지 출력을 위한 팝업창은 이 창을 쓸 것).
+   *   짧은 알림 한 줄용 가로 리본(UI_28). 탭하면 닫히고 `onClose` 가 불린다(예: 상점 열기).
+   */
+  private showMessage(text: string, onClose?: () => void, at?: { x: number; y: number }): void {
+    const layer = overlayLayer(this, 2100).setName('message');
+    const dim = overlayScrim(this, 0x000000, 0.5);
+    layer.add(dim);
+    // **글자 분량에 맞춰 창을 키운다**(PO 2026-08-22) — 먼저 문구를 만들어 크기를 재고 창을 잡는다.
+    const body = this.add
+      .text(0, 0, text, {
+        fontFamily: PlayScene.TIP_FONT, fontSize: `${TIP_FONT_SIZE.body}px`, color: '#4a2f14',
+        align: 'center', wordWrap: { width: W * 0.66 },
+      })
+      .setOrigin(0.5);
+    // 창의 **안쪽 영역**을 기준으로 키운다 — 글자는 아래 `body.setPosition` 에서 안쪽 한가운데로.
+    const fit = fitMessagePanel(GREEN_PANEL, body.width, body.height, { minW: W * 0.8, maxW: W * 0.94, padX: 60, padY: 52 });
+    const pw = fit.pw;
+    const ph = fit.ph;
+    // **꼬리가 사건이 일어난 자리를 가리키게**(PO 2026-08-22) — 이 창도 아래에 꼬리가 있다.
+    //   대상 바로 위에 놓고, 화면 밖으로 나가지 않게 좌우·상하를 클램프한다.
+    const cx = at ? Phaser.Math.Clamp(at.x, pw / 2 + 16, W - pw / 2 - 16) : W / 2;
+    const cy = at ? Phaser.Math.Clamp(at.y - ph * 0.85, ph * 0.6 + 40, H - ph * 0.6 - 40) : H * 0.46;
+    if (this.textures.exists(MESSAGE_PANEL_KEY)) {
+      layer.add(this.add.image(cx, cy, MESSAGE_PANEL_KEY).setDisplaySize(pw, ph));
+    } else {
+      layer.add(this.add.rectangle(cx, cy, pw * 0.9, ph * 0.8, 0xfff2df, 0.98).setStrokeStyle(6, 0x2da9f5));
+    }
+    body.setPosition(cx, cy + fit.textY); // **안쪽 여백의 한가운데**(PO 2026-08-23).
+    layer.add(body);
+    if (at) for (const o of this.pointerAt(at.x, at.y)) layer.add(o);
+    dim.once('pointerdown', () => {
+      this.tweens.killTweensOf(layer.list);
+      layer.destroy();
+      onClose?.();
+    });
+    sfx('button');
+  }
+
+  /** 한 지점을 가리키는 손가락(+선택 라벨) — 위아래로 까딱인다. 만들어진 오브젝트를 돌려준다. */
+  private pointerAt(x: number, y: number, label?: string): Phaser.GameObjects.GameObject[] {
+    const out: Phaser.GameObjects.GameObject[] = [];
+    const hand = this.makePointer(x, y + this.geom.cardH * 0.28);
+    this.tweens.add({ targets: hand, y: hand.y - 20, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    out.push(hand);
+    if (label) {
+      out.push(
+        this.add
+          .text(x, y + this.geom.cardH * 0.95, label, {
+            fontFamily: PlayScene.TIP_FONT, fontSize: `${TIP_FONT_SIZE.label}px`, color: '#ffffff',
+            backgroundColor: '#000000aa', padding: { x: 16, y: 8 },
+          })
+          .setOrigin(0.5, 0),
+      );
+    }
+    return out;
+  }
+
+  private toast(msg: string, important = false): void {
+    // **안내(튜토리얼성) 메시지는 20레벨까지만**(PO 2026-07-18) — 이후엔 숙련 유저라 화면 정리.
+    //   ⚠️ 코인 부족 같은 **결과 통보**까지 막으면 안 된다(PO 2026-08-21).
+    if (!important && this.level > 20) return;
+    // **팝업창은 처음 1~2회만**(PO 2026-08-22) — 그 뒤에도 정보는 필요하므로 **창 없이 예전의 간단한
+    //   글자 표시**로 낮춘다(안 띄우는 게 아니라 격을 낮춘다).
+    const withPanel = shouldShowMessage(this.msgCounts, msg);
+    if (withPanel) saveMessageCounts(this.msgCounts); // 판·세션이 바뀌어도 횟수가 유지되도록 즉시 기록.
     // **뽑기/기준 카드 바로 위**에 표시(화면 중앙 아님).
     const ty = STOCK.y - this.geom.cardH * 0.5 - 66;
+    // **노란 창 = 숫자 등 짧은 표시 · 초록 창 = 문장**(PO 2026-08-22). 판정은 logic/messageStyle.ts.
+    const panelKey = withPanel ? (isShortMessage(msg) ? SMALL_MSG_PANEL_KEY : MESSAGE_PANEL_KEY) : '';
+    const box = this.add.container(W / 2, ty).setDepth(1600);
     const t = this.add
-      .text(W / 2, ty, msg, {
-        fontFamily: '"Jua", sans-serif',
+      .text(0, 0, msg, {
+        fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
         fontSize: '36px',
-        color: '#ffffff',
-        backgroundColor: '#2a1830dd',
-        padding: { x: 28, y: 14 },
+        color: this.textures.exists(panelKey) ? '#4a2f14' : '#ffffff',
         align: 'center',
+        wordWrap: { width: W * 0.7 },
+        ...(this.textures.exists(panelKey) ? {} : { backgroundColor: '#2a1830dd', padding: { x: 28, y: 14 } }),
       })
-      .setOrigin(0.5)
-      .setDepth(1600);
-    this.tweens.add({ targets: t, alpha: 0, y: ty - 40, duration: 1100, delay: 800, onComplete: () => t.destroy() });
+      .setOrigin(0.5);
+    if (this.textures.exists(panelKey)) {
+      // **창의 안쪽 영역** 기준으로 키우고 글자를 그 한가운데 앉힌다(ui/messagePanel.ts 실측).
+      const fit = fitMessagePanel(isShortMessage(msg) ? YELLOW_PANEL : GREEN_PANEL, t.width, t.height, {
+        minW: W * 0.42,
+        maxW: W * 0.9,
+        padX: 52,
+        padY: 40,
+      });
+      t.setY(fit.textY);
+      box.add(this.add.image(0, 0, panelKey).setDisplaySize(fit.pw, fit.ph));
+    }
+    box.add(t);
+    // **최소 1.5초는 그대로 보여 준다**(PO 2026-08-22 "너무 빠르게 사라지면 확인이 어렵다").
+    this.tweens.add({
+      targets: box,
+      alpha: 0,
+      y: ty - 40,
+      duration: 700,
+      delay: withPanel ? TOAST_HOLD_MS : Math.round(TOAST_HOLD_MS * 0.55), // 창 없는 반복 표시는 짧게.
+      onComplete: () => box.destroy(),
+    });
   }
 
   // ── 상호작용 ────────────────────────────────────────────────────────
   private onCardTap(slotId: string): void {
-    if (this.ended || this.dealing) return; // ⚠️ busy 로 막지 않는다 — 카드가 날아가는 도중에도 다음 카드를 선택할 수 있게(동시 플레이).
+    if (this.ended || this.dealing) return;
+    if (this.coachHold) return; // 안내 중에는 입력을 받지 않는다(화면 정지).
+    if (this.arrowHintsLeft > 0) { this.arrowHintsLeft -= 1; this.hideArrow(); } // ⚠️ busy 로 막지 않는다 — 카드가 날아가는 도중에도 다음 카드를 선택할 수 있게(동시 플레이).
     const view = this.cards.get(slotId);
     if (!view) return;
     const wild = this.wildActive;
-    // 와일드면 노출만 확인(±1 무시), 아니면 ±1 매칭 필요.
+    // **S2 방어선** — 화면이 상태를 정확히 그리고 있지 않으면 판정하지 않는다. 입력이 이미 잠겨 있어야 하므로
+    //   여기 걸리는 건 곧 버그 → 조용히 무시하되 기록에 남긴다(거부 피드백도 주지 않는다: 플레이어 잘못이 아님).
+    if (!this.isTappable(slotId)) {
+      this.logInvariant('tap-on-unsynced-view', slotId);
+      return;
+    }
+    // 와일드면 노출만 확인(±1 무시), 아니면 ±1 매칭 필요. **여기서의 거부는 규칙(±1 불일치)뿐**이다.
     if (wild ? !isExposed(this.state, slotId) : !isPlayable(this.state, slotId)) {
       sfx('card_invalid');
       this.denyFeedback(view);
@@ -2835,9 +5006,11 @@ export class PlayScene extends Phaser.Scene {
     }
     this.pushHistory();
     const card = this.state.board[slotId];
+    // 이 수로 **새로** 열리는 슬롯을 정확히 알아내기 위해 직전 노출 집합을 기억한다(공개 보류 대상).
+    const exposedBefore = new Set(this.state.layout.slots.filter((sl) => isExposed(this.state, sl.id)).map((sl) => sl.id));
     this.state = wild ? playWild(this.state, slotId) : playCard(this.state, slotId);
     if (wild) sfx('wild_use');
-    else sfxCardPlace();
+    else sfxCardPlace(this.state.combo); // 방금 놓은 카드까지 포함된 콤보 길이 → 진동 굵기.
     if (wild) {
       this.wildActive = false;
       this.wildMarker?.destroy();
@@ -2847,6 +5020,9 @@ export class PlayScene extends Phaser.Scene {
     view.disableInteractive();
     view.showFace(card);
     view.setDepth(1000);
+    // **수집 상품** — 예전엔 3콤보마다 자동으로 떨어졌다(개수가 콤보 운에 좌우됐다).
+    //   지금은 딜 때 카드 뒤에 심어 두고(placeCollectItems) **그 카드를 낼 때** 수집한다 — 아래 참조.
+    this.collectRun += 1;
     // **컬렉션 카드 수집**(PO 2026-07-27) — 꽂혀 있던 보드 카드를 **낼 때** 수집된다. 예전엔 그 카드가
     //   노출되기만 해도 자동 수집됐는데, PO 지시대로 "오픈된 상태가 아닌 클릭된 상태 = 다른 카드와 동일한
     //   취급"으로 바꿨다(바로 위 다이아 수집과 완전히 같은 모델).
@@ -2857,25 +5033,58 @@ export class PlayScene extends Phaser.Scene {
       if (bcHere.armed) this.triggerCollectionOpen(bcHere);
       else bcHere.played = true;
     }
+    // **투데이 리그 별 회수** — 이 카드에 별이 꽂혀 있었으면 그 개수만큼 리그로 날려 보낸다.
+    // **＋카드 회수** — 꽂혀 있던 뽑기 보충분이 이 카드를 내는 순간 더미로 들어간다.
+    const stockHere = this.stockSlots.get(slotId);
+    if (stockHere) {
+      this.stockSlots.delete(slotId);
+      const pv = this.stockViews.get(slotId);
+      this.stockViews.delete(slotId);
+      this.collectStockCards(stockHere, pv);
+    }
+    const starsHere = this.starSlots.get(slotId);
+    if (starsHere) {
+      this.starSlots.delete(slotId);
+      const sv = this.starViews.get(slotId);
+      this.starViews.delete(slotId);
+      // 원본 뷰를 그대로 넘긴다 — 연출이 그걸 **확대했다가 흩뜨린다**(새로 만들면 자리가 튄다).
+      this.holdLeagueStars(starsHere, { x: view.x, y: view.y }, sv);
+    }
     // **다이아 수집** — 이 카드에 다이아가 끼워져 있었으면 크게 팝업 후 상단으로 회수.
     if (this.diamondSlots.has(slotId)) {
       this.diamondSlots.delete(slotId);
       const gem = this.diamondViews.get(slotId);
       this.diamondViews.delete(slotId);
       if (gem) this.collectDiamond(gem);
+      // 다이아도 **위클리 수집 대상**(PO 2026-08-24) — 판에서 모은 아이템이면 무엇이든 센다.
+      /*
+       * **다이아는 보드에서 회수되는 순간** 위클리에 기록된다(PO 2026-08-24). 건설용 다이아 자체는
+       *   기존대로 판이 끝날 때 헤더 다이아 저장소로 들어간다 — 두 흐름은 별개다.
+       */
+      this.creditEventFromPlay(1, { x: view.x, y: view.y }, 'diamond');
     }
     // (요청) 와일드로 낸 보드 카드에는 와일드 이미지를 얹지 않는다 — 선택 카드가 그대로 회수된다.
     // 상태는 이미 갱신됨 → **즉시 refresh** 로 새 기준(웨이스트 top) 하이라이트/미션 반영.
     //   단, 아래 노출 카드 공개는 **보류**(suppressReveal) — 낸 카드의 토스 회수가 끝날 때 뒤집어 공개.
     this.pushMatch(card.suit);
-    this.suppressReveal = true;
+    // **이 수로 새로 열린 슬롯만** 공개 보류에 넣는다 — 토스가 정점에 닿을 때 뒤집는다.
+    //   (기준 카드는 보류하지 않는다: 무엇을 냈는지 플레이어가 이미 알므로 즉시 반영해야 한다.)
+    for (const sl of this.state.layout.slots) {
+      if (!exposedBefore.has(sl.id) && isExposed(this.state, sl.id)) this.heldReveals.add(sl.id);
+    }
+    // **기준 카드 잠금은 여기서 건다**(PO 2026-08-22 재수정) — 눌림/팝(약 0.2초) 동안 잠금이 없으면
+    //   기준 카드가 새 카드로 먼저 바뀌었다가 비행 시작에 다시 직전 카드로 되돌아가 깜빡였다.
+    //   상태가 바뀌는 이 지점에서 바로 잠가야 **착지 때 한 번만** 바뀐다.
+    this.matchFlights += 1;
     this.refresh();
-    this.suppressReveal = false;
     // **역동적 회수 연출** — ①눌림(축소) → ②팝(확대+살짝 뜸) → ③위로 크게 토스하며 1.5바퀴 회전 + 잔상 → ④웨이스트 회수.
     const startAngle = view.angle;
     const baseSX = view.scaleX;
     const baseSY = view.scaleY;
+    let stage = 'init';
     const startFly = (): void => {
+      stage = 'fly-start';
+      // 기준 카드 잠금(matchFlights)은 이미 탭 시점에 걸려 있다 — 여기서 또 올리면 착지해도 안 풀린다.
       const sx = view.x;
       const sy = view.y;
       const flySX = view.scaleX; // 팝 직후 확대 배율 → 비행 중 기본 배율로 수렴
@@ -2900,17 +5109,21 @@ export class PlayScene extends Phaser.Scene {
           // **튀어오름 정점(~40%)에서 아래 노출 카드 공개** — 회수 끝까지 기다리지 않고 약간 빠르게 뒤집는다.
           if (!revealed && t >= 0.4) {
             revealed = true;
+            this.heldReveals.clear(); // 공개 시작 — 보류 해제(뷰모델이 즉시 뒤집기로 바뀐다).
             this.refresh();
           }
         },
         onComplete: () => {
-          this.flyingCards = Math.max(0, this.flyingCards - 1); // 비행 종료(undo/+5 재허용).
-          view.setPosition(WASTE.x, WASTE.y);
-          view.setAngle(0);
-          view.setScale(baseSX, baseSY);
-          // 도착한 카드가 새 기준. 이전 기준 뷰는 파기(동시 여러 장이 날아와도 마지막 도착이 기준으로 남음).
-          if (this.wasteView && this.wasteView !== view) this.wasteView.destroy();
-          this.wasteView = view;
+          this.matchFlights = Math.max(0, this.matchFlights - 1); // 착지 — 이제 기준 카드가 새 카드로 바뀐다.
+          this.endFlight(flId); // 비행 종료(undo/+5 재허용) — 고스트 파기는 정리 콜백이 맡는다.
+          // **고스트 파기**(S1) — 예전엔 이 뷰를 `wasteView` 로 승격시켰다. 그 탓에 착지 전까지 화면의
+          //   기준 카드가 직전 카드로 남아 판정과 어긋났다. 이제 기준 카드는 탭 즉시 갱신돼 있고
+          //   (`onCardTap` → refresh → syncWasteView), 이 고스트는 같은 그림 위에 내려앉아 사라진다.
+          view.destroy();
+          if (!revealed) {
+            revealed = true;
+            this.heldReveals.clear(); // 연출이 40% 콜백을 못 밟은 경우의 안전망.
+          }
           // **회수(튀어오름) 완료 시점** — 이제 아래 노출 카드를 뒤집어 공개(보류 해제).
           this.refresh();
           this.checkEnd();
@@ -2918,7 +5131,12 @@ export class PlayScene extends Phaser.Scene {
       });
     };
     // ①눌림(양방향 축소) → ②팝(확대 + 살짝 위로 뜸, Back 오버슛) → 토스 회수.
-    this.flyingCards += 1; // 비행 시작(undo/+5 잠금) — startFly 의 onComplete 에서 감소.
+    //   연출이 중간에 끊겨도 워치독이 잠금을 풀고 고스트를 치운다(beginFlight 참고).
+    const flId = this.beginFlight(() => {
+      view.destroy();
+      this.heldReveals.clear(); // 회수가 끊기면 보류된 공개가 영영 안 풀린다 — 함께 되돌린다.
+      this.matchFlights = 0; // 기준 표시 잠금도 함께 해제(연출이 끊겨도 굳지 않게).
+    }, () => `toss stage=${stage} alive=${!!view.scene} tweens=${this.tweens.getTweensOf(view).length}`);
     this.tweens.add({
       targets: view,
       scaleX: baseSX * 0.84,
@@ -2926,6 +5144,7 @@ export class PlayScene extends Phaser.Scene {
       duration: 75,
       ease: 'Quad.easeIn',
       onComplete: () => {
+        stage = 'pop';
         this.tweens.add({
           targets: view,
           scaleX: baseSX * 1.2,
@@ -2933,28 +5152,44 @@ export class PlayScene extends Phaser.Scene {
           y: view.y - 28,
           duration: 150,
           ease: 'Back.easeOut',
-          onComplete: () => startFly(),
+          onComplete: () => { stage = 'pop-done'; startFly(); },
         });
       },
     });
   }
 
   private onStockTap(): void {
-    if (this.ended || this.dealing) return; // busy 로 막지 않음(동시 플레이). 딜 연출 중엔 잠금.
+    if (this.ended || this.dealing) return;
+    if (this.coachHold) return; // 안내 중에는 입력을 받지 않는다(화면 정지).
+    if (this.arrowHintsLeft > 0) { this.arrowHintsLeft -= 1; this.hideArrow(); } // busy 로 막지 않음(동시 플레이). 딜 연출 중엔 잠금.
+    // 뽑기 화살표를 보고 실제로 뽑았다 → **다시는 안 보여 준다**(영구 기록, PO 2026-08-24).
+    if (this.stockArrowActive) {
+      this.stockArrowActive = false;
+      this.tipsSeen = [...this.tipsSeen, 'drawArrow'];
+      markTipSeen('drawArrow');
+    }
     if (this.state.stock.length === 0) return;
     this.pushHistory('draw');
     // **동적 드로우**: 뽑는 카드의 랭크는 drawStock 이 결정하므로 뽑은 뒤 웨이스트 top 을 읽어 애니메이션.
     //   되돌리기로 취소했던 뽑기를 같은 자리에서 다시 하는 거면 **그때 나왔던 카드를 그대로** 재현한다.
+    this.collectRun = 0; // 뽑으면 콤보가 끊긴다(수집 드랍 기준 — 시뮬과 동일 규칙).
+    // **행운 카드 연출 준비**(PO 2026-08-25) — 이 뽑기가 ＋5 보조(2차 30%/3차 50%) 카드였는지 기억해 둔다.
+    //   ⚠️ 확률 수치는 화면에 표기하지 않는다(확률형 고지 정책 확정 전) — "행운"이라는 체감만 준다.
+    const assistedDraw = (this.state.stock[this.state.stock.length - 1]?.assist ?? 0) > 0;
     this.state = this.replayUndone('draw') ?? drawStock(this.state, this.rng);
     this.drawsUsed += 1; // 별 등급의 '짧은 수순' 축.
     const card = wasteTop(this.state);
     const drewWild = card.wild === true; // 뽑힌 카드가 와일드면 기준이 와일드가 되어 1회 아무 카드나 낼 수 있다.
-    // ⚠️ **상태를 바꾼 직후 즉시** 비행 중으로 표시한다(PO 2026-07-28 "기준카드에 먼저 나타났다가 다시
+    // 보조 카드가 실제로 매칭 랭크로 공개됐으면 — 공개 연출이 끝날 즈음 반짝임(살수록 잘 풀린다는 학습).
+    if (assistedDraw && !drewWild && availableMoves(this.state).length > 0) {
+      this.time.delayedCall(430, () => this.luckyCardFx());
+    }
+    // ⚠️ **상태를 바꾼 직후 즉시** 공개 대기로 표시한다(PO 2026-07-28 "기준카드에 먼저 나타났다가 다시
     //    배치되는 연출로 헷갈린다") — 아래 `cancelWild()` 는 내부에서 `refresh()` 를 부르고, 그때
     //    `syncWasteView` 가 **아직 날아오지도 않은 새 기준 카드를 목적지에 미리 그려버린다**. 그러면 카드가
     //    한 번 뜬 뒤 비행 연출이 또 배치해 **두 번 바뀌어 보인다**. 예전엔 이 증가가 wild/콤보 처리 뒤에
     //    있어서, 와일드가 아닌 **일반 뽑기(대부분)** 에서 매번 이 현상이 났다.
-    this.flyingCards += 1; // 비행 시작(undo/+5 잠금) — onComplete 에서 감소.
+    const dfId = this.beginDrawFlight(); // 공개 전까지 기준 카드 뷰를 뒷면으로 둔다.
     sfx(drewWild ? 'wild_activate' : 'card_deal');
     // 뽑기 = 콤보 끊김. 기준 카드가 새로 바뀌므로 (와일드가 아니면) 와일드도 해제. **진행 중이던 부분 런(≤4)은
     //   채운 수만큼 소량 적립**(endComboRun) 후 박스 비움.
@@ -2963,6 +5198,8 @@ export class PlayScene extends Phaser.Scene {
     this.endComboRun();
     this.refresh(); // 스톡 수량·하이라이트 즉시 반영(더미 다시 쌓기 포함).
     const fly = new CardView(this, STOCK.x, STOCK.y, this.geom.cardW, this.geom.cardH, false);
+    // 비행 시작(undo/+5 잠금) — 연출이 끊겨도 워치독이 잠금을 풀고 이 고스트를 치운다.
+    const flId = this.beginFlight(() => fly.destroy(), 'draw');
     fly.setDepth(1000);
     // **폴드(뒷면)로 시작 → 이동하며 카드가 뒤집혀 오픈되면서 기준 자리에 배치**.
     fly.showBack();
@@ -2989,28 +5226,174 @@ export class PlayScene extends Phaser.Scene {
         emitTrail(fly);
       },
       onComplete: () => {
-        this.flyingCards = Math.max(0, this.flyingCards - 1); // 비행 종료(undo/+5 재허용).
-        fly.setPosition(WASTE.x, WASTE.y);
-        fly.scaleX = baseSX;
-        if (this.wasteView && this.wasteView !== fly) this.wasteView.destroy();
-        this.wasteView = fly;
+        this.endFlight(flId); // 비행 종료(undo/+5 재허용) + 고스트 파기(정리 콜백).
+        this.endDrawFlight(dfId); // 공개 완료 → 기준 카드 뷰가 새 카드를 앞면으로 그린다.
+        this.refresh(); // 숨겨 뒀던 기준 카드 뷰가 새 top 을 그린 채로 드러난다(끊김 없음).
         if (drewWild) {
           // 기준이 와일드 → 노출 카드 전부 골드 강조(아무거나 1회), 안내 + 살짝 맥동.
-          this.updateBoosters();
           this.toast('🃏 와일드! 아무 노출 카드나 탭하세요');
-          this.tweens.add({
-            targets: fly,
-            scaleX: baseSX * 1.06,
-            scaleY: fly.scaleY * 1.06,
-            duration: 460,
-            yoyo: true,
-            repeat: 2,
-            ease: 'Sine.easeInOut',
-          });
-          this.refresh();
+          this.tryTip('wildUse');
+          this.pulseWasteView();
         }
         this.checkEnd();
       },
+    });
+  }
+
+  // ── S3: 불변식 감시 ────────────────────────────────────────────────
+  /**
+   * **불변식 위반 기록** — 화면과 상태가 어긋난 순간을 조용히 넘기지 않는다.
+   *   콘솔이 닫혀 있어도 남도록 코어 errorLog(localStorage 영구 링버퍼)에 적재한다 → 콘솔에서 `__errors()`.
+   *   같은 종류는 판당 1회만 쌓아 로그가 한 종류로 가득 차지 않게 한다.
+   */
+  private logInvariant(kind: string, detail: string): void {
+    if (this.loggedInvariants.has(kind)) return;
+    this.loggedInvariants.add(kind);
+    appendError('solitaire', {
+      type: 'invariant',
+      msg: `[play] ${kind}: ${detail}`,
+      stack: new Error('invariant').stack,
+      ctx: `lv${this.level} 남은${remaining(this.state)} 스톡${this.state.stock.length} fly${this.flyingCards} draw${this.drawFlights}`,
+    });
+  }
+
+  /**
+   * **뽑기 비행 시작/종료** — 토큰으로 관리한다. 연출 트윈이 (씬 전환·예외 등으로) onComplete 를 못 부르면
+   *   기준 카드가 숨은 채 남아 보드 입력이 영구히 잠기므로, 워치독이 강제로 풀고 위반을 기록한다.
+   */
+  /**
+   * **비행 연출 토큰**(매칭 토스·뽑기 플립 등) — 시작할 때 잠그고 끝나면 푼다.
+   *
+   * 예전에는 `flyingCards += 1` / `-= 1` 을 트윈 콜백에서 직접 했다. 그런데 트윈은 여러 이유로
+   * onComplete 를 못 부른다(대상이 먼저 파기됨 · onUpdate 예외 · 씬 전환 · 배속 전환). 그러면 카운터가
+   * 1 로 굳어 **되돌리기·＋5 가 영구히 잠기고**, 함께 굳은 뽑기 공개 대기 때문에 카드도 안 눌렸다
+   * (PO 2026-08-21 "카드가 안 눌린다"의 원인 중 하나 — QA 진단에 `flyingCards: 1` 로 남아 있었다).
+   * 이제 토큰마다 워치독을 걸어, 연출이 끝나지 않아도 **반드시** 잠금이 풀리고 정리가 돌게 한다.
+   */
+  /**
+   * **실시간 기준 워치독** — `realMs` 가 지나도 `isDone()` 이 아니면 `onFire()`. 그 전까지는 짧게 폴링한다.
+   *   `time.delayedCall` 의 delay 는 게임시간(배속에 나뉨)이라 그것만으로는 배속에서 조기 발동한다.
+   */
+  private armWatchdog(realMs: number, isDone: () => boolean, onFire: () => void): void {
+    const started = performance.now();
+    const tick = (): void => {
+      if (isDone() || !this.scene.isActive()) return;
+      if (performance.now() - started >= realMs) { onFire(); return; }
+      this.time.delayedCall(WATCHDOG_POLL_MS, tick);
+    };
+    this.time.delayedCall(WATCHDOG_POLL_MS, tick);
+  }
+
+  private beginFlight(cleanup?: () => void, tag: string | (() => string) = ''): number {
+    const id = ++this.flightSeq;
+    this.activeFlights.set(id, cleanup);
+    this.flyingCards = this.activeFlights.size;
+    this.armWatchdog(
+      FLIGHT_WATCHDOG_REAL_MS,
+      () => !this.activeFlights.has(id),
+      () => {
+        this.logInvariant('flight-stuck', `id${id} ${typeof tag === 'function' ? tag() : tag}`);
+        this.endFlight(id);
+        this.refresh();
+      },
+    );
+    return id;
+  }
+
+  /** 비행 종료 — 카운터를 내리고 등록된 정리(고스트 파기)를 한 번만 실행한다. */
+  private endFlight(id: number): void {
+    const cleanup = this.activeFlights.get(id);
+    if (!this.activeFlights.delete(id)) return;
+    this.flyingCards = this.activeFlights.size;
+    try {
+      cleanup?.();
+    } catch {
+      /* 정리 실패보다 잠금 해제가 우선 — 예외를 삼킨다(여기서 던지면 트윈 루프가 죽는다). */
+    }
+  }
+
+  private beginDrawFlight(): number {
+    const id = ++this.drawFlightSeq;
+    this.activeDrawFlights.add(id);
+    this.drawFlights = this.activeDrawFlights.size;
+    this.armWatchdog(
+      DRAW_FLIGHT_WATCHDOG_REAL_MS,
+      () => !this.activeDrawFlights.has(id),
+      () => {
+        this.logInvariant('draw-flight-stuck', `id${id}`);
+        this.endDrawFlight(id);
+        this.refresh();
+      },
+    );
+    return id;
+  }
+
+  private endDrawFlight(id: number): void {
+    if (!this.activeDrawFlights.delete(id)) return;
+    this.drawFlights = this.activeDrawFlights.size;
+  }
+
+  /**
+   * **목표 화면(뷰모델) == 실제 렌더** 대조(refresh 끝에서 1회). 어긋남은 곧 "플레이어가 본 것과 다른 판정"의 씨앗.
+   *   규칙 자체는 boardView 가 테스트로 지키므로, 여기서는 **옮겨 담기가 실패했는지**만 본다.
+   *   ① 기준 카드 ② 보드 카드 그림 ③ 입력이 목표와 같은가(특히 "낼 수 있는데 안 눌림").
+   */
+  private assertViewState(): void {
+    const wv = this.wasteView;
+    const w = this.view.waste;
+    if (wv) {
+      // 'hold'(연출 중 직전 카드 유지)는 그 카드가 보이면 정상이다 — 와일드였다면 와일드 아트가 정답.
+      const wantCard = w.card as Card | undefined;
+      const ok =
+        w.kind === 'back'
+          ? !wv.isFaceUp()
+          : w.kind === 'wild' || (w.kind === 'hold' && wantCard?.wild)
+            ? wv.isShowingWild()
+            : wantCard != null && wv.isShowingCard(wantCard);
+      if (!ok) {
+        this.logInvariant('waste-view-desync', `목표=${w.kind}${wantCard ? `${wantCard.rank}${wantCard.suit}` : ''} 표시=${wv.shownSignature()}`);
+        this.syncWasteView(); // **자가 치유** — 기록만 하면 기준 카드가 어긋난 채로 남는다.
+      }
+    }
+    for (const [id, view] of this.cards) {
+      const want = this.view.slots.get(id);
+      if (!want) continue;
+      // 뒤집기 중에는 그림이 목표와 다른 게 정상(연출이 진행 중) — 그림 검사만 건너뛴다.
+      if (want.kind === 'face' && !view.isFlipping() && !view.isShowingCard(want.card as Card)) {
+        this.logInvariant('board-view-desync', `${id} 목표=${want.card!.rank}${want.card!.suit} 표시=${view.shownSignature()}`);
+        this.applySlotView(view, id, want); // **자가 치유** — 그림을 목표대로 다시 그린다.
+      }
+      const enabled = view.input?.enabled === true;
+      // **자가 치유**(PO 2026-08-21 "버그를 수정하세요") — 예전엔 어긋남을 **기록만** 했다. 그런데 이 계열의
+      //   증상은 "낼 수 있는 카드가 영영 안 눌리는" 것이라, 기록만 하면 플레이어는 판을 버릴 수밖에 없다.
+      //   원인(중단된 트윈·놓친 콜백)은 여러 갈래라 하나씩 막아도 새로 생긴다 — 그래서 **결과를 되돌리는**
+      //   안전망을 둔다. syncCardInput 은 뷰모델과 현재 그림에서 입력 여부를 다시 계산하므로, 양방향
+      //   (열려야 하는데 닫힘 / 닫혀야 하는데 열림) 모두 여기서 교정된다.
+      if (enabled && !want.tappable) {
+        this.logInvariant('input-open-when-not-tappable', id);
+        this.syncCardInput(id);
+      }
+      // **낼 수 있는데 못 누르는 카드** — 이번 계열 버그의 사용자 체감 증상 그 자체.
+      //   목표가 tappable 인데 그림이 아직 안 따라온(뒤집는 중) 경우는 제외한다(곧 콜백이 연다).
+      if (!enabled && want.tappable && want.kind === 'face' && view.isShowingCard(want.card as Card)) {
+        this.logInvariant('playable-card-not-tappable', `${id} 표시=${view.shownSignature()}`);
+        this.syncCardInput(id);
+      }
+    }
+  }
+
+  /** 기준 카드(와일드 등장) 맥동 — 대상은 **언제나 wasteView**(고스트가 아니라). */
+  private pulseWasteView(): void {
+    const wv = this.wasteView;
+    if (!wv) return;
+    this.tweens.add({
+      targets: wv,
+      scaleX: wv.scaleX * 1.06,
+      scaleY: wv.scaleY * 1.06,
+      duration: 460,
+      yoyo: true,
+      repeat: 2,
+      ease: 'Sine.easeInOut',
     });
   }
 
@@ -3055,91 +5438,126 @@ export class PlayScene extends Phaser.Scene {
     if (this.cardBacking) return;
     const g = this.add.graphics().setDepth(50);
     g.fillStyle(0x0d1424, 0.62);
-    g.fillRect(0, DARK_TOP, W, H - DARK_TOP);
+    const fb = fullBleedBounds(this); // 넓어진 폭까지 덮는다(저작 W 로 그리면 좌우가 뚫린다).
+    g.fillRect(fb.x, DARK_TOP, fb.w, fb.y + fb.h - DARK_TOP);
     this.cardBacking = g;
   }
 
+  /**
+   * 화면을 현재 상태에 맞춘다. **순서에 의존하지 않는다** — 목표 화면을 순수 함수로 한 번 계산한 뒤
+   *   그대로 옮겨 담기 때문. (예전에는 기준 카드/보드/입력을 차례로 갱신해, 그 순서가 곧 정확성이었다.)
+   */
   private refresh(): void {
     // 에디터가 암막 패널(layer_4)을 저작했으면 코드 막 생략(중복 방지).
     if (!this.chromeFromEditor) this.drawBoardMask();
-    const moves = new Set(availableMoves(this.state));
+    this.computeView();
+    this.syncWasteView();
+    this.syncBoardViews();
+    // 특수 카드 소비 — **뷰를 그린 뒤에** 한다(둘 다 state 를 바꾼다: 슬롯 클리어 + 스톡 변경).
+    const before = this.state;
+    // **특수 카드는 소비 전에 안내**(PO 2026-08-22 "화면을 멈추고 화살표로 이 카드가 무엇인지 안내").
+    //   ⚠️ 안내 중(coachHold)에는 **어떤 소비도 하지 않는다** — 와일드 안내가 떠 있는데 보너스를 소비해
+    //   버리면 그 카드는 설명도 못 듣고 사라진다(실측 버그). 미뤄 둔 쪽은 안내를 닫을 때 도는 refresh 가
+    //   다시 집어 든다(그때 자기 안내가 또 뜬다).
+    if (!this.coachHold && this.view.triggers.bankWild && !this.wildBanked) {
+      if (!this.coachIfNew('wildCard', this.wildSlotId, () => this.bankWild())) this.bankWild();
+    }
+    if (!this.coachHold && this.view.triggers.bonus && !this.bonusTriggered) {
+      if (!this.coachIfNew('bonusCard', this.bonusSlot?.id, () => this.triggerBonus())) this.triggerBonus();
+    }
+    if (this.state !== before) {
+      // 소비로 그 아래 카드가 새로 열렸다 → 목표 화면을 다시 계산해 반영(한 번이면 충분: 소비는 1회성).
+      this.computeView();
+      this.syncWasteView();
+      this.syncBoardViews();
+    }
+    this.syncStockAndHud();
+    this.updateBoosters();
+    this.assertViewState(); // 화면==상태 불변식(S3) — 위반은 errorLog 에 남긴다.
+    this.updateMoveHint(); // 초반 반복 화살표(남은 횟수가 있을 때만).
+    // **상황별 튜토리얼 안내** — 화면에 실제로 그 상황이 생겼을 때만 부른다(logic/tutorial.ts).
+    if (!this.dealing && !this.ended && !this.coachHold) {
+      const triggers: TipKey[] = [];
+      if (availableMoves(this.state).length === 0 && this.state.stock.length > 0) triggers.push('draw');
+      if (this.comboColors.length >= 3) triggers.push('combo');
+      if (this.history.length > 0) triggers.push('undo');
+      if (triggers.length) this.tryTip(...triggers);
+    }
+  }
+
+  /**
+   * 보드 카드 뷰 한 패스 — **뷰모델(boardView)이 시킨 대로만** 그린다.
+   *   여기에는 "언제 무엇을 보여줄지"에 대한 판단이 없다. 판단은 전부 순수 모듈에 있고, 이 함수는
+   *   그 결과를 Phaser 오브젝트에 옮겨 담을 뿐이다 → 갱신 순서 때문에 생기는 버그가 사라진다.
+   */
+  private syncBoardViews(): void {
     for (const [id, view] of this.cards) {
-      const exposed = isExposed(this.state, id);
-      // 가려진(뒷면) 카드는 입력 비활성 → 앞면 아래 겹치는 영역을 눌러도 뒷면이 잡히지 않는다.
-      if (view.input) view.input.enabled = exposed;
-      // **보드 와일드 노출 감지** — 아트 유지(탭 잠금)하고 루프 후 자동 뱅킹으로 스톡에 삽입.
-      if (exposed && id === this.wildSlotId && !this.wildBanked) {
-        view.showWild(); // 미리보기와 동일하게 와일드 아트 유지(뒷면 플리커 방지)
-        if (view.input) view.input.enabled = false;
-        if (!this.dealing && !this.suppressReveal) this.pendingBankWild = true;
-        continue;
-      }
-      // **보드 보너스(+N) 노출 감지** — 아트 유지하고 루프 후 흡입 연출 트리거.
-      if (exposed && this.bonusSlot && id === this.bonusSlot.id && !this.bonusTriggered) {
-        view.showArt(BONUS_ART[this.bonusSlot.count]);
-        if (view.input) view.input.enabled = false;
-        if (!this.dealing && !this.suppressReveal) this.pendingBonus = true;
-        continue;
-      }
-      // ⚠️ 컬렉션 카드는 **노출만으로는 수집되지 않는다**(PO 2026-07-27) — 꽂힌 보드 카드를 실제로 **낼 때**
-      //   수집된다(onCardTap, 다이아와 같은 모델). 여기서는 아무것도 하지 않는다.
-      if (exposed) {
-        // 와일드 활성 시 노출 카드 전부 골드 강조(아무거나 탭 가능), 아니면 ±1 가능 카드만.
-        const hl = this.wildActive || moves.has(id);
-        // 딜 중이 아니고 방금 노출된(아직 뒷면) 카드: 공개 보류 중이면 뒷면 유지(입력 잠금),
-        //   아니면 **뒤집기 연출**로 공개. 이미 앞면이면 즉시 갱신.
+      const want = this.view.slots.get(id);
+      if (!want) continue; // 제거된 슬롯(연출 중) — 건드리지 않는다.
+      this.applySlotView(view, id, want);
+    }
+  }
+
+  /** 카드 한 장에 목표 표시를 적용한다. 뒤집기 연출은 "뒷면 → 앞면"으로 바뀌는 순간에만 건다. */
+  private applySlotView(view: CardView, id: string, want: SlotView): void {
+    switch (want.kind) {
+      case 'wild':
+        if (!view.isShowingWild()) view.showWild();
+        break;
+      case 'bonus':
+        view.showArt(BONUS_ART[want.bonusCount ?? 1]);
+        break;
+      case 'back':
+        if (view.isFaceUp()) view.showBack();
+        break;
+      case 'face': {
+        const card = want.card as Card;
         if (!this.dealing && !view.isFaceUp()) {
-          if (this.suppressReveal) {
-            view.showBack();
-            if (view.input) view.input.enabled = false; // 공개 전까지 탭 불가
-          } else {
-            view.flipToFace(this.state.board[id], hl);
-          }
+          // 얼굴이 드러나는 순간 입력을 풀고(중간), 펼침이 끝나면 하이라이트까지 맞춘다.
+          view.flipToFace(card, want.highlight, () => this.onCardRevealed(id), () => this.syncCardInput(id));
         } else {
-          view.showFace(this.state.board[id], hl);
+          view.showFace(card, want.highlight);
         }
-        view.setAlpha(1);
-      } else {
-        // **가려진 특수 카드는 뒷면 대신 아트를 미리 보여준다**(상단 보드에 와일드/+N 위치 프리뷰).
-        if (id === this.wildSlotId && !this.wildBanked) {
-          view.showWild();
-        } else if (this.bonusSlot && id === this.bonusSlot.id && !this.bonusTriggered) {
-          view.showArt(BONUS_ART[this.bonusSlot.count]);
-        } else {
-          view.showBack();
-        }
-        view.setAlpha(0.98);
+        break;
       }
     }
-    // 루프 중 보드 와일드 노출을 감지했으면 뱅킹(스톡 삽입 + 비행 연출). wildBanked 로 1회만.
-    if (this.pendingBankWild) {
-      this.pendingBankWild = false;
-      this.bankWild();
-    }
-    // 보드 보너스(+N) 노출 감지 → 흡입 연출. bonusTriggered 로 1회만.
-    if (this.pendingBonus) {
-      this.pendingBonus = false;
-      this.triggerBonus();
-    }
+    view.setAlpha(want.alpha);
+    if (view.input) view.input.enabled = want.tappable && view.isShowingCard(want.card as Card);
+  }
+
+  /** 스톡 더미·카운터·＋5 플로팅·HUD 텍스트를 현재 state 로 맞춘다. */
+  private syncStockAndHud(): void {
     const stock = this.state.stock.length;
     // 스톡 수량이 바뀌면 더미를 다시 쌓는다(보유 수량만큼 겹쳐 보이게).
     if (stock !== this.lastStockCount) this.buildStockPile();
     this.stockCountText?.setText(stock > 0 ? `👆 뽑기 · ${stock}장` : '🃏 카드가 없어요');
     this.stockContainer?.setAlpha(stock > 0 ? 1 : 0.4);
     // **스톡 소진 → '카드가 없어요' 메시지 후 잠깐 뒤에 +5 플로팅 카드 등장**(즉시 뜨면 너무 급함, PO 2026-07-17).
-    if (stock === 0 && refillableCount(this.state) > 0 && !this.ended) {
+    // **정말 필요해질 때까지 기다린다**(PO 2026-08-23) — 스톡이 0이어도 보드에 낼 수 있는 수가 남아 있으면
+    //   먼저 그것부터 두게 둔다. 예전엔 소진되는 순간 바로 떠서 "아직 할 수 있는데" 안내가 먼저 나왔다.
+    const needsRefill = stock === 0 && availableMoves(this.state).length === 0;
+    if (needsRefill && refillableCount(this.state) > 0 && !this.ended) {
       if (!this.emptyStockPlus5 && !this.emptyStockPending) {
         this.emptyStockPending = true;
         this.time.delayedCall(850, () => {
           this.emptyStockPending = false;
           // 지연 후에도 여전히 소진 상태면 등장(그새 +5/뽑기로 채워졌으면 취소).
-          if (this.state.stock.length === 0 && refillableCount(this.state) > 0 && !this.ended) this.showEmptyStockPlus5();
+          if (
+            this.state.stock.length === 0 &&
+            availableMoves(this.state).length === 0 &&
+            refillableCount(this.state) > 0 &&
+            !this.ended
+          ) {
+            this.showEmptyStockPlus5();
+            this.tryTip('emptyStock');
+          }
         });
       }
     } else {
       this.emptyStockPending = false;
       this.hideEmptyStockPlus5();
     }
+    this.labRun.maxCombo = Math.max(this.labRun.maxCombo, this.state.combo); // 실측: 이 판 최대 콤보.
     this.comboText?.setText(`콤보 x${this.state.combo}`);
     this.remainText?.setText(`남은 카드 ${remaining(this.state)}`);
     // **코인 = 실제 보유 잔액(baseCoins)만** 표시. (예전엔 baseCoins+state.score 를 더해, 플레이 중 점수만큼
@@ -3149,23 +5567,38 @@ export class PlayScene extends Phaser.Scene {
     this.coinText?.setText(`🪙 ${coins}`);
     // 공통 상단 헤더에 실시간 반영.
     this.header?.setCoins(this.baseCoins);
-    this.updateBoosters();
-    this.syncWasteView(); // 기준 카드 뷰가 상태와 어긋나 있으면 바로잡는다(안전망).
   }
 
   /**
-   * **기준(웨이스트) 카드 뷰 동기화**(2026-07-26 신설) — 기준 카드 뷰는 지금까지 각 연출의 onComplete 에서만
-   *   교체돼, 어느 한 경로라도 교체를 빠뜨리면 **화면의 기준 카드와 실제 state 의 top 이 어긋난 채로**
-   *   남았다(＋5 플로팅 카드 탭에서 실제로 발생 — 방금 뒤집은 카드가 사라지고 이전 카드가 다시 보임).
-   *   refresh 끝에서 마지막으로 한 번 맞춰 준다.
-   *   ⚠️ **비행 연출 중(flyingCards>0)·공개 보류 중(suppressReveal)·딜 중에는 건너뛴다** — 그때 미리 맞추면
-   *   아직 날아오는 중인 카드가 목적지에 먼저 나타나 플립 연출이 스포일된다.
+   * **기준(웨이스트) 카드 뷰 동기화 — 이 게임에서 기준 카드 표시를 바꾸는 유일한 지점(S1 단일 소유권).**
+   *
+   * 예전에는 각 연출의 `onComplete` 가 **날아온 카드를 `wasteView` 로 승격**시켰다. 그래서
+   *   ① 연출이 끝날 때까지(카드 내기 0.75초 · 뽑기 0.36초) 화면의 기준 카드가 **직전 카드로 남고**,
+   *      그동안의 탭은 이미 바뀐 새 기준으로 판정돼 **"매칭되는데 거부당한다"** 로 체감됐다.
+   *   ② 연출 경로를 새로 추가할 때마다 승격을 빠뜨릴 자리가 생겨 같은 계열 버그가 반복됐다.
+   *
+   * 이제 기준 카드 뷰는 `buildStockAndWaste` 가 만든 **한 장뿐**이고, 내용은 언제나 `wasteTop(state)` 이다.
+   *   비행 카드는 전부 **고스트**(착지 시 destroy)로 강등돼 진실을 소유하지 않는다.
+   *   `drawFlights > 0`(뽑기 공개 대기) 동안에는 **표시만 숨긴다** — 무엇이 나올지 모르는 연출이라
+   *   목적지에 미리 그리면 카드가 두 번 바뀌어 보이기 때문. 내용은 그때도 이미 새 top 이다.
    */
   private syncWasteView(): void {
-    if (this.flyingCards > 0 || this.suppressReveal || this.dealing) return;
     const wv = this.wasteView;
     const top = wasteTop(this.state);
     if (!wv || !top) return;
+    const want = this.view.waste;
+    if (want.kind === 'hold') {
+      // **연출 중 — 직전 기준 카드를 그대로 유지**(PO 2026-08-22). 날아온 카드가 도착할 때 한 번만 바뀐다.
+      //   표시가 상태보다 늦지만 `wasteShown`=false 라 보드 탭이 함께 잠겨 오판이 생기지 않는다.
+      const prev = want.card as Card;
+      if (prev.wild) { if (!wv.isShowingWild()) wv.showWild(); }
+      else if (!wv.isShowingFace(prev)) wv.showFace(prev);
+      return;
+    }
+    if (this.drawFlights > 0) {
+      if (wv.isFaceUp()) wv.showBack(); // 직전 카드가 없는 첫 뽑기 — 뒷면(정직한 '아직 모름').
+      return;
+    }
     // 이미 같은 내용을 그리고 있으면 건드리지 않는다 — 재그리기는 진행 중인 스케일 연출(와일드 맥동 등)을
     //   리셋해 미세한 튐을 만든다.
     if (top.wild) {
@@ -3173,6 +5606,62 @@ export class PlayScene extends Phaser.Scene {
     } else if (!wv.isShowingFace(top)) {
       wv.showFace(top);
     }
+  }
+
+  /**
+   * **기준 카드가 지금 화면에 '진실되게' 보이는가** — 보드 탭을 판정에 넘겨도 되는지의 게이트(S2).
+   *   숨김(뽑기 공개 대기) 중이거나 내용이 state 와 다르면 false → 플레이어가 못 본 기준으로는 판정하지 않는다.
+   */
+  /** 지금 프레임의 목표 화면(순수 계산) — refresh 가 만들어 두고 여러 곳이 함께 읽는다. */
+  private view: BoardView = { waste: { kind: 'back' }, slots: new Map(), triggers: { bankWild: false, bonus: false } };
+
+  /** 현재 상태로 목표 화면을 다시 계산한다. **여기 말고 다른 곳에서 표시 규칙을 정하지 말 것.** */
+  private computeView(): BoardView {
+    this.view = boardView({
+      state: this.state,
+      wildActive: this.wildActive,
+      drawPending: this.drawFlights > 0,
+      matchPending: this.matchFlights > 0,
+      heldReveals: this.heldReveals,
+      dealing: this.dealing,
+      ended: this.ended,
+      ...(this.wildSlotId ? { wildSlot: this.wildSlotId } : {}),
+      wildBanked: this.wildBanked,
+      ...(this.bonusSlot ? { bonusSlot: this.bonusSlot } : {}),
+      bonusTriggered: this.bonusTriggered,
+    });
+    return this.view;
+  }
+
+  /** 기준 카드가 제 모습으로 보이는가(뷰모델 기준). */
+  private wasteTruthful(): boolean {
+    // 'hold'(연출 중 직전 카드 유지)도 **뷰모델대로 그린 상태**다 — 시뮬/봇이 여기서 멈추지 않게 참으로 본다.
+    //   실제 탭 허용 여부는 boardView 의 tappable 이 이미 판단한다(뽑기 대기 중에는 거기서 닫힌다).
+    return this.view.waste.kind !== 'back';
+  }
+
+  /** 슬롯 id 기준 탭 가능 여부 — 실제 탭·시뮬 공통 진입점. 규칙은 전부 boardView 안에 있다. */
+  private isTappable(id: string): boolean {
+    return this.view.slots.get(id)?.tappable === true;
+  }
+
+  /**
+   * 카드 공개(뒤집기) 완료 콜백 — 뒤집는 동안 `flipToFace` 가 무시했던 하이라이트 갱신을 반영하고
+   *   입력 잠금을 푼다. 이게 없으면 공개된 카드가 다음 refresh 까지 눌리지 않는다.
+   */
+  private onCardRevealed(id: string): void {
+    const view = this.cards.get(id);
+    if (!view || !view.scene) return;
+    view.showFace(this.state.board[id], this.wildActive || isPlayable(this.state, id));
+    this.syncCardInput(id);
+  }
+
+  /** 카드 한 장의 **입력 허용만** 현재 표시/상태로 다시 계산한다(그림은 건드리지 않는다 — 진행 중인 트윈 보호). */
+  private syncCardInput(id: string): void {
+    const view = this.cards.get(id);
+    const want = this.view.slots.get(id);
+    if (!view?.scene || !view.input || !want) return;
+    view.input.enabled = want.tappable && want.kind === 'face' && view.isShowingCard(want.card as Card);
   }
 
   private checkEnd(): void {
@@ -3193,13 +5682,19 @@ export class PlayScene extends Phaser.Scene {
       //   ②③은 지금 확정되므로 여기서 한 번에 얹힌다 → 게이지는 축①의 현재값에서 최종 품질까지 **올라가기만** 한다.
       const leftover = this.state.stock.length;
       const beforeQ = this.qualityNow(); // 축①까지만 반영된 지점(손님 흡입이 끝난 자리).
-      const finalQ = finalQuality({
-        comboScore: this.comboScore,
-        boardSize: this.boardSlots,
-        leftover,
-        stockSize: this.initialStock,
-        plus5Uses: this.plus5Uses,
-      });
+      // ＋5 를 한 번도 안 썼으면 **무조건 3★ 이상**(qualityWithCleanFloor) — 게이지도 이 값으로 채워지므로
+      //   팝업 별 수와 게이지가 항상 일치한다.
+      const finalQ = qualityWithCleanFloor(
+        finalQuality({
+          comboScore: this.comboScore,
+          boardSize: this.boardSlots,
+          leftover,
+          stockSize: this.initialStock,
+          plus5Uses: this.plus5Uses,
+        }),
+        this.refQuality,
+        this.plus5Uses,
+      );
       // **승리 팝업 별 등급** = 최종 품질 기준.
       //   **미션 리워드도 이 동일한 stars 값을 그대로 사용한다**(2026-07-18 수정) — 예전엔 남은 카드 보너스를
       //   뺀 별도의 "순수 별 수"(pureStars)를 미션 리워드에만 썼는데, 팝업엔 3★로 뜨고도 미션 배너는 전혀
@@ -3254,7 +5749,7 @@ export class PlayScene extends Phaser.Scene {
     const mk = (x: number, label: string, on: () => void, w?: number): Phaser.GameObjects.Text => {
       const t = this.add
         .text(x, 0, label, {
-          fontFamily: '"Jua", sans-serif',
+          fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
           fontSize: '24px',
           color: '#d8d8d8',
           backgroundColor: '#3a3a3acc',
@@ -3272,7 +5767,7 @@ export class PlayScene extends Phaser.Scene {
     this.simSpeedBtn = mk(20, `${this.simSpeed}배속`, () => this.toggleSimSpeed(), 90);
     const next = mk(140, '▶', () => this.gotoSimLevel(this.level + 1));
     this.simStatus = this.add
-      .text(250, 0, this.simIdleStatus(), { fontFamily: '"Jua", sans-serif', fontSize: '20px', color: '#9a9a9a' })
+      .text(250, 0, this.simIdleStatus(), { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '20px', color: '#9a9a9a' })
       .setOrigin(0, 0.5);
     const parts: Phaser.GameObjects.GameObject[] = [prev, this.simPlayBtn, this.simSpeedBtn, next, this.simStatus];
     if (this.levelOverriddenByLocalStorage()) {
@@ -3337,6 +5832,8 @@ export class PlayScene extends Phaser.Scene {
     // ⚠️ delay 는 **게임시간** 기준이라 time.timeScale 로 나뉜다 — 즉 실제 간격 = SIM_TICK_MS / 배속.
     //   처음엔 90ms 로 두고 배속까지 곱해 22~45ms 마다 한 수씩 둬서 눈으로 못 따라갔다(PO 지적).
     //   700ms 를 기준으로 잡아 1배속=0.7초/수(사람이 확인 가능), 2배속=0.35초, 4배속=0.175초가 된다.
+    // 틱 간격은 **게임시간** 기준이라 timeScale 로 나뉜다(실제 간격 = SIM_TICK_MS / 배속).
+    //   실측 러너가 배속 32~64 를 넣으면 실제 간격이 20ms 이하가 되어 최대 속도로 돈다.
     this.simTimer = this.time.addEvent({ delay: SIM_TICK_MS, loop: true, callback: () => this.simTick() });
   }
 
@@ -3360,23 +5857,41 @@ export class PlayScene extends Phaser.Scene {
     // 실제 조작과 달라지고, 틱이 헛돌아 진행이 끊긴다.
     if (!this.simRunning || this.dealing) return;
     if (isWin(this.state)) { this.stopSim(`클리어 · 잔여 ${this.state.stock.length}`); return; }
-    const moves = availableMoves(this.state);
+    // **사람과 같은 규칙**(S2) — 기준 카드가 아직 화면에 안 나왔으면(뽑기 공개 연출 중) 다음 틱까지 기다린다.
+    if (!this.wasteTruthful()) return;
+    const all = availableMoves(this.state);
+    const moves = all.filter((id) => this.isTappable(id));
+    if (moves.length === 0 && all.length > 0) return; // 카드 공개 연출 대기 — 뽑지 않고 기다린다.
     if (moves.length > 0) {
-      let bestGain = -1;
-      let best: string[] = [];
-      for (const id of moves) {
-        let gain = 0;
-        for (const slot of this.state.layout.slots) {
-          if (this.state.cleared.has(slot.id) || !slot.coveredBy.includes(id)) continue;
-          if (slot.coveredBy.every((c) => c === id || this.state.cleared.has(c))) gain++;
-        }
-        if (gain > bestGain) { bestGain = gain; best = [id]; }
-        else if (gain === bestGain) best.push(id);
-      }
+      // **가장 스마트한 플레이 가정**(PO 2026-08-23) — 정책은 logic/botPolicy.ts 단일 출처
+      //   (연쇄 우선 → 오픈 수. 튜닝 시뮬레이터 play-sim 과 동일한 봇이라 실측·예측이 같은 기준).
+      const best = pickBotMoves(this.state, moves);
       this.onCardTap(best[Math.floor(this.rng() * best.length)]);
       this.simStatus?.setText(`lv${this.level} · 남은 ${this.state.layout.slots.length - this.state.cleared.size}`);
     } else if (this.state.stock.length > 0) {
       this.onStockTap();
+    } else if (this.simBuy && refillableCount(this.state) > 0 && this.simBuys < this.simMaxBuys) {
+      // **실측 러너 전용** — 실제 플레이어처럼 ＋5 를 사서 이어간다.
+      //   ⚠️ plus5Uses 를 반드시 같이 올릴 것 — 별 판정 3축 중 ②(남은 카드에서 구매분 차감)와
+      //   ③(무부스터 클리어)이 이 값만 본다. 빠뜨리면 봇의 구매판이 "클린"으로 채점돼
+      //   qualityWithCleanFloor 가 3★ 하한까지 보장해 버린다(2026-08-23 실측: 1★ 0% · 2★ 0.8%).
+      if (this.simPayBuys) {
+        // 경제 계측 모드 — 실제 구매와 **같은 가격**을 세이브에서 뺀다. 못 내면 거기서 판이 끝난다
+        //   (실유저가 막히는 지점 = 런웨이의 끝. 이걸 재려고 켜는 모드다).
+        const price = plus5PriceAt(this.level, this.plus5Uses, this.chMult);
+        const sv = loadSave();
+        if (sv.coins < price) {
+          this.labRun.pinch += 1; // 핀치 계측 — 실측 러너도 같은 지점을 센다(핀치 도달 레벨 분포).
+          this.stopSim('코인 부족(＋5 구매 불가)');
+          return;
+        }
+        sv.coins = Math.max(0, sv.coins - price);
+        writeSave(sv);
+      }
+      this.simBuys += 1;
+      this.plus5Uses += 1;
+      this.state = refillStock(this.state, ADD5_COUNT, this.rng, plus5AssistFor(this.plus5Uses)); // 실측도 동일 보조.
+      this.refresh();
     } else {
       this.stopSim('막힘(뽑기 소진)');
     }
@@ -3390,7 +5905,7 @@ export class PlayScene extends Phaser.Scene {
   private drawAutoTestUI(): void {
     if (!import.meta.env.DEV) return;
     const style = {
-      fontFamily: '"Jua", sans-serif',
+      fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
       fontSize: '26px',
       color: '#ffffff',
       backgroundColor: '#00000099',
@@ -3400,7 +5915,7 @@ export class PlayScene extends Phaser.Scene {
     //   고정돼버려서, 이후 setText 로 라벨이 길어져도 클릭 판정 영역은 안 넓어진다(라벨은 멀쩡히 보이는데
     //   눌러도 반응 없음). 그래서 **고정 크기 히트 영역**을 명시로 줘 라벨 텍스트 길이와 무관하게 만든다.
     const hit = (): Phaser.Geom.Rectangle => new Phaser.Geom.Rectangle(0, 0, 360, 46);
-    this.autoTestUI = this.add.container(0, 0).setDepth(5000).setVisible(autoTestState.uiVisible);
+    this.autoTestUI = overlayLayer(this, 5000).setVisible(autoTestState.uiVisible);
     this.autoBtn = this.add.text(12, 12, '', style).setDepth(5000);
     this.autoBtn.setInteractive({ hitArea: hit(), hitAreaCallback: Phaser.Geom.Rectangle.Contains, useHandCursor: true });
     this.autoBtn.on('pointerdown', () => {
@@ -3479,7 +5994,12 @@ export class PlayScene extends Phaser.Scene {
       this.finalizeAutoRun(true);
       return;
     }
-    const moves = availableMoves(this.state);
+    // **사람과 같은 규칙**(S2) — 화면이 상태를 아직 못 따라잡았으면(뽑기 공개·카드 뒤집기 연출 중)
+    //   기다린다. 그래야 자동테스트의 수순·통계가 실제 플레이와 같은 조건에서 나온다.
+    if (!this.wasteTruthful()) return;
+    const all = availableMoves(this.state);
+    const moves = all.filter((id) => this.isTappable(id));
+    if (moves.length === 0 && all.length > 0) return;
     if (moves.length > 0) {
       let bestGain = -1;
       let best: string[] = [];
@@ -3595,13 +6115,6 @@ export class PlayScene extends Phaser.Scene {
   }
 
   // ── 미션 콤보/게이지/보상 ──────────────────────────────────────────
-  /** 콤보 런(현 주문) **비우기** — undo/재구성 등. 주문 진행만 0(축적 게이지는 불변 — 이미 지불된 별은 은행). */
-  private resetComboRun(): void {
-    this.comboColors = [];
-    this.melodyStep = 0;
-    this.comboCountText?.setText('+0');
-    this.orderQueue?.onRunReset(); // undo 등 — 손님 유지, 주문 진행만 0으로(누적 별 탤리는 불변).
-  }
 
   /**
    * 콤보 런 **종료 + 손님 정산** — 콤보가 끊길 때(뽑기/보드클리어). **누적한 별 전부(무제한)를 손님이 게이지로 지불**하고 퇴장.
@@ -3609,14 +6122,29 @@ export class PlayScene extends Phaser.Scene {
    */
   private endComboRun(): void {
     const filled = this.comboColors.length;
+    /*
+     * **미션 보상은 여기서 준다** — 콤보가 끊겨 **최종 매칭 수(filled)가 확정된 순간**이다.
+     *   같은 런에서 5·10·15… 로 여러 번 완성했으면 그 횟수만큼 지급한다(각각 다른 보상을 뽑는다).
+     */
+    const granted = this.pendingMissions > 0 && filled >= SET_SIZE;
+    if (granted) {
+      const times = this.pendingMissions;
+      this.pendingMissions = 0;
+      for (let i = 0; i < times; i++) this.grantMissionReward(filled);
+    }
     if (filled > 0) {
       this.orderQueue?.onBreak(filled); // 정산·퇴장 — 누적 별 전부 게이지로 지불(무제한)·0이면 손님 대기.
+      if (filled >= 2) this.tryTip('customerStar'); // 손님이 별을 게이지에 넣는 구조를 처음 볼 때 설명.
     }
-    // **미션 실패 → 다른 미션으로 교체**(PO 2026-07-27: "완성하지 못하면 계속 반복된다. 실패하면 다른
-    //   미션으로 바뀌어야 한다") — 5매치를 채우지 못한 채 콤보가 끊겼으면 예고 보상을 새로 뽑는다.
-    //   `filled % SET_SIZE !== 0` 이 곧 "진행 중이던 세트를 못 채웠다" — 0 이면 직전 세트를 정확히 완성해
-    //   grantMissionReward 가 이미 재추첨했으므로 여기서 또 바꾸지 않는다(연속 교체 방지).
-    if (!this.finished && filled % SET_SIZE !== 0) this.rerollMissionOnFail();
+    /*
+     * **타겟아이템은 시도마다 바뀐다**(PO 2026-08-24 재확정: "시도가 있고 성공이나 실패와 상관 없이
+     *   계속 변한다"). 콤보 **진행 중**에는 고정(무엇을 노리는지 유지)하되, 런이 끝나는 순간에는
+     *   성공(지급)이든 실패(5매치 미달)든 다음 예고를 새로 뽑는다.
+     *   성공 경로는 지급(`placeBoardMissionReward`/`grantMissionReward`)이 이미 갈아끼우므로,
+     *   여기서는 **실패한 시도**(매칭이 있었지만 미완성)만 재추첨한다 — 중복 교체 방지.
+     *   매칭이 하나도 없던 런(뽑기만 누른 경우)은 시도가 아니므로 그대로 둔다.
+     */
+    if (!granted && filled > 0) this.rerollMissionPreview();
     this.comboColors = [];
     this.melodyStep = 0;
     this.comboCountText?.setText('+0');
@@ -3627,6 +6155,7 @@ export class PlayScene extends Phaser.Scene {
    *   melodyStep 이 음 인덱스(콤보가 끊기면 resetComboRun 에서 0으로). WebAudio 오실레이터 2개로 "띵-똥" 이중음 합성.
    */
   private playMatchNote(): void {
+    if (LAB_SILENT) return; // 계측 모드 — 멜로디는 자체 AudioContext 라 마스터 음소거를 우회한다.
     try {
       const w = window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
       const Ctx = w.AudioContext ?? w.webkitAudioContext;
@@ -3688,59 +6217,74 @@ export class PlayScene extends Phaser.Scene {
   /** **미션 보상**(5매치 달성마다) — 예고 보상 지급 + 다음 보상 재추첨. 손님/콤보는 그대로 이어진다. */
   private missionTick(): void {
     this.setsDone += 1; // 레벨 클리어 별 판정(내부).
-    this.grantMissionReward();
+    this.labRun.missionTicks += 1;
+    /*
+     * **수집 상품은 여기서 깔린다**(PO 2026-08-23). 딜 때 미리 깔면 판이 시작되자마자 보여서
+     *   "왜 저게 있지"가 되고, 미션(별 5개)과 아무 관계가 없어 보인다. 미션을 완성한 **보상으로**
+     *   보드에 한 개 나타나고, 그 카드를 내야 실제로 회수된다 — 깔림과 회수가 둘 다 플레이어의 행동이다.
+     *
+     * 그 판의 상한은 `collectItemsForLevel`(레벨당 2~3개). 미션을 아무리 많이 완성해도 그 이상은 안 깐다.
+     * ⚠️ 실측 미션 완성은 판당 1.73회(0회 12% · 1회 32% · 2회 34% …)라 실제 배치는 평균 약 1.56개다
+     *   → 리그 완주 약 64판(PO 2026-08-23 승인). 40판으로 당기려면 `LEAGUE_TARGET_GAMES` 가 아니라
+     *   **미션 완성 빈도**를 손대야 한다 — 상한을 올려도 완성 횟수가 천장이라 안 바뀐다.
+     */
+
+    this.tryTip('mission'); // 첫 미션 달성 — 보상 구조를 한 번 설명한다.
+    /*
+     * **여기서 지급하지 않는다**(PO 2026-08-24: "5개 이상 **최종 숫자가 확정되는 순간** 미션이 바뀌어야
+     *   하고 지급시점도 이 시점"). 5매치는 콤보 런 **도중**의 통과점일 뿐이고, 그 런이 몇 매치로
+     *   끝날지는 아직 모른다. 별 개수가 매칭 수로 정해지는 이상 **숫자가 확정된 뒤**에 줘야 한다.
+     *   → 완성 횟수만 쌓아 두고, 콤보가 끊길 때(`endComboRun`) 확정된 수로 한꺼번에 지급한다.
+     */
+    this.pendingMissions += 1;
     sfx('set_complete');
   }
 
   /** **미션 보상 지급**(콤보 5 완성) — 예고된 보상을 재화/아이템으로 지급 + 다음 보상 재추첨·예고. */
-  private grantMissionReward(): void {
+  /**
+   * **미션 보상 지급** — `endComboRun` 이 **매칭 수가 확정된 뒤에만** 부른다(PO 2026-08-24).
+   * @param matched 그 콤보 런의 최종 매칭 수 — 보드로 가는 별 개수가 곧 이 값이다.
+   */
+  private grantMissionReward(matched: number): void {
     const rw = this.missionReward ?? this.rollMissionReward();
+    // 실측 계측 — 미션 보상 종류별 지급 횟수/총량(별은 매칭 수가 곧 개수).
+    const amt = rw.kind === 'stars' ? Math.max(SET_SIZE, matched) : rw.amount;
+    this.labRun.missionKinds[rw.kind] = (this.labRun.missionKinds[rw.kind] ?? 0) + 1;
+    this.labRun.missionAmounts[rw.kind] = (this.labRun.missionAmounts[rw.kind] ?? 0) + amt;
     const save = loadSave();
     let msg = '';
     let granted: CollectionSlot | null = null; // 컬렉션 카드를 실제로 지급했다면 그 슬롯(획득 연출용).
     let grantedEntry: BoardCollection | null = null; // 보드에 꽂혔으면 그 엔트리(연출 목적지 = 그 뱃지), 없으면 보관함.
     switch (rw.kind) {
-      case 'coins':
-        this.baseCoins += rw.amount;
-        save.coins += rw.amount;
-        msg = `🪙 +${rw.amount.toLocaleString()}`;
+      case 'stars':
+      case 'collection':
+      case 'cards': // 뽑기 추가 카드도 **보드에 꽂혔다가** 들어온다(PO 2026-08-24 재지적).
+      case 'plus5': // ＋카드도 **보드에 꽂혔다가** 들어온다(PO 2026-08-24) — 바로 스톡에 넣지 않는다.
+      case 'wild': // 와일드도 같은 길 — 예전엔 refillStock 이라 아무 것도 안 생기고 사라졌다.
+        /*
+         * **보드로 내려가는 보상은 미션이 완료된 바로 그 순간에 준다**(PO 2026-08-24).
+         *   지급·연출·다음 예고 교체를 `placeBoardMissionReward` 가 한 번에 처리하므로 여기서는
+         *   아래 공통 연출/재추첨을 타지 않고 즉시 빠져나간다.
+         *   별 개수는 **지금까지 매칭한 수**(콤보 길이) — 길게 이어 5·10·15… 에서 완성할수록 많아진다.
+         */
+        this.placeBoardMissionReward(rw, Math.max(SET_SIZE, matched));
+        this.updateBoosters();
+        sfx('coin_burst', { volume: 0.3 });
+        return;
+      case 'undo': {
+        // **되돌리기(리와인드)** — 보드에 꽂을 수 없는 부스터라 보유 아이템으로 바로 적립한다.
+        //   부스터 라벨이 원문자(①②…)로 바뀌어 "몇 개 있는지"가 그 자리에서 보인다(updateBoosters).
+        const it = itemsOf(save);
+        it.undo += rw.amount;
+        save.items = it;
+        msg = `↩️ 되돌리기 +${rw.amount}`;
         break;
-      case 'cards': // 추가 카드 → 스톡(뽑기) 추가.
-        this.state = refillStock(this.state, rw.amount, this.rng);
-        this.refresh();
-        msg = `🃏 뽑기 +${rw.amount}`;
-        break;
-      case 'plus5': // **+5카드 → 뽑기 카드로 적용**(스톡 추가, PO 2026-07-17).
-        this.state = refillStock(this.state, rw.amount, this.rng);
-        this.refresh();
-        msg = `➕ 뽑기 +${rw.amount}`;
-        break;
-      case 'wild': // **와일드 → 뽑기 카드로 적용**(스톡 추가).
-        this.state = refillStock(this.state, rw.amount, this.rng);
-        this.refresh();
-        msg = `🃏 뽑기 +${rw.amount}`;
-        break;
+      }
       case 'diamond': // **다이아 → 게임완성 보상풀**(holdDiamond 이 pendingDiamonds 누적 + 보관 배지 — 레벨 클리어 시 지급).
         this.holdDiamond(rw.amount);
         msg = `💎 +${rw.amount} (완성 보상)`;
         break;
-      case 'collection': {
-        // **컬렉션 카드 1장** — 예고된 슬롯을 지급(그 사이 이미 보유했으면 즉시 재추첨). 저장은 save 에 반영.
-        const slot = this.resolveCollectionSlot(rw.slot);
-        if (!slot) {
-          // 다 모았다 → 코인으로 대체 지급(빈손 방지).
-          const fallback = Math.max(100, Math.round((entryFeeFor(this.level, 1) * 0.08) / 100) * 100);
-          this.baseCoins += fallback;
-          save.coins += fallback;
-          msg = `🪙 +${fallback.toLocaleString()}`;
-          break;
-        }
-        // **보드 투입**(기본) — 카드가 보드의 가려진 카드에 꽂히고, 열릴 때 스타게이지로 획득된다.
-        grantedEntry = this.awardCollectionCard(save, slot);
-        granted = slot;
-        msg = grantedEntry ? '🗂 컬렉션 카드 → 보드에 꽂혔어요' : `🗂 컬렉션 카드 ${slot.set}-${slot.card}`;
-        break;
-      }
+
     }
     writeSave(save);
     this.header?.setCoins(this.baseCoins);
@@ -3751,7 +6295,7 @@ export class PlayScene extends Phaser.Scene {
     this.updateBoosters();
     this.toast(`미션 보상  ${msg}`);
     sfx('coin_burst', { volume: 0.3 });
-    // **다음 보상 예고**(재추첨 — 완성 전까지 고정).
+    // **다음 보상 예고**(지급을 마쳤으니 새로 뽑는다 — 완성 전까지는 절대 바뀌지 않는다).
     this.missionReward = this.rollMissionReward();
     this.showMissionPreview();
   }
@@ -3760,19 +6304,27 @@ export class PlayScene extends Phaser.Scene {
    * **미션 보상 지급 연출**(PO 2026-07-17: 아이템을 크게 확대했다가 해당 위치로 이동) — 보상 아이콘 사본을
    *   MISSIONS 자리에서 **화면 중앙으로 크게 확대**(강조) → 잠깐 머문 뒤 **목적지(헤더·스톡·다이아 슬롯)로 축소 이동**.
    */
-  private missionRewardBurst(rw: MissionReward): void {
+  private missionRewardBurst(rw: MissionReward, landing?: { x: number; y: number }, onArrive?: () => void): void {
     const img = this.missionRewardImg;
     const key = this.missionIconKey(rw);
     if (!img || !this.textures.exists(key)) return;
-    // 목적지: 코인=헤더 코인 · 다이아=완성풀 슬롯 · 카드류=스톡 더미.
+    /*
+     * 목적지: 별=**실제로 꽂힌 그 카드 자리**(`landing`) · 다이아=완성풀 슬롯 · 카드류=스톡 더미.
+     *
+     * ⚠️ 별을 보드 **중앙**으로 보내면 안 된다(PO 2026-08-24) — 정작 별은 다른 카드에 꽂히므로
+     *   연출과 결과가 어긋나 "어디로 갔지"가 된다. 꽂은 뒤 그 좌표를 받아 정확히 그 지점으로 보낸다.
+     *   리그로 곧장 보내는 것도 금지 — 그러면 이미 받은 것으로 읽혀 회수할 이유가 사라진다.
+     */
     const dst =
-      rw.kind === 'coins'
-        ? { x: 360, y: 90 }
+      rw.kind === 'stars' || rw.kind === 'plus5' || rw.kind === 'wild' || rw.kind === 'cards'
+        ? (landing ?? { x: this.geom.cx, y: H * 0.5 })
         : rw.kind === 'diamond'
           ? this.diamondHoldTarget()
-          : { x: STOCK.x, y: STOCK.y };
+          : rw.kind === 'undo'
+            ? this.boosterAnchor('undo') // 되돌리기는 그 부스터 버튼으로 빨려 들어간다.
+            : { x: STOCK.x, y: STOCK.y };
     const big = this.add.image(img.x, img.y, key).setDepth(2200).setDisplaySize(56, 56);
-    const src = big.texture.getSourceImage() as { width: number; height: number };
+    const src = texSize(big.texture);
     const bigW = 150; // 확대 크기(PO 2026-07-17: 너무 크지 않게 300→150).
     const bigH = bigW * (src.height / src.width);
     // ① 살짝 위로 확대(강조) — 과하지 않게.
@@ -3796,7 +6348,10 @@ export class PlayScene extends Phaser.Scene {
           delay: 300,
           duration: 620,
           ease: 'Cubic.easeIn',
-          onComplete: () => big.destroy(),
+          onComplete: () => {
+            big.destroy();
+            if (this.scene.isActive()) onArrive?.(); // 도착한 **그 순간**에 보드의 별이 나타난다.
+          },
         });
       },
     });
@@ -3818,10 +6373,22 @@ export class PlayScene extends Phaser.Scene {
     const cy = H * 0.42;
     const DEPTH = 2500;
 
-    const dim = this.add.rectangle(cx, H / 2, W, H, 0x120a1c, 0).setDepth(DEPTH).setInteractive(); // 입력 차단 겸 배경 딤.
+    // 입력 차단 겸 배경 딤 — **캔버스 전체**(세이프존이 아니라). 폭이 넓어지면 저작 크기로는 가장자리가 뚫린다.
+    const fb = fullBleedBounds(this);
+    const dim = this.add.rectangle(fb.x, fb.y, fb.w, fb.h, 0x120a1c, 0).setOrigin(0, 0).setDepth(DEPTH).setInteractive();
+    /*
+     * ⚠️ **카드만 보여 준다**(PO 2026-08-31 "배경 아웃라인과 여유를 없애고 카드만") — 예전에는 흰 바탕판
+     *   (addCardBacking: 흰 라운드 사각 + 테두리 + 그림자)을 뒤에 깔았는데, 카드 아트 자체에 프레임이 있어
+     *   **바깥으로 흰 여백과 외곽선이 한 겹 더** 보였다. 배킹 없이 아트 그대로 띄운다.
+     */
     const card = this.add.image(from.x, from.y, key).setDepth(DEPTH + 2).setDisplaySize(60, 90).setAngle(-14);
-    const src = card.texture.getSourceImage() as { width: number; height: number };
-    const bigH = 620; // 확대 시 카드 높이(세로 기준 — 카드 아트는 세로가 길다).
+    const src = texSize(card.texture);
+    /*
+     * 확대 시 카드 높이 — 620 → **480**(2026-08-31). 카드 아트를 이 연출 하나 때문에 원본 766px 로 상주시키면
+     *   63장이 텍스처 93MB 를 먹어 부팅 예산을 넘긴다(ASTC 롤백 후 실측 184/160MB). 아트를 405px 로 낮추고
+     *   연출도 480 으로 줄여 **확대율 1.18배**(거의 티 안 남)로 맞춘다. ⚠️ 이 값을 올리면 카드가 흐려진다.
+     */
+    const bigH = 400; // 480 → 400(2026-08-31): 카드 아트를 211×320 으로 더 낮췄다(PO 승인). 확대율 1.25배.
     const bigW = bigH * (src.width / src.height);
     // 뒤에서 도는 광채(원형) — 텍스처 없이 그래픽으로 그린다(에셋 의존 없음).
     const glow = this.add.graphics().setDepth(DEPTH + 1).setPosition(cx, cy).setAlpha(0);
@@ -3831,18 +6398,19 @@ export class PlayScene extends Phaser.Scene {
     glow.fillCircle(0, 0, bigH * 0.44);
 
     // 보드 투입이면 "아직 내 것이 아니다" — 지금 몇 장인지가 아니라 **무엇을 해야 하는지**를 알려준다.
-    const owned = ownedCount(collectionOf(loadSave()), slot.set);
-    const titleText = entry ? '컬렉션 카드 등장!' : '컬렉션 카드 획득!';
-    const subText = entry ? '보드 카드에서 열면 내 콜렉션으로!' : `${slot.set}번 콜렉션 · ${owned}/${CARDS_PER_SET}`;
+    // **조각 수집**(PO 2026-08-30) — 카드 1종은 조각 10개로 완성된다. 몇 조각째인지를 보여 준다.
+    const pieces = cardCount(collectionOf(loadSave()), slot.set, slot.card);
+    const titleText = entry ? '컬렉션 조각 등장!' : '컬렉션 조각 획득!';
+    const subText = entry ? '보드 카드에서 열면 내 콜렉션으로!' : `${slot.set}번 콜렉션 · 조각 ${Math.min(CARD_COMPLETE_COUNT, pieces)}/${CARD_COMPLETE_COUNT}${pieces >= CARD_COMPLETE_COUNT ? ' 완성!' : ''}`;
     const title = this.add
-      .text(cx, cy - bigH / 2 - 66, titleText, { fontFamily: '"Jua", sans-serif', fontSize: '64px', color: '#ffe27a', fontStyle: '700' })
+      .text(cx, cy - bigH / 2 - 66, titleText, { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '64px', color: '#ffe27a', fontStyle: '700' })
       .setOrigin(0.5)
       .setDepth(DEPTH + 3)
       .setAlpha(0);
     title.setStroke('#4a2a10', 10);
     title.setShadow(2, 4, '#000000', 6, false, true);
     const sub = this.add
-      .text(cx, cy + bigH / 2 + 54, subText, { fontFamily: '"Jua", sans-serif', fontSize: '42px', color: '#ffffff' })
+      .text(cx, cy + bigH / 2 + 54, subText, { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '42px', color: '#ffffff' })
       .setOrigin(0.5)
       .setDepth(DEPTH + 3)
       .setAlpha(0);
@@ -3934,6 +6502,8 @@ export class PlayScene extends Phaser.Scene {
 
     const img = bc.view;
     img.setAlpha(1).setDepth(1600); // 연출 동안 카드 위로.
+    // 컬렉션 카드도 위클리 수집 대상(PO 2026-08-24) — 판에서 모은 아이템이면 무엇이든 센다.
+    this.creditEventFromPlay(1, { x: img.x, y: img.y }, 'collection');
     const openW = this.geom.cardH * (img.displayWidth / img.displayHeight) * 1.5; // 카드 오픈 크기의 1.5배.
     const openH = this.geom.cardH * 1.5;
     sfx('star', { volume: 0.6 });
@@ -3974,6 +6544,8 @@ export class PlayScene extends Phaser.Scene {
    */
   private holdCollectionCard(card: CollectionSlot): void {
     this.pendingCollection.push(card);
+    this.labRun.collection += 1;
+    this.labRun.collectionCards.push(`${card.set}-${card.card}`);
     // 게이지 별들이 한 번 커졌다 돌아오며 "여기에 담겼다"를 알린다.
     for (const st of this.comboStars) {
       if (!st) continue;
@@ -4018,6 +6590,7 @@ export class PlayScene extends Phaser.Scene {
   private finishMission(stars: number): void {
     if (this.finished) return;
     this.finished = true;
+    endPlaySession(); // 끝까지 마쳤다 — 지급된 보상은 그대로 확정.
     this.ended = true;
     this.cancelWild();
     const s = Math.min(SETS_TARGET, Math.max(1, stars));
@@ -4025,11 +6598,67 @@ export class PlayScene extends Phaser.Scene {
     //   따라서 코인 보상은 별 등급 코인만(카드당 100/보너스 폐지).
     const leftover = this.state.stock.length;
     const coins = starCoinsAt(this.level, s, this.chMult);
+    this.labRun.stars = s; // 실측: 이 판의 최종 별 등급과 지급 코인.
+    this.labRun.coins = coins;
+    /*
+     * **일일 유저 지표**(PO 2026-08-25) — 완주 판만 집계한다(중단 판은 보상이 회수되므로 원장과 일관).
+     *   중간 보상(리그/위클리/티어)은 labRun 분해값으로 넣어 하루 단위 원장 어휘를 유지한다.
+     */
+    bumpMetrics({
+      games: 1, wins: 1, starsSum: s, cleanWins: this.plus5Uses === 0 ? 1 : 0,
+      starCoins: coins, plus5: this.labRun.boosterCoins,
+      leagueCoins: this.labRun.leagueCoins, eventCoins: this.labRun.eventCoins, tierCoins: this.labRun.tierCoins,
+      leagueStars: this.labRun.leagueStars, eventItems: this.labRun.eventItems,
+      missionTicks: this.labRun.missionTicks, boardDiamonds: this.labRun.diamonds,
+      pinch: this.labRun.pinch, levelMax: this.level,
+    });
+    /**
+     * **판 결과 별(1~5)을 투데이 리그에 합산한다**(PO 2026-08-24).
+     *
+     * 리그는 두 곳에서 별을 받는다:
+     *   ① 플레이 중 — 미션(5매치) 보상으로 보드에 꽂혔다가 회수된 별(1~10개)
+     *   ② 판 끝 — 여기, 이 판의 **등급 별**(1~5)
+     * 잘 이어 낸 판(①)과 잘 끝낸 판(②)이 둘 다 리그로 모인다.
+     *
+     * ⚠️ 주간 이벤트는 여기서 **적립하지 않는다** — 손님이 3개 이상 모으고 떠날 때만 오른다
+     *   (`creditEventFromCustomer`). 승리 시에도 올리면 같은 행동을 두 번 보상하게 된다.
+     */
+    /*
+     * **클리어 정산**(PO 2026-08-30 — 보너스 게임 승리 1판과 같은 자) — `economyRules.clearRewardsForGrade`.
+     *   예전엔 등급 별(1~5)만 더했는데, 보너스 승리 1판이 리그 별 ≈41 을 주는 것과 열 배 어긋나 있었다.
+     *   리그 별은 판 중 모은 별과 함께 아래에서 한 번에 적립되고, 다이아·컬렉션 카드는 보관분에 합쳐 확정된다.
+     */
+    const clear = clearRewardsForGrade(s);
+    this.pendingStars += clear.leagueStars;
+    this.labRun.leagueStars += clear.leagueStars;
+    this.pendingDiamonds += clear.diamonds;
+    mirrorClearReward(s, this.level, this.chMult); // 서버 원장 미러링(추가만, 로컬 권위는 그대로) — 2026-09-01.
+    mirrorRoundReport(this.level, s); // 리그 밴드 집계 신고(P2, 순위표 표시는 여전히 로컬) — 2026-09-01.
+    for (let i = 0; i < clear.collectionCards; i++) {
+      const slot = this.pickCollectionSlot(); // 아트가 준비된 카드 중 가중 랜덤(보유 여부 무관 — 중복은 보유 수로 쌓인다).
+      if (slot) this.pendingCollection.push(slot);
+    }
+    const starsToPay = this.pendingStars;
+    const leagueBefore = leagueStageOf(loadSave()); // 게이지 출발점 — **적립 전**에 읽어야 한다.
+    /*
+     * **보관해 둔 별·이벤트 아이템을 여기서 확정한다**(PO 2026-08-30). 판 중에는 연출만 했다.
+     * ⚠️ 아래 `loadSave()` 스냅샷을 뜨기 **전에** 불러야 한다 — 이 함수가 스스로 저장하므로,
+     *   뒤에 부르면 그 결과를 이 스냅샷의 `writeSave` 가 통째로 되돌린다(리그 정산에서 겪은 사고와 동일).
+     */
+    const settled = this.settleRoundCollectibles();
+    /*
+     * 리그로 들어가는 연출은 **결과 화면을 확인한 뒤**에 돈다(PO 2026-08-30 "최종 결과 표시후 각각의
+     *   해당 공간으로 수집"). 코인·다이아가 카운터로 빨려 들어가는 그 순간과 같은 자리다 — 결과 팝업의
+     *   버튼을 누를 때 한 번(`go`). 여기서는 무엇을 얼마나 보낼지만 적어 둔다.
+     */
+    this.payoutStars = starsToPay;
+    this.payoutLeagueBefore = leagueBefore;
     const gotDiamonds = this.pendingDiamonds; // **승리 시에만** 보관 다이아 확정.
     const gotCards = [...this.pendingCollection]; // 보드에서 열어 스타게이지에 담아둔 컬렉션 카드(승리 시 확정).
     const save = loadSave();
     save.coins += coins;
     save.diamonds = (save.diamonds ?? 0) + gotDiamonds; // 코인과 함께 다이아 확정.
+    void settled; // 정산분(코인·다이아)은 settleRoundCollectibles 가 이미 저장에 반영했다 — 여기서 또 더하지 않는다.
     // **컬렉션 카드 확정** — 보드에서 오픈해 확보한 카드들을 이제서야 보유로 기록한다(게임플레이 보상).
     if (gotCards.length) {
       let cstate = collectionOf(save);
@@ -4045,8 +6674,9 @@ export class PlayScene extends Phaser.Scene {
     // **미션 리워드는 여기서 더 이상 적립하지 않는다**(PO 2026-07-18 3차 수정) — 손님을 정산할 때마다
     //   creditMissionStars 가 이미 실시간으로 저장까지 확정한다(마지막 손님 몫도 checkEnd 의 endComboRun 이
     //   이 함수보다 먼저 정산한다). 여기서는 그 결과가 저장에 반영돼 있는지 배너만 다시 동기화한다.
-    this.missionBanner?.setState(missionRewardOf(save, Date.now()));
+    this.refreshEventBanner(); // 배너는 **주간 이벤트** 하나만 보여 준다(티어 숫자로 덮지 않는다).
     writeSave(save);
+    backupTowerSnapshot(save); // 타워/컬렉션 등 G2 상태 서버 백업(스로틀됨, fire-and-forget) — 2026-09-01.
     this.baseCoins += coins; // 미션 보상 박스 코인은 creditMissionStars 가 발생 시점에 이미 반영했다.
     this.pendingDiamonds = 0; // 확정 후 보관분 비움(중복 지급 방지).
     this.pendingCollection = []; // 컬렉션 카드도 동일(중복 지급 방지).
@@ -4056,69 +6686,6 @@ export class PlayScene extends Phaser.Scene {
     this.winScatter(() => this.showMissionReward(s, coins, gotDiamonds, { leftover, collectionCards: gotCards }));
   }
 
-  /**
-   * **보상 버스트 회수** — 아이콘 자리에서 count 개의 입자가 사방으로 튀며 **아래로 떨어지듯** 흩어졌다가,
-   *   잠깐 머문 뒤 하나씩 스태거로 **위(헤더 카운터)로 빨려 올라간다**. (낙하 → 상승 회수)
-   */
-  private rewardBurstFly(
-    srcX: number,
-    srcY: number,
-    texKey: string,
-    count: number,
-    target: { x: number; y: number },
-    dispW: number,
-  ): void {
-    if (!this.textures.exists(texKey) || count <= 0) return;
-    for (let i = 0; i < count; i++) {
-      const img = this.add.image(srcX, srcY, texKey).setDepth(2100);
-      const src = img.texture.getSourceImage() as { width: number; height: number };
-      img.setDisplaySize(dispW, dispW * (src.height / src.width));
-      const bsx = img.scaleX;
-      const bsy = img.scaleY;
-      // ① 낙하 — 좌우로 흩어지며 살짝 떠올랐다가(포물선 정점) 아래로 떨어진다.
-      const dx = Phaser.Math.Between(-190, 190);
-      const rise = Phaser.Math.Between(20, 110);
-      const drop = Phaser.Math.Between(110, 300);
-      const ex = srcX + dx;
-      const ey = srcY + drop;
-      const ctrlX = srcX + dx * 0.55;
-      const ctrlY = srcY - rise;
-      const GROW = 1.75; // 낙하하며 이 배율까지 **크게 확대** → 상승 회수에서 축소.
-      this.tweens.addCounter({
-        from: 0,
-        to: 1,
-        duration: Phaser.Math.Between(320, 460),
-        delay: i * 18,
-        ease: 'Sine.easeIn',
-        onUpdate: (tw) => {
-          const t = tw.getValue() ?? 0;
-          const u = 1 - t;
-          img.x = u * u * srcX + 2 * u * t * ctrlX + t * t * ex;
-          img.y = u * u * srcY + 2 * u * t * ctrlY + t * t * ey;
-          img.setAngle(dx * 0.35 * t);
-          // 떨어지는 동안 점점 커진다(확대) — 회수 직전이 가장 크다.
-          const s = Phaser.Math.Linear(1, GROW, t);
-          img.setScale(bsx * s, bsy * s);
-        },
-        onComplete: () => {
-          // ② 상승 회수 — 확대된 상태에서 잠깐 머문 뒤, **축소되며** 헤더 카운터로 날아간다(하나씩 타라락).
-          this.tweens.add({
-            targets: img,
-            x: target.x,
-            y: target.y,
-            scaleX: bsx * 0.25,
-            scaleY: bsy * 0.25,
-            angle: 0,
-            alpha: 0.9,
-            duration: Phaser.Math.Between(420, 540),
-            delay: 70 + i * 34,
-            ease: 'Cubic.easeIn',
-            onComplete: () => img.destroy(),
-          });
-        },
-      });
-    }
-  }
 
   /**
    * **넥스트(다음 레벨) 진입 팝업**(PO 2026-07-19: "게임비를 지급하는 팝업화면은 동일하므로 타워화면에서
@@ -4127,18 +6694,16 @@ export class PlayScene extends Phaser.Scene {
    */
   private enterNextLevel(): void {
     const next = this.level + 1;
-    // **보너스 라운드**(PO 2026-07-27) — 10레벨 단위를 깬 직후엔 클론다이크 `10-1` 이 끼어든다.
-    //   **게임비 차감 없음**(BONUS_ENTRY_FEE = 0, PO 2026-07-29) — 메인 레벨과 달리 진입 팝업 자체를 띄우지
-    //   않는다. 완료 여부와 무관하게 그 씬이 끝나면 다음 메인 레벨 진입 팝업으로 이어진다(진행을 막지 않는다).
-    if (hasBonusAfter(this.level)) {
-
-      this.scene.start('playKlondike', { level: this.level, mult: this.chMult });
-      return;
-    }
+    /*
+     * ⛔ **10레벨마다 끼어들던 보너스 라운드(`10-1`)는 없앴다**(PO 2026-08-29).
+     *   메인 진행을 끊었고 레벨 번호 체계가 한 겹 늘어(10 → 10-1 → 11) 읽기 어려웠다.
+     *   지금은 **홈 좌측 '보너스 게임' 아이콘**으로 언제든 들어가고, 이기면 코인을 받는다
+     *   (하루 판수 제한 — `logic/bonusGame.ts`). 여기서는 곧장 다음 메인 레벨로 간다.
+     */
     const handle = buildEntryPopup(this, {
       level: next,
       initialMult: this.chMult, // 직전 도전 배수 유지(해금 범위 밖이면 자동 보정).
-      toast: (msg) => this.toast(msg),
+      toast: (msg) => this.toast(msg, true), // 팝업 메시지는 항상 표시.
       onPlay: ({ level: lv, mult }) => this.scene.start('play', { level: lv, mult }),
       onHome: () => this.scene.start('home'), // 팝업 하단 홈 버튼(공용 모듈이 그린다).
     });
@@ -4147,17 +6712,17 @@ export class PlayScene extends Phaser.Scene {
 
   /** blank.json 미저작 시 폴백 — 최소한의 코드 드로우(레벨·게임비·PLAY/홈만). */
   private enterNextLevelFallback(next: number): void {
-    const layer = this.add.container(0, 0).setDepth(4000);
-    const scrim = this.add.rectangle(0, 0, W, H, 0x140a1e, 0.88).setOrigin(0, 0).setInteractive();
+    const layer = overlayLayer(this, 4000);
+    const scrim = overlayScrim(this, 0x140a1e, 0.88);
     layer.add(scrim);
     const cx = W / 2;
     const top = 760;
     layer.add(this.add.rectangle(cx, top + 420, 900, 900, 0xfff3e0).setStrokeStyle(10, 0xe0b070));
-    layer.add(this.add.text(cx, top + 90, `lv ${next}`, { fontFamily: '"Jua", sans-serif', fontSize: '72px', color: '#7a4a1a', stroke: '#ffffff', strokeThickness: 4 }).setOrigin(0.5));
+    layer.add(this.add.text(cx, top + 90, `lv ${next}`, { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '72px', color: '#7a4a1a', stroke: '#ffffff', strokeThickness: 4 }).setOrigin(0.5));
     for (let i = 0; i < 3; i++) {
       if (this.textures.exists('up_Solitare_UI_02_v2')) layer.add(this.add.image(cx + (i - 1) * 100, top + 210, 'up_Solitare_UI_02_v2').setDisplaySize(84, 84));
     }
-    const costText = this.add.text(cx, top + 560, '', { fontFamily: '"Jua", sans-serif', fontSize: '44px', color: '#7a4a1a' }).setOrigin(0.5);
+    const costText = this.add.text(cx, top + 560, '', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '44px', color: '#7a4a1a' }).setOrigin(0.5);
     layer.add(costText);
     const mult = Math.min(this.chMult, Math.max(...challengeOptions(next).filter((o) => o.unlocked).map((o) => o.mult))); // 직전 배수 유지(해금 범위 내).
     const fee = entryFeeFor(next, mult);
@@ -4165,31 +6730,36 @@ export class PlayScene extends Phaser.Scene {
     costText.setText(`COST  🪙 ${fee.toLocaleString()}`).setColor(ok ? '#7a4a1a' : '#c0392b');
     const playBg = this.add.rectangle(cx, top + 700, 520, 130, 0x4caf50).setStrokeStyle(8, 0xffffff).setInteractive({ useHandCursor: true });
     layer.add(playBg);
-    layer.add(this.add.text(cx, top + 700, 'PLAY', { fontFamily: '"Jua", sans-serif', fontSize: '60px', color: '#ffffff', stroke: '#2a6a2a', strokeThickness: 6 }).setOrigin(0.5));
+    layer.add(this.add.text(cx, top + 700, 'PLAY', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '60px', color: '#ffffff', stroke: '#2a6a2a', strokeThickness: 6 }).setOrigin(0.5));
     playBg.on('pointerdown', () => {
       const s = loadSave();
       if (s.coins < fee) {
         sfx('no_coin');
+        bumpMetrics({ pinch: 1 }); // 일일 지표 — 입장료 핀치.
         this.toast('코인이 부족해요 — 홈에서 점포 수익을 수령해 보세요');
         return;
       }
       sfx('floor_select');
+      bumpMetrics({ fee, starts: 1 }); // 일일 지표 — 다음 판 입장료.
       s.coins = Math.max(0, s.coins - fee);
       writeSave(s);
       layer.destroy();
       this.scene.start('play', { level: next, mult });
     });
-    const homeBtn = this.add.text(cx, top + 810, '🏠 홈으로', { fontFamily: '"Jua", sans-serif', fontSize: '36px', color: '#7a4a1a' }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    homeBtn.on('pointerdown', () => {
-      sfx('level_close');
-      this.scene.start('home');
-    });
-    layer.add(homeBtn);
+    // 보조 액션도 **공용 버튼 아트**로(ui/uiButton.ts) — 맨 텍스트 링크만 남으면 같은 팝업 안에서 격이 달라 보인다.
+    layer.add(
+      uiButton(this, cx, top + 830, '🏠 홈으로', 'red', () => {
+        sfx('level_close');
+        this.scene.start('home');
+      }, { width: 380, fontSize: 38 }),
+    );
   }
 
   /**
-   * 레벨 클리어 보상 팝업 — **크게 묘사**(잘했어요! · 별 3 · 큰 코인/다이아 값). 넥스트/홈을 누르면
-   *   그 시점에 **코인·다이아 입자가 흩어져 떨어졌다가 상단 헤더로 빨려 올라가고**(버스트 회수) 이동한다.
+   * 레벨 클리어 결과 팝업 — **에디터 저작 `blank_2.json`(결과화면) 그대로**(resultPopup.ts, 2026-08-30).
+   *   그리기는 모듈이 하고, 여기는 값(별·코인·다이아·리그 별·컬렉션 카드)을 넘기고 **넥스트/홈을 누른 뒤의
+   *   보상 회수 연출**(코인·다이아 입자가 흩어져 떨어졌다가 상단 헤더로 빨려 올라감)과 이동만 맡는다.
+   *   ⚠️ 저작 문서·프레임 아트가 없으면(캐시 미적재) 연출 없이 바로 홈으로 — 보상 적립은 이미 끝나 있다.
    */
   private showMissionReward(
     stars: number,
@@ -4197,225 +6767,70 @@ export class PlayScene extends Phaser.Scene {
     diamonds: number,
     extra?: { leftover: number; collectionCards?: readonly CollectionSlot[] },
   ): void {
-    const layer = this.add.container(0, 0).setDepth(2000);
-    // 반투명 막 — 화면보다 **사방 90px 크게**(버튼 탭 시 카메라 셰이크로 흔들려도 가장자리로 밝은 게임 화면이
-    //   새지 않게). ⚠️2026-07-26: Shape(rectangle) 대신 **Graphics 로 그린다** — 컨테이너 안 Shape 가 기기에
-    //   따라 렌더되지 않아 뒤 화면이 그대로 비쳐 보상 정보가 묻히는 문제가 있었다. 입력 차단은 별도 Zone.
-    const DIM_PAD = 90;
-    const dim = this.add.graphics();
-    dim.fillStyle(0x0a0a1a, 0.88);
-    dim.fillRect(-DIM_PAD, -DIM_PAD, W + DIM_PAD * 2, H + DIM_PAD * 2);
-    layer.add(dim);
-    layer.add(this.add.zone(W / 2, H / 2, W + DIM_PAD * 2, H + DIM_PAD * 2).setInteractive()); // 하부 입력 차단.
-    const cx = W / 2;
-    // ── **세로 스택 레이아웃**(PO 2026-07-26 3·5차) — 별(상단) → 잘했어요! → 컬렉션 카드(크게) →
-    //   코인·다이아 → 남은카드 안내 → 버튼. 각 블록의 높이에서 다음 블록 위치를 **순차 계산**하므로
-    //   카드 유무·장수가 달라져도 겹치지 않는다(예전엔 고정 y 상수라 카드가 생기면 서로 겹쳤다).
-    const gotCards = (extra?.collectionCards ?? []).filter((c) => this.textures.exists(collectionArtKey(c.set, c.card)));
-    const hasCards = gotCards.length > 0;
-    const CARD_H_MAX = 380; // 컬렉션 카드 높이(1~2장은 이 크기, 더 많으면 폭에 맞춰 축소).
-    const CARD_GAP = 26;
-    const CARD_ROW_W = 940;
-    const cardAspect = hasCards
-      ? (() => {
-          const src = this.textures.get(collectionArtKey(gotCards[0].set, gotCards[0].card)).getSourceImage() as { width: number; height: number };
-          return src.width / src.height;
-        })()
-      : 0.667;
-    const cardCountN = gotCards.length;
-    const cardH = hasCards && cardCountN * CARD_H_MAX * cardAspect + (cardCountN - 1) * CARD_GAP > CARD_ROW_W
-      ? (CARD_ROW_W - (cardCountN - 1) * CARD_GAP) / (cardCountN * cardAspect)
-      : CARD_H_MAX;
-    const cardW = cardH * cardAspect;
-    const starY = hasCards ? 400 : 470; // 별(상단) — 카드 줄 자리를 만들 때만 위로.
-    const titleY = starY + 220; // "잘했어요!"(128px) — 별 바로 아래.
-    const cardsLabelY = titleY + 150; // 컬렉션 카드 줄 라벨.
-    const cardsTop = cardsLabelY + 40; // 카드 줄 상단.
-    const cardsY = cardsTop + cardH / 2;
-    const cardsBottom = cardsTop + cardH;
-    // ── 별 **5개**(상단) — 획득만 골드, 나머지 흐림. 가운데가 약간 위로. ──
-    const mid = (SETS_TARGET - 1) / 2;
-    for (let i = 0; i < SETS_TARGET; i++) {
-      if (!this.textures.exists('up_Solitare_UI_02_v2')) break;
-      const sx = cx + (i - mid) * 128;
-      const sy = starY - Math.round((1 - Math.abs(i - mid) / mid) * 40); // 가운데가 위로 아치.
-      const st = this.add.image(sx, sy, 'up_Solitare_UI_02_v2').setDisplaySize(108, 108);
-      const got = i < stars;
-      if (!got) st.setTint(0x555566).setAlpha(0.55);
-      const tsx = st.scaleX;
-      const tsy = st.scaleY;
-      st.setScale(0);
-      layer.add(st);
-      this.tweens.add({ targets: st, scaleX: tsx, scaleY: tsy, duration: 340, delay: 200 + i * 200, ease: 'Back.easeOut' });
-      if (got) this.time.delayedCall(200 + i * 200, () => sfxStar(i + 1));
-    }
-    // ── 제목 ──
-    layer.add(this.add.text(cx, titleY, '잘했어요!', { fontFamily: '"Jua", sans-serif', fontSize: '128px', color: '#ffd23f', stroke: '#a6510c', strokeThickness: 14 }).setOrigin(0.5).setShadow(0, 8, '#00000066', 12));
-
-    // ── **컬렉션 카드 획득분**(보드에서 열어 스타게이지에 담아둔 카드) — 제목 다음 줄에 **크게**. ──
-    //   ⚠️ 획득 장수(원문자)는 여기 표시하지 않는다(PO 2026-07-26 5차) — 보유 장수는 콜렉션 화면에서만.
-    if (hasCards) {
-      layer.add(
-        this.add
-          .text(cx, cardsLabelY, '🗂 컬렉션 카드 획득!', { fontFamily: '"Jua", sans-serif', fontSize: '46px', color: '#ffe27a', stroke: '#5a3210', strokeThickness: 7 })
-          .setOrigin(0.5),
-      );
-      gotCards.forEach((c, i) => {
-        const x = cx + (i - (cardCountN - 1) / 2) * (cardW + CARD_GAP);
-        const img = this.add.image(x, cardsY, collectionArtKey(c.set, c.card)).setDisplaySize(cardW, cardH);
-        const bsx = img.scaleX;
-        const bsy = img.scaleY;
-        img.setScale(0).setAngle(-12);
-        layer.add(img);
-        this.tweens.add({ targets: img, scaleX: bsx, scaleY: bsy, angle: 0, duration: 400, delay: 900 + i * 160, ease: 'Back.easeOut' });
-        this.time.delayedCall(900 + i * 160, () => sfx('star', { volume: 0.45 }));
-      });
-    }
-
-    // ── 큰 보상: 코인(좌) · 다이아(우) — 앞 블록 아래로 순차 배치(겹침 방지). ──
-    const hasGem = diamonds > 0;
-    const COIN_ICON_H = 190; // 코인 아이콘 표시 높이(아래 숫자·안내문 간격 계산 기준).
-    const rewardY = hasCards ? cardsBottom + 60 + COIN_ICON_H / 2 : 1180; // 카드가 없으면 기존 배치 유지.
-    const coinX = hasGem ? cx - 210 : cx;
-    const coinIcon = this.add.image(coinX, rewardY, 'up_Solitare_UI_2_3');
-    if (this.textures.exists('up_Solitare_UI_2_3')) {
-      const cs = coinIcon.texture.getSourceImage() as { width: number; height: number };
-      coinIcon.setDisplaySize(190, 190 * (cs.height / cs.width));
-    }
-    const coinNum = this.add.text(coinX, rewardY + 150, coins.toLocaleString(), { fontFamily: '"Jua", sans-serif', fontSize: '66px', color: '#ffffff', stroke: '#5a3210', strokeThickness: 9 }).setOrigin(0.5);
-    layer.add(coinIcon);
-    layer.add(coinNum);
-    // **남은 카드 → 별 반영 안내**(코인 아님·별로 일원화) — 방금 남은 카드가 별 게이지로 변환됐음을 학습.
-    const hasLeftover = !!extra && extra.leftover > 0;
-    if (hasLeftover && extra) {
-      layer.add(
-        this.add
-          .text(cx, rewardY + 236, `🃏 남은 카드 ${extra.leftover}장 → ⭐ 별로 전환`, {
-            fontFamily: '"Jua", sans-serif',
-            fontSize: '38px',
-            color: '#ffe14d',
-            stroke: '#5a3210',
-            strokeThickness: 6,
-          })
-          .setOrigin(0.5),
-      );
-    }
-    let gemIcon: Phaser.GameObjects.Image | undefined;
-    if (hasGem && this.textures.exists('up_Solitare_UI_2_2')) {
-      const gx = cx + 210;
-      gemIcon = this.add.image(gx, rewardY, 'up_Solitare_UI_2_2');
-      const gs = gemIcon.texture.getSourceImage() as { width: number; height: number };
-      gemIcon.setDisplaySize(180, 180 * (gs.height / gs.width));
-      layer.add(gemIcon);
-      layer.add(this.add.text(gx, rewardY + 150, `${diamonds}`, { fontFamily: '"Jua", sans-serif', fontSize: '66px', color: '#ffffff', stroke: '#5a1a6a', strokeThickness: 9 }).setOrigin(0.5));
-    }
-    // 보상 아이콘 등장 팝.
-    for (const o of [coinIcon, gemIcon].filter(Boolean) as Phaser.GameObjects.GameObject[]) {
-      const g = o as Phaser.GameObjects.Image;
-      const bsx = g.scaleX;
-      const bsy = g.scaleY;
-      g.setScale(0);
-      this.tweens.add({ targets: g, scaleX: bsx, scaleY: bsy, duration: 360, delay: 700, ease: 'Back.easeOut' });
-    }
-
-    // ── 넥스트/홈 버튼 → **보상 버스트 회수**(입자 낙하 → 헤더로 상승) 뒤 이동. ──
-    //   저작 풀(editorLevels)을 넘어도 순환 재사용되므로, 다음 버튼은 진행도 상한까지만 체크한다.
+    void extra?.leftover; // 남은 카드 → 별 전환 안내는 결과화면에 쓰지 않는다(PO 2026-08-30).
+    const cardKeys = (extra?.collectionCards ?? []).map((c) => collectionArtKey(c.set, c.card));
     const hasNext = this.level + 1 <= MAX_PROGRESS_LEVEL;
     // **보상 회수 연출은 이 화면에서 딱 한 번**(PO 2026-07-29) — 넥스트로 진입 팝업을 띄웠다가 ✕ 로 돌아오면
-    //   이 결과 화면이 다시 보이는데, 그때 넥스트/홈을 누를 때마다 코인·다이아 버스트가 재생되고 있었다.
-    //   보상은 이미 회수됐고 큰 아이콘도 소멸한 뒤라, 재실행은 "받은 적 없는 보상을 또 받는" 그림이 된다.
+    //   이 결과 화면이 다시 보이는데, 그때마다 버스트가 재생되면 "받은 적 없는 보상을 또 받는" 그림이 된다.
     let rewardsCollected = false;
+    let handle: ReturnType<typeof buildResultPopup> = null;
+    const leagueStars = this.payoutStars; // 팝업에 적힌 값 — 회수 연출은 이 개수를 날린다.
     const go = (fn: () => void): void => {
-      if (rewardsCollected) {
+      if (rewardsCollected || !handle) {
         fn(); // 두 번째부터는 연출 없이 곧바로 이동.
         return;
       }
       rewardsCollected = true;
-      const coinTarget = { x: 360, y: 90 }; // 좌상단 코인 카운터.
-      const gemTarget = this.header?.diamondAnchor ?? { x: W - 260, y: 90 }; // 우상단 다이아 카운터.
-      sfx('coin_burst', { volume: 0.35 });
-      this.cameras.main.shake(160, 0.004); // 살짝 임팩트.
-      // 큰 아이콘·숫자는 팝하며 소멸 — 그 자리에서 입자 버스트로 교대.
-      this.tweens.add({
-        targets: [coinIcon, coinNum, ...(gemIcon ? [gemIcon] : [])],
-        scaleX: '*=1.5',
-        scaleY: '*=1.5',
-        alpha: 0,
-        duration: 260,
-        ease: 'Quad.easeOut',
-      });
-      // 코인: 금액 비례 여러 개(8~16) 가 흩어져 떨어졌다가 → 좌상단으로 하나씩 상승 회수.
-      const coinN = Phaser.Math.Clamp(Math.round(coins / 125), 8, 16);
-      this.rewardBurstFly(coinX, rewardY, 'up_Solitare_UI_2_3', coinN, coinTarget, 92);
-      // 다이아: **보상 갯수만큼** 생성되어 떨어졌다가 → 우상단 다이아 카운터로 상승 회수.
-      if (diamonds > 0) this.rewardBurstFly(cx + 210, rewardY, 'up_Solitare_UI_2_2', diamonds, gemTarget, 96);
-      // 낙하+스태거 상승이 끝난 뒤 이동 — **미션 티어 완료분이 있으면 먼저 박스 팝업**을 보여주고 그 다음 이동.
-      this.time.delayedCall(1900, () => {
-        const box = this.pendingMissionBox;
-        this.pendingMissionBox = undefined;
-        if (box) this.showMissionBoxPopup(box, fn);
-        else fn();
-      });
+      /*
+       * **보관해 둔 별을 여기서 리그로 보낸다** — 코인·다이아가 카운터로 빨려 들어가는 것과 같은 순간
+       *   (PO 2026-08-30 "최종 결과 표시후 각각의 해당 공간으로"). 적립 자체는 이미 끝났고 이건 연출이다.
+       */
+      let starsSent = false;
+      if (this.payoutStars > 0 && this.payoutLeagueBefore) {
+        starsSent = true;
+        const hold = this.starHold;
+        this.playLeagueStarPayout(this.payoutStars, this.payoutLeagueBefore, handle.starAt);
+        this.payoutStars = 0;
+        this.payoutLeagueBefore = undefined;
+        // 보관 배지는 비운다 — 보낸 뒤에도 "+N" 이 남아 있으면 아직 안 준 것처럼 보인다.
+        hold?.icon.destroy();
+        hold?.text.destroy();
+        this.starHold = undefined;
+      }
+      // **전부 회수**(공용 rewardCollect) — 코인·다이아·별·컬렉션 카드가 각자의 자리로 날아간 뒤 이동.
+      //   별은 위에서 리그 게이지 계단 연출로 보냈으면 건너뛴다(중복 방지).
+      //   ⚠️ 예전엔 여기서 **미션 완료(아이템 박스) 팝업**을 한 장 더 띄웠다 — PO 2026-08-23 지시로 제거.
+      collectResultRewards(
+        this,
+        handle,
+        { coins, diamonds, stars: leagueStars, starsHandledByCaller: starsSent },
+        {
+          coin: this.header?.coinAnchor ?? { x: 360, y: 90 },
+          gem: this.header?.diamondAnchor ?? { x: W - 260, y: 90 },
+          star: this.leagueIconAt ?? { x: W - 100, y: 250 },
+          card: COLLECTION_STORE_TARGET,
+        },
+        fn,
+      );
     };
-    const btns: Array<{ key: string; on: () => void }> = [
-      ...(hasNext ? [{ key: 'up_Solitare_UI_23_1', on: () => this.enterNextLevel() }] : []),
-      { key: 'up_Solitare_UI_23_2', on: () => this.scene.start('home') },
-    ];
-    // 버튼도 앞 블록(코인·다이아 숫자 / 남은카드 안내) 아래로 순차 배치 — 카드 줄이 있으면 자연히 내려온다.
-    let by = hasLeftover ? rewardY + 346 : rewardY + 320;
-    for (const b of btns) {
-      layer.add(this.uiButton(W / 2, by, b.key, () => go(b.on), 440));
-      by += 150;
+    // 결과화면 아트는 **지연 그룹 `result`**(부팅 상주에서 뺐다, 2026-08-30 예산 164/160MB) — 판 시작 때 미리받기
+    //   했으므로 대개 즉시 열리고, 못 맞췄으면 잠깐 로딩 표시 뒤 연다(대기 구간에 표시가 없으면 "안 열린다"로 읽힌다).
+    {
+      handle = buildResultPopup(this, {
+        stars,
+        coins,
+        diamonds,
+        leagueStars: this.payoutStars,
+        cardKeys,
+        hasNext,
+        onHome: () => go(() => this.scene.start('home')),
+        onNext: () => go(() => this.enterNextLevel()),
+      });
+      if (!handle) {
+        console.warn('[result] 결과화면 저작(blank_2.json)을 그릴 수 없어 홈으로 이동');
+        this.scene.start('home');
+      }
     }
   }
 
-  /**
-   * **미션 티어 완료 팝업** — 아이템 박스 보상(코인·다이아·부스터) 요약. 배경은 공통에셋(Pannel_03) 이식.
-   *   화면 아무 곳이나 탭하면 onDone(원래 넥스트/홈 이동)으로 이어진다.
-   */
-  private showMissionBoxPopup(box: MissionRewardBox, onDone: () => void): void {
-    const cx = W / 2;
-    const cy = H / 2;
-    const layer = this.add.container(0, 0).setDepth(2200);
-    // 딤은 Graphics 로(컨테이너 안 Shape 미렌더 이슈 회피 — showMissionReward 와 동일), 입력 차단은 Zone 으로 분리.
-    const dim = this.add.graphics();
-    dim.fillStyle(0x0a0a1a, 0.86);
-    dim.fillRect(0, 0, W, H);
-    layer.add(dim);
-    const scrim = this.add.zone(W / 2, H / 2, W, H).setInteractive();
-    layer.add(scrim);
-    if (this.textures.exists(MISSION_BOX_PANEL_KEY)) {
-      layer.add(this.add.image(cx, cy, MISSION_BOX_PANEL_KEY).setDisplaySize(760, 950));
-    }
-    layer.add(
-      this.add
-        .text(cx, cy - 340, '미션 완료!', { fontFamily: '"Jua", sans-serif', fontSize: '86px', color: '#ffd23f', stroke: '#a6510c', strokeThickness: 12 })
-        .setOrigin(0.5)
-        .setShadow(0, 6, '#00000066', 10),
-    );
-    if (this.textures.exists('up_Item_01_01-4')) {
-      layer.add(this.add.image(cx, cy - 160, 'up_Item_01_01-4').setDisplaySize(140, 226));
-    }
-    layer.add(this.add.text(cx, cy - 40, '아이템 박스 획득!', { fontFamily: '"Jua", sans-serif', fontSize: '44px', color: '#7a4a1a' }).setOrigin(0.5));
-    const rows: string[] = [];
-    if (box.coins) rows.push(`🪙 코인 +${box.coins.toLocaleString()}`);
-    if (box.diamonds) rows.push(`💎 다이아 +${box.diamonds}`);
-    if (box.boosters?.wild) rows.push(`🃏 와일드 +${box.boosters.wild}`);
-    if (box.boosters?.plus5) rows.push(`🎴 +5카드 +${box.boosters.plus5}`);
-    if (box.boosters?.undo) rows.push(`↩️ 되돌리기 +${box.boosters.undo}`);
-    if (box.collectionCards) rows.push(`🗂 컬렉션 카드 +${box.collectionCards}`);
-    layer.add(
-      this.add
-        .text(cx, cy + 60, rows.join('\n'), { fontFamily: '"Jua", sans-serif', fontSize: '38px', color: '#5a3210', align: 'center', lineSpacing: 14 })
-        .setOrigin(0.5),
-    );
-    layer.add(this.add.text(cx, cy + 300, '탭하여 계속', { fontFamily: '"Jua", sans-serif', fontSize: '30px', color: '#a08060' }).setOrigin(0.5));
-    layer.setAlpha(0);
-    this.tweens.add({ targets: layer, alpha: 1, duration: 200, ease: 'Quad.easeOut' });
-    layer.once(Phaser.GameObjects.Events.DESTROY, onDone);
-    scrim.once('pointerdown', () => {
-      sfx('button');
-      layer.destroy();
-    });
-  }
 }

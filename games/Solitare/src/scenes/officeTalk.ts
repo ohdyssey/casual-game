@@ -170,7 +170,7 @@ export function createTalkBubble(scene: Phaser.Scene, anchor: Phaser.GameObjects
   const bubH = bub.height * scale;
   const txt = scene.add
     .text(b.centerX, tailY - bubH * 0.57, text, {
-      fontFamily: '"Jua", sans-serif',
+      fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
       fontSize: '25px',
       color: '#3a2a1e',
       align: 'center',

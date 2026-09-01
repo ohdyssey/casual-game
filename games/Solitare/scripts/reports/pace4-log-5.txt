@@ -1,0 +1,10 @@
+lv401 cur 13 → 14 win 98% left p90 5 short p90 1 (3s)
+lv425 cur 14 → 15 win 93% left p90 4 short p90 9 (85s)
+lv450 cur 15 → 15 win 55% left p90 4 short p90 8 (169s)
+lv475 cur 11 → 10 win 23% left p90 1 short p90 7 (256s)
+lv500 cur 10 → 10 win 57% left p90 1 short p90 7 (321s)
+
+레벨 100개 · 장수 평균 12.4 → 12.3
+승률 평균 57.6% · 잔여 p50/p90 평균 1.0/3.3 · 부족 p50/p90 평균 4.0/8.1 · 니어미스 0.12 · 구매 p90 평균 3.7
+잔여 p90 >1 레벨 82 · 부족 p90 >3 레벨 71 · 상한 도달 0
+→ scripts/reports/pace4-table-5.json · scripts/reports/pace4-tune-5.jsonl

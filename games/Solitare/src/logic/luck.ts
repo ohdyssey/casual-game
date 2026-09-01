@@ -72,3 +72,79 @@ export function afterDraw(l: LuckState, productive: boolean): LuckState {
 export function afterPlay(l: LuckState): LuckState {
   return { ...l, flow: Math.min(STREAK_CAP, l.flow + 1), stuck: Math.max(0, l.stuck - 1) };
 }
+
+/**
+ * **진도 대비 뽑기 소모 구제(pace rescue)** — 뽑기를 쓴 비율이 보드를 치운 비율보다 앞서 있으면
+ * (= 예정보다 뽑기를 많이 썼으면) 매칭 확률을 그만큼 끌어올린다.
+ *
+ * ## 왜 필요한가 — "뽑기가 많이 남는다"의 진짜 원인
+ * 뽑기 장수는 tune-by-coin-cost.mts 가 **꼬리 조건**(p90 구매 ≤ 1회)에 맞춰 정한다. 그런데 판마다
+ * 필요한 뽑기 수의 분산이 크면, 꼬리(운 나쁜 판)를 구제하려고 **모든 판에 뽑기를 얹어야** 한다 →
+ * 중앙값 판은 그만큼 남기고 이긴다(실측 2026-08-21: 평균 잔여 3.35장 · 500 중 290레벨이 3장 초과,
+ * 목표는 1~3장). 즉 잔여의 원인은 "뽑기를 너무 많이 준 것"이 아니라 **분산**이었다.
+ *
+ * 그래서 뽑기를 일괄로 깎는 대신(그러면 꼬리가 무너져 ＋5 구매가 폭증한다) **뒤처진 판만** 구제해
+ * 분산을 줄인다 → 꼬리가 짧아지므로 튜너가 뽑기를 더 낮게 확정할 수 있고, 그 결과 중앙값의 잔여가
+ * 줄어든다. 앞서가는 판(진도 ≥ 소모)에는 아무 보정도 없다 — 잘 풀리는 판을 더 떠먹이지 않는다.
+ *
+ * @param clearedFrac   치운 보드 비율 0~1
+ * @param stockUsedFrac 사용한 뽑기 비율 0~1
+ */
+export const PACE_RESCUE_GAIN = 0.75;
+/**
+ * **튜닝 훅**(계측 스크립트 전용) — 구제 세기를 코드 수정 없이 스윕하기 위한 런타임 오버라이드.
+ *   게임은 호출하지 않는다(기본값 = 위 상수). pace-sweep.mts 가 사용.
+ */
+const tuning = { paceGain: PACE_RESCUE_GAIN, endgameGain: 0.9 };
+export function configureRescue(t: Partial<typeof tuning>): void {
+  Object.assign(tuning, t);
+}
+export function paceBoost(clearedFrac: number, stockUsedFrac: number): number {
+  const behind = stockUsedFrac - clearedFrac;
+  return behind <= 0 ? 0 : Math.min(1, behind) * tuning.paceGain;
+}
+
+/** 매칭 확률에 구제 보정을 얹는다(상한은 feedProb 과 동일). */
+export function withBoost(p: number, boost: number): number {
+  return clamp(p + boost, FEED_MIN, FEED_MAX);
+}
+
+/**
+ * **잔량 압박 구제(endgame pressure)** — 남은 뽑기 1장이 치워야 할 보드 카드 수(need)가 커지면
+ * 매칭 확률을 끌어올린다. pace 구제(진도 대비 소모)는 종반에 둔감했다 — 보드를 80% 치웠는데 뽑기를
+ * 90% 썼으면 "10%p 뒤처짐"으로 약하게만 보정되지만, 실제로는 남은 5장을 남은 2장으로 치워야 하는
+ * 절박한 상황일 수 있다. 남은 양의 **비율**을 직접 보는 이 신호가 종반 꼬리를 짧게 만든다.
+ *
+ * 기준값(ENDGAME_FROM/FULL)은 **뽑기 장수 스윕 실측**으로 정했다(lv9·lv480, 각 지점 120판).
+ * 1.6~2.6 은 너무 늦어 꼬리를 못 잡았고(잔여 3.6), 게이트 없이 0.6 부터 걸면 초반부터 "뽑는 족족
+ * 맞는" 판이 됐다. 게이트(0.15~0.35) + 0.6~1.6 이 초반 리듬은 살리고 꼬리만 짧게 만드는 지점이다.
+ */
+export const ENDGAME_FROM = 0.5;   // need 가 이 값을 넘으면 구제 시작(실측 스윕으로 확정)
+export const ENDGAME_FULL = 1.3;   // 이 값 이상이면 최대 구제
+export const ENDGAME_GAIN = 0.9;
+/**
+ * 구제가 **언제부터** 걸리는가 — 초반부터 걸면 "뽑는 족족 맞는" 판이 되어(예전 PO 지적) 설계된
+ * 초반 리듬이 무너진다. 보드를 GATE_FROM 만큼 치운 뒤부터 서서히 켜서 **종반에만** 작동시킨다.
+ */
+export const PRESSURE_GATE_FROM = 0.10;
+export const PRESSURE_GATE_FULL = 0.30;
+
+/**
+ * **마지막 장은 정직하게**(PO 2026-08-30 "마지막 장에서 카드를 매칭하여 게임을 종료시키는 우연이 너무 많다").
+ *
+ * 잔량 압박 구제는 need(=남은 보드/남은 뽑기)가 클수록 세지는데, 뽑기가 **1장** 남으면 need 가 보드
+ * 전체라 무조건 최대치가 걸렸다 → 마지막 장이 97% 로 맞고 연쇄 랭크까지 골라져 "마지막 장 기적"이
+ * 판마다 일어났다(실측: 승리의 27% 가 잔여 0 으로 끝남). 뽑기가 LAST_HONEST_FROM 장 이하로 내려가면
+ * 구제를 선형으로 접어 1장에서는 0 — 마지막 장은 보정 없는 확률로 뽑힌다(꼭 이길 필요는 없다).
+ */
+export const LAST_HONEST_FROM = 4; // 이 장수부터 구제가 줄기 시작, 1장에서 0.
+export function lastCardsHonesty(stockLeft: number): number {
+  return clamp((stockLeft - 1) / (LAST_HONEST_FROM - 1), 0, 1);
+}
+
+export function pressureBoost(boardLeft: number, stockLeft: number, clearedFrac = 1): number {
+  if (boardLeft <= 0) return 0;
+  const need = boardLeft / Math.max(1, stockLeft);
+  const gate = clamp((clearedFrac - PRESSURE_GATE_FROM) / (PRESSURE_GATE_FULL - PRESSURE_GATE_FROM), 0, 1);
+  return clamp((need - ENDGAME_FROM) / (ENDGAME_FULL - ENDGAME_FROM), 0, 1) * tuning.endgameGain * gate * lastCardsHonesty(stockLeft);
+}

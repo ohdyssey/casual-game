@@ -20,11 +20,22 @@
  *   컬렉션에서 시작해도 금방 채워지도록 보완했다.
  */
 
-export const COLLECTION_SET_COUNT = 10; // collectionPopup.SET_COUNT 와 동일(up_CollecttionCard_01..10).
+export const COLLECTION_SET_COUNT = 15; // collectionPopup.SET_COUNT 와 동일(2026-08-31: 1~15 세트 이식 완료).
 export const CARDS_PER_SET = 9; // blank_copy2.json 카드 그리드 9칸.
+/**
+ * **카드 1종 완성에 필요한 장수**(PO 2026-08-30 "컬렉션 카드가 너무 많이 발생한다 — 각 카드당 10장 수집해
+ *   완성"). 드랍은 그대로 두고 **완성 문턱**을 올린다: 10장 미만은 회색(미완성), 10장이 되면 원색.
+ *   세트 완성 = 9종 전부 10장. 진행도 "n/9" 는 **완성한 종 수**로 센다(보유 종 수가 아니다).
+ */
+export const CARD_COMPLETE_COUNT = 10;
 
-/** 카드 아트가 이식된 세트 = **드랍 후보**(collectionPopup.CARD_ART_SETS + 저작 1세트). */
-export const COLLECTIBLE_SETS: readonly number[] = [1, 2, 3];
+/**
+ * 카드 아트가 이식된 세트 = **드랍 후보**. `collectionPopup.CARD_ART_SETS` 와 같은 목록이어야 한다 —
+ *   이 파일은 순수 로직(Phaser-free)이라 씬 파일을 import 할 수 없어 **따로 들고 있다**.
+ *   ⚠️ 새 세트를 이식하면 **두 곳 다** 고칠 것. 2026-08-31 이전엔 여기가 [1,2,3]에 멈춰 있어 4~7번 세트는
+ *   아트만 로드되고 실제로는 한 번도 드랍되지 않았다(표시만 되고 뽑히지 않는 세트였다) — 재발 주의.
+ */
+export const COLLECTIBLE_SETS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
 /** 세트 번호(문자열 키) → 카드별 **보유 장수** 배열(길이 CARDS_PER_SET, 0=미보유). JSON 그대로 저장. */
 export interface CollectionState {
@@ -126,8 +137,18 @@ export function totalCards(state: CollectionState, set: number): number {
   return setCounts(state, set).reduce((n, c) => n + c, 0);
 }
 
+/** 카드 1종이 완성됐는가(10장 이상). */
+export function isCardComplete(state: CollectionState, set: number, card: number): boolean {
+  return cardCount(state, set, card) >= CARD_COMPLETE_COUNT;
+}
+
+/** 세트에서 **완성한 종 수**(10장을 채운 카드) — 진행도 "n/9" 의 앞 숫자. */
+export function completedCount(state: CollectionState, set: number): number {
+  return setCounts(state, set).reduce((n, c) => n + (c >= CARD_COMPLETE_COUNT ? 1 : 0), 0);
+}
+
 export function isSetComplete(state: CollectionState, set: number): boolean {
-  return ownedCount(state, set) >= CARDS_PER_SET;
+  return completedCount(state, set) >= CARDS_PER_SET;
 }
 
 /** 카드 1장 지급 — **새 상태를 반환**(원본 불변). 이미 있으면 장수가 1 늘어난다(중복 보유). */
@@ -225,6 +246,6 @@ export function pickRandomUnowned(
 /** 드랍 후보 세트에서 모은 종수 / 전체 종수 — 진행도 표시용(중복 제외). */
 export function collectionProgress(state: CollectionState, sets: readonly number[] = COLLECTIBLE_SETS): { owned: number; total: number } {
   const total = sets.length * CARDS_PER_SET;
-  const owned = sets.reduce((sum, s) => sum + ownedCount(state, s), 0);
+  const owned = sets.reduce((sum, s) => sum + completedCount(state, s), 0); // 완성한 종 수 기준(10장 규칙).
   return { owned, total };
 }

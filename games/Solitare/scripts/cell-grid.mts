@@ -90,6 +90,40 @@ export function openCellsOf(cells: readonly GridCell[]): GridCell[] {
   return cells.filter((c) => !isCoveredInGrid(cells, c));
 }
 
+/** 이 격자에서 (col,row)가 덮는 아랫행 카드가 하나라도 있는가 — 없으면 이 카드를 없애도 새로 열리는 게 없다. */
+export function coversAnyInGrid(cells: readonly GridCell[], target: GridCell): boolean {
+  return cells.some((c) => c.row === target.row + 1 && Math.abs(c.col - target.col) <= 1);
+}
+
+/**
+ * **고아 카드** — 시작부터 열려 있으면서(덮개 없음) 아무 카드도 덮지 않는 카드.
+ *
+ * 계층 그래프 어디에도 걸리지 않은 "공짜 한 장"이라, 있어도 진행이 열리지 않고 초기 선택지 폭만
+ * 넓혀 난이도를 헐겁게 만든다(2026-08-21 전수 점검: 500레벨 중 237개가 보유, 총 708장).
+ * 조립기는 이 값이 0 이 되도록 후보를 고른다.
+ */
+export function orphanCellsOf(cells: readonly GridCell[]): GridCell[] {
+  return openCellsOf(cells).filter((c) => !coversAnyInGrid(cells, c));
+}
+
+/**
+ * **약하게 덮인 카드** — 덮개가 전부 대각선(모서리)뿐이라 **18.3% 만 가려진** 카드.
+ *
+ * 같은 열 바로 위(dx=0)에 덮개가 있으면 43.9% 가 가려져 "밑에 깔렸다"가 한눈에 읽힌다. 그런데 대각선만
+ * 걸치면 카드가 거의 다 보이는데 뒷면이라 **가려진 건지 아닌지 눈으로 구분이 안 된다**(PO 2026-08-22
+ * "가려지지 않은 부분과 가려진 부분을 명확하게 구분하라"). 실측: 이전 팩은 덮인 카드의 **50.9%** 가 이 상태였다.
+ *
+ * ⚠️ **0 으로 만들 수는 없다** — 격자 대수상 확산(1장 치우면 2장 열림)의 가장자리는 반드시 대각 1장
+ *   덮개가 된다(윗행 한 장이 아랫행 두 장을 정면으로 덮을 수 없으므로). 확산을 포기하면 게임이
+ *   "한 장 치우면 한 장 열림"으로 선형화되므로, **최소화**가 목표다.
+ */
+export function weakCoveredCellsOf(cells: readonly GridCell[]): GridCell[] {
+  return cells.filter((c) => {
+    const coverers = cells.filter((o) => o.row === c.row - 1 && Math.abs(o.col - c.col) <= 1);
+    return coverers.length > 0 && !coverers.some((o) => o.col === c.col);
+  });
+}
+
 /**
  * [I2] 검증 — "오픈 카드 위에 그를 덮는 카드가 없다"를 **실좌표 기준**으로 재확인한다.
  * 격자 규약이 깨지지 않았는지(예: 셀을 반칸 어긋나게 얹는 실수) 이중으로 잡기 위한 안전망.

@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>솔리테어 하이츠 — 실질 경제 대시보드</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; display: flex; height: 100vh; background: #14101c; color: #eee;
+         font: 13px/1.5 "Pretendard Variable", Pretendard, system-ui, sans-serif; }
+  #left { width: 430px; flex: none; padding: 12px; overflow: auto; border-right: 1px solid #3a2e4c; }
+  #right { flex: 1; padding: 12px; overflow: auto; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  h2 { font-size: 13px; margin: 14px 0 6px; color: #c9b6e0; }
+  .sub { color: #a795bd; font-size: 11px; margin-bottom: 10px; }
+  fieldset { border: 1px solid #4a3a5e; border-radius: 10px; padding: 8px 10px 10px; margin: 0 0 10px; }
+  legend { color: #c9b6e0; font-size: 11px; padding: 0 4px; }
+  label { display: inline-flex; align-items: center; gap: 5px; margin: 3px 8px 3px 0; font-size: 12px; }
+  input[type="number"] { width: 66px; background: #241b30; color: #fff; border: 1px solid #4a3a5e;
+                          border-radius: 6px; padding: 4px 6px; }
+  select { background: #241b30; color: #fff; border: 1px solid #4a3a5e; border-radius: 6px; padding: 4px 6px; }
+  button { background: #6c3fd1; color: #fff; border: 0; border-radius: 8px; padding: 8px 13px;
+           margin: 4px 5px 4px 0; cursor: pointer; font-weight: 700; font-size: 13px; }
+  button.secondary { background: #3a2e4c; }
+  button.danger { background: #8e3b3b; }
+  button:disabled { opacity: 0.45; cursor: default; }
+  #status { margin: 6px 0; padding: 7px 9px; background: #1d1729; border-radius: 8px;
+            font-size: 12px; min-height: 34px; white-space: pre-wrap; }
+  iframe { width: 100%; height: 300px; border: 1px solid #3a2e4c; border-radius: 10px; background: #000; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { border-bottom: 1px solid #2e2540; padding: 3px 6px; text-align: right; white-space: nowrap; }
+  th { color: #a795bd; font-weight: 600; position: sticky; top: 0; background: #14101c; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  .pos { color: #7ee0a0; } .neg { color: #ff8f8f; } .dim { color: #8b7ba3; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid #3a2e4c; margin-bottom: 8px; }
+  .tabs button { background: none; padding: 6px 10px; border-bottom: 2px solid transparent;
+                 border-radius: 0; color: #a795bd; margin: 0; }
+  .tabs button.on { color: #fff; border-bottom-color: #6c3fd1; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .card { background: #1d1729; border-radius: 10px; padding: 8px 10px; }
+  .card .k { color: #a795bd; font-size: 11px; }
+  .card .v { font-size: 19px; font-weight: 700; margin-top: 2px; }
+  .warn { background: #3a2418; border: 1px solid #7a4a2a; border-radius: 8px; padding: 7px 9px;
+          font-size: 12px; margin-bottom: 10px; color: #ffcf9e; }
+</style>
+</head>
+<body>
+<div id="left">
+  <h1>실질 경제 대시보드</h1>
+  <div class="sub">
+    한 판이 아니라 <b>하루</b>를 잰다. 게임비·＋5 지출과 별 보상에 더해
+    <b>투데이 리그</b>(단계 + 자정 순위)와 <b>주간 이벤트</b>(7일 사다리 + 완주)까지 한 원장에 모은다.
+  </div>
+
+  <div class="warn" id="gate">브리지 확인 중…</div>
+
+  <fieldset>
+    <legend>플레이어 가정</legend>
+    <label>시작 레벨 <input id="lv" type="number" value="1" min="1" max="500" /></label>
+    <label>시작 코인 <input id="coins" type="number" value="20000" min="0" step="1000" /></label>
+    <label>보유 층 <input id="floors" type="number" value="2" min="1" max="20" /></label>
+    <label>하루 판수 <input id="perDay" type="number" value="10" min="1" max="60" /></label>
+    <label>일수 <input id="days" type="number" value="14" min="1" max="60" /></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>＋5 구매 정책</legend>
+    <label><select id="buyMode">
+      <option value="afford">코인이 있으면 산다 (실제 유저)</option>
+      <option value="never">사지 않는다 (플레이만)</option>
+    </select></label>
+    <label>최대 <input id="maxBuys" type="number" value="12" min="0" max="12" />회/판</label>
+    <br /><label><input type="checkbox" id="buyStarter" /> 💳 과금 유저 시나리오 — 핀치 시 스타터팩 구매(초회 1회)</label>
+    <div class="sub" style="margin:6px 0 0">
+      어느 쪽이든 ＋5 는 <b>실제 가격으로 코인을 낸다</b>. 모자라 못 사면 그 판은 패배로 끝난다 —
+      실유저가 막히는 지점이 곧 런웨이의 끝이다. (지갑을 무시하는 옛 계측 모드는 수지를 흑자로 왜곡해 뺐다.)
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>실행</legend>
+    <label>속도 <select id="speed">
+      <option value="4">4배속(관찰)</option>
+      <option value="12">12배속</option>
+      <option value="32" selected>32배속</option>
+      <option value="64">64배속(최대)</option>
+    </select></label>
+    <label>레벨 진행 <select id="lvMode">
+      <option value="advance">이기면 다음 레벨</option>
+      <option value="fixed">시작 레벨 고정</option>
+      <option value="sweep">레벨 스윕(시작~끝 ×N회)</option>
+    </select></label>
+    <label>끝 레벨 <input id="sweepEnd" type="number" value="500" min="1" max="500" /></label>
+    <label>레벨당 <input id="sweepRuns" type="number" value="3" min="1" max="20" />회</label>
+    <br />
+    <button id="start">▶ 시작</button>
+    <button id="stop" class="secondary" disabled>⏸ 정지</button>
+  </fieldset>
+
+  <div id="status">브리지 확인 중…</div>
+
+  <div>
+    <button id="expRuns" class="secondary">📄 판별 원장</button>
+    <button id="expDays" class="secondary">📅 일별 원장</button>
+    <button id="impRuns" class="secondary">📥 JSON 가져오기</button>
+    <button id="resetEvt" class="secondary">🔄 전체 이벤트 리셋</button>
+    <button id="clear" class="danger">🗑 기록 비우기</button>
+  </div>
+
+  <iframe id="game" src="/?lab=1" title="game"></iframe>
+</div>
+
+<div id="right">
+  <div id="summary"></div>
+  <div class="tabs">
+    <button data-tab="sum" class="on">수지 요약</button>
+    <button data-tab="days">일별 원장</button>
+    <button data-tab="runs">판별 원장</button>
+    <button data-tab="reward">보상 구조</button>
+    <button data-tab="level">레벨 경제</button>
+    <button data-tab="design">설계 대비</button>
+  </div>
+  <div id="panel"></div>
+</div>
+
+<script>
+/*
+ * econ-lab — **실질 경제 계측 대시보드**.
+ *
+ * ## stock-lab 과 무엇이 다른가
+ *   ① 게임비를 **실제로 낸다**. stock-lab 은 `scene.start('play')` 를 직접 불러 입장료를 건너뛰었다
+ *      (게임비는 씬이 아니라 홈/진입팝업에서 차감된다). 여기서는 브리지의 payFee 로 같은 규칙을 따른다.
+ *   ② **날짜를 굴린다**. 리그(하루)·이벤트(7일)는 판이 아니라 날짜에 묶여 있어, 판만 반복하면
+ *      첫날 사다리를 다 올린 뒤로는 수입이 0 이 된다. 하루 분량을 마치면 endDay 로 자정을 재현한다.
+ *   ③ 원장을 **세이브 코인 델타**로 맞춘다. 항목별 합과 실제 잔고 변화가 어긋나면(미상 수입/지출)
+ *      그 차액을 그대로 드러낸다 — 모르는 수입원을 놓치지 않기 위해서다.
+ */
+const $ = (id) => document.getElementById(id);
+
+/*
+ * **백그라운드 지속 펌프**(PO 2026-08-25 "화면이 디저블 되었을 때 기록되지 않는 문제") —
+ * 탭이 가려지면 브라우저가 ① 게임 RAF 를 완전히 멈추고 ② 메인 스레드 타이머를 조인다
+ * (5분 뒤엔 분당 1회). 그래서 계측이 서 버렸다. **워커 타이머는 스로틀되지 않으므로**:
+ *   · 화면이 가려진 동안 워커 틱(50ms)으로 게임 루프를 수동 스텝(g.loop.step)
+ *   · 계측 루프의 sleep 도 워커 틱 기반으로 바꿔 백그라운드에서도 제 속도로 돈다
+ * 보이는 동안에는 RAF 가 정상 구동하므로 수동 스텝은 하지 않는다(이중 구동 방지).
+ */
+const sleepWaiters = [];
+const pump = new Worker(URL.createObjectURL(new Blob(['setInterval(function(){postMessage(0)},50);'], { type: 'text/javascript' })));
+pump.onmessage = () => {
+  if (document.hidden) {
+    const g = game();
+    if (g && g.loop && g.loop.step) { try { g.loop.step(performance.now()); } catch {} }
+  }
+  const now = performance.now();
+  for (let i = sleepWaiters.length - 1; i >= 0; i--) {
+    if (now >= sleepWaiters[i].due) { const w = sleepWaiters.splice(i, 1)[0]; w.r(); }
+  }
+};
+const sleep = (ms) => new Promise((r) => sleepWaiters.push({ due: performance.now() + ms, r }));
+const nf = (n) => Math.round(n).toLocaleString();
+const sgn = (n) => `<span class="${n >= 0 ? 'pos' : 'neg'}">${n >= 0 ? '+' : ''}${nf(n)}</span>`;
+
+const LS_RUNS = 'econLab.runs.v2'; // v2: 보상·경제 분해 필드 추가(2026-08-24)
+const LS_DAYS = 'econLab.days.v2';
+const LS_CFG = 'econLab.cfg.v1';
+
+let runs = [];
+let days = [];
+let running = false;
+let tab = 'sum';
+
+try { runs = JSON.parse(localStorage.getItem(LS_RUNS) || '[]'); } catch {}
+try { days = JSON.parse(localStorage.getItem(LS_DAYS) || '[]'); } catch {}
+
+// ─── 게임 iframe 접근 ───
+const win_ = () => $('game').contentWindow;
+function lab() { try { return win_().__econLab || null; } catch { return null; } }
+function game() {
+  try { const w = win_(); return w.__PHASER_GAME__ || (w.Phaser && w.Phaser.GAMES && w.Phaser.GAMES[0]) || null; }
+  catch { return null; }
+}
+function scene(key) { const g = game(); return g ? g.scene.getScene(key) : null; }
+function homeReady() { const h = scene('home'); return !!h && h.scene.isActive(); }
+function muteGame() {
+  try {
+    const g = game();
+    if (g && g.sound) { g.sound.mute = true; g.sound.volume = 0; }
+    win_().localStorage.setItem('solitaire.volume', '0');
+  } catch {}
+}
+function dismissTips(s) {
+  for (const nm of ['tipCard', 'coach']) {
+    const l = s.children.list.find((o) => o.name === nm);
+    if (l && l.list[0]) l.list[0].emit('pointerdown');
+  }
+}
+/** 게임을 새로 띄운다 — 장시간 연속 구동 시 성능 저하로 멈추는 것 방지(stock-lab 과 동일). */
+async function rebootGame() {
+  const f = $('game');
+  await new Promise((res) => { f.onload = () => res(); f.src = '/?lab=1&t=' + Date.now(); });
+  const t0 = Date.now();
+  while (Date.now() - t0 < 60000 && !(homeReady() && lab())) await sleep(200);
+  muteGame();
+}
+
+/**
+ * 한 판을 끝까지 돌린다. **입장료는 호출부에서 이미 냈다고 가정한다.**
+ * `buy` 가 false 면 봇은 ＋5 를 사지 않는다 → 막히면 패배로 끝난다.
+ */
+async function runLevel(level, speed, buy, maxBuys) {
+  const g = game();
+  if (!g) return { level, error: 'no-game' };
+  muteGame();
+  g.scene.stop('home');
+  g.scene.stop('play');
+  g.scene.start('play', { level });
+  const t0 = Date.now();
+  while (Date.now() - t0 < 30000) { const s = scene('play'); if (s && s.scene.isActive() && s.state) break; await sleep(100); }
+  const s0 = scene('play');
+  if (!s0 || !s0.state) return { level, error: 'boot' };
+  muteGame();
+  s0.tweens.timeScale = speed; s0.time.timeScale = speed;
+  s0.simSpeed = speed >= 4 ? 4 : speed;
+  dismissTips(s0);
+  s0.simBuy = !!buy;
+  s0.simBuys = 0;
+  s0.simMaxBuys = maxBuys;
+  // **핵심** — ＋5 를 실제로 코인 내고 사게 한다. 끄면 지출이 세이브에 안 잡혀 수지가 흑자로 보인다.
+  s0.simPayBuys = true;
+  s0.startSim();
+
+  let lastProg = -1, stall = 0, lastSnap = null;
+  while (Date.now() - t0 < 240000) {
+    await sleep(500);
+    const s = scene('play');
+    if (!s || !s.scene.isActive() || !s.state) return { level, error: 'dead' };
+    dismissTips(s);
+    const snap = s.labSnapshot();
+    lastSnap = snap;
+    /*
+     * **정지 판정은 재시동보다 먼저**(2026-08-25 실측) — 예전엔 sim 을 먼저 재시동해 정지 카운터가
+     * 영영 안 쌓였고, 코인이 ＋5 가격 밑으로 떨어진 판이 240초 타임아웃까지 얼어 있었다("멈춤"의 정체).
+     * 봇이 연속으로 손을 떼면(막힘·구매 불가) 실유저 의미 그대로 **패배로 기록**하고 다음 판으로 간다.
+     */
+    const wasStopped = !s.simRunning && !s.ended;
+    // 승리 정산 강제 — checkEnd 는 시뮬 중이면 정산하지 않는다(후행 비행 운에 의존, 간헐 미정산 실측).
+    if (snap.win && !s.ended) { if (s.simRunning) s.stopSim('클리어'); s.checkEnd(); }
+    else if (wasStopped) s.startSim();
+    if (snap.settled) return snap;
+    /*
+     * **진행 워치독**(2026-08-25 "계속 멈춤" 재수정) — 정지 여부와 무관하게 **moves+cleared 가
+     * 안 늘면 정체**로 본다(공개 연출 콜백 유실 등 sim 이 돌면서도 헛도는 경우까지 포착).
+     *   · 10초 정체 → 자가 복구(보류 공개 해제 + refresh + sim 재시동)
+     *   · 정지 3초 or 총 30초 정체 → **패배로 기록**하고 다음 판(240초 얼음·수수료 태우는 재시도 금지)
+     */
+    const prog = (snap.cleared || 0) * 100000 + (snap.moves || 0);
+    if (prog === lastProg) {
+      stall += 1;
+      if (stall === 20) {
+        try { s.heldReveals && s.heldReveals.clear(); s.refresh(); if (!s.simRunning && !s.ended) s.startSim(); } catch {}
+      }
+      if ((wasStopped && stall >= 6) || stall >= 60) {
+        console.log('[econ-lab] 정체 → 패배 기록', JSON.stringify({ level, boardLeft: snap.boardLeft, stock: snap.stock, sim: !wasStopped, moves: snap.moves }));
+        return { ...snap, win: false, stalled: true };
+      }
+    } else { stall = 0; lastProg = prog; }
+  }
+  // 240초 상한 — 이것도 패배로 기록(에러 재시도는 게임비만 이중으로 태운다).
+  return lastSnap ? { ...lastSnap, win: false, stalled: true } : { level, error: 'timeout' };
+}
+
+// ─── 실행 ───
+$('start').onclick = async () => {
+  try { await runAll(); }
+  catch (e) {
+    // 조용히 죽으면 원인을 알 수 없다 — 화면에 그대로 띄운다(계측 도구의 기본).
+    running = false;
+    $('start').disabled = false; $('stop').disabled = true;
+    $('status').textContent = '⛔ 실행 중 오류: ' + (e && e.stack ? e.stack : e);
+    console.error(e);
+  }
+};
+
+async function runAll() {
+  const L = lab();
+  if (!L) { $('status').textContent = '브리지(__econLab)를 찾지 못했습니다 — 게임을 새로고침하세요.'; return; }
+  running = true;
+  $('start').disabled = true; $('stop').disabled = false;
+
+  const cfg = {
+    lv: +$('lv').value, coins: +$('coins').value, floors: +$('floors').value,
+    perDay: +$('perDay').value, days: +$('days').value,
+    buyMode: $('buyMode').value, maxBuys: +$('maxBuys').value,
+    speed: +$('speed').value, lvMode: $('lvMode').value,
+    sweepEnd: +$('sweepEnd').value, sweepRuns: +$('sweepRuns').value,
+    buyStarter: $('buyStarter').checked,
+  };
+  localStorage.setItem(LS_CFG, JSON.stringify(cfg));
+
+  /*
+   * **중단 지점 재개**(PO 2026-08-25) — 기록(runs)이 남아 있으면 처음으로 되돌리지 않고
+   * 그 지점(일차·판·레벨·세이브 상태)부터 이어간다. 판별 기록은 매 판 저장되므로 창을 닫거나
+   * 정지해도 손실은 진행 중이던 한 판뿐이다. **처음부터 다시** 하려면 [🗑 기록 비우기] 후 시작.
+   *   ⚠️ 재개 시 prepare(세이브/이벤트 리셋)를 부르지 않는다 — 게임 상태도 그대로 이어져야 한다.
+   */
+  const resume = runs.length > 0;
+  if (!resume) {
+    // 깨끗한 시작 — 리그·이벤트를 오늘 처음 접속한 것으로 되돌린다.
+    L.prepare({ coins: cfg.coins, diamonds: 0, level: cfg.lv, builtFloors: cfg.floors, ownedFloors: 1 }); // 💎도 0에서 — 이월되면 건설 다이아 제약이 무력화된다(실측 D1 다이아 2,802 이월 왜곡).
+    runs = []; days = [];
+  }
+
+  let level = cfg.lv;
+  if (resume && cfg.lvMode === 'advance') {
+    const last = runs[runs.length - 1];
+    level = Math.min(500, (last.level || cfg.lv) + (last.win ? 1 : 0));
+  }
+  let broke = false;
+  const t0 = Date.now();
+
+  /*
+   * **레벨 스윕**(PO 2026-08-24 "500레벨까지 레벨당 3회") — 시작~끝 레벨을 각 N회씩 순서대로 돈다.
+   *   하루 경계(perDay)는 그대로 유지해 리그·이벤트의 날짜 동작도 실제처럼 굴린다.
+   *   코인이 바닥나면 **자동 충전**한다 — 스윕의 목적은 런웨이가 아니라 레벨별 경제 표본이라,
+   *   파산으로 멈추면 뒤쪽 레벨 표본이 통째로 빈다(충전은 판 시작 전이라 판별 원장을 오염시키지 않는다).
+   */
+  const sweepCnt = {};
+  if (cfg.lvMode === 'sweep') for (const r of runs) sweepCnt[r.level] = (sweepCnt[r.level] || 0) + 1;
+  const sweep = cfg.lvMode === 'sweep'
+    ? Array.from({ length: Math.max(0, cfg.sweepEnd - cfg.lv + 1) }, (_, i) => cfg.lv + i)
+        .flatMap((lv2) => Array(Math.max(0, cfg.sweepRuns - (sweepCnt[lv2] || 0))).fill(lv2))
+    : null;
+  const totalDays = sweep ? Math.ceil(sweep.length / cfg.perDay) : cfg.days;
+  if (sweep) console.log('[sweep] 기존', runs.length, '판 · 남은 시퀀스', sweep.length, '· 예상', totalDays, '일 · 첫 레벨', sweep[0]);
+  let gi = 0; // 스윕 진행 인덱스.
+
+  // 재개 좌표 — 완료된 판수로 일차/판 위치를 복원한다(스윕은 자체 시퀀스가 재개를 처리).
+  const doneRuns = sweep ? 0 : runs.length;
+  const startDay = sweep ? 1 : Math.floor(doneRuns / cfg.perDay) + 1;
+  const startK = sweep ? 0 : doneRuns % cfg.perDay;
+  if (resume && !sweep) $('status').textContent = `▶ 이어하기 — 기존 ${doneRuns}판, D${startDay} ${startK + 1}판째 L${level} 부터`;
+  if (resume && !sweep) {
+    // **누락 일 마감 따라잡기** — 하루를 다 채우고 정산 직전에 중단됐으면 그 날의 자정(리그 정산)·
+    //   일별 원장이 비어 있다. 판별 기록에서 그날 집계를 복원해 마감하고 이어간다.
+    for (let md = days.length + 1; md <= startDay - 1; md++) {
+      const dayRuns = runs.slice((md - 1) * cfg.perDay, md * cfg.perDay);
+      const sum = (f) => dayRuns.reduce((a, r) => a + (f(r) || 0), 0);
+      const settle = L.endDay();
+      const evtRolled = md % 7 === 0;
+      if (evtRolled) L.endEventPeriod();
+      days.push({
+        day: md, games: dayRuns.length, wins: dayRuns.filter((r) => r.win).length, drops: sum((r) => r.drops),
+        fee: sum((r) => r.fee), plus5: sum((r) => r.plus5Cost), starCoins: sum((r) => r.starCoins), dropCoins: sum((r) => r.dropCoins),
+        buildCoins: sum((r) => r.buildCoins), buildDiamonds: sum((r) => r.buildDiamonds),
+        leagueStars: sum((r) => r.leagueStars), eventItems: sum((r) => r.eventItems),
+        rank: settle.rank, rankCoins: settle.rankCoins, points: settle.points,
+        eventStageEnd: settle.after.eventStage, eventRolled: evtRolled,
+        coinsStart: dayRuns[0] ? (dayRuns[0].coinsBefore + dayRuns[0].fee) : settle.after.coins,
+        coinsEnd: settle.after.coins,
+        net: dayRuns.length ? settle.after.coins - (dayRuns[0].coinsBefore + dayRuns[0].fee) : 0,
+        diamondsEnd: settle.after.diamonds,
+      });
+    }
+    localStorage.setItem(LS_DAYS, JSON.stringify(days));
+  }
+
+  outer:
+  for (let d = startDay; d <= totalDays && running; d++) {
+    const dayStart = L.snapshot();
+    let dayFee = 0, dayPlus5 = 0, dayStars = 0, dayDrop = 0, dayGames = 0, dayWins = 0, dayDrops = 0, dayBuild = 0, dayBuildDia = 0;
+    let dayStarsCollected = 0, dayEventItems = 0; // 리그 ⭐ / 위클리 상품 — 새 수집 단위.
+    if (!sweep && d === startDay && startK > 0) {
+      // 하루 중간 재개 — 그날 이미 끝낸 판들의 집계를 판별 기록에서 복원한다.
+      for (const r of runs.slice((d - 1) * cfg.perDay)) {
+        dayFee += r.fee || 0; dayPlus5 += r.plus5Cost || 0; dayStars += r.starCoins || 0; dayDrop += r.dropCoins || 0;
+        dayBuild += r.buildCoins || 0; dayBuildDia += r.buildDiamonds || 0;
+        dayGames++; if (r.win) dayWins++; dayDrops += r.drops || 0;
+        dayStarsCollected += r.leagueStars || 0; dayEventItems += r.eventItems || 0;
+      }
+    }
+
+    for (let k = (!sweep && d === startDay ? startK : 0); k < cfg.perDay && running; k++) {
+      /*
+       * **과금 유저 시나리오**(PO 2026-08-25) — 핀치(잔고가 입장료＋최소 ＋5가에 못 미침) 도달 순간
+       *   스타터 팩을 목업 구매한다(실유저와 동일 규칙·초회 1회). 판 시작 전에 사므로 판별 대사는 무오염.
+       */
+      let iapCoins = 0;
+      if (cfg.buyStarter && L.starterAvailable && L.starterAvailable()) {
+        const bal = L.snapshot().coins;
+        if (bal < L.feeOf(level, 1) + 3000) {
+          const b = L.buyStarter();
+          if (b.ok) { iapCoins = b.coins; render(); }
+        }
+      }
+      if (sweep) {
+        if (gi >= sweep.length) break; // 시퀀스 소진 — 오늘 정산은 하고 끝낸다.
+        level = sweep[gi];
+        // 자동 충전(판 시작 전) — 고레벨 입장료가 시작 코인보다 클 수 있어 필요량 기준으로 채운다.
+        const needFee = L.feeOf(level, 1);
+        if (L.snapshot().coins < needFee * 3) L.addCoins(Math.max(cfg.coins, needFee * 10));
+      }
+      // ① 입장료 — 못 내면 거기서 끝(런웨이의 끝). 스윕에서는 위 충전 덕에 막히지 않는다.
+      const fee = L.payFee(level, 1);
+      if (!fee.ok) {
+        $('status').textContent = `D${d} · L${level} — 코인 부족(${nf(fee.coinsAfter)} < ${nf(fee.fee)}). 중단.`;
+        broke = true;
+        break outer;
+      }
+      dayFee += fee.fee;
+
+      const before = L.snapshot();
+      const wantBuy = cfg.buyMode === 'afford';
+      const snap = await runLevel(level, cfg.speed, wantBuy, cfg.buyMode === 'never' ? 0 : cfg.maxBuys);
+      if (snap.error) { await rebootGame(); k--; continue; }
+      const after = L.snapshot();
+
+      /*
+       * ② 원장 대사(reconciliation).
+       *   ＋5 지출을 잔고 델타로 **역산하면 안 된다** — 그러면 미상 차액이 정의상 항상 0 이라
+       *   모르는 수입원을 영영 못 찾는다. 정가표(plus5Price)로 독립 계산하고, 남는 차액을 드러낸다.
+       */
+      let plus5 = 0;
+      for (let u = 0; u < (snap.buys || 0); u++) plus5 += L.plus5Price(level, u, 1);
+      const known = (snap.coins || 0) + (snap.dropCoins || 0) + (snap.tierCoins || 0) - plus5;
+      const rec = {
+        day: d, idx: k + 1, level,
+        win: !!snap.win, stars: snap.stars || 0, buys: snap.buys || 0,
+        fee: fee.fee,
+        starCoins: snap.coins || 0,
+        plus5Cost: plus5,
+        dropCoins: snap.dropCoins || 0,
+        // **수입 분해**(2026-08-24) — dropCoins 를 출처별로 가른 실측(리그 단계 / 위클리 칸+완주).
+        leagueCoins: snap.leagueCoins || 0,
+        eventCoins: snap.eventCoins || 0,
+        tierCoins: snap.tierCoins || 0,
+        tierDiamonds: snap.tierDiamonds || 0,
+        dropDiamonds: snap.dropDiamonds || 0,
+        boardDiamonds: snap.diamonds || 0,
+        missionTicks: snap.missionTicks || 0,
+        pinch: snap.pinch || 0,
+        iapCoins,
+        missionKinds: snap.missionKinds || {},
+        missionAmounts: snap.missionAmounts || {},
+        eventKinds: snap.eventKinds || {},
+        drops: snap.drops || 0,
+        // **새 수집 단위**(PO 2026-08-24) — 리그는 ⭐별, 위클리는 열린 층 상품만 모은다.
+        //   단계(Stages)만 재면 "목표가 너무 높아 한 칸도 못 갔다"와 "아무것도 안 들어왔다"가 구분되지 않는다.
+        leagueStars: snap.leagueStars || 0,
+        eventItems: snap.eventItems || 0,
+        leagueStages: snap.leagueStages || 0,
+        eventStages: snap.eventStages || 0,
+        leagueStageNow: after.leagueStage,
+        eventStageNow: after.eventStage,
+        leaguePoints: after.leaguePoints,
+        coinsBefore: before.coins, coinsAfter: after.coins,
+        net: after.coins - before.coins, // 입장료는 이 구간 **밖에서** 이미 빠졌다(payFee).
+        unaccounted: (after.coins - before.coins) - known,
+        stock: snap.stock || 0, startStock: snap.startStock || 0,
+        ms: snap.ms || 0, ts: Date.now(),
+      };
+      // **건설 포함 경제**(PO 2026-08-25) — 판 정산 후 실제 홈 규칙대로 자동 건설(코인+다이아 지출 기록).
+      const build = L.autoBuild ? L.autoBuild() : { actions: [], coins: 0, diamonds: 0 };
+      rec.buildCoins = build.coins;
+      rec.buildDiamonds = build.diamonds;
+      rec.builds = build.actions.length;
+      runs.push(rec);
+      localStorage.setItem(LS_RUNS, JSON.stringify(runs.slice(-4000))); // 매 판 저장 — 중단해도 이어하기 가능.
+      dayPlus5 += plus5; dayStars += rec.starCoins; dayDrop += rec.dropCoins; dayBuild += rec.buildCoins; dayBuildDia += rec.buildDiamonds;
+      dayGames++; if (rec.win) dayWins++; dayDrops += rec.drops;
+      dayStarsCollected += rec.leagueStars; dayEventItems += rec.eventItems;
+
+      if (sweep) gi += 1; // 스윕 전진 — 성공적으로 기록된 판만 센다(에러 재시도는 같은 레벨 유지).
+      if (cfg.lvMode === 'advance' && rec.win) level = Math.min(500, level + 1);
+      $('status').textContent =
+        (sweep ? `스윕 ${gi}/${sweep.length} · ` : '') +
+        `D${d}/${totalDays} · ${k + 1}/${cfg.perDay}판 · L${level} · 잔고 ${nf(after.coins)}\n` +
+        `리그 ${after.leagueStage}/10 (${after.leagueCount}/${after.leagueGoal}) · 이벤트 ${after.eventStage}/10 · ` +
+        `${((Date.now() - t0) / 1000).toFixed(0)}s`;
+      render();
+    }
+    if (!running) break;
+
+    // ③ 자정 — 리그 정산(순위 보상).
+    const settle = L.endDay();
+    // ④ 7일마다 이벤트 주기 마감.
+    const evtRolled = d % 7 === 0;
+    if (evtRolled) L.endEventPeriod();
+
+    const dayEnd = L.snapshot();
+    days.push({
+      day: d, games: dayGames, wins: dayWins, drops: dayDrops,
+      fee: dayFee, plus5: dayPlus5, starCoins: dayStars, dropCoins: dayDrop, buildCoins: dayBuild, buildDiamonds: dayBuildDia,
+      leagueStars: dayStarsCollected, eventItems: dayEventItems,
+      rank: settle.rank, rankCoins: settle.rankCoins, points: settle.points,
+      eventStageEnd: dayEnd.eventStage, eventRolled: evtRolled,
+      coinsStart: dayStart.coins, coinsEnd: dayEnd.coins,
+      net: dayEnd.coins - dayStart.coins,
+      diamondsEnd: dayEnd.diamonds,
+    });
+    localStorage.setItem(LS_RUNS, JSON.stringify(runs.slice(-4000)));
+    localStorage.setItem(LS_DAYS, JSON.stringify(days));
+    render();
+    if (sweep && gi >= sweep.length) break; // 스윕 완료.
+    await rebootGame(); // 하루 경계마다 재시동 — 누적 성능 저하 방지.
+  }
+
+  running = false;
+  $('start').disabled = false; $('stop').disabled = true;
+  localStorage.setItem(LS_RUNS, JSON.stringify(runs.slice(-4000)));
+  localStorage.setItem(LS_DAYS, JSON.stringify(days));
+  $('status').textContent = (broke ? '⛔ 코인 소진으로 중단' : '✅ 완료') +
+    ` — ${runs.length}판 / ${days.length}일 / ${((Date.now() - t0) / 1000).toFixed(0)}초`;
+  render();
+}
+$('stop').onclick = () => { running = false; };
+$('clear').onclick = () => {
+  if (!confirm('기록을 비울까요?')) return;
+  runs = []; days = [];
+  localStorage.removeItem(LS_RUNS); localStorage.removeItem(LS_DAYS);
+  render();
+};
+function download(name, obj) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
+  a.download = name; a.click();
+}
+/*
+ * **전체 이벤트 리셋** — 리그·위클리·미션 배너·상품 재고를 처음 상태로. 게임의 리셋 메뉴와 **같은
+ *   함수**(logic/eventReset.resetAllEvents)를 쓴다. 리그가 완주 상태로 남으면 수집이 전부 0 으로
+ *   나오므로, 계측을 시작하기 전에 반드시 한 번 누른다.
+ */
+$('resetEvt').onclick = async () => {
+  const L = lab();
+  if (!L) { $('status').textContent = '게임이 아직 준비되지 않았습니다.'; return; }
+  const r = L.resetEvents();
+  $('status').textContent = `🔄 이벤트 리셋 완료 — ${r.items.join(' · ')}
+리그 ${r.after.leagueStage}/10 · 이벤트 ${r.after.eventStage}/10`;
+};
+
+$('expRuns').onclick = () => download(`econ-runs-${Date.now()}.json`, runs);
+$('impRuns').onclick = () => {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.json'; inp.multiple = true;
+  inp.onchange = async () => {
+    let added = 0;
+    for (const f of inp.files) {
+      try {
+        const arr = JSON.parse(await f.text());
+        if (Array.isArray(arr)) { runs.push(...arr); added += arr.length; }
+      } catch (e) { alert(`${f.name}: ${e.message}`); }
+    }
+    runs.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    localStorage.setItem(LS_RUNS, JSON.stringify(runs.slice(-8000)));
+    $('status').textContent = `📥 ${added}판 가져옴 — 총 ${runs.length}판`;
+    render();
+  };
+  inp.click();
+};
+$('expDays').onclick = () => download(`econ-days-${Date.now()}.json`, days);
+
+// ─── 표시 ───
+document.querySelectorAll('.tabs button').forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll('.tabs button').forEach((x) => x.classList.remove('on'));
+    b.classList.add('on'); tab = b.dataset.tab; render();
+  };
+});
+
+function totals() {
+  const t = { fee: 0, plus5: 0, star: 0, drop: 0, lgCoins: 0, evCoins: 0, tier: 0, rank: 0, unacc: 0,
+              games: runs.length, wins: 0, drops: 0, dia: 0, boardDia: 0, lgStars: 0, evItems: 0, pinchN: 0, build: 0, buildDia: 0, builds: 0, iap: 0,
+              ticks: 0, mk: {}, ma: {}, ek: {}, starHist: [0, 0, 0, 0, 0, 0] };
+  for (const r of runs) {
+    t.fee += r.fee; t.plus5 += r.plus5Cost; t.star += r.starCoins; t.drop += r.dropCoins;
+    t.lgCoins += r.leagueCoins || 0; t.evCoins += r.eventCoins || 0; t.tier += r.tierCoins || 0;
+    t.unacc += r.unaccounted; t.drops += r.drops; t.dia += r.dropDiamonds; if (r.win) t.wins++;
+    t.boardDia += r.boardDiamonds || 0; t.ticks += r.missionTicks || 0; t.pinchN += r.pinch || 0;
+    t.build += r.buildCoins || 0; t.buildDia += r.buildDiamonds || 0; t.builds += r.builds || 0; t.iap += r.iapCoins || 0;
+    t.lgStars += r.leagueStars || 0; t.evItems += r.eventItems || 0;
+    if (r.win) t.starHist[Math.max(0, Math.min(5, r.stars || 0))]++;
+    for (const [k, v] of Object.entries(r.missionKinds || {})) t.mk[k] = (t.mk[k] || 0) + v;
+    for (const [k, v] of Object.entries(r.missionAmounts || {})) t.ma[k] = (t.ma[k] || 0) + v;
+    for (const [k, v] of Object.entries(r.eventKinds || {})) t.ek[k] = (t.ek[k] || 0) + v;
+  }
+  for (const d of days) t.rank += d.rankCoins || 0;
+  t.inflow = t.star + t.drop + t.tier + t.rank + t.iap; // 결제 유입 포함(과금 시나리오).
+  t.outflow = t.fee + t.plus5 + t.build; // 건설 코인 포함(실질 유저 경제).
+  t.net = t.inflow - t.outflow;
+  return t;
+}
+
+function render() {
+  const t = totals();
+  const g = Math.max(1, t.games);
+  $('summary').innerHTML = runs.length ? `
+    <div class="cards">
+      <div class="card"><div class="k">판당 순손익</div><div class="v ${t.net >= 0 ? 'pos' : 'neg'}">${nf(t.net / g)}</div></div>
+      <div class="card"><div class="k">회수율</div><div class="v">${(t.inflow / Math.max(1, t.outflow) * 100).toFixed(1)}%</div></div>
+      <div class="card"><div class="k">판당 리그·이벤트</div><div class="v">${nf((t.drop + t.rank) / g)}</div></div>
+      <div class="card"><div class="k">플레이만</div><div class="v ${t.star - t.outflow >= 0 ? 'pos' : 'neg'}">${nf((t.star - t.outflow) / g)}</div></div>
+      <div class="card"><div class="k">무구매 클리어율</div><div class="v">${(runs.filter((r) => r.buys === 0 && r.win).length / g * 100).toFixed(1)}%</div></div>
+      <div class="card"><div class="k">판당 드랍</div><div class="v">${(t.drops / g).toFixed(2)}</div></div>
+      <div class="card"><div class="k">판당 미션 완성</div><div class="v">${(t.ticks / g).toFixed(2)}</div></div>
+      <div class="card"><div class="k">판당 별(리그행)</div><div class="v">${(t.lgStars / g).toFixed(2)}</div></div>
+      <div class="card"><div class="k">판당 핀치(코인부족)</div><div class="v">${(t.pinchN / g).toFixed(2)}</div></div>
+      <div class="card"><div class="k">판당 건설비</div><div class="v">${nf(t.build / g)}</div></div>
+    </div>` : '<div class="sub">아직 기록이 없습니다. 왼쪽에서 시작하세요.</div>';
+
+  const p = $('panel');
+  if (tab === 'sum') {
+    p.innerHTML = !runs.length ? '' : `
+      <h2>수지 원장 (누적 ${t.games}판 / ${days.length}일)</h2>
+      <table>
+        <tr><th>항목</th><th>총액</th><th>판당</th><th>일당</th><th>비중</th></tr>
+        ${row('게임비 (지출)', -t.fee, t, g)}
+        ${row('＋5 구매 (지출)', -t.plus5, t, g)}
+        ${row('층 건설·매입 (지출)', -t.build, t, g)}
+        ${row('별 보상 (수입)', t.star, t, g)}
+        ${row('리그 단계 코인 (수입)', t.lgCoins, t, g)}
+        ${t.rank ? row('리그 순위 보상 (구기록 — 현재는 제외)', t.rank, t, g) : ''}
+        ${row('위클리 칸+완주 (수입)', t.evCoins, t, g)}
+        ${row('미션 티어 박스 (수입)', t.tier, t, g)}
+        ${t.iap ? row('💳 결제 유입 — 스타터팩 (수입)', t.iap, t, g) : ''}
+        <tr><td><b>순손익</b></td><td><b>${sgn(t.net)}</b></td><td><b>${sgn(t.net / g)}</b></td>
+            <td><b>${sgn(t.net / Math.max(1, days.length))}</b></td><td></td></tr>
+        <tr><td class="dim">미상(항목합 ≠ 잔고델타)</td><td class="dim">${nf(t.unacc)}</td>
+            <td class="dim">${nf(t.unacc / g)}</td><td colspan="2" class="dim">0 이 아니면 모르는 수입원이 있다</td></tr>
+        <tr><td class="dim">분해 잔차(리그+위클리 ≠ 드랍합)</td><td class="dim">${nf(t.drop - t.lgCoins - t.evCoins)}</td>
+            <td colspan="3" class="dim">0 이 아니면 출처 분해가 새는 곳이 있다</td></tr>
+      </table>
+      <h2>부수 획득</h2>
+      <table><tr><th>항목</th><th>총량</th><th>판당</th></tr>
+        <tr><td>드랍(상품)</td><td>${nf(t.drops)}</td><td>${(t.drops / g).toFixed(2)}</td></tr>
+        <tr><td>💎 보드 다이아(완성 보상풀)</td><td>${nf(t.boardDia)}</td><td>${(t.boardDia / g).toFixed(2)}</td></tr>
+        <tr><td>💎 위클리 다이아</td><td>${nf(t.dia)}</td><td>${(t.dia / g).toFixed(2)}</td></tr>
+        <tr><td>미션 완성(5매치)</td><td>${nf(t.ticks)}</td><td>${(t.ticks / g).toFixed(2)}</td></tr>
+        <tr><td>🏗 건설 횟수 / 💎 건설 다이아</td><td>${nf(t.builds)}회 · ${nf(t.buildDia)}</td><td>${(t.buildDia / g).toFixed(2)}</td></tr>
+        <tr><td>⭐ 리그 별</td><td>${nf(t.lgStars)}</td><td>${(t.lgStars / g).toFixed(2)}</td></tr>
+        <tr><td>🎁 위클리 상품</td><td>${nf(t.evItems)}</td><td>${(t.evItems / g).toFixed(2)}</td></tr>
+      </table>
+      <div class="sub">⚠️ 리그 <b>순위 보상은 평균 유저 계측에서 제외</b>(상위 ~10%만 유의미 — 등수는 일별 원장에 정보로만 표시) · 주 100판 기준 예상 유입 — ⭐ ${nf(Math.round((t.lgStars / g) * 100))} · 🎁 ${nf(Math.round((t.evItems / g) * 100))}
+        (위클리 목표 숫자를 정하는 근거)</div>`;
+  } else if (tab === 'days') {
+    p.innerHTML = `<table>
+      <tr><th>일</th><th>판</th><th>승</th><th>드랍</th><th>게임비</th><th>＋5</th><th>건설</th><th>별</th>
+          <th>리그·이벤트</th><th>순위</th><th>등수</th><th>일 순손익</th><th>잔고</th><th>💎</th></tr>
+      ${days.map((d) => `<tr>
+        <td>D${d.day}${d.eventRolled ? ' 🗓' : ''}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.drops}</td>
+        <td class="neg">-${nf(d.fee)}</td><td class="neg">-${nf(d.plus5)}</td>
+        <td class="${(d.buildCoins || 0) > 0 ? 'neg' : 'dim'}">${(d.buildCoins || 0) > 0 ? '-' + nf(d.buildCoins) : '·'}</td>
+        <td class="pos">+${nf(d.starCoins)}</td><td class="pos">+${nf(d.dropCoins)}</td>
+        <td class="dim">${(d.rankCoins || 0) > 0 ? '+' + nf(d.rankCoins) : '제외'}</td><td>${d.rank || '-'}위</td>
+        <td>${sgn(d.net)}</td><td>${nf(d.coinsEnd)}</td><td>${d.diamondsEnd}</td></tr>`).join('')}
+    </table><div class="sub">🗓 = 그 날 이벤트 주기(7일) 마감</div>`;
+  } else if (tab === 'runs') {
+    p.innerHTML = `<table>
+      <tr><th>일-판</th><th>레벨</th><th>결과</th><th>★</th><th>＋5</th><th>게임비</th><th>＋5비용</th><th>건설비</th>
+          <th>별보상</th><th>리그코인</th><th>위클리</th><th>티어</th><th>💳</th><th>⭐</th><th>🎁</th><th>💎건설</th><th>핀치</th>
+          <th>리그</th><th>이벤트</th><th>잔고</th></tr>
+      ${runs.slice(-400).map((r) => `<tr>
+        <td>D${r.day}-${r.idx}</td><td>L${r.level}</td><td>${r.win ? '승' : '<span class="neg">패</span>'}</td>
+        <td>${r.stars}</td><td>${r.buys}</td>
+        <td class="neg">-${nf(r.fee)}</td><td class="neg">-${nf(r.plus5Cost)}</td>
+        <td class="${(r.buildCoins || 0) > 0 ? 'neg' : 'dim'}">${(r.buildCoins || 0) > 0 ? '-' + nf(r.buildCoins) : '·'}</td>
+        <td class="pos">+${nf(r.starCoins)}</td>
+        <td class="pos">+${nf(r.leagueCoins || 0)}</td><td class="pos">+${nf(r.eventCoins || 0)}</td>
+        <td class="pos">+${nf(r.tierCoins || 0)}</td>
+        <td class="${(r.iapCoins || 0) > 0 ? 'pos' : 'dim'}">${(r.iapCoins || 0) > 0 ? '+' + nf(r.iapCoins) : '·'}</td>
+        <td>${r.leagueStars || 0}</td><td>${r.eventItems || 0}</td>
+        <td class="${(r.buildDiamonds || 0) > 0 ? 'neg' : 'dim'}">${(r.buildDiamonds || 0) > 0 ? '-' + (r.buildDiamonds || 0) : '·'}</td>
+        <td class="${(r.pinch || 0) > 0 ? 'neg' : 'dim'}">${r.pinch || 0}</td>
+        <td>${r.leagueStageNow}/10</td><td>${r.eventStageNow}/10</td>
+        <td>${nf(r.coinsAfter)}</td></tr>`).join('')}
+    </table><div class="sub">최근 400판만 표시(전체는 내보내기)</div>`;
+  } else if (tab === 'level') {
+    const L = lab();
+    if (!L || !L.levelEconTable) { p.innerHTML = '<div class="sub">브리지 없음(levelEconTable) — 게임을 새로고침하세요.</div>'; return; }
+    // 표시 범위 — 실측이 있으면 그 범위를 따라가고, 없으면 1~30.
+    const played = runs.map((r) => r.level);
+    const from = +(localStorage.getItem('econLab.lvlFrom') || (played.length ? Math.min(...played) : 1));
+    const to = +(localStorage.getItem('econLab.lvlTo') || (played.length ? Math.max(...played) : 30));
+    // 실측 레벨별 집계 — 판수·승률·비용·수익·리워드(같은 레벨의 판을 전부 묶는다).
+    const byLv = {};
+    for (const r of runs) {
+      const a = (byLv[r.level] ??= { n: 0, wins: 0, fee: 0, plus5: 0, star: 0, lg: 0, ev: 0,
+                                      ticks: 0, drops: 0, dia: 0, lgStars: 0, buys: 0, stars: 0, pinch: 0 });
+      a.n++; if (r.win) { a.wins++; a.stars += r.stars || 0; }
+      a.fee += r.fee; a.plus5 += r.plus5Cost; a.star += r.starCoins;
+      a.lg += r.leagueCoins || 0; a.ev += r.eventCoins || 0;
+      a.ticks += r.missionTicks || 0; a.drops += r.drops || 0;
+      a.dia += (r.boardDiamonds || 0) + (r.dropDiamonds || 0);
+      a.lgStars += r.leagueStars || 0; a.buys += r.buys || 0; a.pinch += r.pinch || 0;
+    }
+    const design = L.levelEconTable(from, to, 1);
+    p.innerHTML = `
+      <h2>레벨 경제표 — 설계(게임 지급 함수 그대로) ×
+        <label>범위 <input id="lvlFrom" type="number" value="${from}" min="1" max="500" style="width:56px" /> ~
+        <input id="lvlTo" type="number" value="${to}" min="1" max="500" style="width:56px" /></label>
+        <button id="lvlApply" class="secondary" style="padding:3px 9px;font-size:11px">적용</button></h2>
+      <table>
+        <tr><th>레벨</th><th>입장료</th><th>★1</th><th>★2</th><th>★3</th><th>★4</th><th>★5</th>
+            <th>흑자 별</th><th>＋5 (1·2·3회)</th><th>🃏</th><th>↩️</th><th>＋N합</th></tr>
+        ${design.map((d) => `<tr>
+          <td>L${d.level}</td><td class="neg">-${nf(d.fee)}</td>
+          ${d.starCoins.map((c, i) => `<td class="${d.starNet[i] >= 0 ? 'pos' : 'neg'}" title="순손익 ${nf(d.starNet[i])}">${nf(c)}</td>`).join('')}
+          <td>${d.breakevenStars ? '★' + d.breakevenStars : '<span class=neg>없음</span>'}</td>
+          <td>${d.plus5Prices.map(nf).join(' · ')}</td>
+          <td>${nf(d.wildPrice)}</td><td>${nf(d.undoPrice)}</td><td>+${d.bonusValue}</td></tr>`).join('')}
+      </table>
+      <div class="sub">★칸 색 = 그 등급으로 깼을 때 순손익(보상−입장료). 마우스를 올리면 순손익 숫자.
+        ＋5·와일드·되돌리기는 그 레벨 정가(회차 인상 반영).</div>
+      <h2>실측 레벨별 원장 ${runs.length ? `(${runs.length}판)` : ''}</h2>
+      ${!runs.length ? '<div class="sub">아직 실측이 없습니다 — 왼쪽에서 계측을 실행하면 레벨별로 집계됩니다.</div>' : `
+      <table>
+        <tr><th>레벨</th><th>판</th><th>승률</th><th>평균★</th><th>＋5/판</th>
+            <th>비용/판</th><th>별보상/판</th><th>리그/판</th><th>위클리/판</th><th>순손익/판</th>
+            <th>미션/판</th><th>⭐/판</th><th>💎/판</th><th>핀치/판</th></tr>
+        ${Object.keys(byLv).map(Number).sort((a, b) => a - b).map((lv) => {
+          const a = byLv[lv]; const n = a.n;
+          const cost = (a.fee + a.plus5) / n;
+          const income = (a.star + a.lg + a.ev) / n;
+          const net = income - cost;
+          return `<tr><td>L${lv}</td><td>${n}</td><td>${((a.wins / n) * 100).toFixed(0)}%</td>
+            <td>${a.wins ? (a.stars / a.wins).toFixed(1) : '-'}</td><td>${(a.buys / n).toFixed(1)}</td>
+            <td class="neg">-${nf(cost)}</td><td class="pos">+${nf(a.star / n)}</td>
+            <td class="pos">+${nf(a.lg / n)}</td><td class="pos">+${nf(a.ev / n)}</td>
+            <td>${sgn(net)}</td>
+            <td>${(a.ticks / n).toFixed(2)}</td><td>${(a.lgStars / n).toFixed(1)}</td><td>${(a.dia / n).toFixed(2)}</td><td>${(a.pinch / n).toFixed(2)}</td></tr>`;
+        }).join('')}
+      </table>
+      <div class="sub">비용 = 게임비＋＋5 실지출 · 수익 = 별보상＋리그 단계＋위클리 칸(순위 보상은 일 단위라 제외).
+        레벨별 순손익이 설계표의 ★손익과 크게 다르면 그 레벨의 난이도(별 등급 분포)나 ＋5 의존도가 원인.</div>`}
+    `;
+    const apply = document.getElementById('lvlApply');
+    if (apply) apply.onclick = () => {
+      localStorage.setItem('econLab.lvlFrom', document.getElementById('lvlFrom').value);
+      localStorage.setItem('econLab.lvlTo', document.getElementById('lvlTo').value);
+      render();
+    };
+  } else if (tab === 'reward') {
+    const L = lab();
+    const T = L ? L.TABLES : null;
+    const KIND_KO = { stars: '⭐ 리그 별', cards: '🂠 뽑기 +N', plus5: '＋5 카드', wild: '🃏 와일드',
+                      undo: '↩️ 되돌리기', diamond: '💎 다이아', collection: '🗂 컬렉션' };
+    const ticks = Math.max(1, t.ticks);
+    const design = T ? T.missionRewardTable : [];
+    const wSum = Math.max(1, design.reduce((a, r2) => a + r2.weight, 0));
+    const kinds = [...new Set([...design.map((r2) => r2.kind), ...Object.keys(t.mk)])];
+    p.innerHTML = `
+      <h2>미션(5매치) 보상 — 설계 대비 실측 (완성 ${nf(t.ticks)}회)</h2>
+      <table><tr><th>종류</th><th>설계 확률</th><th>실측 지급</th><th>실측 비율</th><th>총량</th><th>판당 양</th></tr>
+      ${kinds.map((k) => {
+        const d = design.find((r2) => r2.kind === k);
+        const times = t.mk[k] || 0;
+        return `<tr><td>${KIND_KO[k] || k}</td>
+          <td>${d ? ((d.weight / wSum) * 100).toFixed(1) + '%' : '<span class=dim>—</span>'}</td>
+          <td>${nf(times)}</td><td>${((times / ticks) * 100).toFixed(1)}%</td>
+          <td>${nf(t.ma[k] || 0)}</td><td>${((t.ma[k] || 0) / g).toFixed(2)}</td></tr>`;
+      }).join('')}
+      </table>
+      <div class="sub">설계 확률은 economyRules.MISSION_REWARD_TABLE(컬렉션 가중치는 레벨별 가변) —
+        실측 비율이 크게 벗어나면 추첨·지급 경로부터 의심.</div>
+      <h2>위클리 적립 — 칸 타겟 종류별</h2>
+      <table><tr><th>타겟</th><th>적립 수</th><th>판당</th></tr>
+      ${(T ? T.eventTargets : Object.keys(t.ek)).map((k) => `<tr><td>${KIND_KO[k] || k}</td>
+        <td>${nf(t.ek[k] || 0)}</td><td>${((t.ek[k] || 0) / g).toFixed(2)}</td></tr>`).join('')}
+      </table>
+      <div class="sub">칸 순환: ${T ? T.eventTargets.join(' → ') : '-'} — 그 칸의 타겟만 적립된다.
+        어떤 타겟에서 적립이 유독 느리면 그 칸이 병목이다.</div>
+      <h2>클리어 별 등급 분포 (승리 ${nf(t.wins)}판)</h2>
+      <table><tr><th>별</th><th>판수</th><th>비율</th></tr>
+      ${[5, 4, 3, 2, 1].map((k) => `<tr><td>${'★'.repeat(k)}</td><td>${nf(t.starHist[k])}</td>
+        <td>${((t.starHist[k] / Math.max(1, t.wins)) * 100).toFixed(1)}%</td></tr>`).join('')}
+      </table>
+      <h2>다이아 소스 분해</h2>
+      <table><tr><th>출처</th><th>총량</th><th>판당</th></tr>
+        <tr><td>보드 수집(완성 보상풀 — 클리어 시 지급)</td><td>${nf(t.boardDia)}</td><td>${(t.boardDia / g).toFixed(2)}</td></tr>
+        <tr><td>미션 보상(diamond)</td><td>${nf(t.ma.diamond || 0)}</td><td>${((t.ma.diamond || 0) / g).toFixed(2)}</td></tr>
+        <tr><td>위클리(칸 보상+완주)</td><td>${nf(t.dia)}</td><td>${(t.dia / g).toFixed(2)}</td></tr>
+      </table>
+      <div class="sub">⚠️ 보드 수집에는 미션 다이아가 보드에 꽂혔다 회수된 분이 포함될 수 있다 —
+        두 줄을 더해 총량으로 읽지 말 것.</div>`;
+  } else {
+    const L = lab();
+    const T = L ? L.TABLES : null;
+    if (!T) { p.innerHTML = '<div class="sub">브리지 없음</div>'; return; }
+    const drops = t.drops / g;
+    let need = 0, acc = 0, stages = 0;
+    for (let i = 0; i < T.leagueStageGoals.length; i++) { acc += T.leagueStageGoals[i]; }
+    need = acc / Math.max(0.01, drops);
+    p.innerHTML = `
+      <h2>투데이 리그 사다리 — 설계 대비 실측</h2>
+      <table><tr><th>단계</th><th>목표(개)</th><th>보상</th><th>누적 목표</th><th>실측 도달 판수</th></tr>
+      ${(() => { let c = 0; return T.leagueStageGoals.map((gg, i) => {
+        c += gg;
+        return `<tr><td>${i + 1}</td><td>${gg}</td><td>${nf(T.leagueStageCoins[i])}</td><td>${c}</td>
+                <td>${drops > 0 ? (c / drops).toFixed(1) + '판' : '-'}</td></tr>`; }).join(''); })()}
+      </table>
+      <div class="sub">
+        완주 총 ${acc}개 · 코인 ${nf(T.leagueStageCoins.reduce((a, b) => a + b, 0))} ·
+        <b>실측 드랍률 판당 ${drops.toFixed(2)}개</b> → 완주 ${need.toFixed(1)}판
+        (dailyLeague.ts 설계 주석 기준 2.47개 = 40판)
+      </div>
+      <h2>주간 이벤트 사다리</h2>
+      <table><tr><th>칸</th><th>목표</th><th>보상</th></tr>
+      ${T.eventStages.map((s, i) => `<tr><td>${i + 1}</td><td>${s.goal}</td><td>${nf(s.coins)}</td></tr>`).join('')}
+      </table>
+      <div class="sub">완주 보너스 ${nf(T.eventGrand.coins)} + 💎${T.eventGrand.diamonds} · 주기 ${T.eventDays}일</div>`;
+  }
+}
+function row(name, v, t, g) {
+  const share = t.outflow + t.inflow > 0 ? Math.abs(v) / (v < 0 ? Math.max(1, t.outflow) : Math.max(1, t.inflow)) * 100 : 0;
+  return `<tr><td>${name}</td><td>${sgn(v)}</td><td>${sgn(v / g)}</td>
+          <td>${sgn(v / Math.max(1, days.length))}</td><td class="dim">${share.toFixed(0)}%</td></tr>`;
+}
+
+// ─── 부팅 ───
+(async () => {
+  try { const c = JSON.parse(localStorage.getItem(LS_CFG) || 'null');
+        if (c) for (const k of ['lv', 'coins', 'floors', 'perDay', 'days', 'maxBuys', 'sweepEnd', 'sweepRuns']) if (c[k] != null) $(k).value = c[k];
+        if (c.buyStarter != null) $('buyStarter').checked = !!c.buyStarter; } catch {}
+  const t0 = Date.now();
+  while (Date.now() - t0 < 60000 && !(homeReady() && lab())) await sleep(300);
+  muteGame();
+  const ok = !!lab();
+  $('gate').innerHTML = ok
+    ? '✅ 브리지 연결됨 — 이 대시보드는 <b>게임비를 실제로 차감</b>하고 <b>날짜를 굴려</b> 리그·이벤트를 재현합니다. 실행하면 이 브라우저의 세이브가 계측용으로 덮어써집니다.'
+    : '⛔ 브리지(__econLab)를 찾지 못했습니다 — 빌드가 최신인지 확인하고 새로고침하세요.';
+  if (!running) $('status').textContent = ok ? '준비 완료 — 가정을 정하고 시작하세요.' : '브리지 없음';
+  render();
+})();
+</script>
+</body>
+</html>

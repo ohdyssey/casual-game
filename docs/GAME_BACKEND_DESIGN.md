@@ -126,6 +126,8 @@ spend(userId, tenant, cost, reason, idempotencyKey): ok | 'insufficient'
 
 ### 4.11 리더보드 (T1)
 - 상위 문서(Redis ZSET·게임별·기간별·안티치트 게이트) 참조. 점수 제출은 Progress Ingest 의 `score` 와 연동. (현재 가짜 NPC 보드 대체.)
+- **솔리테어 투데이 리그(봇 매칭) 구체안** = `docs/CLOUDFLARE_SERVER_STRATEGY.md` — Cloudflare Workers/D1/Durable
+  Objects 로 재타깃, 레벨 밴드 기준 티어 매칭(결제 데이터 배제) 설계.
 
 ### 4.12 리모트 컨피그 / 피처플래그 (T0) ⭐
 - **데이터:** `remote_config`(tenant, key, value(json), segment, version). 상점·캘린더·미션·확률·밸런스·킬스위치.

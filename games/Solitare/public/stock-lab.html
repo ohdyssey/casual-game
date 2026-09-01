@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>실측 테스트 대시보드 — Solitaire Heights</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.5 "Pretendard Variable", Pretendard, system-ui, sans-serif; background: #17121f; color: #efe9f5; display: flex; height: 100vh; overflow: hidden; }
+  #left { width: 340px; min-width: 340px; border-right: 1px solid #372c47; display: flex; flex-direction: column; overflow: auto; }
+  #game { width: 320px; height: 711px; border: 0; background: #000; margin: 0 10px 10px; }
+  #right { flex: 1; overflow: auto; padding: 14px 18px; }
+  h1 { font-size: 17px; margin: 12px 14px 4px; }
+  .sub { color: #a795bd; font-size: 12px; margin: 0 14px 10px; }
+  fieldset { border: 1px solid #372c47; border-radius: 10px; margin: 0 12px 10px; padding: 8px 10px; }
+  legend { color: #c9b8e0; font-size: 12px; padding: 0 6px; }
+  label { display: inline-flex; align-items: center; gap: 6px; margin: 3px 10px 3px 0; font-size: 13px; }
+  input[type="number"] { width: 62px; background: #241b30; color: #fff; border: 1px solid #4a3a5e; border-radius: 6px; padding: 4px 6px; }
+  select { background: #241b30; color: #fff; border: 1px solid #4a3a5e; border-radius: 6px; padding: 4px 6px; }
+  button { background: #6c3fd1; color: #fff; border: 0; border-radius: 8px; padding: 8px 13px; margin: 4px 5px 4px 0; cursor: pointer; font-weight: 700; font-size: 13px; }
+  button.secondary { background: #3a2e4c; }
+  button:disabled { opacity: 0.45; cursor: default; }
+  #status { margin: 2px 14px 8px; font-size: 13px; color: #ffd166; min-height: 20px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border-bottom: 1px solid #2d2338; padding: 4px 7px; text-align: right; white-space: nowrap; }
+  th { color: #b9a6d4; position: sticky; top: 0; background: #17121f; font-weight: 600; font-size: 12px; }
+  td:first-child, th:first-child { text-align: left; }
+  tr.bad td { color: #ff9d8a; }
+  tr.warn td { color: #ffd166; }
+  .dim { color: #6b5c80; }
+  input.adj { width: 50px; background: #241b30; color: #8fe388; border: 1px solid #4a3a5e; border-radius: 6px; padding: 2px 4px; text-align: right; }
+  .pill { display: inline-block; background: #2c2140; border-radius: 20px; padding: 3px 11px; margin: 0 6px 6px 0; font-size: 12px; }
+  .tabs button { background: none; padding: 6px 10px; border-bottom: 2px solid transparent; border-radius: 0; color: #a795bd; }
+  .tabs button.on { color: #fff; border-bottom-color: #6c3fd1; }
+</style>
+</head>
+<body>
+<div id="left">
+  <h1>🧪 실측 테스트 대시보드</h1>
+  <p class="sub">실게임(아래 창)을 <b>가장 스마트한 플레이</b> 봇으로 자동 진행해<br/>레벨별 실데이터를 수집합니다. 사운드는 항상 꺼집니다.</p>
+  <p class="sub"><b>기본 승률</b> = 기본 제공 뽑기만으로 이긴 판 비율(설계 기준).<br/>
+  <b>최종 승률</b> = ＋5 구매까지 포함한 판별 승패.<br/>
+  <b>＋5 구매 평균/최대</b> = 한 판에서 ＋5 를 산 <b>횟수</b>(1회 = 5장).</p>
+  <fieldset>
+    <legend>실행</legend>
+    <label>레벨 <input id="from" type="number" value="1" min="1" max="500" /> ~ <input id="to" type="number" value="20" min="1" max="500" /></label>
+    <label>판수 <input id="runs" type="number" value="1" min="1" max="20" /></label>
+    <label>속도
+      <select id="speed">
+        <option value="4">4배속(관찰)</option>
+        <option value="12">12배속</option>
+        <option value="32" selected>32배속</option>
+        <option value="64">64배속(최대)</option>
+      </select>
+    </label>
+    <label>＋5 구매 <input id="buy" type="checkbox" checked /></label>
+    <label>뽑기 강제 <input id="stockOv" type="number" min="1" max="30" placeholder="팩값" style="width:58px" /></label>
+  </fieldset>
+  <div style="margin:0 12px">
+    <button id="start">▶ 자동테스트</button>
+    <button id="stop" class="secondary" disabled>⏸ 정지</button>
+  </div>
+  <div id="status">게임 로딩 중…</div>
+  <div style="margin:0 12px 10px">
+    <button id="exportRaw" class="secondary">📄 실측 원본</button>
+    <button id="exportTable" class="secondary">🧾 뽑기 테이블</button>
+    <button id="clear" class="secondary">🗑 비우기</button>
+    <button id="resetLeague" class="secondary">🔄 리그/이벤트 초기화</button>
+  </div>
+  <p class="sub">테이블 적용: <code>npx tsx scripts/apply-stock-table.mts &lt;파일&gt;</code></p>
+  <iframe id="game" src="/?lab=1" title="game"></iframe>
+</div>
+<div id="right">
+  <div id="summary"></div>
+  <div class="tabs" style="margin:6px 0 4px">
+    <button data-tab="stock" class="on">뽑기 설계</button>
+    <button data-tab="reward">보상 수집</button>
+    <button data-tab="runs">판별 원본</button>
+  </div>
+  <div id="panel"></div>
+</div>
+<script>
+'use strict';
+const LS_KEY = 'stockLab.results.v2';
+const LS_ADJ = 'stockLab.adjust.v1';
+const LS_PROG = 'stockLab.progress.v1';
+/** 50판마다 게임을 재시동(iframe 리로드)하고 이어간다 — 장시간 연속 구동 시 중간에 죽는 문제 대응(PO 2026-08-23). */
+const BATCH_RUNS = 50;
+const $ = (id) => document.getElementById(id);
+let rows = [];    // 판별 실측 레코드(labSnapshot 그대로 + ts)
+let adjust = {};
+let running = false;
+let tab = 'stock';
+try { rows = JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch {}
+try { adjust = JSON.parse(localStorage.getItem(LS_ADJ) || '{}'); } catch {}
+
+const frame = $('game');
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const win_ = () => frame.contentWindow;
+function game() {
+  try {
+    const w = win_();
+    return w.__PHASER_GAME__ || (w.Phaser && w.Phaser.GAMES && w.Phaser.GAMES[0]) || null;
+  } catch { return null; }
+}
+function scene(key) { const g = game(); return g ? g.scene.getScene(key) : null; }
+function homeReady() { const h = scene('home'); return !!h && h.scene.isActive(); }
+/** 사운드 차단 — 게임 오디오 볼륨 0 + WebAudio 컨텍스트 뮤트(PO 2026-08-23). */
+function muteGame() {
+  try {
+    const g = game();
+    if (g && g.sound) { g.sound.mute = true; g.sound.volume = 0; }
+    win_().localStorage.setItem('solitaire.volume', '0');
+  } catch {}
+}
+function dismissTips(s) {
+  for (const nm of ['tipCard', 'coach']) {
+    const l = s.children.list.find((o) => o.name === nm);
+    if (l && l.list[0]) l.list[0].emit('pointerdown');
+  }
+}
+
+async function runLevel(level, speed, stockOv, buy) {
+  const g = game();
+  if (!g) return { level, error: 'no-game' };
+  muteGame();
+  g.scene.stop('home');
+  g.scene.stop('play');
+  g.scene.start('play', { level, free: true, ...(stockOv ? { stockOverride: stockOv } : {}) });
+  const t0 = Date.now();
+  while (Date.now() - t0 < 30000) { const s = scene('play'); if (s && s.scene.isActive() && s.state) break; await sleep(100); }
+  const s0 = scene('play');
+  if (!s0 || !s0.state) return { level, error: 'boot' };
+  muteGame();
+  s0.tweens.timeScale = speed; s0.time.timeScale = speed;
+  s0.simSpeed = speed;
+  dismissTips(s0);
+  s0.simBuy = buy; s0.simBuys = 0;
+  s0.startSim();
+  let lastCleared = -1, stall = 0;
+  const poll = speed >= 32 ? 200 : 400;
+  while (running && Date.now() - t0 < 300000) {
+    await sleep(poll);
+    const s = scene('play');
+    if (!s || !s.scene.isActive() || !s.state) return { level, error: 'dead' };
+    dismissTips(s);
+    if (!s.simRunning && !s.ended) s.startSim(); // 딜 연출 중이면 무시된다 — 다음 폴에서 재시도.
+    const snap = s.labSnapshot();
+    if (snap.win) {
+      // 승리 직후엔 정산(별·코인) 연출이 아직 안 끝났다 — 최대 4초까지만 기다렸다가 확정본을 읽는다.
+      for (let i = 0; i < 40; i++) {
+        const cur = scene('play');
+        if (!cur || !cur.scene.isActive()) break;
+        const sn = cur.labSnapshot();
+        if (sn.settled) return sn;
+        await sleep(100);
+      }
+      const cur = scene('play');
+      return cur && cur.scene.isActive() ? cur.labSnapshot() : snap;
+    }
+    if (snap.cleared === lastCleared && !s.simRunning) {
+      if (++stall >= 6) return snap; // 재시동해도 진행 없음 = 막힘(구매 불가/종료).
+    } else stall = 0;
+    lastCleared = snap.cleared;
+  }
+  return { level, error: running ? 'timeout' : 'stopped' };
+}
+
+// ── 집계 ──────────────────────────────────────────────────────────────
+const avg = (a) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0);
+const mx = (a) => (a.length ? Math.max(...a) : 0);
+function agg() {
+  const by = new Map();
+  for (const r of rows) {
+    if (r.error) continue;
+    const a = by.get(r.level) || {
+      n: 0, wins: 0, baseWins: 0, stock: r.startStock, board: r.boardCards, buys: [], buyless: [], boardLeft: [],
+      diamonds: [], collection: [], missionTicks: [], bonus: [], wildB: [], wildU: [], plus5: [],
+      draws: [], moves: [], combo: [], stars: [], coins: [], ms: [],
+      drops: [], dropCoins: [], dropDia: [], lgStages: [], evStages: [], floors: {},
+    };
+    a.n++;
+    a.stock = r.startStock; a.board = r.boardCards;
+    if (r.win) a.wins++;
+    // **기본 승률**(PO 2026-08-23) — 기본 제공 뽑기만으로 이긴 판. ＋5 를 사서 이긴 판은 여기 안 든다.
+    if (r.win && !r.buys) a.baseWins++;
+    a.buys.push(r.buys || 0);
+    // **잔여는 무구매 판에서만 의미가 있다**(PO 2026-08-23) — ＋5 를 산 판의 잔여는 구매분이라 섞으면 왜곡된다.
+    if (r.win && !r.buys) a.buyless.push(r.stock);
+    if (!r.win) a.boardLeft.push(r.boardLeft);
+    a.diamonds.push(r.diamonds || 0); a.collection.push(r.collection || 0);
+    a.missionTicks.push(r.missionTicks || 0); a.bonus.push(r.bonusValue || 0);
+    a.wildB.push(r.wildBanked || 0); a.wildU.push(r.wildUses || 0); a.plus5.push(r.plus5Uses || 0);
+    a.draws.push(r.draws || 0); a.moves.push(r.moves || 0); a.combo.push(r.maxCombo || 0);
+    if (r.win) { a.stars.push(r.stars || 0); a.coins.push(r.coins || 0); }
+    a.ms.push(r.ms || 0);
+    a.drops.push(r.drops || 0); a.dropCoins.push(r.dropCoins || 0); a.dropDia.push(r.dropDiamonds || 0);
+    a.lgStages.push(r.leagueStages || 0); a.evStages.push(r.eventStages || 0);
+    for (const fk of Object.keys(r.dropFloors || {})) a.floors[fk] = (a.floors[fk] || 0) + r.dropFloors[fk];
+    by.set(r.level, a);
+  }
+  return by;
+}
+
+function renderSummary(by) {
+  let n = 0, w = 0, bw = 0, buys = 0, dia = 0, col = 0, left = [], noBuyRuns = 0;
+  let drops = 0, dropCoins = 0, dropDia = 0, lgSt = 0, evSt = 0;
+  for (const a of by.values()) {
+    n += a.n; w += a.wins; bw += a.baseWins; buys += a.buys.reduce((s, v) => s + v, 0);
+    dia += a.diamonds.reduce((s, v) => s + v, 0); col += a.collection.reduce((s, v) => s + v, 0);
+    left = left.concat(a.buyless); noBuyRuns += a.buyless.length;
+    drops += a.drops.reduce((s, v) => s + v, 0); dropCoins += a.dropCoins.reduce((s, v) => s + v, 0);
+    dropDia += a.dropDia.reduce((s, v) => s + v, 0);
+    lgSt += a.lgStages.reduce((s, v) => s + v, 0); evSt += a.evStages.reduce((s, v) => s + v, 0);
+  }
+  $('summary').innerHTML =
+    `<span class="pill">기록 ${n}판 · ${by.size}레벨</span>` +
+    `<span class="pill">기본 승률 ${n ? Math.round((bw / n) * 100) : 0}%</span>` +
+    `<span class="pill">최종 승률 ${n ? Math.round((w / n) * 100) : 0}%</span>` +
+    `<span class="pill">＋5 구매 ${n ? (buys / n).toFixed(2) : 0}회/판</span>` +
+    `<span class="pill">무구매 승리 잔여 ${noBuyRuns ? avg(left).toFixed(1) : '–'}장 (${noBuyRuns}판)</span>` +
+    `<span class="pill">💎 ${n ? (dia / n).toFixed(2) : 0}/판</span>` +
+    `<span class="pill">🗂 ${n ? (col / n).toFixed(2) : 0}/판</span>` +
+    `<span class="pill">🎁 드랍 ${n ? (drops / n).toFixed(2) : 0}/판</span>` +
+    `<span class="pill">드랍코인 ${n ? Math.round(dropCoins / n) : 0}/판</span>` +
+    `<span class="pill">리그↑ ${lgSt} · 이벤트↑ ${evSt}</span>`;
+}
+
+function table(head, bodyRows) {
+  return `<table><thead><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+}
+
+function render() {
+  const by = agg();
+  renderSummary(by);
+  const levels = [...by.entries()].sort((a, b) => a[0] - b[0]);
+  let html = '';
+  if (tab === 'stock') {
+    html = table(
+      ['레벨', '판수', '보드', '시작 뽑기', '기본 승률', '최종 승률', '＋5 구매 평균(회)', '＋5 구매 최대(회)', '무구매 잔여 평균', '무구매 잔여 최대', '무구매 판수', '패배 보드잔여', '조절'],
+      levels.map(([lv, a]) => {
+        const base = a.baseWins / a.n;   // 기본 제공 뽑기만으로 이긴 비율 — 설계의 기준.
+        const wr = a.wins / a.n;         // ＋5 구매까지 포함한 최종 승패.
+        const cls = wr === 0 ? 'bad' : (avg(a.buys) > 2 || avg(a.buyless) > 3) ? 'warn' : '';
+        // 구매가 1회 이상인 판은 잔여 칸에서 제외 — 무구매 판이 없으면 '–'.
+        const lo = a.buyless.length ? avg(a.buyless).toFixed(1) : '<span class="dim">–</span>';
+        const lm = a.buyless.length ? mx(a.buyless) : '<span class="dim">–</span>';
+        return `<tr class="${cls}"><td>lv${lv}</td><td>${a.n}</td><td>${a.board}</td><td>${a.stock}</td>` +
+          `<td>${Math.round(base * 100)}%</td><td>${Math.round(wr * 100)}%</td>` +
+          `<td>${avg(a.buys).toFixed(1)}</td><td>${mx(a.buys)}</td>` +
+          `<td>${lo}</td><td>${lm}</td><td>${a.buyless.length}</td>` +
+          `<td>${a.boardLeft.length ? avg(a.boardLeft).toFixed(0) : '<span class="dim">–</span>'}</td>` +
+          `<td><input class="adj" data-lv="${lv}" type="number" min="1" max="30" value="${adjust[lv] ?? ''}" placeholder="${a.stock}"/></td></tr>`;
+      }).join(''),
+    );
+  } else if (tab === 'reward') {
+    html = table(
+      ['레벨', '판수', '🎁 드랍/판', '드랍코인/판', '드랍💎', '리그단계↑', '이벤트단계↑', '💎 다이아/판', '🗂 컴렉션/판', '미션 틱/판', '보너스 +N/판', '별 평균', '클리어코인 평균'],
+      levels.map(([lv, a]) =>
+        `<tr><td>lv${lv}</td><td>${a.n}</td>` +
+        `<td>${avg(a.drops).toFixed(2)}</td><td>${Math.round(avg(a.dropCoins))}</td><td>${a.dropDia.reduce((s, v) => s + v, 0)}</td>` +
+        `<td>${a.lgStages.reduce((s, v) => s + v, 0)}</td><td>${a.evStages.reduce((s, v) => s + v, 0)}</td>` +
+        `<td>${avg(a.diamonds).toFixed(2)}</td>` +
+        `<td>${avg(a.collection).toFixed(2)}</td>` +
+        `<td>${avg(a.missionTicks).toFixed(1)}</td><td>${avg(a.bonus).toFixed(1)}</td>` +
+        `<td>${a.stars.length ? avg(a.stars).toFixed(1) : '<span class="dim">–</span>'}</td>` +
+        `<td>${a.coins.length ? Math.round(avg(a.coins)) : '<span class="dim">–</span>'}</td></tr>`).join(''),
+    );
+    // 층별 드랍 분포(누적) — 드랍이 어느 상품(층)으로 쌓이는지.
+    const floorsAll = {};
+    for (const [, a] of levels) for (const fk of Object.keys(a.floors)) floorsAll[fk] = (floorsAll[fk] || 0) + a.floors[fk];
+    const fEntries = Object.entries(floorsAll).sort((x, y) => Number(x[0]) - Number(y[0]));
+    if (fEntries.length) {
+      html += `<p style="margin:10px 0 4px;color:#b9a6d4">층별 드랍 분포(누적): ` +
+        fEntries.map(([fk, n2]) => `${fk}층 ${n2}개`).join(' · ') + `</p>`;
+    }
+  } else {
+    const last = rows.slice(-300).reverse();
+    html = table(
+      ['레벨', '결과', '＋5', '뽑기(시작→끝)', '보드잔여', '뽑기횟수', '수', '최대콤보', '미션', '💎', '🗂', '보너스', '🎁드랍', '드랍코인', '별', '코인', '시간'],
+      last.map((r) => r.error
+        ? `<tr class="bad"><td>lv${r.level}</td><td colspan="16">${r.error}</td></tr>`
+        : `<tr class="${r.win ? '' : 'warn'}"><td>lv${r.level}</td><td>${r.win ? '승' : '패'}</td><td>${r.buys}</td>` +
+          `<td>${r.startStock}→${r.stock}</td><td>${r.boardLeft}</td><td>${r.draws}</td><td>${r.moves}</td><td>${r.maxCombo}</td>` +
+          `<td>${r.missionTicks}</td><td>${r.diamonds}</td><td>${r.collection}</td><td>${r.bonusValue}</td>` +
+          `<td>${r.drops || 0}</td><td>${r.dropCoins || 0}</td>` +
+          `<td>${r.stars || '–'}</td><td>${r.coins || '–'}</td><td>${((r.ms || 0) / 1000).toFixed(1)}s</td></tr>`).join(''),
+    );
+  }
+  $('panel').innerHTML = html;
+  for (const inp of $('panel').querySelectorAll('input.adj')) {
+    inp.onchange = () => {
+      const lv = inp.dataset.lv;
+      if (inp.value === '') delete adjust[lv]; else adjust[lv] = Number(inp.value);
+      localStorage.setItem(LS_ADJ, JSON.stringify(adjust));
+    };
+  }
+}
+
+for (const b of document.querySelectorAll('.tabs button')) {
+  b.onclick = () => {
+    tab = b.dataset.tab;
+    for (const o of document.querySelectorAll('.tabs button')) o.classList.toggle('on', o === b);
+    render();
+  };
+}
+
+function download(name, obj) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
+  a.download = name;
+  a.click();
+}
+
+/** 게임(iframe)을 재시동하고 준비될 때까지 기다린다 — 배치 사이 메모리 리셋. */
+async function rebootGame() {
+  frame.src = '/?lab=1&t=' + Date.now();
+  await sleep(800);
+  const t0 = Date.now();
+  while (!homeReady() && Date.now() - t0 < 90000) await sleep(400);
+  muteGame();
+}
+
+function saveProgress(p) { try { localStorage.setItem(LS_PROG, JSON.stringify(p)); } catch {} }
+function loadProgress() { try { return JSON.parse(localStorage.getItem(LS_PROG) || 'null'); } catch { return null; } }
+
+$('start').onclick = async () => {
+  if (running) return;
+  running = true;
+  $('start').disabled = true; $('stop').disabled = false;
+  const from = +$('from').value, to = +$('to').value, runs = +$('runs').value;
+  const speed = +$('speed').value, buy = $('buy').checked;
+  const stockOv = $('stockOv').value === '' ? undefined : +$('stockOv').value;
+  const cfgKey = [from, to, runs, buy, stockOv ?? ''].join('|');
+
+  // **이어하기** — 같은 설정의 진행 기록이 있으면 그 지점부터 계속한다(브라우저를 껐다 켜도 이어진다).
+  const saved = loadProgress();
+  let startLv = from, startK = 0, done = 0;
+  if (saved && saved.cfgKey === cfgKey && saved.lv >= from && saved.lv <= to) {
+    startLv = saved.lv; startK = saved.k; done = saved.done || 0;
+    $('status').textContent = `이어하기 — lv${startLv} ${startK + 1}판부터`;
+  }
+
+  const t0 = Date.now();
+  const total = (to - from + 1) * runs;
+  let sinceBoot = 0;
+  outer:
+  for (let lv = startLv; lv <= to && running; lv++) {
+    for (let k = lv === startLv ? startK : 0; k < runs && running; k++) {
+      // **50판 배치 경계** — 게임을 새로 띄우고 이어간다(누적 메모리·성능 저하로 중단되는 문제 방지).
+      if (sinceBoot >= BATCH_RUNS) {
+        $('status').textContent = `${done}판 완료 — 50판 배치 경계, 게임 재시동 중…`;
+        saveProgress({ cfgKey, lv, k, done });
+        await rebootGame();
+        sinceBoot = 0;
+        if (!running) break outer;
+      }
+      $('status').textContent = `lv${lv} (${k + 1}/${runs}) · ${done}/${total}판 · 배치 ${sinceBoot}/${BATCH_RUNS} · ${((Date.now() - t0) / 1000).toFixed(0)}s`;
+      const row = await runLevel(lv, speed, stockOv, buy);
+      if (row.error === 'stopped') { saveProgress({ cfgKey, lv, k, done }); break outer; }
+      if (row.error === 'dead' || row.error === 'boot' || row.error === 'no-game') {
+        // 게임이 죽었으면 재시동하고 같은 판을 다시 시도한다.
+        saveProgress({ cfgKey, lv, k, done });
+        await rebootGame();
+        sinceBoot = 0;
+        k--; continue;
+      }
+      row.ts = Date.now();
+      rows.push(row);
+      done++; sinceBoot++;
+      saveProgress({ cfgKey, lv, k: k + 1 >= runs ? 0 : k + 1, done, ...(k + 1 >= runs ? { lv: lv + 1 } : { lv }) });
+      try { localStorage.setItem(LS_KEY, JSON.stringify(rows)); }
+      catch { rows = rows.slice(-4000); localStorage.setItem(LS_KEY, JSON.stringify(rows)); }
+      render();
+    }
+  }
+  const finished = running; // 끝까지 갔으면 진행 기록을 지운다.
+  if (finished) { try { localStorage.removeItem(LS_PROG); } catch {} }
+  $('status').textContent = `${finished ? '완료' : '정지(이어하기 가능)'} — ${done}판 / ${((Date.now() - t0) / 1000).toFixed(0)}초`;
+  running = false;
+  $('start').disabled = false; $('stop').disabled = true;
+};
+$('stop').onclick = () => { running = false; };
+$('exportRaw').onclick = () => download(`lab-runs-${Date.now()}.json`, rows);
+$('exportTable').onclick = () => {
+  const by = agg();
+  const table_ = {};
+  for (const [lv, a] of by) table_[lv] = adjust[lv] ?? a.stock;
+  for (const lv of Object.keys(adjust)) table_[lv] = adjust[lv];
+  download(`stock-table-${Date.now()}.json`, table_);
+};
+/** 게임 세이브의 리그·이벤트·재고 진행만 초기화 — 드랍 측정을 항상 1단계부터(코인·레벨은 보존). */
+$('resetLeague').onclick = async () => {
+  if (!confirm('리그/이벤트/상품재고 진행을 초기화할까요? (코인·레벨 진행은 유지)')) return;
+  try {
+    const w = win_();
+    const raw = w.localStorage.getItem('solitaire_save_v3');
+    if (raw) {
+      const save = JSON.parse(raw);
+      delete save.leagueStage; delete save.thiefEvent; delete save.itemStock;
+      delete save.leaguePoints; delete save.leaguePeriodId;
+      w.localStorage.setItem('solitaire_save_v3', JSON.stringify(save));
+    }
+    $('status').textContent = '리그/이벤트 초기화 완료 — 게임 재시동 중…';
+    await rebootGame();
+    $('status').textContent = '초기화 완료 — 시작하세요.';
+  } catch (e) { $('status').textContent = '초기화 실패: ' + e; }
+};
+
+$('clear').onclick = () => {
+  if (!confirm('실측 기록을 모두 지울까요? (조절값은 유지)')) return;
+  rows = []; localStorage.removeItem(LS_KEY); render();
+};
+
+(async () => {
+  while (!homeReady()) await sleep(300);
+  muteGame();
+  {
+    const p = loadProgress();
+    $('status').textContent = p ? `준비 완료 — 진행 기록 있음(lv${p.lv}부터). 같은 설정으로 시작하면 이어합니다.` : '준비 완료 — 범위를 정하고 시작하세요.';
+  }
+  render();
+})();
+</script>
+</body>
+</html>

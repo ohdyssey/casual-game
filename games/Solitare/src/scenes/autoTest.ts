@@ -34,10 +34,6 @@ export function recordAutoTestResult(r: LevelTestResult): void {
   autoTestState.results.push(r);
 }
 
-export function resetAutoTestData(): void {
-  autoTestState.results = [];
-}
-
 /** 수집한 레벨별 결과를 JSON 파일로 내려받는다(브라우저 Blob 다운로드). */
 export function exportAutoTestData(): void {
   const blob = new Blob([JSON.stringify(autoTestState.results, null, 2)], { type: 'application/json' });

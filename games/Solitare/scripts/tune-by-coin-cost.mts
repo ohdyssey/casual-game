@@ -56,11 +56,38 @@ const TRIES_FINE = 90;                  // 정밀 하강 단계 — 경계(p90=1
  * 평균만 맞췄더니 lv188 은 평균 2.0회인데 90퍼센타일이 **4회**라, 실제로 플레이하면 ＋카드를 여러 번
  * 사야 깨지는 판이 나왔다(PO 지적). "여러 번 사야 한다"는 상황 자체를 없애려면 꼬리를 눌러야 한다.
  */
-const MAX_P90_BUYS = 1;                 // 모든 레벨: 10판 중 9판은 구매 **1회 이하**로 끝나야 한다. 이 값은 절대 완화하지 않는다.
-const NORMAL_MAX_AVG = 0.2;             // 일반: 대부분 무구매.
-const TRAP_MAX_AVG = 0.7;               // 함정: 절반 남짓은 한 번 사게 — 체감은 주되 여러 번은 아니다.
+const MAX_P90_BUYS = 2;                 // 모든 레벨: 10판 중 9판은 구매 **1회 이하**로 끝나야 한다. 이 값은 절대 완화하지 않는다.
+const NORMAL_MAX_AVG = 0.6;             // 일반: 대부분 무구매.
+const TRAP_MAX_AVG = 1.2;               // 함정: 절반 남짓은 한 번 사게 — 체감은 주되 여러 번은 아니다.
+/**
+ * **승리 시 남는 뽑기 목표 = 0장**(PO 2026-08-21 "기준을 0장으로 맞추세요").
+ * 0 이므로 조기 중단이 사실상 없다 — 안전 조건(p90 구매 ≤ 1회)이 깨지기 **직전까지** 계속 깎는다.
+ *
+ * ⚠️ 실측 하한은 0 이 아니다. 판마다 보드 특수카드가 **공짜 뽑기 약 3장**을 얹어 주기 때문이다
+ *   (와일드 +1 · 보너스 +N 평균 1.96 — scripts/tmp 계측). 저작 뽑기를 런타임 하한(MIN_DYN_STOCK 5장)
+ *   까지 깎아도 손에 들어오는 총량은 8장 언저리라, 잔여는 1.2~1.5 근방에서 바닥을 친다.
+ *   더 내리려면 ① 보너스 +N 값 축소 ② MIN_DYN_STOCK 인하 중 하나가 필요하다(둘 다 과거 PO 결정과
+ *   상충 — "뽑기카드 숫자가 너무 적다" 지적으로 하한 5장이 생겼다).
+ */
+const TARGET_LEFTOVER = 0;
+/**
+ * 잔여가 목표를 넘는 동안만 허용하는 **완화된 평균 구매 상한**. 잔여와 평균구매는 정면 트레이드오프라
+ * (실측 lv9: 잔여 2.5↔평균 0.10 / 잔여 1.4↔평균 0.44) 둘 다 만족하는 지점이 없는 레벨이 있다.
+ *
+ * **2026-08-21 0.35 → 0.55**(PO "구매를 일부 늘려야 합니다") — 잔여를 더 줄이려면 뽑기를 더 깎아야 하고,
+ * 그러면 ＋5 를 사는 판이 늘어난다. 그 교환을 PO 가 승인해 상한을 열었다. 0.55 는 "두 판 중 한 판은
+ * 한 번 산다"는 뜻이다.
+ *   ⚠️ **p90 ≤ 1 은 여기서도 절대 완화하지 않는다** — "한 판에서 여러 번 사야 깨진다"는 상황은 그대로 금지.
+ */
+const RELAXED_MAX_AVG = 1.0;
 const MAX_STOCK_RATIO = 1.0;            // 더미가 보드보다 두꺼워 보이지 않게 상한을 보드 크기까지로 제한("뽑기가 너무 많다" 지적).
 const MIN_DECREMENT_COUNT = 3;          // 정밀 하강의 절대 하한(authored 단위) — 이보다 더 깎지 않는다(정적 해답 탐색 등 후속 단계 방어).
+/**
+ * **보드 대비 뽑기 더미 하한**(런타임 기준) — 구매를 유도한다고 더미를 3장까지 깎으면 시작부터 더미가
+ * 비어 보인다(PO 2026-07-27 "뽑기카드 숫자가 너무 적다"). 보드의 20% 는 남겨 더미가 더미로 보이게 한다.
+ *   ⚠️ 이 하한 때문에 목표 구매 횟수에 못 미치는 레벨이 생길 수 있다 — 그건 정상이다(보기 좋은 쪽 우선).
+ */
+const MIN_STOCK_RATIO = 0.2;
 
 type Doc = CardBoardDoc & {
   name: string; trap?: boolean;
@@ -140,18 +167,25 @@ for (let level = from; level <= to; level++) {
   //    audit-coin-cost.mts 로 확인하니 4.1장이었다. 그래서 하강 탐색에 쓴 시드와 **겹치지 않는**
   //    별도 시행 집합(buysAtIndependent)도 함께 통과해야만 그 카운트를 채택한다.
   if (m.p90 <= MAX_P90_BUYS && m.avg <= avgCap) {
+    const floorCount = Math.max(MIN_DECREMENT_COUNT, authoredFromRuntime(Math.ceil(n * MIN_STOCK_RATIO)));
     let g2 = 0;
-    while (count > MIN_DECREMENT_COUNT && g2++ < 40) {
+    while (count > floorCount && g2++ < 40) {
+      // 잔여 목표에 도달했으면 멈춘다 — 더 깎아 봐야 구매만 늘고 얻을 게 없다.
+      if (m.avgLeftover <= TARGET_LEFTOVER) break;
+      // 잔여가 아직 목표 밖일 때만 평균 상한을 완화한다(함정 레벨은 원래 상한이 더 높아 그대로).
+      const cap2 = Math.max(avgCap, trap ? avgCap : RELAXED_MAX_AVG);
       const c2 = count - 1;
       const check = buysAtStable(c2);
-      if (check.p90 > MAX_P90_BUYS || check.avg > avgCap) break;
+      if (check.p90 > MAX_P90_BUYS || check.avg > cap2) break;
       const indCheck = buysAtIndependent(c2);
-      if (indCheck.p90 > MAX_P90_BUYS || indCheck.avg > avgCap) break;
+      if (indCheck.p90 > MAX_P90_BUYS || indCheck.avg > cap2) break;
       count = c2; m = indCheck; // 채택 시 보고값은 독립 표본 쪽(편향 없는 추정치)으로 남긴다.
     }
   }
 
-  const onTarget = m.p90 <= MAX_P90_BUYS && m.avg <= avgCap;
+  // 잔여를 잡느라 완화 상한까지 쓴 레벨도 **목표 안**으로 센다 — 하강 규칙이 그 범위를 허용하기 때문에
+  //   기존 기준(avgCap)으로 세면 정상 착지한 레벨이 죄다 "목표밖"으로 잘못 보고된다.
+  const onTarget = m.p90 <= MAX_P90_BUYS && m.avg <= (trap ? avgCap : RELAXED_MAX_AVG);
   if (!onTarget) offTarget++;
 
   // 확정 장수에 맞춰 스톡 랭크를 새로 뽑고 해답을 다시 찾는다(보드·기준카드는 그대로).

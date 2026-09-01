@@ -1,3 +1,4 @@
+import { SAFE_H, SAFE_W } from './responsiveFrame.js';
 /**
  * floorLevels.ts — 층(Floor) 디자인 에디터(design/floor-editor.html)가 저장한 층 구성을 게임이 소비하는 순수 모델.
  *
@@ -16,7 +17,6 @@
  */
 
 export const TEMPLATE_LAYERS = ['facade', 'roof', 'glass', 'interior'] as const;
-export const FLOOR_LAYERS = ['character'] as const;
 /** 홈 타워에서 쓰는 레이어(외관 — interior 제외). */
 export const HOME_LAYERS = ['facade', 'roof', 'glass', 'character'] as const;
 /** 플레이 화면에서 쓰는 레이어(전체). */
@@ -27,10 +27,8 @@ export const RENDER_ORDER = ['interior', 'facade', 'roof', 'character', 'glass']
 export type TemplateLayerKey = (typeof TEMPLATE_LAYERS)[number];
 export type FloorLayerKey = (typeof PLAY_LAYERS)[number];
 
-export const FRAME_W = 1080;
-export const FRAME_H = 2400;
-/** 건물 하단 = 보드 암막 상단(PlayScene DARK_TOP) — 전 층 동일 정렬 기준. */
-export const BUILDING_BOTTOM = 645;
+export const FRAME_W = SAFE_W;
+export const FRAME_H = SAFE_H;
 
 /** 배치(요소). 프레임 절대 좌표, x,y = 중심. */
 export interface Placement {

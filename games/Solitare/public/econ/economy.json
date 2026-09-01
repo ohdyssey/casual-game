@@ -3,7 +3,7 @@
   "savedAt": "2026-07-19T01:00:00.000Z",
   "note": "경제 SSOT — design/econ-board.html '게임 반영'이 덮어쓴다. 2026-07-19 재설계 초안 스냅샷(economy.ts DEFAULT_ECON 그대로) — 진행도/콘텐츠 분리(500장 순환 재사용, MAX_PROGRESS_LEVEL=3000) + 건설비 2층부터(처음부터) 다이아+코인 복합. ⚠️PO 검토·조정 전 — econ-board.html 맨 위 \"다이아 구조\" 대시보드에서 확인·조정할 것.",
   "params": {
-    "feeBase": 2000,
+    "feeBase": 1500,
     "feeStepMult": 1.129,
     "feeLevelStep": 150,
     "feeRound": 100,
@@ -74,7 +74,13 @@
     "compRoiDays": 4,
     "compAuctionDiamonds": 60,
     "compFloorDiamonds": 40,
-    "startCoins": 40000,
-    "startDiamonds": 30
+    "startCoins": 20000,
+    "startDiamonds": 30,
+    "leagueGoalMult": 1,
+    "leagueCoinPerStar": 53,
+    "leagueGrandMult": 1,
+    "eventGoalMult": 1,
+    "eventCoinMult": 1,
+    "eventGrandMult": 1
   }
 }

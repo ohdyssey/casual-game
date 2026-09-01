@@ -291,11 +291,17 @@ export function dealForGrade(
 
 /** 동적 딜의 뽑기(스톡) 수 — base=저작값(designed) 또는 등급별 산출 → **양쪽 모두** DYN_STOCK_REDUCE(0.46) 를 곱한다(균일). */
 /**
- * **딜 스톡 하한**(PO 2026-07-27 "뽑기카드 숫자가 너무 적다") — 계수만으로는 저작 스톡이 작은 레벨이
- *   3장까지 내려가 더미가 비어 보였다(계수 0.35 기준 5장 미만이 36/100 레벨). 계수를 올리면 원래 넉넉하던
- *   레벨까지 같이 부풀어 잔여가 늘어나므로, **얇은 레벨만 끌어올리는** 하한으로 따로 잡는다.
+ * **딜 스톡 하한** — 계수만으로는 저작 스톡이 작은 레벨의 더미가 비어 보여 5장으로 잡았었다
+ * (PO 2026-07-27 "뽑기카드 숫자가 너무 적다").
+ *
+ * **2026-08-21 5 → 3 인하**(PO "승리 시 남는 뽑기 기준을 0장으로 맞추라" → 하한 인하 선택). 판마다
+ * 보드 특수카드가 **공짜 뽑기 약 3장**(와일드 +1 · 보너스 +N 평균 1.96)을 얹어 주기 때문에, 하한이
+ * 5장이면 손에 들어오는 총량이 8장 밑으로 내려가지 않아 잔여가 1.2~1.5 에서 바닥을 쳤다. 하한을 3으로
+ * 내려야 튜너의 정밀 하강이 실제로 0 근처까지 갈 수 있다.
+ *   ⚠️ scripts/level-curve.mts 의 MIN_DYN_STOCK 과 **반드시 같은 값**을 유지할 것(생성·튜닝 파이프라인이
+ *   런타임 장수를 역산하는 기준).
  */
-const MIN_DYN_STOCK = 5;
+const MIN_DYN_STOCK = 2; // 2026-08-23 3→2: 전면 재설계에서 잔여 최소화를 위해 하한을 한 장 더 내림.
 
 function dynamicStockCount(n: number, grade: Grade, designed?: number): number {
   const base =
@@ -316,7 +322,7 @@ export function dealDynamic(
   layout: PeakLayout,
   rng: Rng,
   grade: Grade,
-  opts?: { board?: readonly number[]; waste?: number; stockCount?: number },
+  opts?: { board?: readonly number[]; waste?: number; stockCount?: number; rescue?: boolean; plus5Curated?: boolean },
 ): GameState {
   const n = layout.slots.length;
   const mk = (rank: number, prefix: string, i: number, suit: Suit = SUITS[i % 4]): Card => ({
@@ -345,5 +351,11 @@ export function dealDynamic(
   // placeholder 스톡(카운트만 의미 — 랭크는 뽑을 때 동적 결정되므로 여기 값은 무시된다).
   const stock: Card[] = Array.from({ length: count }, (_, i) => mk((i % 13) + 1, 's', i));
   const state = dealBoardStock(layout, board, waste, stock);
-  return { ...state, luck: initLuck(grade) };
+  // rescue=false 면 종반 구제(막힘 보정·잔량 압박)를 끈 판이 된다 — 11레벨~ (PO 2026-08-23).
+  return {
+    ...state,
+    luck: initLuck(grade),
+    ...(opts?.rescue === undefined ? {} : { rescue: opts.rescue }),
+    ...(opts?.plus5Curated === undefined ? {} : { plus5Curated: opts.plus5Curated }),
+  };
 }

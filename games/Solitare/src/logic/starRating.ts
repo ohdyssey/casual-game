@@ -143,6 +143,14 @@ export function referenceQuality(solution: readonly string[], boardSize: number,
  *    4★ 컷 = 클린 중앙값 · 5★ 컷 = 클린 상위 18% → **5★ 도 충분히 자주 나온다**(PO "5개와 1개의 베리에이션을
  *    더 풍부하게"). 1★ 은 클린에서는 거의 안 나오고 부스터를 쓴 판에서 나온다.
  *
+ * **재보정(2026-08-21)** — 레벨 팩(계층 오픈 재생성)과 뽑기 튜닝이 바뀌면서 클린 비율 분포가 통째로
+ *    내려앉았다(중앙 1.40 → 1.17). 옛 컷을 그대로 두면 클린의 84% 가 3★ 에 몰리고 5★ 는 1% 로 말라붙는다
+ *    (실측). 그래서 4★·5★ 컷을 **새 분포의 분위수**로 다시 잡았다 — 사람형(연쇄 우선) 봇 1,500판 ·
+ *    클린 승리 351판 기준 비율 분위수: p25 1.07 · p50 1.17 · p82 1.38 · p95 1.63.
+ *      → 4★ 컷 = p50(1.17) · 5★ 컷 = p82(1.38) → 클린 3★ 약 50% · 4★ 약 32% · 5★ 약 18%.
+ *    1★·2★ 컷(0.73·0.92)은 **＋5 를 쓴 판 전용**으로 남는다 — 클린은 qualityWithCleanFloor 가 3★ 를 보장한다.
+ *    ⚠️ 별 분포를 다시 만질 땐 봇 정책부터 확인할 것(play-sim.mts) — 서투른 봇으로 재면 분포가 통째로 어긋난다.
+ *
  * 실측(2026-07-29, 저작 레벨 500 × 12판 = 6000판 그리디 봇 = **전부 클린 클리어**, 3축 최종평가 모델):
  *    승률 51.4% · 승리 3085판 기준
  *    비율   min 0.38 · 하위5% 0.90 · 중앙 1.40 · 최대 3.26 → 컷 [0.73, 0.92, 1.40, 1.90]
@@ -152,18 +160,30 @@ export function referenceQuality(solution: readonly string[], boardSize: number,
  *    ⚠️ 축③ 가중치를 0.15 로 두면 페널티가 1.5 등급이 되고 ＋5 판의 66% 가 1★ 로 몰렸다 → 0.10 으로 낮추고
  *       남은 0.05 를 축②(남은 카드)로 옮겼다. PO "최종 보상이 너무 짜다" 에 대한 조정.
  */
-export const STAR_RATIO_CUTS = [0, 0.73, 0.92, 1.4, 1.9] as const;
+export const STAR_RATIO_CUTS = [0, 0.73, 0.92, 1.17, 1.38] as const;
 
 /** 절대 컷(정답 수순이 없는 레벨 폴백) — 위 실측의 절대 품질 분위수. 상대 컷과 같은 목표 분포. */
-export const STAR_CUTS = [0, 0.18, 0.2, 0.31, 0.43] as const;
+export const STAR_CUTS = [0, 0.18, 0.2, 0.234, 0.275] as const;
 
 function clamp01(v: number): number {
   return v < 0 ? 0 : v > 1 ? 1 : v;
 }
 
+/**
+ * 컷 비교 허용오차 — **부동소수점으로 계약이 깨지는 것을 막는다**(2026-08-23 실측).
+ *
+ * `qualityWithCleanFloor` 는 하한을 `컷 × refQuality` 로 만들고 `starsForRatio` 가 다시 `refQuality` 로
+ *   나눈다. 곱했다 나누면 원래 컷으로 정확히 돌아오지 않는다 — `(0.92 × ref) / ref` 가
+ *   `0.9199999999999999` 로 떨어져 `>= 0.92` 를 못 넘는다. refQuality 20만 표본 검증 결과
+ *   **클린 클리어의 11.6% 가 3★ 하한 계약을 뚫고 2★ 로 샜다**(실측: 무구매인데 2★ = 게임비 손실).
+ *
+ * 컷 간격은 비율 기준 최소 0.11 · 절대 기준 최소 0.02 라 1e-9 는 판정에 영향을 주지 않는다.
+ */
+const CUT_EPSILON = 1e-9;
+
 function litBy(value: number, cuts: readonly number[]): number {
   let lit = 0;
-  for (const cut of cuts) if (value >= cut) lit++;
+  for (const cut of cuts) if (value >= cut - CUT_EPSILON) lit++;
   return Math.min(MAX_STARS, Math.max(1, lit));
 }
 
@@ -176,4 +196,27 @@ export function starsForQuality(quality: number): number {
 export function starsForRatio(quality: number, refQuality: number): number {
   if (!Number.isFinite(refQuality) || refQuality <= 0) return starsForQuality(quality);
   return litBy(quality / refQuality, STAR_RATIO_CUTS);
+}
+
+/** ＋5 를 한 번도 쓰지 않고 클리어했을 때 **보장되는 최소 별 수**. */
+export const CLEAN_MIN_STARS = 3;
+
+/**
+ * **클린 클리어 3★ 하한 보장**(PO 2026-08-21 "추가 카드 없이 매칭했는데 별이 하나인 경우가 있다").
+ *
+ * 원래도 "＋5 없이 클리어 = 3★"가 목표였지만 **통계적 컷**으로 구현돼 있었다 — 컷을 클린 표본의 하위 6%
+ * 지점에 두는 방식이라 **6% 는 여전히 1~2★ 로 샜다**. 게다가 레벨 팩·뽑기 튜닝이 바뀌면 그 분포가 통째로
+ * 이동해 이탈률이 더 커진다(실제로 겪음). 그래서 통계가 아니라 **계약**으로 바꾼다 — 부스터를 안 썼으면
+ * 점수를 3★ 컷까지 끌어올려 **항상** 3★ 이상이 되게 한다.
+ *
+ * 별 수가 아니라 **품질값 자체**를 끌어올린다 — 승리 게이지는 이 품질값으로 채워지므로, 별 수만 바꾸면
+ * "게이지는 2★인데 팝업은 3★"인 불일치가 생긴다.
+ */
+export function qualityWithCleanFloor(quality: number, refQuality: number, plus5Uses: number): number {
+  if (plus5Uses > 0) return quality;
+  const useRatio = Number.isFinite(refQuality) && refQuality > 0;
+  const floor = useRatio
+    ? STAR_RATIO_CUTS[CLEAN_MIN_STARS - 1] * refQuality
+    : STAR_CUTS[CLEAN_MIN_STARS - 1];
+  return Math.max(quality, floor);
 }

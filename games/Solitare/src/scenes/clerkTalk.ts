@@ -17,7 +17,6 @@ import { pickCtxLine, isMorning, isNight, type CtxGroup } from './talkContext.js
 
 /** 점포 테마 번호 — 0 공용 · 1~10 메인 타워 층 · 11 경쟁부지 · 21~30 스테이지2 층(20+층). */
 export type ClerkTheme = number;
-export const THEME_GENERIC: ClerkTheme = 0;
 export const THEME_RIVAL_LOT: ClerkTheme = 11;
 
 /** 메인 타워 층 → 테마(층별 지정 아트 BG_01~10 과 1:1, 11층+ 순환). */

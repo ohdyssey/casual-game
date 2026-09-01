@@ -8,8 +8,9 @@
  */
 import Phaser from 'phaser';
 import { bakeShadowTexture } from './shadows.js';
+import { SAFE_W as W } from '../logic/responsiveFrame.js';
 
-const W = 1080;
+// 저작(=세이프존) 프레임 — 단일 출처는 logic/responsiveFrame.ts (캔버스 크기 아님).
 const CAR_KEYS = ['up_Car_01', 'up_Car_02', 'up_Car_03', 'up_Car_04', 'up_Car_05', 'up_Car_06', 'up_Car_07', 'up_Car_08', 'up_Car_09', 'up_Car_10']; // 10종 랜덤.
 const CAR_WIDTH = 230; // 표시 폭(px). 원본 ~440 → scale ~0.52.
 // 대형 차량 크기 배율(일반차=1.0) — 소방차·구급차·경찰차는 실제로 크므로 더 크게 표시.

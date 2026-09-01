@@ -7,8 +7,8 @@
  */
 import fs from 'node:fs';
 import { bakeLevel } from './level-kit.mts';
-import { gridToSlots, validateGrid, openCellsOf } from './cell-grid.mts';
-import { CELLS, type CellShape } from './cell-library.mts';
+import { gridToSlots, validateGrid, openCellsOf, orphanCellsOf, weakCoveredCellsOf } from './cell-grid.mts';
+import { CELLS, LAYERED_CELLS, stacksOnto, type CellShape } from './cell-library.mts';
 import { assembleGroups, SKELETONS, STACKABLE, CENTER_STACKABLE, MAX_ROW_SPAN, type GroupSpec } from './level-assembler.mts';
 import { targetCardsForLevel, stockRatioForLevel, authoredFromRuntime, MAX_BOARD_CARDS } from './level-curve.mts';
 
@@ -30,26 +30,37 @@ const pick = <T>(arr: readonly T[], r: number): T => arr[Math.floor(r * arr.leng
 // build-cells-range.mts 와 동일한 오픈 리듬 편향(좁은 시작+중반 확산 하나) — 재조립되는 소수(≈500 중
 // 6건 안팎)의 중복 레벨도 같은 리듬을 따르게 한다.
 const CHOKE = ['기둥1', '기둥2'];
+/** 재료도 build-cells-range.mts 와 동일하게 **자체 계층 셀**로 제한한다. */
+const SIDE_POOL = STACKABLE.filter((n) => LAYERED_CELLS.includes(n));
+const CENTER_POOL = CENTER_STACKABLE.filter((n) => LAYERED_CELLS.includes(n));
 const BULGE = ['다이아5', '넓은봉우리3', '좁은봉우리3'];
 
 function buildStack(pool: readonly string[], wantCards: number, maxRows: number, rnd: () => number, forceBulge: boolean): CellShape[] {
   const stack: CellShape[] = [];
   let cards = 0, rows = 0, guard = 0;
+  const push = (c: CellShape): void => { stack.push(c); cards += c.count; rows += c.rows; };
+  // build-cells-range.mts 와 **같은 계층 규칙** — 이어붙일 셀의 최상단 행은 바로 위 셀이 전부 덮어야 한다.
+  //   (여기만 규칙이 빠지면 재조립된 소수 레벨에서 고아 카드가 되살아난다 — §15 참고.)
+  const fitsFor = (names: readonly string[], slack: number): string[] => {
+    const above = stack.length ? stack[stack.length - 1] : null;
+    return names.filter(
+      (n) => CELLS[n].rows <= maxRows - rows && CELLS[n].count <= wantCards - cards + slack && (above === null || stacksOnto(above, CELLS[n])),
+    );
+  };
 
-  const chokeFits = CHOKE.filter((n) => pool.includes(n) && CELLS[n].rows <= maxRows - rows && CELLS[n].count <= wantCards - cards + 4);
-  if (chokeFits.length) { const c = CELLS[pick(chokeFits, rnd())]; stack.push(c); cards += c.count; rows += c.rows; }
+  const chokeFits = fitsFor(CHOKE.filter((n) => pool.includes(n)), 4);
+  if (chokeFits.length) push(CELLS[pick(chokeFits, rnd())]);
   if (forceBulge) {
-    const bulgeFits = BULGE.filter((n) => pool.includes(n) && CELLS[n].rows <= maxRows - rows && CELLS[n].count <= wantCards - cards + 6);
-    if (bulgeFits.length) { const c = CELLS[pick(bulgeFits, rnd())]; stack.push(c); cards += c.count; rows += c.rows; }
+    const bulgeFits = fitsFor(BULGE.filter((n) => pool.includes(n)), 6);
+    if (bulgeFits.length) push(CELLS[pick(bulgeFits, rnd())]);
   }
 
   while (cards < wantCards && rows < maxRows && guard++ < 30) {
-    const fits = pool.filter((n) => CELLS[n].rows <= maxRows - rows && CELLS[n].count <= wantCards - cards + 4);
+    const fits = fitsFor(pool, 4);
     if (fits.length === 0) break;
-    const chosen = CELLS[pick(fits, rnd())];
-    stack.push(chosen); cards += chosen.count; rows += chosen.rows;
+    push(CELLS[pick(fits, rnd())]);
   }
-  return stack;
+  return cards >= 2 ? stack : [];
 }
 
 /** salt 를 바꿔가며 **아직 안 쓰인 배치**를 찾는다. */
@@ -66,7 +77,7 @@ function recompose(level: number, target: number, used: Set<string>, salt: numbe
       if (failed) return;
       const mult = g.kind === 'pair' ? 2 : 1;
       const wantCards = Math.max(1, Math.round((target - acc) / (skel.groups.length - i) / mult) + Math.floor(rnd() * 3) - 1);
-      const stack = buildStack(g.kind === 'center' ? CENTER_STACKABLE : STACKABLE, wantCards, MAX_ROW_SPAN + 1 - g.rowOff, rnd, i === forcedIdx);
+      const stack = buildStack(g.kind === 'center' ? CENTER_POOL : SIDE_POOL, wantCards, MAX_ROW_SPAN + 1 - g.rowOff, rnd, i === forcedIdx);
       if (stack.length === 0) { failed = true; return; }
       groups.push({ kind: g.kind, stack, rowOff: g.rowOff });
       acc += stack.reduce((s, c) => s + c.count, 0) * mult;
@@ -75,12 +86,17 @@ function recompose(level: number, target: number, used: Set<string>, salt: numbe
     const res = assembleGroups(groups);
     if (!res.ok) continue;
     if (res.cells.length > MAX_BOARD_CARDS) continue; // build-cells-range.mts 와 동일한 하드 상한.
+    if (res.cells.length < target - 2) continue;       // 동일한 카드수 하한(미달 −2장까지).
     const sig = [...res.cells].map((c) => `${c.col},${c.row}`).sort().join(';');
     if (used.has(sig)) continue; // 이미 쓰인 배치 — 다른 걸 찾는다.
     const delta = res.cells.length - target;
     let score = delta < 0 ? -delta * 10 : delta;
     const opens = openCellsOf(res.cells).length;
-    score += Math.max(0, Math.max(4, Math.round(res.cells.length / 8)) - opens) * 6;
+    score += Math.max(0, Math.max(4, Math.round(res.cells.length / 8)) - opens) * 12;
+    score += orphanCellsOf(res.cells).length * 25;
+    // build-cells-range.mts 와 **같은 벌점** — 여기만 빠지면 재조립된 레벨(수백 개)이 지표를 되돌린다
+    //   (실측: 대각선만 덮임 29.5% → 36.5%).
+    score += weakCoveredCellsOf(res.cells).length * 8;
     if (!best || score < best.score) {
       best = { cells: res.cells, key: `${skel.key}·${groups.map((g) => g.stack.map((s) => s.name).join('-')).join('|')}`, score, sig };
       if (score === 0) break;

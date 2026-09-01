@@ -1,0 +1,19 @@
+{
+  "name": "솔리테어 하이츠",
+  "short_name": "솔리테어",
+  "description": "카드를 맞춰 도시를 세우는 캐주얼 솔리테어",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "portrait",
+  "background_color": "#2B6FB8",
+  "theme_color": "#2B6FB8",
+  "lang": "ko",
+  "icons": [
+    { "src": "pwa/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "pwa/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "pwa/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

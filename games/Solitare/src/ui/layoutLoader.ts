@@ -9,6 +9,9 @@
 import Phaser from 'phaser';
 // 에디터가 노드에 저작한 anim(맥동·흔들·파티클 등) 재생 — @casual/core 단일 사본.
 import { applyLayoutAnims } from '@casual/core';
+import { SAFE_H, SAFE_W, anchorNodes, frameDelta, type AnchorOpts } from '../logic/responsiveFrame.js';
+import { viewBounds } from '@casual/core';
+import { bottomUiShift, topUiShift } from './safeAreaUi.js';
 
 export interface LayoutNode {
   readonly id: string;
@@ -90,7 +93,7 @@ export class LayoutIndex {
 }
 
 function makeText(scene: Phaser.Scene, n: LayoutNode): Phaser.GameObjects.Text {
-  const family = n.fontFamily ? `"${n.fontFamily}", "Jua", sans-serif` : '"Jua", sans-serif';
+  const family = n.fontFamily ? `"${n.fontFamily}", "Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif` : '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif';
   const t = scene.add.text(n.x, n.y, n.text ?? '', {
     fontFamily: family,
     fontSize: `${n.fontSize ?? 20}px`,
@@ -115,6 +118,33 @@ function warnOnce(msg: string): void {
   if (warned.has(msg)) return;
   warned.add(msg);
   console.warn(msg);
+}
+
+/**
+ * 캔버스가 저작 프레임보다 클 때 늘어난 여분(dW/dH)을 노드별로 흡수시킨 **새 문서**를 돌려준다.
+ *
+ * ⚠️ **렌더 직전 한 번만** 이 함수를 통과시키고, 그 뒤로는 반환된 문서만 읽을 것. 씬이 좌표를
+ *   재는 곳(보드 영역·동선·게이지 등)이 여러 군데라, 렌더만 앵커하고 측정은 원본에서 하면
+ *   보드와 아트가 서로 어긋난다.
+ *
+ * · 앵커를 주지 않거나, 저작 프레임이 세이프존(1080×2400)이 아니거나(팝업 720×1600 은
+ *   소비처가 `popupScale` 로 따로 매핑한다), 여분이 0이면 **원본 문서를 그대로** 돌려준다
+ *   — 현재 고정 캔버스에서는 결과가 100% 동일하다(회귀 없음).
+ */
+export function anchorDoc(scene: Phaser.Scene, doc: LayoutDoc, anchor: AnchorOpts): LayoutDoc {
+  if (doc.frame?.designW !== SAFE_W || doc.frame?.designH !== SAFE_H) return doc;
+  // 앵커가 흡수할 여분은 **보이는 영역** 기준이다.
+  const v = viewBounds(scene);
+  /**
+   * 세이프에어리어 반영 — 가장자리 그룹은 침범분만큼 **같은 양**으로 민다(표준: 크기 불변).
+   *   · 상단 그룹: 코드 HUD(헤더·배너)와 **동일한 이동량**을 써야 서로 겹치지 않는다.
+   *   · 하단 그룹: 프레임 바닥까지 여유가 있으면 0(안 움직인다).
+   */
+  const nodes = anchorNodes(doc.nodes, frameDelta(v.w, v.h), anchor, {
+    top: topUiShift(scene),
+    bottom: bottomUiShift(scene),
+  });
+  return nodes === doc.nodes ? doc : { ...doc, nodes };
 }
 
 /**

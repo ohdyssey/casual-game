@@ -8,11 +8,12 @@
  *   코인만 우측정렬(긴 숫자 대비), 레벨·다이아는 중앙정렬로 각자 authored x 기준 그대로 그린다.
  */
 import Phaser from 'phaser';
+import { topUiShift } from '../ui/safeAreaUi.js';
 
 // 2026-07-17 새 헤더(UI_14_v3): **좌측 LV 뱃지+레벨 · 중앙 코인 · 다이아 · 우측 종+메뉴** 레이아웃.
 const PANEL_KEY = 'up_Solitare_UI_14_v3';
 const CX = 540;
-const CY = 90; // home.json layer_4 기준.
+const BASE_CY = 90; // home.json layer_4 기준(세이프에어리어 반영 전).
 const DISP_W = 1018;
 const DISP_H = 104; // v3 종횡비(814×83 → 1018×104), home.json h=104 정합.
 // 각 통화 값의 **에디터 authored x**(home.json layer_5*/copy*) — 정렬 방식은 각자 다름(아래 buildTopHeader 참고).
@@ -41,9 +42,9 @@ export interface TopHeader {
   objects: Phaser.GameObjects.GameObject[];
 }
 
-function valText(scene: Phaser.Scene, x: number, val: string, depth: number, align: 'right' | 'center'): Phaser.GameObjects.Text {
+function valText(scene: Phaser.Scene, x: number, cy: number, val: string, depth: number, align: 'right' | 'center'): Phaser.GameObjects.Text {
   const t = scene.add
-    .text(x, CY, val, { fontFamily: '"Fredoka", "Jua", sans-serif', fontSize: '36px', color: '#ffc800', fontStyle: '700' })
+    .text(x, cy, val, { fontFamily: '"Fredoka", "Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '36px', color: '#ffc800', fontStyle: '700' })
     .setOrigin(align === 'right' ? 1 : 0.5, 0.5)
     .setDepth(depth);
   t.setStroke('#5a3210', 10);
@@ -56,16 +57,23 @@ function valText(scene: Phaser.Scene, x: number, val: string, depth: number, ali
  *   onMenu = 우측 ☰ 메뉴 콜백. onBell = 종(알림) 콜백(선택 — 없으면 종 히트존 미생성).
  *   level 은 문자열도 받는다 — 보너스 라운드가 `10-1` 처럼 메인 레벨과 구분되는 라벨을 넘긴다(2026-07-27).
  */
-export function buildTopHeader(scene: Phaser.Scene, coins: number, diamonds: number, level: number | string, onMenu: () => void, depth = 1600, onBell?: () => void): TopHeader {
+export function buildTopHeader(scene: Phaser.Scene, coins: number, diamonds: number, level: number | string, onMenu: () => void, depth = 1600, onBell?: () => void, onProfile?: () => void): TopHeader {
+  /**
+   * **세이프에어리어 침범분**(노치·다이나믹 아일랜드)만큼 헤더 전체를 아래로. 표준 규칙대로
+   * *침범한 만큼만* 밀고, 여유가 있으면 0이라 한 픽셀도 안 움직인다(`ui/safeAreaUi.ts`).
+   * ⚠️ 생성 뒤에 y 를 옮기면 값 갱신(setCoins/setLevel)이 위치를 되돌린다 — 여기서 한 번에 반영한다.
+   */
+  const SA = topUiShift(scene);
+  const CY = BASE_CY + SA;
   const objects: Phaser.GameObjects.GameObject[] = [];
   if (scene.textures.exists(PANEL_KEY)) {
     objects.push(scene.add.image(CX, CY, PANEL_KEY).setDisplaySize(DISP_W, DISP_H).setDepth(depth));
   }
-  const starText = valText(scene, LEVEL_X, `${level}`, depth + 1, 'center'); // 좌측 LV 뱃지 옆 = **현재 레벨**.
+  const starText = valText(scene, LEVEL_X, CY, `${level}`, depth + 1, 'center'); // 좌측 LV 뱃지 옆 = **현재 레벨**.
   objects.push(starText);
-  const coinText = valText(scene, COIN_RIGHT_X, coins.toLocaleString(), depth + 1, 'right'); // 긴 숫자 대비 우측정렬.
+  const coinText = valText(scene, COIN_RIGHT_X, CY, coins.toLocaleString(), depth + 1, 'right'); // 긴 숫자 대비 우측정렬.
   objects.push(coinText);
-  const gemText = valText(scene, GEM_X, diamonds.toLocaleString(), depth + 1, 'center'); // 다이아(젬).
+  const gemText = valText(scene, GEM_X, CY, diamonds.toLocaleString(), depth + 1, 'center'); // 다이아(젬).
   objects.push(gemText);
   const menuZone = scene.add
     .zone(MENU_X, CY, ICON_W, ICON_H)
@@ -73,6 +81,17 @@ export function buildTopHeader(scene: Phaser.Scene, coins: number, diamonds: num
     .setDepth(depth + 2)
     .on('pointerdown', onMenu);
   objects.push(menuZone);
+  // **LV 뱃지 = 프로필 설정 입구**(PO 2026-08-23) — 리그·랭킹에 쓸 이름/얼굴을 여기서 정한다.
+  //   레벨 숫자 슬롯(LEVEL_X)과 그 왼쪽 LV 뱃지를 함께 덮는 넓은 히트존.
+  if (onProfile) {
+    objects.push(
+      scene.add
+        .zone(LEVEL_X - 30, CY, 260, ICON_H)
+        .setInteractive({ useHandCursor: true })
+        .setDepth(depth + 2)
+        .on('pointerdown', onProfile),
+    );
+  }
   let bellZone: Phaser.GameObjects.Zone | undefined;
   if (onBell) {
     bellZone = scene.add

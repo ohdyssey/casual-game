@@ -73,13 +73,14 @@ describe('pickRandomCard — 보유와 무관한 랜덤 드랍(희귀도는 추�
   });
 
   it('이미 다 모은 상태에서도 계속 카드가 나온다(중복 허용)', () => {
+    const mid = allSlots(COLLECTIBLE_SETS)[Math.floor((allSlots(COLLECTIBLE_SETS).length - 1) * 0.5)]; // rand=0.5 지점 슬롯(세트 수가 바뀌어도 자동으로 맞는다).
     let s = defaultCollection();
     for (let i = 0; i < 20; i++) {
       const pick = pickRandomCard(COLLECTIBLE_SETS, () => 0.5);
       expect(pick).not.toBeNull();
       s = grantCard(s, pick!.set, pick!.card);
     }
-    expect(cardCount(s, 2, 5)).toBeGreaterThan(0); // 0.5 지점 카드가 여러 장 쌓였다.
+    expect(cardCount(s, mid.set, mid.card)).toBeGreaterThan(0); // 0.5 지점 카드가 여러 장 쌓였다.
   });
 
   it('filter 로 후보를 좁힐 수 있다(아트 없는 슬롯 제외 등)', () => {
@@ -131,7 +132,9 @@ describe('coerceCollection — 손상 저장 방어 + 구버전 마이그레이�
   it('세트 범위 밖 키는 버린다', () => {
     const s = coerceCollection({ counts: { '0': [1], '99': [1], '3': [0, 2, 0, 0, 0, 0, 0, 0, 0] } });
     expect(cardCount(s, 3, 2)).toBe(2);
-    expect(collectionProgress(s).owned).toBe(1);
+    expect(collectionProgress(s).owned).toBe(0); // 조각 2개 — 10개를 채워야 완성 1종으로 센다(2026-08-30 규칙).
+    const full = coerceCollection({ counts: { '3': [0, 10, 0, 0, 0, 0, 0, 0, 0] } });
+    expect(collectionProgress(full).owned).toBe(1);
   });
 
   it('빈 컬렉션도 그대로 유지된다(모두 미보유 세이브)', () => {

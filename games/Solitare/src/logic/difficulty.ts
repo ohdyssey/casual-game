@@ -115,7 +115,6 @@ export const CHAIN_TARGET: Record<FactorLevel, number> = { low: 0.7, mid: 1.3, h
 /** 뽑기매칭(feed) 목표값 0..1 — low=헛뽑기 잦음(어려움) · vhigh=거의 항상 유용(아주 쉬움). */
 export const FEED_TARGET: Record<FactorLevel, number> = { low: 0.32, mid: 0.52, high: 0.75, vhigh: 0.9 };
 /** 등급별 기본 chain/feed 레벨(고급 미설정 시 사용). */
-export const GRADE_FACTOR: Record<Grade, FactorLevel> = { 1: 'high', 2: 'mid', 3: 'low' };
 
 /** greedy 트레이스 1판으로 chain/feed/supply 집계(승률 제외 — 후보 딜 스코어링용, 가벼움). */
 export function traceFactors(state: GameState, rng: Rng): Omit<FactorScores, 'winRate'> {

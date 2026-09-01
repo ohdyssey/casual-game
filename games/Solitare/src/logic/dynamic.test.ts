@@ -62,7 +62,7 @@ describe('dealDynamic — 동적 딜', () => {
   });
 
   it('아주 작은 저작값에도 최소 3장은 보장한다(스톡 0 으로 시작하는 사고 방지)', () => {
-    expect(dealDynamic(LAYOUT, seededRng(1), 2, { stockCount: 1 }).stock.length).toBeGreaterThanOrEqual(3);
+    expect(dealDynamic(LAYOUT, seededRng(1), 2, { stockCount: 1 }).stock.length).toBeGreaterThanOrEqual(2); // 하한 3→2(2026-08-23 재설계).
   });
 
   it('저작 보드 배치를 유지한다(designer 의도)', () => {
@@ -152,5 +152,89 @@ describe('동적 드로우 — 뽑는 랭크가 럭에 따라 결정', () => {
     // 뽑은 카드의 랭크는 1..13 유효 범위.
     expect(wasteTop(s1).rank).toBeGreaterThanOrEqual(1);
     expect(wasteTop(s1).rank).toBeLessThanOrEqual(13);
+  });
+});
+
+describe('rescue 스위치 — 종반 임의 매칭 제거(11레벨~)', () => {
+  it('꺼진 판은 막혀도 맞춰 주지 않아 잔여 뽑기가 줄어든다', () => {
+    // 같은 시드·같은 보드로 구제 on/off 를 비교 — off 가 더 자주 막혀야 한다(=＋5 구매 압력).
+    const play = (rescue: boolean): number => {
+      let stuckDraws = 0;
+      for (let seed = 0; seed < 40; seed += 1) {
+        const rng = seededRng(seed * 31 + 7);
+        let s = dealDynamic(LAYOUT, rng, 2, { stockCount: 12, rescue });
+        while (s.stock.length > 0) {
+          const before = s.cleared.size;
+          for (const id of availableMoves(s)) s = playCard(s, id);
+          if (s.cleared.size === before) stuckDraws += 1;
+          s = drawStock(s, rng);
+        }
+      }
+      return stuckDraws;
+    };
+    expect(play(false)).toBeGreaterThan(play(true));
+  });
+});
+
+describe('＋5 카드 — 초반 큐레이션(≤20레벨) vs 완전 랜덤(21~)', () => {
+  /** ＋5 로 되돌아온 카드를 2장 뽑았을 때 그 자리에서 낼 수 있었던 횟수. */
+  const playableOfTwo = (curated: boolean): number => {
+    let hits = 0;
+    for (let seed = 0; seed < 60; seed += 1) {
+      const rng = seededRng(seed * 97 + 11);
+      let s = dealDynamic(LAYOUT, rng, 2, { stockCount: 6 });
+      // 스톡을 ＋5 표시(raw)로 바꿔 놓고 두 번 뽑는다 — curated=true 는 assist 1(전량 보조) 흉내.
+      s = { ...s, stock: s.stock.map((c) => ({ ...c, raw: true, ...(curated ? { assist: 1 } : {}) })) };
+      for (let i = 0; i < 2; i += 1) {
+        const before = availableMoves(s).length;
+        s = drawStock(s, rng);
+        if (availableMoves(s).length > 0 || before > 0) hits += 1;
+      }
+    }
+    return hits;
+  };
+
+  /*
+   * (개정 2026-08-25) 레벨 기준 전량 큐레이션(plus5Curated)은 **구매 회차 보조(assist)**로 대체됐다 —
+   *   1차 랜덤 · 2차 30% · 3차+ 50%. drawStock 은 이제 카드별 assist 만 본다.
+   */
+  it('assist=1 이면 뽑은 ＋5 카드가 반드시 노출 카드와 이어진다(구 큐레이션과 동일 강도)', () => {
+    for (let seed = 0; seed < 30; seed += 1) {
+      const rng = seededRng(seed * 13 + 5);
+      let s = dealDynamic(LAYOUT, rng, 2, { stockCount: 4 });
+      s = { ...s, stock: s.stock.map((c) => ({ ...c, raw: true, assist: 1 })) };
+      const exposed = s.layout.slots.filter((sl) => isExposed(s, sl.id)).map((sl) => s.board[sl.id].rank);
+      s = drawStock(s, rng);
+      const top = wasteTop(s)!;
+      const adj = exposed.some((e) => Math.abs(((e - top.rank + 13) % 13) - 0) === 1 || (e - top.rank + 13) % 13 === 12);
+      expect(adj).toBe(true);
+    }
+  });
+
+  it('보조가 없는(1차 구매) ＋5 는 완전 랜덤이라 assist=1 보다 덜 맞는다', () => {
+    expect(playableOfTwo(true)).toBeGreaterThanOrEqual(playableOfTwo(false));
+  });
+});
+
+describe('연쇄 구제(2026-08-25) — 뒤처진 판은 매칭을 줄 때 더 많은 노출 카드와 이어지는 랭크를 받는다', () => {
+  it('구제 ON 이 OFF 보다 뽑은 카드의 평균 인접 매칭 수가 크다(도움 방향만)', () => {
+    const adjacency = (rescue: boolean): number => {
+      let sum = 0;
+      let n = 0;
+      for (let seed = 0; seed < 60; seed += 1) {
+        const rng = seededRng(seed * 53 + 3);
+        let s = dealDynamic(LAYOUT, rng, 2, { stockCount: 10, rescue });
+        // 일부러 뽑기만 소모해 "진도 대비 뽑기 소모가 앞선" 뒤처진 판을 만든다.
+        for (let i = 0; i < 4 && s.stock.length > 0; i += 1) {
+          const exposed = s.layout.slots.filter((sl) => isExposed(s, sl.id)).map((sl) => s.board[sl.id].rank);
+          s = drawStock(s, rng);
+          const r = wasteTop(s).rank;
+          sum += exposed.filter((e) => Math.abs(e - r) === 1 || Math.abs(e - r) === 12).length;
+          n += 1;
+        }
+      }
+      return sum / n;
+    };
+    expect(adjacency(true)).toBeGreaterThan(adjacency(false));
   });
 });

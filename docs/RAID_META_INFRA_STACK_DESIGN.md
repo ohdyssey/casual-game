@@ -5,6 +5,11 @@
 > **자매 문서:** 보안 계층=`docs/EXTERNAL_ATTACK_DEFENSE_DESIGN.md` · 통제 상세=`docs/SECURITY_RELIABILITY_DESIGN.md` ·
 > 기존 구조=`docs/BACKEND_SYSTEM_ARCHITECTURE.md`. 기존 방향(GCP 서울·클라우드 네이티브 자체구축)을 유지하며
 > **실제 벤더/서비스 단위**까지 확정 제안한다. *(백엔드 빌드는 보류 중 — 본 문서는 착수 시의 설계 확정본.)*
+>
+> ⚠️ **부분 재검토(2026-08-31)**: 여기서는 Cloudflare 를 CDN/WAF 로만 쓰지만, **투데이 리그 티어 매칭**처럼
+> 상태가 가볍고 트랜잭션 정합성 요구가 낮은 기능은 Cloudflare Workers+D1+Durable Objects 만으로 GCP 없이도
+> 충분하다는 결론을 별도로 냈다 — `docs/CLOUDFLARE_SERVER_STRATEGY.md` 참조. 레이드 메타(이 문서의 본 주제)
+> 처럼 무거운 트랜잭션형 기능은 이 문서의 GCP 안이 여전히 유효하다 — **기능별로 스택을 나눠 갈 수 있다.**
 
 > ### ⚠️ 예외 트랙 — 틱택토 네온 실시간 대전 (2026-08-11)
 >

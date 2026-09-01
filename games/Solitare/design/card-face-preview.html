@@ -1,0 +1,38 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>카드 앞면 시안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400..800&family=M+PLUS+Rounded+1c:wght@400;700;900&display=block" />
+<style>
+  body { margin: 0; background: #3b2b52; display: flex; flex-wrap: wrap; gap: 14px; padding: 20px; }
+  canvas { background: transparent; }
+</style>
+<script type="module">
+  // 게임과 **같은 코드**로 그린다(src/scenes/cardFace.ts) — 시안과 실제가 어긋나지 않게.
+  import { drawCardFace } from '/src/scenes/cardFace.ts';
+  const W = 132, H = 181, PAD = 8, SS = 2;
+  const RED = '#e8402f', BLACK = '#26344a', FACE = '#fffdf8';
+  const CARDS = [['A', '♥', RED], ['5', '♠', BLACK], ['10', '♦', RED], ['K', '♣', BLACK], ['Q', '♥', RED], ['7', '♠', BLACK], ['J', '♦', RED], ['9', '♣', BLACK]];
+  await document.fonts.ready;
+  for (const [label, sym, color] of CARDS) {
+    const cv = document.createElement('canvas');
+    cv.width = (W + PAD * 2) * SS; cv.height = (H + PAD * 2) * SS;
+    cv.style.width = (W + PAD * 2) + 'px';
+    const ctx = cv.getContext('2d');
+    ctx.scale(SS, SS);
+    ctx.translate(W / 2 + PAD, H / 2 + PAD);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    ctx.fillStyle = FACE;
+    const r = 22;
+    ctx.beginPath();
+    ctx.moveTo(-W / 2 + r, -H / 2);
+    ctx.arcTo(W / 2, -H / 2, W / 2, H / 2, r);
+    ctx.arcTo(W / 2, H / 2, -W / 2, H / 2, r);
+    ctx.arcTo(-W / 2, H / 2, -W / 2, -H / 2, r);
+    ctx.arcTo(-W / 2, -H / 2, W / 2, -H / 2, r);
+    ctx.fill();
+    drawCardFace(ctx, label, sym, color, W, H);
+    document.body.appendChild(cv);
+  }
+</script>

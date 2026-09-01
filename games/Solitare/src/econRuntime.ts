@@ -13,11 +13,12 @@ import {
   type EconParams,
   feeForLevel,
   starCoinsFor,
-  stockBonusFor,
   plus5CostFor,
   wildCostFor,
   undoCostFor,
 } from './logic/economy.js';
+import { setLeagueTuning } from './logic/dailyLeague.js';
+import { setEventTuning } from './config/thiefEvent.js';
 
 let ECON: EconParams = DEFAULT_ECON;
 
@@ -30,7 +31,18 @@ export function setEconFromJson(raw: unknown): void {
   if (raw == null) return;
   const obj = typeof raw === 'object' && raw !== null && 'params' in (raw as Record<string, unknown>) ? (raw as { params: unknown }).params : raw;
   ECON = coerceEcon(obj);
+  applyLiveOpsTuning();
 }
+
+/**
+ * **리그·위클리 라이브 튜닝 주입**(PO 2026-08-25) — economy.json 의 노브 6종을 각 모듈에 전달한다.
+ * 이 함수 덕에 코드 배포 없이 JSON 재배포만으로 전체 유저의 리그/위클리 수익·난이도가 바뀐다.
+ */
+function applyLiveOpsTuning(): void {
+  setLeagueTuning({ goalMult: ECON.leagueGoalMult, coinPerStar: ECON.leagueCoinPerStar, grandMult: ECON.leagueGrandMult });
+  setEventTuning({ goalMult: ECON.eventGoalMult, coinMult: ECON.eventCoinMult, grandMult: ECON.eventGrandMult });
+}
+applyLiveOpsTuning(); // 부팅 기본값(JSON 미로드)에도 일관 적용.
 
 export function econ(): EconParams {
   return ECON;
@@ -52,11 +64,6 @@ export function entryFeeFor(level: number, mult = 1): number {
 /** 별 보상(코인) — 레벨 곡선 기반 + 도전 배수. */
 export function starCoinsAt(level: number, stars: number, mult = 1): number {
   return Math.round(starCoinsFor(ECON, feeForLevel(ECON, level), stars) * Math.max(1, mult));
-}
-
-/** 남은카드 보너스 장당 단가(코인) — 레벨 곡선 기반 + 도전 배수. */
-export function stockBonusPerCardAt(level: number, mult = 1): number {
-  return Math.round(stockBonusFor(ECON, feeForLevel(ECON, level), 1) * Math.max(1, mult));
 }
 
 /** +5카드 가격 — 모델 곡선(기저×레벨램프, 100단위 내림) × 도전 배수. uses=이번 판 사용 횟수. */

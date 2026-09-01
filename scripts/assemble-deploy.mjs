@@ -15,14 +15,47 @@ import { cp, rm, mkdir, writeFile, access, readdir, unlink, readFile, stat } fro
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 import { GAMES } from '../games/hub/games.config.js';
-import { dietGameSheets, dietGameUploads } from './diet-assets.mjs';
+import { dietGameSheets, dietGameUploads, dietCacheStats, stripUnusedUploads } from './diet-assets.mjs';
 import { GAME_GATES, gameGatePageHtml, gatePageHtml, injectGameGuard, injectGuard } from './deploy-gate.mjs';
 
 /**
  * 에셋 다이어트(WebP 변환) 적용 게임 — 로더가 prod 에서 .webp 를 요청하도록 배선된 게임만.
  * 미배선 게임에 적용하면 하드코딩 .png 로드가 404 나므로 게임별로 검증 후 추가한다.
  */
-const DIET_GAMES = new Set(['socialcasino', 'solitaire']); // solitaire: uploadPath(PROD=webp) 배선 완료(2026-07-16).
+const DIET_GAMES = new Set([
+  'socialcasino', // uploadPath 배선(2026)
+  'solitaire', //   uploadPath(PROD=webp) 배선 완료(2026-07-16)
+  'pumpngo', //     동일 배선 완료(2026-08-15, PNG 49MB)
+  // ↓ 아래 5종은 **코드 변경 없이** 켤 수 있다 — 에셋 경로를 소스에 박지 않고 `ui-assets.json`
+  //   매니페스트로만 참조하기 때문이다(다이어트가 매니페스트의 .png→.webp 를 재작성한다).
+  //   ⚠️ 새 게임을 추가할 땐 `grep -r "ui/uploads/.*\.png" src` 가 0인지 먼저 확인할 것.
+  'sumoclash', //   2026-08-15 (uploads 95MB — 저장소 최대)
+  'kimbaproll', //  2026-08-15 (31MB)
+  'logistics', //   2026-08-15
+  'store', //       2026-08-15
+  'homerun', //     2026-08-15 (시트 다이어트는 별도로 이미 적용됨)
+])
+/**
+ * 게임별 다이어트 튜닝 — 기본값(표시 footprint × 2)으로 부족한 게임만 여기서 조인다.
+ *
+ * `resizeCap` 을 낮추는 근거: Phaser FIT 은 **캔버스 백버퍼가 곧 게임 좌표**라(저작 1080×2400 을 CSS 로
+ * 줄여 표시) 표시 footprint 1px 이 래스터 1px 상한이다. 1.25 면 카메라 줌·가변 폭(1350) 여유까지 덮는다.
+ *
+ * ⚠️ 이건 **다운로드 용량이 아니라 텍스처 메모리** 문제다. WebP 는 전송만 줄이고 디코드된 RGBA 는 원본
+ *   해상도 그대로라, iOS WKWebView 의 웹콘텐츠 프로세스 한도(대략 200~400MB)를 넘기면 프로세스가
+ *   통째로 죽는다 — 사파리 "문제가 반복적으로 발생했습니다". JS 예외가 아니라 errorLog 에도 안 남는다.
+ */
+const DIET_TUNING = {
+  // 솔리테어: 배포본 텍스처 317MB → 아이폰에서 실행 중 반복 크래시(2026-08-27 제보).
+  // ⚠️ 1.25 → **1.0**(2026-08-31): ASTC 롤백 후 부팅 상주가 184MB(한도 160)로 넘쳤다. 상한을 표시 크기와 같게
+  //   두면 전 자산이 −20% 면적이 되고(표시 크기 그대로라 육안 차이는 거의 없다) 예산 안으로 들어온다.
+  //   ⚠️ 고DPR 기기에서 아주 미세하게 부드러워진다 — 압축 텍스처(ASTC)를 실기기 검증 후 되살리면 1.25 로 복귀할 것.
+  //   ⚠️ **0.85**(2026-08-31 최종). 한때 0.70 까지 낮췄지만, 예산 게이트가 매니페스트만 세던 탓에 생긴 착시였다
+  //   (게이트를 실제 총량 기준으로 고친 뒤 재측정: cap 0.70→0.60 으로 크게 낮춰도 207→195MB, 12MB 차이뿐).
+  //   자산 대부분은 이미 **표시 크기 힌트/저작 크기**로 결정되므로 cap 을 깎아 봐야 화질만 잃는다.
+  solitaire: { resizeCap: 0.80 },
+}
+
 /**
  * 스프라이트 시트 다이어트 대상 — uploads 다이어트(DIET_GAMES)와 별개다. 시트는 스프라이트 문서만
  * 가리켜 자기완결적이라(경로도 같이 고침) 게임별 배선 확인이 필요 없지만, 손실 압축이라 화질을
@@ -69,12 +102,48 @@ const SRC_DIR = {
   sumoclash: 'games/SumoClash', // 2026-07-26 배포 대상 추가(매핑 누락으로 계속 "건너뜀"이었다).
   tictactoe: 'games/TICTACTOE', // 2026-08-05 배포 대상 추가.
   kimbaproll: 'games/kimbapRollMaster', // 2026-08-07 배포 대상 추가(추가 비번 게이트 있음).
+  pumpngo: 'games/BobbleRunner', // 2026-08-12 배포 대상 추가(추가 비번 5656 게이트 있음).
 };
 
 /** prodUrl('../store/') → 폴더명('store'). */
 const folderOf = (prodUrl) => (prodUrl || '').replace(/^\.\.\//, '').replace(/\/$/, '');
 
 const exists = async (p) => access(p).then(() => true).catch(() => false);
+
+/**
+ * 게임의 **미사용 업로드 목록**(`games/<game>/unused-assets.json`)을 읽는다 — 없으면 빈 배열.
+ *   생성은 게임 쪽 `npm run gen:unused-assets`(조립 키 패턴까지 본다). 여기선 읽기만 한다.
+ */
+async function readUnusedAssets(srcRel) {
+  const p = resolve(ROOT, srcRel, 'unused-assets.json')
+  if (!(await exists(p))) return []
+  try {
+    const doc = JSON.parse(await readFile(p, 'utf8'))
+    return Array.isArray(doc?.keys) ? doc.keys : []
+  } catch (e) {
+    console.warn(`    ⚠ unused-assets.json 파싱 실패 (${srcRel}): ${e?.message || e} — 제거 생략`)
+    return []
+  }
+}
+
+/**
+ * 게임의 **표시 크기 힌트**(`games/<game>/diet-hints.json`) 를 읽는다 — 없으면 빈 객체.
+ *
+ * 저작 레이아웃에 노드가 없는(=코드가 그리는) 업로드 이미지의 표시 footprint 를 게임이 직접 적어 둔 표다.
+ * 형식: `{ "keys": { "up_Xxx": { "w": 400, "h": 600 }, ... } }` — 주석용 다른 키는 무시된다.
+ * ⚠️ 소스 폴더에서만 읽는다(배포본에 복사되지 않는다).
+ */
+async function readDietHints(srcRel) {
+  const p = resolve(ROOT, srcRel, 'diet-hints.json')
+  if (!(await exists(p))) return {}
+  try {
+    const doc = JSON.parse(await readFile(p, 'utf8'))
+    return doc?.keys ?? {}
+  } catch (e) {
+    console.warn(`    ⚠ diet-hints.json 파싱 실패 (${srcRel}): ${e?.message || e} — 힌트 없이 진행`)
+    return {}
+  }
+}
 
 /**
  * 사이트 전체 게이트 설정 — 2026-07-08 (베가스호텔 전용 축소를 되돌림).
@@ -282,15 +351,29 @@ async function main() {
         console.warn(`    ⚠ sheet diet 실패 ${name}: ${e?.message || e}`);
       }
     }
+    // ⭐미사용 업로드 제거 — 다이어트보다 **먼저**. 안 쓰는 그림은 압축이 아니라 삭제가 답이고
+    //   (부팅 매니페스트가 통째로 올라가 텍스처 메모리를 먹는다), 인코딩 시간도 그만큼 준다.
+    try {
+      const unused = await readUnusedAssets(srcRel)
+      const st = await stripUnusedUploads(resolve(OUT, name), unused)
+      if (st && st.removed) console.log(`    ◦ unused: ${st.removed}장 제거 ${(st.bytes / 1048576).toFixed(1)}MB↓`)
+    } catch (e) {
+      console.warn(`    ⚠ unused 제거 실패 ${name}: ${e?.message || e}`)
+    }
     // 에셋 다이어트(WebP) — 배선된 게임만. deploy 복사본만 변환(원본·SSOT 무영향).
     if (DIET_GAMES.has(name)) {
       try {
-        const d = await dietGameUploads(resolve(OUT, name));
+        // 표시 크기 힌트(선택) — 저작 노드가 없는 **코드로 그리는 이미지**의 표시 footprint.
+        //   소스 게임 폴더에서 읽는다(배포본에는 안 들어간다).
+        const hints = await readDietHints(srcRel);
+        const tuning = DIET_TUNING[name] ?? {};
+        const d = await dietGameUploads(resolve(OUT, name), { ...tuning, hints });
         if (d) {
           const mb = (n) => (n / 1048576).toFixed(2);
           console.log(
             `    ◦ diet: ${d.files}장 ${mb(d.before)}→${mb(d.after)}MB ` +
-              `(${Math.round((1 - d.after / d.before) * 100)}%↓, 리사이즈 ${d.resized}, 사진 ${d.photos}, 배경 ${d.backgrounds})`,
+              `(${Math.round((1 - d.after / d.before) * 100)}%↓, 리사이즈 ${d.resized}, 사진 ${d.photos}, 배경 ${d.backgrounds}` +
+              `${d.hinted ? `, 힌트 ${d.hinted}` : ''}${tuning.resizeCap ? `, cap ×${tuning.resizeCap}` : ''})`,
           );
         }
       } catch (e) {
@@ -301,6 +384,17 @@ async function main() {
 
   // 루트 진입 = 허브로 리다이렉트. 호스트 비종속 정적 파일.
   await writeFile(resolve(OUT, 'index.html'), rootRedirectHtml(), 'utf8');
+  // Vite 해시 번들(`<game>/assets/*.js|css`)은 내용이 바뀌면 파일명도 바뀐다 — **영구 캐시**해도
+  //   안전하다(실측 2026-09-01: 이 규칙이 없어 1.4MB 짜리 phaser 번들도 매번 재검증 왕복을 탔다).
+  //   그 밖의 정적 에셋(`ui/`·`char/` 등)은 파일명이 안정적이라(재업로드해도 이름 유지) 여기 넣지 않는다.
+  await writeFile(resolve(OUT, 'vercel.json'), JSON.stringify({
+    headers: [
+      {
+        source: '/(.*)/assets/(.*)',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+    ],
+  }, null, 2), 'utf8');
   // 사이트 전체 비밀번호 게이트: 전용 게이트 페이지 + 루트/허브/전 게임 index.html 에 가드 주입.
   await writeFile(resolve(OUT, GATE_FILE), gatePageHtml(), 'utf8');
   const guarded = await injectSiteGuard(OUT);
@@ -322,6 +416,15 @@ async function main() {
   console.log(`비공개 게이트: 사이트 전체 — /${GATE_FILE} + index.html 가드 ${guarded}개 (루트/허브/전 게임 잠금)`);
   if (gameGates.length) console.log(`게임 추가 게이트: ${gameGates.join(', ')}`);
   console.log(`소스맵 제거 : ${maps}개`);
+  // 에셋 경량화 캐시 — 원본이 그대로면 재인코딩을 건너뛴다(조립 시간의 대부분이 여기였다).
+  {
+    const c = dietCacheStats();
+    const total = c.hit + c.miss;
+    if (total > 0) {
+      const pct = Math.round((c.hit / total) * 100);
+      console.log(`에셋 캐시   : 재사용 ${c.hit.toLocaleString()} · 새로 인코딩 ${c.miss.toLocaleString()} (적중 ${pct}%)`);
+    }
+  }
   if (sheetBytesSaved) console.log(`시트 정리   : 미참조 스프라이트 ${(sheetBytesSaved / 1048576).toFixed(1)}MB 제거`);
   console.log(`허브       : ${hubOk ? 'OK' : '실패(dist 없음)'}`);
   console.log(`게임 포함  : ${included.length}종 [${included.join(', ')}]`);

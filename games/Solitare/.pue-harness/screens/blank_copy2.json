@@ -15,14 +15,14 @@
       "type": "image",
       "label": "새 레이어",
       "rect": [
-        40,
-        231,
-        641,
-        1216
+        5,
+        225,
+        716,
+        1271
       ],
       "center": [
-        360,
-        839
+        363,
+        860
       ],
       "z": 1,
       "space": "auto",
@@ -37,14 +37,14 @@
       "type": "image",
       "label": "새 레이어",
       "rect": [
-        311,
-        1423,
-        99,
-        101
+        305,
+        1460,
+        110,
+        112
       ],
       "center": [
         360,
-        1473
+        1516
       ],
       "z": 2,
       "space": "auto",
@@ -59,14 +59,14 @@
       "type": "image",
       "label": "새 레이어",
       "rect": [
-        211,
-        471,
-        70,
-        72
+        195,
+        463,
+        78,
+        80
       ],
       "center": [
-        246,
-        507
+        234,
+        503
       ],
       "z": 3,
       "space": "auto",
@@ -81,13 +81,13 @@
       "type": "text",
       "label": "텍스트 복사",
       "rect": [
-        206,
-        522,
-        72,
-        43
+        189,
+        519,
+        80,
+        48
       ],
       "center": [
-        242,
+        229,
         543
       ],
       "rectApprox": true,
@@ -96,7 +96,7 @@
       "pin": "none",
       "text": "2000",
       "at": [
-        242,
+        229,
         543
       ],
       "anchorX": "center",
@@ -104,7 +104,7 @@
       "style": {
         "stroke": "#0a0a0b",
         "strokeW": 0,
-        "fontSize": 36,
+        "fontSize": 40,
         "fontFamily": "Luckiest Guy",
         "color": "#fcbe03",
         "align": "center",
@@ -121,14 +121,14 @@
       "type": "image",
       "label": "새 레이어",
       "rect": [
-        35,
-        109,
-        650,
-        315
+        0,
+        89,
+        720,
+        349
       ],
       "center": [
         360,
-        266
+        263
       ],
       "z": 5,
       "space": "auto",
@@ -143,14 +143,14 @@
       "type": "image",
       "label": "새 레이어 복사",
       "rect": [
-        425,
-        472,
-        82,
-        69
+        432,
+        464,
+        91,
+        76
       ],
       "center": [
-        466,
-        506
+        477,
+        502
       ],
       "z": 6,
       "space": "auto",
@@ -165,13 +165,13 @@
       "type": "text",
       "label": "텍스트 복사",
       "rect": [
-        438,
-        522,
-        54,
-        43
+        446,
+        519,
+        60,
+        48
       ],
       "center": [
-        465,
+        476,
         543
       ],
       "rectApprox": true,
@@ -180,7 +180,7 @@
       "pin": "none",
       "text": "200",
       "at": [
-        465,
+        476,
         543
       ],
       "anchorX": "center",
@@ -188,7 +188,7 @@
       "style": {
         "stroke": "#0a0a0b",
         "strokeW": 0,
-        "fontSize": 36,
+        "fontSize": 40,
         "fontFamily": "Luckiest Guy",
         "color": "#ffffff",
         "align": "center",
@@ -201,306 +201,20 @@
       }
     },
     {
-      "id": "layer_3",
-      "type": "image",
-      "label": "새 레이어",
-      "rect": [
-        119,
-        608,
-        134,
-        203
-      ],
-      "center": [
-        186,
-        709
-      ],
-      "z": 8,
-      "space": "auto",
-      "pin": "none",
-      "asset": "up_01_v2",
-      "style": {
-        "tintable": true
-      }
-    },
-    {
-      "id": "layer_8",
-      "type": "image",
-      "label": "새 레이어",
-      "rect": [
-        230,
-        606,
-        44,
-        50
-      ],
-      "center": [
-        252,
-        631
-      ],
-      "z": 9,
-      "space": "auto",
-      "pin": "none",
-      "asset": "up_Solitare_UI_Play_03-3_v2",
-      "style": {
-        "tintable": true
-      }
-    },
-    {
-      "id": "layer_3_copy3",
-      "type": "image",
-      "label": "새 레이어 복사",
-      "rect": [
-        295,
-        609,
-        134,
-        201
-      ],
-      "center": [
-        362,
-        709
-      ],
-      "z": 10,
-      "space": "auto",
-      "pin": "none",
-      "asset": "up_02",
-      "style": {
-        "tintable": true
-      }
-    },
-    {
-      "id": "layer_3_copy4",
-      "type": "image",
-      "label": "새 레이어 복사",
-      "rect": [
-        473,
-        609,
-        134,
-        201
-      ],
-      "center": [
-        540,
-        709
-      ],
-      "z": 11,
-      "space": "auto",
-      "pin": "none",
-      "asset": "up_03",
-      "style": {
-        "tintable": true
-      }
-    },
-    {
-      "id": "layer_3_copy5",
-      "type": "image",
-      "label": "새 레이어 복사",
-      "rect": [
-        119,
-        851,
-        134,
-        201
-      ],
-      "center": [
-        186,
-        951
-      ],
-      "z": 12,
-      "space": "auto",
-      "pin": "none",
-      "asset": "up_04",
-      "style": {
-        "tintable": true
-      }
-    },
-    {
-      "id": "layer_3_copy6",
-      "type": "image",
-      "label": "새 레이어 복사",
-      "rect": [
-        295,
-        851,
-        134,
-        201
-      ],
-      "center": [
-        362,
-        951
-      ],
-      "z": 13,
-      "space": "auto",
-      "pin": "none",
-      "asset": "up_05",
-      "style": {
-        "tintable": true
-      }
-    },
-    {
-      "id": "layer_3_copy7",
-      "type": "image",
-      "label": "새 레이어 복사",
-      "rect": [
-        473,
-        851,
-        134,
-        201
-      ],
-      "center": [
-        540,
-        951
-      ],
-      "z": 14,
-      "space": "auto",
-      "pin": "none",
-      "asset": "up_06",
-      "style": {
-        "tintable": true
-      }
-    },
-    {
-      "id": "layer_3_copy8",
-      "type": "image",
-      "label": "새 레이어 복사",
-      "rect": [
-        119,
-        1097,
-        134,
-        201
-      ],
-      "center": [
-        186,
-        1197
-      ],
-      "z": 15,
-      "space": "auto",
-      "pin": "none",
-      "asset": "up_07",
-      "style": {
-        "tintable": true
-      }
-    },
-    {
-      "id": "layer_3_copy9",
-      "type": "image",
-      "label": "새 레이어 복사",
-      "rect": [
-        295,
-        1097,
-        134,
-        201
-      ],
-      "center": [
-        362,
-        1197
-      ],
-      "z": 16,
-      "space": "auto",
-      "pin": "none",
-      "asset": "up_08",
-      "style": {
-        "tintable": true
-      }
-    },
-    {
-      "id": "layer_3_copy10",
-      "type": "image",
-      "label": "새 레이어 복사",
-      "rect": [
-        473,
-        1097,
-        134,
-        201
-      ],
-      "center": [
-        540,
-        1197
-      ],
-      "z": 17,
-      "space": "auto",
-      "pin": "none",
-      "asset": "up_09",
-      "style": {
-        "tintable": true
-      }
-    },
-    {
-      "id": "layer_6",
-      "type": "image",
-      "label": "새 레이어",
-      "rect": [
-        168,
-        592,
-        29,
-        29
-      ],
-      "center": [
-        182,
-        606
-      ],
-      "z": 18,
-      "space": "auto",
-      "pin": "none",
-      "asset": "up_Solitare_UI_02_v4",
-      "style": {
-        "tintable": true
-      }
-    },
-    {
-      "id": "layer_6_copy",
-      "type": "image",
-      "label": "새 레이어 복사",
-      "rect": [
-        346,
-        592,
-        29,
-        29
-      ],
-      "center": [
-        360,
-        606
-      ],
-      "z": 19,
-      "space": "auto",
-      "pin": "none",
-      "asset": "up_Solitare_UI_02_v4",
-      "style": {
-        "tintable": true
-      }
-    },
-    {
-      "id": "layer_6_copy2",
-      "type": "image",
-      "label": "새 레이어 복사",
-      "rect": [
-        525,
-        592,
-        29,
-        29
-      ],
-      "center": [
-        539,
-        606
-      ],
-      "z": 20,
-      "space": "auto",
-      "pin": "none",
-      "asset": "up_Solitare_UI_02_v4",
-      "style": {
-        "tintable": true
-      }
-    },
-    {
       "id": "layer_6_copy3",
       "type": "image",
       "label": "새 레이어 복사",
       "rect": [
-        154,
-        835,
-        29,
-        29
+        132,
+        847,
+        32,
+        32
       ],
       "center": [
-        168,
-        849
+        148,
+        863
       ],
-      "z": 21,
+      "z": 8,
       "space": "auto",
       "pin": "none",
       "asset": "up_Solitare_UI_02_v4",
@@ -513,16 +227,16 @@
       "type": "image",
       "label": "새 레이어 복사",
       "rect": [
-        184,
-        835,
-        29,
-        29
+        165,
+        847,
+        32,
+        32
       ],
       "center": [
-        198,
-        849
+        181,
+        863
       ],
-      "z": 22,
+      "z": 9,
       "space": "auto",
       "pin": "none",
       "asset": "up_Solitare_UI_02_v4",
@@ -535,16 +249,16 @@
       "type": "image",
       "label": "새 레이어 복사",
       "rect": [
-        332,
-        835,
-        29,
-        29
+        329,
+        847,
+        32,
+        32
       ],
       "center": [
-        346,
-        849
+        345,
+        863
       ],
-      "z": 23,
+      "z": 10,
       "space": "auto",
       "pin": "none",
       "asset": "up_Solitare_UI_02_v4",
@@ -558,15 +272,15 @@
       "label": "새 레이어 복사",
       "rect": [
         362,
-        835,
-        29,
-        29
+        847,
+        32,
+        32
       ],
       "center": [
-        376,
-        849
+        378,
+        863
       ],
-      "z": 24,
+      "z": 11,
       "space": "auto",
       "pin": "none",
       "asset": "up_Solitare_UI_02_v4",
@@ -579,16 +293,16 @@
       "type": "image",
       "label": "새 레이어 복사",
       "rect": [
-        511,
-        835,
-        29,
-        29
+        527,
+        847,
+        32,
+        32
       ],
       "center": [
-        525,
-        849
+        543,
+        863
       ],
-      "z": 25,
+      "z": 12,
       "space": "auto",
       "pin": "none",
       "asset": "up_Solitare_UI_02_v4",
@@ -601,16 +315,16 @@
       "type": "image",
       "label": "새 레이어 복사",
       "rect": [
-        542,
-        835,
-        29,
-        29
+        561,
+        847,
+        32,
+        32
       ],
       "center": [
-        556,
-        849
+        577,
+        863
       ],
-      "z": 26,
+      "z": 13,
       "space": "auto",
       "pin": "none",
       "asset": "up_Solitare_UI_02_v4",
@@ -623,16 +337,16 @@
       "type": "image",
       "label": "새 레이어 복사",
       "rect": [
-        142,
-        1080,
-        29,
-        29
+        118,
+        1106,
+        32,
+        32
       ],
       "center": [
-        156,
-        1094
+        134,
+        1122
       ],
-      "z": 27,
+      "z": 14,
       "space": "auto",
       "pin": "none",
       "asset": "up_Solitare_UI_02_v4",
@@ -645,16 +359,16 @@
       "type": "image",
       "label": "새 레이어 복사",
       "rect": [
-        172,
-        1080,
-        29,
-        29
+        151,
+        1106,
+        32,
+        32
       ],
       "center": [
-        186,
-        1094
+        167,
+        1122
       ],
-      "z": 28,
+      "z": 15,
       "space": "auto",
       "pin": "none",
       "asset": "up_Solitare_UI_02_v4",
@@ -667,16 +381,16 @@
       "type": "image",
       "label": "새 레이어 복사",
       "rect": [
-        202,
-        1080,
-        29,
-        29
+        185,
+        1106,
+        32,
+        32
       ],
       "center": [
-        216,
-        1094
+        201,
+        1122
       ],
-      "z": 29,
+      "z": 16,
       "space": "auto",
       "pin": "none",
       "asset": "up_Solitare_UI_02_v4",
@@ -689,16 +403,16 @@
       "type": "image",
       "label": "새 레이어 복사",
       "rect": [
-        318,
-        1080,
-        29,
-        29
+        313,
+        1106,
+        32,
+        32
       ],
       "center": [
-        332,
-        1094
+        329,
+        1122
       ],
-      "z": 30,
+      "z": 17,
       "space": "auto",
       "pin": "none",
       "asset": "up_Solitare_UI_02_v4",
@@ -711,16 +425,16 @@
       "type": "image",
       "label": "새 레이어 복사",
       "rect": [
-        347,
-        1080,
-        29,
-        29
+        345,
+        1106,
+        32,
+        32
       ],
       "center": [
         361,
-        1094
+        1122
       ],
-      "z": 31,
+      "z": 18,
       "space": "auto",
       "pin": "none",
       "asset": "up_Solitare_UI_02_v4",
@@ -733,16 +447,16 @@
       "type": "image",
       "label": "새 레이어 복사",
       "rect": [
-        377,
-        1080,
-        29,
-        29
+        378,
+        1106,
+        32,
+        32
       ],
       "center": [
-        391,
-        1094
+        394,
+        1122
       ],
-      "z": 32,
+      "z": 19,
       "space": "auto",
       "pin": "none",
       "asset": "up_Solitare_UI_02_v4",
@@ -755,16 +469,16 @@
       "type": "image",
       "label": "새 레이어 복사",
       "rect": [
-        500,
-        1080,
-        29,
-        29
+        515,
+        1106,
+        32,
+        32
       ],
       "center": [
-        514,
-        1094
+        531,
+        1122
       ],
-      "z": 33,
+      "z": 20,
       "space": "auto",
       "pin": "none",
       "asset": "up_Solitare_UI_02_v4",
@@ -777,16 +491,16 @@
       "type": "image",
       "label": "새 레이어 복사",
       "rect": [
-        530,
-        1080,
-        29,
-        29
+        548,
+        1106,
+        32,
+        32
       ],
       "center": [
-        544,
-        1094
+        564,
+        1122
       ],
-      "z": 34,
+      "z": 21,
       "space": "auto",
       "pin": "none",
       "asset": "up_Solitare_UI_02_v4",
@@ -799,16 +513,16 @@
       "type": "image",
       "label": "새 레이어 복사",
       "rect": [
-        559,
-        1080,
-        29,
-        29
+        580,
+        1106,
+        32,
+        32
       ],
       "center": [
-        573,
-        1094
+        596,
+        1122
       ],
-      "z": 35,
+      "z": 22,
       "space": "auto",
       "pin": "none",
       "asset": "up_Solitare_UI_02_v4",
@@ -821,30 +535,30 @@
       "type": "text",
       "label": "9",
       "rect": [
-        328,
-        1368,
-        14,
-        34
+        324,
+        1418,
+        16,
+        37
       ],
       "center": [
-        335,
-        1385
+        332,
+        1436
       ],
       "rectApprox": true,
-      "z": 36,
+      "z": 23,
       "space": "auto",
       "pin": "none",
       "text": "9",
       "at": [
-        335,
-        1385
+        332,
+        1436
       ],
       "anchorX": "center",
       "anchorY": "middle",
       "style": {
         "stroke": "#5a3210",
         "strokeW": 4,
-        "fontSize": 28,
+        "fontSize": 31,
         "fontFamily": "Jua",
         "color": "#ffffff",
         "align": "center",
@@ -861,30 +575,30 @@
       "type": "text",
       "label": "5 복사",
       "rect": [
-        350,
-        1368,
-        56,
-        34
+        349,
+        1418,
+        62,
+        37
       ],
       "center": [
-        378,
-        1385
+        380,
+        1436
       ],
       "rectApprox": true,
-      "z": 37,
+      "z": 24,
       "space": "auto",
       "pin": "none",
       "text": "/  9",
       "at": [
-        378,
-        1385
+        380,
+        1436
       ],
       "anchorX": "center",
       "anchorY": "middle",
       "style": {
         "stroke": "#5a3210",
         "strokeW": 4,
-        "fontSize": 28,
+        "fontSize": 31,
         "fontFamily": "Jua",
         "color": "#ffffff",
         "align": "center",
@@ -895,25 +609,139 @@
         "shadowBlur": 2,
         "shadowAlpha": 0.4
       }
+    },
+    {
+      "id": "layer_3",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        89,
+        614,
+        154,
+        216
+      ],
+      "center": [
+        166,
+        722
+      ],
+      "z": 25,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_ChatGPT_Image_2026__8__31_____02_41_39__3_",
+      "style": {
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4,
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3_copy3",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        287,
+        615,
+        154,
+        215
+      ],
+      "center": [
+        364,
+        722
+      ],
+      "z": 26,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_ChatGPT_Image_2026__8__31_____02_41_37__1_",
+      "style": {
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4,
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        147,
+        591,
+        32,
+        32
+      ],
+      "center": [
+        163,
+        607
+      ],
+      "z": 27,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        344,
+        591,
+        32,
+        32
+      ],
+      "center": [
+        360,
+        607
+      ],
+      "z": 28,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy2",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        542,
+        591,
+        32,
+        32
+      ],
+      "center": [
+        558,
+        607
+      ],
+      "z": 29,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v4",
+      "style": {
+        "tintable": true
+      }
     }
   ],
   "refs": [
-    "asset:up_01_v2",
-    "asset:up_02",
-    "asset:up_03",
-    "asset:up_04",
-    "asset:up_05",
-    "asset:up_06",
-    "asset:up_07",
-    "asset:up_08",
-    "asset:up_09",
+    "asset:up_ChatGPT_Image_2026__8__31_____02_41_37__1_",
+    "asset:up_ChatGPT_Image_2026__8__31_____02_41_39__3_",
     "asset:up_CollecttionCard_01",
     "asset:up_CollecttionCard_Frame",
     "asset:up_DailyMission_08-1_v2",
     "asset:up_PlayIn_02_v2",
     "asset:up_Solitare_UI_02_v4",
-    "asset:up_Solitare_UI_2-3_v4",
-    "asset:up_Solitare_UI_Play_03-3_v2"
+    "asset:up_Solitare_UI_2-3_v4"
   ],
   "label": "콜렉션 카드1",
   "hints": {
@@ -1111,5 +939,5 @@
     ],
     "note": "추정입니다 — 저작된 값이 아닙니다. 확정이 필요하면 에디터에서 「버튼」과 역할(action:이름)을 지정하세요. 구현 시에는 이 후보를 근거로 삼되, 코드에 TODO 로 남겨 사람이 확인할 수 있게 하세요."
   },
-  "rev": "29accfb9"
+  "rev": "b1d5ed19"
 }

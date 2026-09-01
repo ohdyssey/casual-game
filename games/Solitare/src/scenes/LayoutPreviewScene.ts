@@ -7,13 +7,16 @@
  * ⚠️ HD(1080×2400) 절대 좌표. PlayScene 의 보드 사각형/유닛 배율과 1:1 로 맞춘다(디자인 충실도).
  */
 import Phaser from 'phaser';
-import { loadGameAssets, BACK_BG_KEY, CARD_BACK_KEY, uploadPath } from '../assets.js';
+import { loadGameAssets, BACK_BG_KEY, CARD_BACK_KEY, uploadPath, texSize } from '../assets.js';
 import { CardView } from './cardView.js';
 import { levelDef } from '../logic/levels.js';
 import type { LayoutSlot } from '../logic/layouts.js';
+import { SAFE_H as H, SAFE_W as W } from '../logic/responsiveFrame.js';
+import { fullBleedBounds } from '@casual/core';
 
-const W = 1080;
-const H = 2400;
+// 저작(=세이프존) 프레임 — 좌표 계약의 단일 출처는 logic/responsiveFrame.ts 다.
+//   ⚠️ 이 값은 **캔버스 크기가 아니라 저작 크기**다. 캔버스는 앞으로 가변이 될 수 있으므로
+//      화면 전체를 덮는 요소(딤 등)는 W/H 가 아니라 scene.scale.width/height 를 써야 한다.
 const BASE_CARD_W = 132;
 const BASE_CARD_H = 181;
 // PlayScene 과 동일한 보드 영역/배율(실제 배치 그대로).
@@ -63,12 +66,14 @@ export class LayoutPreviewScene extends Phaser.Scene {
   private drawBackground(): void {
     if (this.textures.exists(BACK_BG_KEY)) {
       const img = this.add.image(W / 2, H / 2, BACK_BG_KEY).setDepth(-100);
-      const src = img.texture.getSourceImage() as { width: number; height: number };
+      const src = texSize(img.texture);
       img.setScale(Math.max(W / src.width, H / src.height)).setTint(0x5a6070);
     } else {
-      this.add.rectangle(W / 2, H / 2, W, H, 0x141826).setDepth(-100);
+      const fbBg = fullBleedBounds(this);
+      this.add.rectangle(fbBg.x, fbBg.y, fbBg.w, fbBg.h, 0x141826).setOrigin(0, 0).setDepth(-100);
     }
-    this.add.rectangle(W / 2, H / 2, W, H, 0x05060f, 0.72).setDepth(-90);
+    const fbDim = fullBleedBounds(this);
+    this.add.rectangle(fbDim.x, fbDim.y, fbDim.w, fbDim.h, 0x05060f, 0.72).setOrigin(0, 0).setDepth(-90);
   }
 
   /** 보드 영역 테두리(디자인 배치 범위 시각화). */
@@ -85,7 +90,7 @@ export class LayoutPreviewScene extends Phaser.Scene {
     if (!layout) {
       this.add
         .text(W / 2, H / 2, '이 레벨은 아직\n만들어지지 않았어요', {
-          fontFamily: '"Jua", sans-serif',
+          fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
           fontSize: '54px',
           color: '#ffd54a',
           align: 'center',
@@ -146,7 +151,7 @@ export class LayoutPreviewScene extends Phaser.Scene {
       .setStrokeStyle(2, 0x6da7ff, 0.4);
     this.add
       .text(W / 2, 62, `레벨 디자인 점검 · Lv.${this.level}`, {
-        fontFamily: '"Jua", sans-serif',
+        fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
         fontSize: '52px',
         color: '#ffe066',
         stroke: '#20143a',
@@ -156,7 +161,7 @@ export class LayoutPreviewScene extends Phaser.Scene {
       .setDepth(701);
     this.add
       .text(W / 2, 118, `카드 ${layout ? layout.slots.length : 0}장 · 피크 ${peaks}개 (🟡 초기 노출)`, {
-        fontFamily: '"Jua", sans-serif',
+        fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
         fontSize: '30px',
         color: '#cfe0ff',
       })
@@ -169,7 +174,7 @@ export class LayoutPreviewScene extends Phaser.Scene {
     const btn = (x: number, label: string, color: string, fn: () => void, w = 150): void => {
       this.add
         .text(x, y, label, {
-          fontFamily: '"Jua", sans-serif',
+          fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
           fontSize: '48px',
           color: '#ffffff',
           backgroundColor: color,
@@ -197,12 +202,13 @@ export class LayoutPreviewScene extends Phaser.Scene {
   /** 1~60 점프 그리드(드래그 스크롤). */
   private showGrid(): void {
     const layer = this.add.container(0, 0).setDepth(2000);
-    const bg = this.add.rectangle(0, 0, W, H, 0x0a0e1a, 0.95).setOrigin(0, 0).setInteractive();
+    const fb = fullBleedBounds(this);
+    const bg = this.add.rectangle(fb.x, fb.y, fb.w, fb.h, 0x0a0e1a, 0.95).setOrigin(0, 0).setInteractive();
     layer.add(bg);
     layer.add(
       this.add
         .text(W / 2, 120, '레벨 선택 (1~60)', {
-          fontFamily: '"Jua", sans-serif',
+          fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
           fontSize: '60px',
           color: '#ffe066',
           stroke: '#20143a',
@@ -224,7 +230,7 @@ export class LayoutPreviewScene extends Phaser.Scene {
       const cur = lv === this.level;
       const t = this.add
         .text(x, yy, `${lv}`, {
-          fontFamily: '"Jua", sans-serif',
+          fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
           fontSize: '46px',
           color: cur ? '#20143a' : '#ffffff',
           backgroundColor: cur ? '#ffd166' : '#3a2a52',
@@ -252,7 +258,7 @@ export class LayoutPreviewScene extends Phaser.Scene {
     layer.add(
       this.add
         .text(W / 2, H - 90, '✕ 닫기', {
-          fontFamily: '"Jua", sans-serif',
+          fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
           fontSize: '44px',
           color: '#ffffff',
           backgroundColor: '#c0392b',

@@ -1,22 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  STAR_CUTS,
-  STAR_RATIO_CUTS,
-  STAR_WEIGHTS,
-  MAX_STARS,
-  COMBO_CAP,
-  PLUS5_CARDS,
-  matchGain,
-  comboTerm,
-  leftoverTerm,
-  cleanTerm,
-  finalQuality,
-  playingQuality,
-  referenceQuality,
-  starsForQuality,
-  starsForRatio,
-  type PlayOutcome,
-} from './starRating.js';
+import { STAR_CUTS, STAR_RATIO_CUTS, STAR_WEIGHTS, MAX_STARS, COMBO_CAP, PLUS5_CARDS, matchGain, comboTerm, leftoverTerm, cleanTerm, finalQuality, playingQuality, referenceQuality, starsForQuality, starsForRatio, type PlayOutcome, qualityWithCleanFloor, CLEAN_MIN_STARS } from './starRating.js';
 
 /** 기준 판 — 개별 축을 바꿔 가며 비교하는 베이스라인. */
 const BASE: PlayOutcome = { comboScore: 60, boardSize: 30, leftover: 10, stockSize: 40, plus5Uses: 0 };
@@ -182,5 +165,54 @@ describe('referenceQuality / starsForRatio — 그 판의 정답 수순 대비 �
   it('기준이 없으면(0) 절대 컷으로 폴백한다', () => {
     const q = finalQuality(BASE);
     expect(starsForRatio(q, 0)).toBe(starsForQuality(q));
+  });
+});
+
+describe('qualityWithCleanFloor — ＋5 없이 클리어하면 항상 3★ 이상', () => {
+  it('부스터를 안 썼으면 아무리 못 풀어도 3★ 컷까지 끌어올린다(상대 컷)', () => {
+    const ref = 0.3;
+    const q = qualityWithCleanFloor(0.01, ref, 0);
+    expect(starsForRatio(q, ref)).toBeGreaterThanOrEqual(CLEAN_MIN_STARS);
+  });
+  it('기준 수순이 없는 레벨(절대 컷)에서도 3★ 이상', () => {
+    const q = qualityWithCleanFloor(0.01, 0, 0);
+    expect(starsForQuality(q)).toBeGreaterThanOrEqual(CLEAN_MIN_STARS);
+  });
+  it('＋5 를 쓴 판은 끌어올리지 않는다(하한은 클린 전용)', () => {
+    expect(qualityWithCleanFloor(0.01, 0.3, 1)).toBe(0.01);
+  });
+  it('이미 3★ 를 넘은 판의 점수는 건드리지 않는다', () => {
+    const ref = 0.3;
+    const high = 0.9;
+    expect(qualityWithCleanFloor(high, ref, 0)).toBe(high);
+  });
+});
+
+describe('클린 3★ 하한 — 부동소수점 회귀(2026-08-23)', () => {
+  // `컷 × ref` 를 다시 `ref` 로 나누면 0.9199999999999999 처럼 컷 바로 아래로 떨어진다.
+  //   실측 1,500판에서 이 경로로 무구매 판이 2★(게임비 손실)로 기록됐다.
+  it('refQuality 전 구간에서 클린은 예외 없이 3★ 이상', () => {
+    let leaked = 0;
+    for (let i = 1; i <= 20000; i++) {
+      const ref = 0.05 + (i / 20000) * 0.8;
+      const q = qualityWithCleanFloor(0, ref, 0);
+      if (starsForRatio(q, ref) < CLEAN_MIN_STARS) leaked++;
+    }
+    expect(leaked).toBe(0);
+  });
+
+  it('절대 컷 폴백에서도 새지 않는다', () => {
+    let leaked = 0;
+    for (let i = 0; i < 5000; i++) {
+      const q = qualityWithCleanFloor(i / 5000 / 10, 0, 0);
+      if (starsForQuality(q) < CLEAN_MIN_STARS) leaked++;
+    }
+    expect(leaked).toBe(0);
+  });
+
+  it('허용오차가 옆 등급을 침범하지 않는다(컷 바로 아래는 그대로 낮은 등급)', () => {
+    expect(starsForRatio(0.92 - 1e-4, 1)).toBe(2);
+    expect(starsForRatio(1.17 - 1e-4, 1)).toBe(3);
+    expect(starsForRatio(1.38 - 1e-4, 1)).toBe(4);
   });
 });

@@ -1,3 +1,4 @@
+import { texSize } from '../assets.js';
 /**
  * missionRewardBanner.ts — 홈/플레이 **공용 미션 리워드 배너**(연속 플레이 별 수집, 2026-07-18).
  *
@@ -39,19 +40,41 @@ const BADGE = { y: 247, w: 474, h: 135 };
 const TITLE = { y: 194, w: 229, h: 91 };
 const LEFT_ICON = { x: 383, y: 251, w: 79, h: 80 };
 const RIGHT_ICON = { x: 701, y: 251, w: 79, h: 80 }; // layer_13_copy3.
-const REWARD_ICON = { x: 702, y: 246, w: 63, h: 55 }; // layer_13_copy6(다이아, 원판 위).
-const REWARD_TEXT_Y = 273; // layer_8_copy5("X10") — REWARD_ICON.x 와 같은 x(CX 아님, 우측 원판 중심).
-const REWARD_FONT_SIZE = 29;
+/*
+ * 보상 아이콘 — **크게**(PO 2026-08-24 "코인 아이콘을 크게 배치"). 저작값(63×55)은 우측 원판(지름 80)
+ *   안에서 작게 떠 있어 무엇을 주는지 잘 안 읽혔다. 원판을 거의 채우도록 키운다.
+ * ⚠️ **비율을 바꾸지 않는다**(PO 2026-08-24: "어떤 경우에도 이미지의 비율을 변경하여 적용하지 마세요").
+ *   가로만 주고 세로는 원본 비율로 계산한다 — `imgFit` 참조.
+ */
+const REWARD_ICON = { x: RIGHT_ICON.x, y: RIGHT_ICON.y, w: 86, h: 86 }; // 우측 원판 정중앙(코인).
+const REWARD_TEXT_Y = 288; // layer_8_copy5("X10") — REWARD_ICON.x 와 같은 x(CX 아님, 우측 원판 중심).
+const REWARD_FONT_SIZE = 34; // 금액도 약간 크게(PO 2026-08-24).
 // 아이템(캔) 아이콘 — 기존 좌표(y:247,h:101)는 좌측 원판(LEFT_ICON, 지름 80) 대비 세로로 너무 커서
 //   회전 시 원판 아래로 삐져나와 "아래로 처져 보이는" 문제가 있었다(2026-07-18 QA 지적). 원판 중심(y:251)에
 //   맞추고 원판 안에 들어오도록 살짝 축소.
-const ITEM_ICON = { x: 384, y: 238, w: 52, h: 84, angle: 15 };
+/*
+ * 아이템(캔) 아이콘 — **좌측 원판의 정중앙**(PO 2026-08-24: "콜라아이콘과 코인 아이콘이 뒷배경 원의
+ *   중심에 배치"). 크기는 원판 안에 들어오는 상자를 주고 **비율은 원본 그대로** 맞춘다.
+ */
+const ITEM_ICON = { x: LEFT_ICON.x, y: LEFT_ICON.y, w: 66, h: 74, angle: 15 };
 const TIMER_BG = { y: 304, w: 179, h: 41 }; // 2026-07-18 에디터에서 시간표시 패널 확대 저장분 반영.
 const TIMER_TEXT_X = 557; // 시계 아이콘(배경에 각인) 오른쪽 여백.
 const PROGRESS_TEXT_Y = 251;
 const PROGRESS_FONT_SIZE = 29;
 // 진행 바 트랙 — up_Rewards_01_v2 안쪽 짙은 홈 영역(실측: 뱃지 폭의 74.5%·높이의 32%, 중앙정렬).
 const TRACK = { left: CX - (BADGE.w * 0.745) / 2, y: 252, w: BADGE.w * 0.745, h: Math.round(BADGE.h * 0.32), r: Math.round((BADGE.h * 0.32) / 2) };
+
+/**
+ * 배너의 **가장 아래 끝**(저작 y, offsetY 반영 전). 지금은 타이머 패널(TIMER_BG)이 최하단이다.
+ *
+ * 이 배너는 uiCam 에 고정돼 화면 위쪽을 점유하므로, 그 아래에 와야 하는 것(홈 타워의 "N층 건설"
+ * 버튼 등)이 **직접 참조해서** 여백을 잡아야 한다. 숫자를 따로 적어 두면 배너가 움직일 때
+ * 같이 안 움직여 가려진다(실측: 세이프에어리어로 배너가 내려가자 건설 버튼이 배너 뒤로 들어감).
+ */
+export const MISSION_BANNER_BOTTOM = TIMER_BG.y + TIMER_BG.h / 2;
+
+/** 배너 묶음의 세로 중심(저작 y, offsetY 반영 전) — 배너를 덮는 입력 존을 놓을 때 쓴다. */
+export const MISSION_BANNER_CENTER_Y = Math.round((TITLE.y - TITLE.h / 2 + MISSION_BANNER_BOTTOM) / 2);
 
 const DROP_DIST = 46; // 등장 연출 — 이 만큼 위에서 "쿵" 떨어진다.
 const DROP_DURATION = 380;
@@ -65,6 +88,12 @@ export interface MissionRewardBanner {
    *   작은 아이템 아이콘이 배너로 빨려 올라온 뒤 카운트업이 시작된다(별 수집 시 사용).
    */
   animateTo(next: MissionRewardState, flyFrom?: { x: number; y: number }): void;
+  /**
+   * **주간 이벤트 표시로 전환**(PO 2026-08-23) — 이 배너는 `CATCH THE THIEF` 이벤트의 얼굴이다.
+   * 옛 미션 티어(다이아 X42) 대신 **지금 모으는 층 상품 · 진행 · 코인 보상**을 보여 준다.
+   * 한 번 부르면 그 뒤로는 이 값만 그린다(티어 렌더로 되돌아가지 않는다).
+   */
+  setView(v: { itemKey?: string; current: number; goal: number; rewardText: string; remainMs: number; rewardIconKey?: string }): void;
   /** 배너 아이템 아이콘의 월드 좌표(수집 연출의 도착점 참고용). */
   itemAnchor: { x: number; y: number };
   /** 배너 우측 보상 미리보기 아이콘의 월드 좌표(티어 완료 시 "커졌다가 저장소로 빨려가는" 연출의 출발점). */
@@ -96,6 +125,31 @@ export function buildMissionRewardBanner(
     return o;
   };
 
+  /**
+   * **비율을 지키며** 주어진 사각형 안에 맞춘다(PO 2026-08-24: "어떤 경우에도 이미지의 비율을
+   * 변경하여 적용하지 마세요" — 콜라 캔이 찌그러져 보였다).
+   *
+   * 저작 사각형은 자리를 잡는 용도로만 쓰고, 실제 크기는 **원본 비율로 contain** 한다.
+   * 위치는 그 사각형의 **중심**(뒤 원판의 중심과 같은 지점)이다.
+   */
+  const imgFit = (key: string, cx: number, cy: number, boxW: number, boxH: number, d: number, angle = 0): Phaser.GameObjects.Image | undefined => {
+    if (!scene.textures.exists(key)) return undefined;
+    const o = scene.add.image(cx, Y(cy), key).setDepth(d);
+    const src = texSize(o.texture);
+    const k = Math.min(boxW / src.width, boxH / src.height);
+    o.setDisplaySize(src.width * k, src.height * k);
+    if (angle) o.setAngle(angle);
+    objects.push(o);
+    return o;
+  };
+  /** 텍스처가 바뀌어도 **비율을 지켜** 같은 상자에 다시 맞춘다. */
+  const refit = (o: Phaser.GameObjects.Image | undefined, boxW: number, boxH: number): void => {
+    if (!o) return;
+    const src = texSize(o.texture);
+    const k = Math.min(boxW / src.width, boxH / src.height);
+    o.setDisplaySize(src.width * k, src.height * k);
+  };
+
   // 깊이 층(낮음→높음): 배지/타이머배경 → 트랙(홈) → 진행 채움 → 아이콘 원판들 → 아이템(캔) → 타이틀 리본 → 텍스트.
   //   (트랙·채움이 아이콘/아이템보다 위로 올라와 가리던 버그 수정, 2026-07-18 — 명시적 층으로 겹침 순서 고정.)
   img(BADGE_KEY, CX, BADGE.y, BADGE.w, BADGE.h, depth);
@@ -103,8 +157,12 @@ export function buildMissionRewardBanner(
 
   const trackY = Y(TRACK.y);
   const track = scene.add.graphics().setDepth(depth + 1);
-  // 게이지 전체를 반투명 청색으로(2026-07-18 QA) — 진한 초록 opaque 홈이었던 걸 채움색과 같은 계열로 통일.
-  track.fillStyle(0x123a5c, 0.55);
+  /*
+   * 게이지 홈 — **밝은 청색 계열**(PO 2026-08-24: "지금은 너무 탁합니다").
+   *   예전 값(0x123a5c · 0.55)은 어두운 남색이라 배너의 밝은 아트 위에서 때가 낀 것처럼 보였다.
+   *   홈은 옅은 하늘색으로 낮추고 채움을 시안으로 올려, 채움/홈의 대비만으로 진행이 읽히게 한다.
+   */
+  track.fillStyle(0x0e4f7a, 0.42);
   track.fillRoundedRect(TRACK.left, trackY - TRACK.h / 2, TRACK.w, TRACK.h, TRACK.r);
   objects.push(track);
 
@@ -113,13 +171,13 @@ export function buildMissionRewardBanner(
 
   img(RIGHT_ICON_FRAME_KEY, RIGHT_ICON.x, RIGHT_ICON.y, RIGHT_ICON.w, RIGHT_ICON.h, depth + 3);
   img(LEFT_ICON_FRAME_KEY, LEFT_ICON.x, LEFT_ICON.y, LEFT_ICON.w, LEFT_ICON.h, depth + 3);
-  img(ITEM_ICON_KEY, ITEM_ICON.x, ITEM_ICON.y, ITEM_ICON.w, ITEM_ICON.h, depth + 4, ITEM_ICON.angle);
-  const rewardIcon = img(REWARD_ICON_KEY, REWARD_ICON.x, REWARD_ICON.y, REWARD_ICON.w, REWARD_ICON.h, depth + 4); // 우측 원판 위 보상 미리보기.
+  const itemImg = imgFit(ITEM_ICON_KEY, ITEM_ICON.x, ITEM_ICON.y, ITEM_ICON.w, ITEM_ICON.h, depth + 4, ITEM_ICON.angle);
+  const rewardIcon = imgFit(REWARD_ICON_KEY, REWARD_ICON.x, REWARD_ICON.y, REWARD_ICON.w, REWARD_ICON.h, depth + 4); // 우측 원판 위 보상 미리보기.
   img(TITLE_KEY, CX, TITLE.y, TITLE.w, TITLE.h, depth + 5); // 타이틀 리본을 맨 위(뱃지 위에 걸침).
 
   const progressText = scene.add
     .text(CX, Y(PROGRESS_TEXT_Y), '', {
-      fontFamily: '"Jua", sans-serif',
+      fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
       fontSize: `${PROGRESS_FONT_SIZE}px`,
       color: '#ffffff',
       fontStyle: '700 italic',
@@ -133,7 +191,7 @@ export function buildMissionRewardBanner(
   // 타이머 폰트 — 21px 하드코딩이던 걸 QA "아직도 너무 작다" 재지적 이후, 에디터에서도 시간표시 패널
   //   자체를 키워 재저장(w151→179,h35→41,fontSize→30). 커진 패널 폭 안에서 최대한 크게 32px.
   const timerText = scene.add
-    .text(TIMER_TEXT_X, Y(TIMER_BG.y), '', { fontFamily: '"Jua", sans-serif', fontSize: '32px', color: '#1a2437', fontStyle: '700' })
+    .text(TIMER_TEXT_X, Y(TIMER_BG.y), '', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '32px', color: '#1a2437', fontStyle: '700' })
     .setOrigin(0.5)
     .setDepth(depth + 6);
   objects.push(timerText);
@@ -141,7 +199,7 @@ export function buildMissionRewardBanner(
   // **보상 수량 텍스트**("X10" 등, layer_8_copy5) — 현재 티어의 다이아 보상 수량을 그대로 표시.
   const rewardText = scene.add
     .text(REWARD_ICON.x, Y(REWARD_TEXT_Y), '', {
-      fontFamily: '"Jua", sans-serif',
+      fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
       fontSize: `${REWARD_FONT_SIZE}px`,
       color: '#ffffff',
       fontStyle: '900 italic',
@@ -158,12 +216,32 @@ export function buildMissionRewardBanner(
     const ratio = Phaser.Math.Clamp(progress / goal, 0, 1);
     fill.clear();
     if (ratio > 0) {
-      fill.fillStyle(0x2f8bff, 0.72); // 반투명(PO 2026-07-18) — 아래 트랙 홈이 은은히 비치도록.
-      fill.fillRoundedRect(TRACK.left, trackY - TRACK.h / 2, Math.max(TRACK.h, TRACK.w * ratio), TRACK.h, TRACK.r);
+      const w = Math.max(TRACK.h, TRACK.w * ratio);
+      // **밝은 시안**(PO 2026-08-24) — 불투명하게 채우고 윗면에 하이라이트를 얹어 물광을 준다.
+      fill.fillStyle(0x1fb6ff, 1);
+      fill.fillRoundedRect(TRACK.left, trackY - TRACK.h / 2, w, TRACK.h, TRACK.r);
+      fill.fillStyle(0x8ff0ff, 0.55); // 상단 하이라이트 — 탁해 보이지 않게 하는 핵심.
+      fill.fillRoundedRect(TRACK.left + 2, trackY - TRACK.h / 2 + 2, Math.max(2, w - 4), TRACK.h * 0.38, TRACK.r);
     }
   };
 
+  /** setView 를 한 번이라도 부르면 티어 기반 렌더를 멈춘다(두 소스가 서로 덮어쓰지 않게). */
+  let viewMode = false;
+
+  const setView: MissionRewardBanner['setView'] = (v) => {
+    viewMode = true;
+    if (v.itemKey && scene.textures.exists(v.itemKey)) { itemImg?.setTexture(v.itemKey); refit(itemImg, ITEM_ICON.w, ITEM_ICON.h); }
+    // 보상 아이콘 — 옛 티어는 다이아였지만 이벤트 칸 보상은 **코인**이다.
+    if (v.rewardIconKey && scene.textures.exists(v.rewardIconKey)) { rewardIcon?.setTexture(v.rewardIconKey); refit(rewardIcon, REWARD_ICON.w, REWARD_ICON.h); }
+    displayedProgress = v.current;
+    drawFill(v.current, v.goal);
+    progressText.setText(`${v.current}/${v.goal}`);
+    rewardText.setText(v.rewardText);
+    timerText.setText(formatCountdown(Math.max(0, v.remainMs)));
+  };
+
   const renderInstant = (): void => {
+    if (viewMode) return;
     const cfg = tierConfig(state.tier);
     displayedProgress = state.progress;
     drawFill(state.progress, cfg.goal);
@@ -181,6 +259,7 @@ export function buildMissionRewardBanner(
     delay: 1000,
     loop: true,
     callback: () => {
+      if (viewMode) return; // 남은시간도 호출부(이벤트 주기)가 준다.
       const left = remainingMs(state, Date.now());
       timerText.setText(formatCountdown(left));
       if (left <= 0 && !expiredNotified) {
@@ -221,6 +300,7 @@ export function buildMissionRewardBanner(
 
   return {
     objects,
+    setView,
     itemAnchor,
     rewardAnchor,
     setState(next: MissionRewardState): void {
@@ -229,6 +309,19 @@ export function buildMissionRewardBanner(
       renderInstant();
     },
     animateTo(next: MissionRewardState, flyFrom?: { x: number; y: number }): void {
+      /*
+       * ⚠️ **이벤트 표시 중이면 티어 진행을 그리지 않는다**(PO 2026-08-24 신고: 플레이 화면과
+       *   팝업의 숫자가 다르다).
+       *
+       * `renderInstant` 는 `viewMode` 로 막혀 있었지만 이쪽은 뚫려 있어서, 손님을 정산할 때마다
+       * (`creditMissionStars` → `animateTo`) 배너가 **티어 숫자**(예: 6/35)로 덮였다. 배너가 보여
+       * 주기로 한 것은 주간 이벤트 하나뿐이므로 상태만 갱신하고 그리기는 건너뛴다.
+       */
+      if (viewMode) {
+        state = next;
+        expiredNotified = false;
+        return;
+      }
       const cfg = tierConfig(next.tier);
       const sameTier = next.tier === state.tier;
       state = next;

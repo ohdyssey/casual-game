@@ -6,11 +6,16 @@
  */
 import { freshMissionState, withExpiryChecked, type MissionRewardState } from './logic/missionReward.js';
 import { coerceCollection, defaultCollection, type CollectionState } from './logic/collection.js';
+import { normalizeProfile, type Profile } from './logic/profile.js';
+import type { ThiefEventSave } from './logic/thiefEvent.js';
+import { HOTEL_FLOOR_COUNT } from './config/hotelFloors.js';
 
 export interface SaveData {
   coins: number;
   /** **다이아** — 게임 중 카드에서 수집(판당 ~2개). 건물 건설/업그레이드 비용으로 사용. */
   diamonds?: number;
+  /** **광고 제거 구매 여부**(홈 NoAds 아이콘). 사면 전면 광고를 띄우지 않는다. */
+  noAds?: boolean;
   /** 건설된 층 수(1..TOTAL). 시작 시 1층은 기본 건설. */
   builtFloors: number;
   /** 소유한 층 수(건설됐지만 미소유=점포매입 대상). */
@@ -30,8 +35,41 @@ export interface SaveData {
   sideBuilt?: Record<string, boolean>;
   /** 사이드 부지 **철거 완료(빈 부지)** 상태 — 철거했지만 1층 미건설. */
   sideDemolished?: Record<string, boolean>;
+  /**
+   * **이벤트 1회 리셋 표식**(PO 2026-08-24 "이벤트 리셋하세요") — 이 값이 최신 태그와 다르면
+   * 부팅 때 이벤트(리그·위클리·배너·재고)를 한 번 초기화하고 태그를 찍는다. 코인·레벨은 그대로.
+   */
+  eventResetTag?: string;
+  /**
+   * **진행 중인 판의 보상 표식**(PO 2026-08-24) — 판 도중 지급된 보상을 되돌리기 위한 스냅샷.
+   * 정상 종료 시 지워진다. 남아 있으면 강제 종료된 것이므로 다음 부팅에서 회수한다.
+   * 타입은 `logic/playSession.ts` 의 `PlaySessionSnap`(순환 참조를 피해 여기선 구조만 둔다).
+   */
+  /** **스타터 팩(초회 한정) 구매 표식**(PO 2026-08-25) — 산 적 있으면 오퍼를 다시 띄우지 않는다. */
+  starterPackBought?: boolean;
+  playSession?: {
+    coins: number;
+    diamonds: number;
+    leagueStage: SaveData['leagueStage'];
+    leaguePeriodId: number;
+    leaguePoints: number;
+    thiefEvent: SaveData['thiefEvent'];
+    collection: SaveData['collection'];
+  };
   /** 우 내측 부지(lot2) 철거 완료(빈 부지) 상태. */
   lot2Demolished?: boolean;
+  /**
+   * **호텔(3번 라인) 건설 상태**(2026-08-31 재설계) — 2번 라인 20/20 완공 뒤 해금(`HomeScene.hotelUnlocked`),
+   *   레벨(`hotelFloorLevelReq`)·다이아(`diamondCostFor(LOT2_MAX_FLOORS+floor)`) 둘 다 충족해야 다음 층 건설.
+   *   lot2 와 동일하게 별도 매입 단계 없음(`hotelOwned` = `hotelFloors`). R2 부지 슬롯을 차지한다 —
+   *   `hotelBuilt`(1층 이상)면 R2 는 더 이상 평범한 사이드 부지가 아니다.
+   *   ⚠️ 예전 `lot3Shown`(표시 전용 테스트 플래그)을 대체한다.
+   */
+  hotelBuilt?: boolean;
+  hotelFloors?: number;
+  hotelOwned?: number;
+  /** **테스트 모드: 2번 라인 전층 표시**(2026-08-31) — 완공 테스트에서 11~20층까지 세운다(표시만). */
+  showAllLot2?: boolean;
   /** **점포(층)별 누적 코인** — 손님이 떨어뜨린 코인을 층별로 보관. 목표(100) 도달 시 점원 위 말풍선으로 수령 대기. floor(문자열)→코인. */
   floorCoinBanks?: Record<string, number>;
   /**
@@ -65,21 +103,75 @@ export interface SaveData {
    *   없으면 전부 미확인(defaultCollection()=0)으로 시작 — 콜렉션 자체가 0에서 시작하므로 자연히 맞아떨어진다.
    */
   collectionSeen?: CollectionState;
+  /**
+   * **플레이어 프로필**(표시 이름 + 아바타) — 투데이 리그·랭킹에서 나를 가리키는 정보.
+   * 없으면 `loadSave` 가 기본 이름을 만들어 채운다(규칙은 `logic/profile.ts`).
+   */
+  profile?: Profile;
+  /**
+   * **투데이 리그** — 참가 중인 기간 id(로컬 자정 기준 일 인덱스)와 그 기간에 모은 점수(별).
+   * 기간이 바뀌면 `settleLeague` 가 최종 순위로 보상을 주고 점수를 0 으로 되돌린다.
+   */
+  leaguePeriodId?: number;
+  leaguePoints?: number;
+  /** **Catch the Thief 주간 이벤트** 진행도(주기 id · 칸 · 칸 안 카운트). */
+  thiefEvent?: ThiefEventSave;
+  /** **투데이 리그 단계 사다리** — 하루 10단계. 날이 바뀌면 1단계부터. */
+  leagueStage?: { periodId: number; stage: number; count: number };
+  /**
+   * **보너스 게임 일일 사용 기록** — 홈 좌측 아이콘으로 들어가는 보너스 게임의 그날 시작한 판 수.
+   *   `day` 가 오늘이 아니면 무시된다(자동 회복) — 별도 리셋 처리가 없다. 규칙은 `logic/bonusGame.ts`.
+   */
+  bonusGame?: { day: number; used: number };
+  /**
+   * **타임어택 누적 승수 — 모드별**(1장/3장 사다리가 따로 움직인다, `logic/bonusGame.ts`).
+   * ⚠️ 읽을 땐 반드시 `toBonusTimeWins()` 를 지날 것 — **옛 형식(숫자 하나)** 도 들어 있을 수 있다
+   *   (사다리가 모드 공용이던 시절, 2026-08-30 당일 개정).
+   * ⚠️ `bonusGame` 과 달리 **날짜로 리셋되지 않는다** — 난이도 진행도지 일일 사용량이 아니다.
+   */
+  bonusTimeWins?: number | { draw1: number; draw3: number };
+  /**
+   * **민원 창구별 누적 진행도**(시작한 판 수) — 창구마다 따로 쌓인다.
+   * 이 값이 ①이번 판의 게임 방식(4단 순환) ②보상 배수를 정한다(`logic/civicDesks.ts`).
+   * ⚠️ 날짜로 리셋되지 않는다 — 하루 판수(`bonusGame`)와는 다른 축이다.
+   */
+  civicProgress?: Readonly<Record<string, number>>;
+  /**
+   * **층별 상품 재고** — 층 번호(1..20) → 모은 개수. 소모하지 않는 기록이다
+   * (단계 판정은 각자의 카운터가 한다 — `logic/collectRuntime.ts` 주석 참고).
+   */
+  itemStock?: Record<number, number>;
 }
 
 // **저장 키 버전** — 배포 시 이 버전을 올리면 기존 유저의 옛 저장(구버전 키)은 무시되고 **모두 처음(1레벨)부터 시작**한다.
 //   (2026-07-15 배포 리셋: v1→v2. 2026-07-20: 클론다이크 10레벨 보너스 라운드 도입 배포에 맞춰 v2→v3,
 //   PO 지시 "레벨을 모두 초기화" — 이후 다시 전체 리셋이 필요하면 v4 로 올린다.)
-export const SAVE_KEY = 'solitaire_save_v3'; // export 해서 테스트가 하드코딩 문자열 대신 이 상수를 참조하게(버전 올릴 때마다 테스트 깨지는 것 방지).
+/**
+ * 기본 이름에 쓸 **시드** — 같은 기기에서 늘 같은 이름이 나오도록 저장값에서 유도한다.
+ * (난수를 쓰면 열 때마다 이름이 바뀐다.)
+ */
+function profileSeed(s: Partial<SaveData>): number {
+  return (s.level ?? 1) * 7919 + (s.coins ?? 0);
+}
+/** 새 저장(첫 실행)용 시드 — 이때는 참조할 진행값이 없어 시각을 쓴다(한 번만 뽑히고 저장된다). */
+function freshProfileSeed(): number {
+  return Date.now();
+}
+
+export const SAVE_KEY = 'solitaire_save_v4'; // export 해서 테스트가 하드코딩 문자열 대신 이 상수를 참조하게(버전 올릴 때마다 테스트 깨지는 것 방지).
 const KEY = SAVE_KEY;
-const OLD_KEYS = ['solitaire_save_v1', 'solitaire_save_v2']; // 리셋 시 옛 저장 정리(orphan 방지) — loadSave 최초 호출에서 제거.
-export const START_COINS = 20000; // 초기 골드 코인 — 2026-07-19 PO 확정(40000→20000).
+const OLD_KEYS = ['solitaire_save_v1', 'solitaire_save_v2', 'solitaire_save_v3']; // v4(2026-08-31 전원 리셋 — 레벨·경제·건설 전부 처음부터). // 리셋 시 옛 저장 정리(orphan 방지) — loadSave 최초 호출에서 제거.
+export const START_COINS = 20000; // 초기 골드 코인 — PO 2026-08-25: 40,000 → 20,000(결제 유도 — 저레벨 핀치 포인트 설계, 실측 L1-40 판당 비용 ~4,000 기준 약 5판+수입 런웨이).
+//   ⚠️ SAVE_KEY 를 올리지 않았으므로 **기존 유저에게는 적용되지 않는다**(신규/리셋에만 지급).
+//   게임비 1,500 기준 26.7판 분량(구: 2,000×20판).
 const START_BUILT = 2; // 초기/리셋 시 **1~2층 지어져 있음**(2층=점포매입 대상, 3층부터 건설).
 const START_OWNED = 1; // 초기/리셋 시 **1층만 소유**(2층=점포매입 대상).
 const MIN_BUILT = 1; // 최소 1층은 항상 건설.
 const START_LEVEL = 1;
 export const START_DIAMONDS = 0; // 초기 다이아 — 2026-07-19 PO 확정(30→0).
-export const MAX_FLOORS = 10; // 데모: 최대 10층까지 건설.
+export const MAX_FLOORS = 10; // 메인타워(1라인) 최대 층수 — 1~10층 전부 고유 아트 완비, 11층부터는 아트가 없다(2026-08-31 확정, 늘리지 않는다).
+/** 2번 라인(우 내측) 최대 건설 층수 — 1~20층 전부 고유 아트 완비(BG_02=1~10F·BG_03=11~20F). */
+export const LOT2_MAX_FLOORS = 20;
 
 /** 층별 건설 비용 — index = 층 번호(1층은 기본, 2층부터 비용). 6~10층은 데모용 상향 곡선. */
 export const FLOOR_COST = [0, 0, 500, 1200, 2500, 5000, 8000, 12000, 18000, 26000, 36000];
@@ -88,7 +180,9 @@ export const FLOOR_COST = [0, 0, 500, 1200, 2500, 5000, 8000, 12000, 18000, 2600
  * **게임 입장비(코인)** — 레벨 플레이 진입 시 차감. 인게임 부스터(+5카드·와일드) 비용의 기준점이기도 하다.
  *   ⚠️ 이후 전체 경제(게임비 + 부스터 비용) 재설계 예정 — 아래 계수는 임시(튜너블).
  */
-export const GAME_FEE = 2000; // 2026-07-16 500→2000 상향(500은 너무 낮음).
+export const GAME_FEE = 1500; // 2026-08-23 2000→1500 하향. ⚠️경제 SSOT 는 public/econ/economy.json —
+//   플레이 화면은 econRuntime(=economy.json) 을 쓰고 이 상수는 save.ts 내부 헬퍼 전용 사본이다.
+//   세 곳(economy.json · DEFAULT_ECON · 여기)을 **항상 같이** 고칠 것(economy.test.ts 가 감시).
 
 // ── 인게임 부스터 비용(게임비 기준 상승 곡선) ─────────────────────────────
 //   한 판에서 같은 부스터를 쓸수록 비용이 오른다(uses = 이번 판 사용 횟수, 0=첫 사용).
@@ -113,10 +207,14 @@ export function stockBonusPerCard(): number {
  * **별 보상(코인)** — 승리 시 달성 별 수(**1~5**) 기준 지급(누적 아님). 게임비(GAME_FEE)에 비례해
  *   경제 인상 시 자동 비례. ⚠️ 값의 SSOT 는 `logic/economy.ts` 의 `starMult` — 여기는 그 사본이고
  *   economy.test.ts 의 계약 테스트가 두 곳이 어긋나지 않는지 감시한다.
- *   **PO 2026-07-29**: "별 3개를 획득했을 때 게임 비용 이상을 수익이 가능하도록" → 3★ 부터 배수 > 1.0.
- *   1★=×0.45(900) · 2★=×0.85(1,700) · **3★=×1.3(2,600 — 흑자 전환)** · 4★=×1.75(3,500) · 5★=×2.3(4,600).
+ *   **PO 2026-08-23 재조정**: 3★ 을 **손익분기(×1.0)** 로 내렸다.
+ *   왜: 예전 값(3★=×1.3)은 이기면 무조건 남는 구조라 **플레이 자체가 코인을 버는 곳**이었다.
+ *     그러면 코인을 사서 판을 더 해도 그 판이 또 벌어들이므로 **인앱결제가 필요 없어진다**
+ *     (실측: 3.5★ 평균 판당 +1,050 · 하루 10판 +10,500). 경제 모델은 그 반대여야 한다 —
+ *     플레이는 코인을 **쓰는 곳**, 버는 곳은 이벤트·리그, 그 수입은 판수에 비례한다.
+ *   1★=×0.3(600) · 2★=×0.65(1,300) · **3★=×1.0(2,000 — 본전)** · 4★=×1.35(2,700) · 5★=×1.75(3,500).
  */
-const STAR_REWARD_MULT = [0, 0.45, 0.85, 1.3, 1.75, 2.3] as const;
+const STAR_REWARD_MULT = [0, 0.3, 0.65, 1.0, 1.35, 1.75] as const;
 export function starCoins(stars: number): number {
   const i = Math.min(STAR_REWARD_MULT.length - 1, Math.max(0, Math.floor(stars)));
   return Math.round(GAME_FEE * STAR_REWARD_MULT[i]);
@@ -177,22 +275,84 @@ export const STORE_COST_STEP_COINS = 500;
 export const STORE_COST_BASE_DIAMONDS = 20;
 export const STORE_COST_STEP_DIAMONDS = 5;
 
+/**
+ * **건설 코인 배수**(PO 2026-08-23 지시) — 2층 ×20 에서 30층 ×10 까지 선형으로 내린다.
+ *
+ * 왜 배수인가: 기존 선형식(1,500 + 500/층)이 만드는 **곡선의 모양은 유지**하고 수준만 끌어올린다.
+ * 손댈 상수가 3개뿐이라 이후 재조정도 이 자리에서 끝난다.
+ *
+ * 왜 이 수준인가: 코인은 플레이 외에 **이벤트·리그로도 지급**된다(PO). 플레이 수입만으로 감당되는
+ * 수준에 맞추면 층 건설이 저절로 되는 소비처가 되어 목표로 기능하지 못한다.
+ *   · 30층까지 건설비 합계 ≈ 355만 · 플레이 수입 ≈ 119만 → **이벤트가 전체 공급의 약 2/3** 를 담당.
+ *   · 이벤트 설계 시 이 값이 지급 규모의 목표치가 된다(하루 7판 · 약 120일 여정 기준 일 2만 코인).
+ */
+const STORE_MULT_FIRST = 20; // 2층 배수.
+const STORE_MULT_LAST = 10; // STORE_MULT_LAST_FLOOR 층 배수(이후 층은 이 값 유지).
+/**
+ * ⚠️ **배수 하한 도달 층을 30 으로 두면 안 된다.** 기본값은 층당 +500 으로 오르는데 배수는 층당
+ *   내려가므로, 곱이 어느 층에서 **정점을 찍고 다시 내려간다**(실측: 28층 160,500 → 30층 160,000 역전).
+ *   30층이 28층보다 싸지면 진행감이 무너진다. 도달 층을 40 으로 밀면 30층까지 단조 증가한다
+ *   (2층 ×20 → 30층 ×12.6 → 40층 이후 ×10 고정). 하한을 낮추는 대신 **구간을 늘려** 해결한 것이라
+ *   값은 오히려 올라간다(30층 160,000 → 202,000).
+ */
+const STORE_MULT_LAST_FLOOR = 40;
+
+/**
+ * 해당 층의 코인 배수 — 2층 미만은 2층과 동일.
+ *
+ * ⚠️ 배수를 끝까지 내리면 **비용이 정점을 찍고 다시 내려간다**. 기본값이 층당 +500 으로 오르고
+ *   배수가 층당 일정하게 내려가므로, 곱의 정점은 항상 `도달층 − 2` 에 온다(실측: 도달층 30 → 28층 정점,
+ *   30층이 28층보다 쌌다). 그래서 배수 계산에 쓰는 층을 **정점 직전까지로 제한**한다 — 그 뒤로는
+ *   배수가 고정되어 비용이 계속 오른다(단조 증가 보장). 배수는 ×10.5 근처로 수렴한다.
+ */
+function storeCoinMult(floor: number): number {
+  const span = STORE_MULT_LAST_FLOOR - 2;
+  const peak = STORE_MULT_LAST_FLOOR - 3; // 이 층을 넘으면 배수 고정(정점 직전 = 반올림으로 평평해지지 않게 한 칸 앞).
+  const t = (Math.min(floor, peak) - 2) / span;
+  const c = Math.min(1, Math.max(0, t));
+  return STORE_MULT_FIRST + (STORE_MULT_LAST - STORE_MULT_FIRST) * c;
+}
+
 export function storeAcquireCostFor(floor: number): { coins: number; diamonds: number } {
   const f = Math.max(1, Math.floor(floor));
+  const base = STORE_COST_BASE_COINS + STORE_COST_STEP_COINS * (f - 1);
   return {
-    coins: STORE_COST_BASE_COINS + STORE_COST_STEP_COINS * (f - 1),
+    // 500 단위로 반올림 — 화면 표기(1.5K 식)와 어긋나지 않게.
+    coins: Math.round((base * storeCoinMult(f)) / 500) * 500,
     diamonds: STORE_COST_BASE_DIAMONDS + STORE_COST_STEP_DIAMONDS * (f - 1),
   };
 }
 
 /**
- * **층 건설 해금 레벨 요구치**(PO 2026-07-19 확정) — 1층은 제한 없음, **2층 상한 = 레벨 10**,
- *   **3층부터 층당 +30레벨**(3층=40, 4층=70, 5층=100, …). ⚠️ "이후 다시 설정할 예정" — 임시값.
+ * **레벨 3,000판 전체에 걸친 층 해금 곡선**(PO 2026-08-31 "레벨에 따른 층배치를 다시 설계") — 메인타워
+ *   (2~10층)만 채우던 예전 곡선은 레벨250에서 끝나 나머지 2,750레벨(92%) 동안 건물 쪽 목표가 없었다.
+ *   메인(10층, 이미 완비)→2번 라인(20층, 이미 완비)→호텔(15층, 이미 완비) **순차**로 세 구간을 나눠
+ *   레벨 1~3000 전체를 채운다(각 라인은 앞 라인이 다 지어져야 해금 — `HomeScene.lotsUnlocked`/`hotelUnlocked`).
+ *
+ * `blockLevelReq(k, n, lStart, lEnd, p)` — 구간 안에서 k번째(1-base, n개 중) 해금 레벨. `p>1`(컨벡스)이라
+ *   **초반엔 촘촘하고 후반으로 갈수록 벌어진다**("초반 빠르게 후반 느리게", PO 확정 페이스). 세 구간 다
+ *   같은 형태를 쓰되 끝점만 다르다 — 메인 1→250(기존 최종값 유지) · 2번라인 260→1400 · 호텔 1450→3000
+ *   (호텔 15층 = 정확히 레벨 3000, 게임 최종 목표). 각 구간 시작점은 **앞 구간 끝점보다 높게** 잡아 레벨
+ *   게이트만으로도 순서가 지켜지게 한다(진짜 순서는 건설 완공 여부가 정하지만, 레벨도 어긋나지 않는다).
  */
+function blockLevelReq(k: number, n: number, lStart: number, lEnd: number, p = 1.6): number {
+  return Math.round(lStart + (lEnd - lStart) * (k / n) ** p);
+}
+
+/** 메인타워 층 건설 해금 레벨(1층은 제한 없음, 2~10층은 컨벡스 곡선). */
 export function floorLevelReq(floor: number): number {
   if (floor <= 1) return 1;
-  if (floor === 2) return 10;
-  return 10 + (floor - 2) * 30;
+  return blockLevelReq(floor - 1, MAX_FLOORS - 1, 1, 250);
+}
+
+/** 2번 라인(우 내측) 층 건설 해금 레벨(1~20층) — 메인타워 완공 레벨(250)보다 높은 지점부터 시작. */
+export function lot2FloorLevelReq(floor: number): number {
+  return blockLevelReq(floor, LOT2_MAX_FLOORS, 260, 1400);
+}
+
+/** 호텔(3번 라인) 층 건설 해금 레벨(1~15층) — 2번 라인 완공 뒤부터, 15층이 레벨 3000(엔드 콘텐츠). */
+export function hotelFloorLevelReq(floor: number): number {
+  return blockLevelReq(floor, HOTEL_FLOOR_COUNT, 1450, 3000);
 }
 
 // 옛 저장 키 정리(세션당 1회) — 배포 리셋 시 orphan 데이터 제거.
@@ -228,13 +388,21 @@ export function loadSave(): SaveData {
         level: Math.max(1, Math.floor(s.level ?? START_LEVEL)),
         playedLevels: Array.isArray(s.playedLevels) ? s.playedLevels.filter((x): x is number => Number.isFinite(x)) : [],
         lot2Built: !!s.lot2Built,
-        lot2Floors: Math.min(MAX_FLOORS, Math.max(0, Math.floor(s.lot2Floors ?? 0))),
+        // ⚠️ 예전엔 MAX_FLOORS(10)로 잘랐다 — 2번 라인은 20층까지 실제 건설 가능하므로 LOT2_MAX_FLOORS 로 클램프.
+        lot2Floors: Math.min(LOT2_MAX_FLOORS, Math.max(0, Math.floor(s.lot2Floors ?? 0))),
         lot2Owned: Math.max(0, Math.floor(s.lot2Owned ?? 0)),
         lot1Built: !!s.lot1Built,
         lot1Floors: Math.min(MAX_FLOORS, Math.max(0, Math.floor(s.lot1Floors ?? 0))),
         sideBuilt: s.sideBuilt && typeof s.sideBuilt === 'object' ? { ...s.sideBuilt } : {},
         sideDemolished: s.sideDemolished && typeof s.sideDemolished === 'object' ? { ...s.sideDemolished } : {},
         lot2Demolished: !!s.lot2Demolished,
+        hotelBuilt: !!s.hotelBuilt,
+        hotelFloors: Math.min(HOTEL_FLOOR_COUNT, Math.max(0, Math.floor(s.hotelFloors ?? 0))),
+        hotelOwned: Math.max(0, Math.floor(s.hotelOwned ?? 0)),
+        showAllLot2: !!s.showAllLot2,
+        ...(s.eventResetTag ? { eventResetTag: String(s.eventResetTag) } : {}),
+        ...(s.playSession ? { playSession: s.playSession as SaveData['playSession'] } : {}),
+        ...(s.starterPackBought === true ? { starterPackBought: true } : {}),
         floorCoinBanks: s.floorCoinBanks && typeof s.floorCoinBanks === 'object' ? { ...s.floorCoinBanks } : {},
         storeIncomeAt: typeof s.storeIncomeAt === 'number' && Number.isFinite(s.storeIncomeAt) ? s.storeIncomeAt : undefined,
         storeIncomeBank: Math.max(0, Math.floor(s.storeIncomeBank ?? 0)),
@@ -244,12 +412,28 @@ export function loadSave(): SaveData {
         missionReward: coerceMissionReward(s.missionReward),
         collection: coerceCollection(s.collection),
         collectionSeen: coerceCollection(s.collectionSeen),
+        // 프로필은 **읽을 때 채운다** — 옛 저장에도 이름이 생기고, 손상된 값은 규칙대로 접힌다.
+        profile: normalizeProfile(s.profile, profileSeed(s)),
+        leaguePeriodId: typeof s.leaguePeriodId === 'number' ? s.leaguePeriodId : 0,
+        leaguePoints: Math.max(0, Math.floor(s.leaguePoints ?? 0)),
+        thiefEvent: s.thiefEvent,
+        leagueStage: s.leagueStage,
+        itemStock: s.itemStock,
+        /*
+         * ⚠️ **여기 없는 필드는 매번 지워진다.** loadSave 는 화이트리스트로 세이브를 다시 짓기 때문에,
+         *   인터페이스에만 필드를 추가하고 이 목록을 빼먹으면 **쓰는 즉시 다음 loadSave→writeSave 에서
+         *   사라진다**(실측 2026-08-29: 보너스 게임 판수가 계속 2로 되돌아갔다 — 회귀가 잡았다).
+         *   새 필드를 만들면 반드시 여기에도 한 줄 추가할 것.
+         */
+        bonusGame: s.bonusGame,
+        bonusTimeWins: s.bonusTimeWins,
+        civicProgress: s.civicProgress,
       };
     }
   } catch {
     /* 파싱 실패 시 기본값 */
   }
-  return { coins: START_COINS, diamonds: START_DIAMONDS, builtFloors: START_BUILT, ownedFloors: START_OWNED, level: START_LEVEL, playedLevels: [], lot2Built: false, lot2Floors: 0, lot2Owned: 0, items: { wild: 2, plus5: 2, undo: 3 }, collection: defaultCollection(), collectionSeen: defaultCollection() };
+  return { coins: START_COINS, diamonds: START_DIAMONDS, builtFloors: START_BUILT, ownedFloors: START_OWNED, level: START_LEVEL, playedLevels: [], lot2Built: false, lot2Floors: 0, lot2Owned: 0, items: { wild: 2, plus5: 2, undo: 3 }, collection: defaultCollection(), collectionSeen: defaultCollection(), profile: normalizeProfile(undefined, freshProfileSeed()), leaguePeriodId: 0, leaguePoints: 0 };
 }
 
 /**
@@ -273,6 +457,10 @@ export function resetProgress(): void {
       lot2Demolished: false,
       lot1Built: false,
       lot1Floors: 0,
+      hotelBuilt: false,
+      hotelFloors: 0,
+      hotelOwned: 0,
+      showAllLot2: false,
       sideBuilt: {},
       sideDemolished: {},
       floorCoinBanks: {},
@@ -346,8 +534,81 @@ export function nextFloor(builtFloors: number): number | null {
   return next <= MAX_FLOORS ? next : null;
 }
 
-/** 다음 층 건설 비용(없으면 null). */
-export function nextFloorCost(builtFloors: number): number | null {
-  const n = nextFloor(builtFloors);
-  return n == null ? null : FLOOR_COST[n];
+
+
+/**
+ * **튜토리얼 안내 기록**은 별도 키로 둔다.
+ *   본 세이브(SaveData)에 넣었더니, 다른 곳에서 `writeSave({...})` 로 통째로 덮을 때 조용히 지워져
+ *   같은 안내가 매 레벨 다시 떴다(실측 2026-08-22). 안내 기록은 게임 진행과 무관한 작은 상태라
+ *   충돌 지점을 아예 없앤다.
+ */
+const TIPS_KEY = 'solitaire_tips_v1';
+
+export function loadTipsSeen(): string[] {
+  try {
+    const raw = localStorage.getItem(TIPS_KEY);
+    const arr = raw ? (JSON.parse(raw) as unknown) : null;
+    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 안내 기록 초기화 — **레벨 1 은 언제나 튜토리얼부터** 시작하기 위해 진입 시 호출한다
+ * (PO 2026-08-22 "1레벨이 시작될 때는 반드시 튜토리얼이 시작되게 할 것").
+ */
+export function resetTipsSeen(): void {
+  try {
+    localStorage.removeItem(TIPS_KEY);
+  } catch {
+    /* 저장 불가 — 무시(어차피 안내가 다시 뜬다). */
+  }
+}
+
+export function markTipSeen(key: string): void {
+  try {
+    localStorage.setItem(TIPS_KEY, JSON.stringify([...new Set([...loadTipsSeen(), key])]));
+  } catch {
+    /* 저장 불가(프라이빗 모드 등) — 안내가 다시 뜰 뿐이라 무시한다. */
+  }
+}
+
+/**
+ * **메시지 표시 횟수** — 같은 안내를 1~2회까지만 띄우기 위한 기록(PO 2026-08-22).
+ *   판/세션이 바뀌어도 유지돼야 하므로 세이브가 아닌 전용 키에 남긴다.
+ */
+const MSG_COUNT_KEY = 'solitaire_msgcount_v1';
+
+export function loadMessageCounts(): Map<string, number> {
+  try {
+    const raw = localStorage.getItem(MSG_COUNT_KEY);
+    const obj = raw ? (JSON.parse(raw) as unknown) : null;
+    if (!obj || typeof obj !== 'object') return new Map();
+    return new Map(
+      Object.entries(obj as Record<string, unknown>).filter((e): e is [string, number] => typeof e[1] === 'number'),
+    );
+  } catch {
+    return new Map();
+  }
+}
+
+export function saveMessageCounts(counts: ReadonlyMap<string, number>): void {
+  try {
+    localStorage.setItem(MSG_COUNT_KEY, JSON.stringify(Object.fromEntries(counts)));
+  } catch {
+    /* 저장 불가 — 이번 세션 안에서만 제한이 걸린다. */
+  }
+}
+
+/** 광고 제거를 샀는가(홈 NoAds 아이콘). */
+export function hasNoAds(): boolean {
+  return loadSave().noAds === true;
+}
+
+/** 광고 제거 적용 — 되돌릴 일이 없으므로 켜기만 한다. */
+export function grantNoAds(): void {
+  const save = loadSave();
+  if (save.noAds) return;
+  writeSave({ ...save, noAds: true });
 }

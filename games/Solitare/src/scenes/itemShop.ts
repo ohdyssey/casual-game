@@ -1,3 +1,4 @@
+import { texSize } from '../assets.js';
 /**
  * itemShop.ts — **아이템샵 공용 모듈**(코인 팩·다이아 팩 상점 오버레이).
  *
@@ -13,9 +14,10 @@ import Phaser from 'phaser';
 import { loadSave, writeSave } from '../save.js';
 import { sfx } from '../audio.js';
 import { popupOrganicIn, popupOrganicOut } from './popupFx.js';
+import { SAFE_H as H, SAFE_W as W } from '../logic/responsiveFrame.js';
+import { overlayLayer, overlayScrim } from '../ui/overlay.js';
 
-const W = 1080;
-const H = 2400;
+// 저작(=세이프존) 프레임 — 단일 출처는 logic/responsiveFrame.ts (캔버스 크기 아님).
 const SHOP_KEY = 'up_Solitare_UI_ItemShop';
 
 /** 팩 구성(데모) — 아트에 그려진 2×2 그리드 순서 그대로. */
@@ -23,6 +25,12 @@ const COIN_PACKS = [1000, 5000, 11000, 65000] as const;
 const DIAMOND_PACKS = [30, 100, 300, 500] as const;
 
 export interface ItemShopOpts {
+  /**
+   * 이 팝업이 붙는 **카메라**(선택). 홈 화면처럼 UI 전용 카메라가 따로 있으면 반드시 넘길 것 —
+   * 딤은 이 카메라가 보는 영역을 덮어야 한다. 안 넘기면 메인(월드) 카메라 기준으로 계산돼
+   * 화면 일부가 안 가려진다(실측: 홈 진입팝업 상·우·하 가장자리가 뚫림).
+   */
+  readonly uiCam?: Phaser.Cameras.Scene2D.Camera;
   /** 재화 지급 후 호출 — 씬의 헤더/잔액 캐시를 갱신하라는 신호(코인 총액을 넘긴다). */
   readonly onCoins?: (total: number) => void;
   /** 다이아 지급 후 호출(다이아 총액). */
@@ -36,14 +44,14 @@ export interface ItemShopOpts {
 
 /** 아이템샵을 연다. 아트가 없으면 "준비중" 폴백(탭하면 닫힘). */
 export function openItemShop(scene: Phaser.Scene, opts: ItemShopOpts = {}): void {
-  const layer = scene.add.container(0, 0).setDepth(opts.depth ?? 4500);
+  const layer = overlayLayer(scene, opts.depth ?? 4500);
   opts.pin?.(layer);
-  const dim = scene.add.rectangle(0, 0, W, H, 0x140a1e, 0.88).setOrigin(0, 0).setInteractive();
+  const dim = overlayScrim(scene, 0x140a1e, 0.88, opts.uiCam);
   layer.add(dim);
 
   if (!scene.textures.exists(SHOP_KEY)) {
     const t = scene.add
-      .text(W / 2, H / 2, '아이템샵 준비중\n(탭하여 닫기)', { fontFamily: '"Jua", sans-serif', fontSize: '50px', color: '#fff', align: 'center' })
+      .text(W / 2, H / 2, '아이템샵 준비중\n(탭하여 닫기)', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '50px', color: '#fff', align: 'center' })
       .setOrigin(0.5)
       .setInteractive();
     t.on('pointerdown', () => layer.destroy());
@@ -54,7 +62,7 @@ export function openItemShop(scene: Phaser.Scene, opts: ItemShopOpts = {}): void
   const frame = scene.add.container(W / 2, H / 2);
   layer.add(frame);
   const img = scene.add.image(0, 0, SHOP_KEY);
-  const src = img.texture.getSourceImage() as { width: number; height: number };
+  const src = texSize(img.texture);
   const dw = 880; // 가로폭 축소(화면보다 작게).
   const dh = dw * (src.height / src.width);
   img.setDisplaySize(dw, dh);

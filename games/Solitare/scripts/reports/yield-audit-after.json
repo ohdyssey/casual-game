@@ -1,0 +1,83 @@
+{
+ "levels": 43,
+ "main": {
+  "rounds": 645,
+  "winRate": 0.409,
+  "perRound": {
+   "ticks": "1.68",
+   "stars": "12.67",
+   "diamonds": "0.51",
+   "collection": "1.02",
+   "coins": "379.52",
+   "cards": "0.65",
+   "wild": "0.11",
+   "undo": "0.04"
+  },
+  "perWin": {
+   "stars": "30.96",
+   "diamonds": "1.24",
+   "collection": "2.50",
+   "coins": "927.23"
+  }
+ },
+ "bonus_draw1": {
+  "rounds": 645,
+  "winRate": 0.623,
+  "perRound": {
+   "ticks": "7.67",
+   "stars": "25.87",
+   "diamonds": "1.06",
+   "collection": "1.83",
+   "coins": "1869.77",
+   "cards": "0.00",
+   "wild": "0.00",
+   "undo": "0.00"
+  },
+  "perWin": {
+   "stars": "41.50",
+   "diamonds": "1.70",
+   "collection": "2.94",
+   "coins": "3000.00"
+  }
+ },
+ "bonus_draw1_timed": {
+  "rounds": 645,
+  "winRate": 0.633,
+  "perRound": {
+   "ticks": "7.70",
+   "stars": "25.98",
+   "diamonds": "1.14",
+   "collection": "1.92",
+   "coins": "3162.79",
+   "cards": "0.00",
+   "wild": "0.00",
+   "undo": "0.00"
+  },
+  "perWin": {
+   "stars": "41.07",
+   "diamonds": "1.81",
+   "collection": "3.04",
+   "coins": "5000.00"
+  }
+ },
+ "bonus_draw3": {
+  "rounds": 645,
+  "winRate": 0.552,
+  "perRound": {
+   "ticks": "8.56",
+   "stars": "26.23",
+   "diamonds": "1.17",
+   "collection": "2.00",
+   "coins": "2759.69",
+   "cards": "0.00",
+   "wild": "0.00",
+   "undo": "0.00"
+  },
+  "perWin": {
+   "stars": "47.52",
+   "diamonds": "2.12",
+   "collection": "3.63",
+   "coins": "5000.00"
+  }
+ }
+}

@@ -1,3 +1,4 @@
+import { texSize } from '../assets.js';
 /**
  * collectionHub.ts — **콜렉션 메인 카드**(세트 목록 허브, 2026-07-19).
  *   PO 지시: "콜렉션카드를 직접 진입하지 말고 이 메인카드에 진입 후 각 카드 스테이지에 진입하는 것으로
@@ -16,8 +17,16 @@ import { SET_COUNT, NEW_CARD_BADGE_KEY } from './collectionPopup.js';
 import { popupOrganicIn, popupOrganicOut } from './popupFx.js';
 import { hasNewInSet } from '../logic/collection.js';
 import { loadSave, collectionOf, collectionSeenOf } from '../save.js';
+import { overlayLayer, overlayScrim } from '../ui/overlay.js';
+import { SAFE_H, SAFE_W } from '../logic/responsiveFrame.js';
 
 export interface CollectionHubOpts {
+  /**
+   * 이 팝업이 붙는 **카메라**(선택). 홈 화면처럼 UI 전용 카메라가 따로 있으면 반드시 넘길 것 —
+   * 딤은 이 카메라가 보는 영역을 덮어야 한다. 안 넘기면 메인(월드) 카메라 기준으로 계산돼
+   * 화면 일부가 안 가려진다(실측: 홈 진입팝업 상·우·하 가장자리가 뚫림).
+   */
+  readonly uiCam?: Phaser.Cameras.Scene2D.Camera;
   readonly depth?: number; // 기본 4000.
   readonly pinToUi?: (o: Phaser.GameObjects.GameObject) => void; // HomeScene 스크롤 카메라 대응(선택).
   readonly onClose?: () => void;
@@ -62,14 +71,16 @@ const SLOTS: ReadonlyArray<{ x: number; y: number }> = [
 /** 배경 텍스처가 로드돼 있으면 그리고, 없으면 코드 드로우 최소 폴백(스크림+안내 텍스트)으로 대체. */
 export function buildCollectionHub(scene: Phaser.Scene, opts: CollectionHubOpts): CollectionHubHandle {
   const depth = opts.depth ?? 4000;
-  const W = scene.scale.width;
-  const H = scene.scale.height;
+  // overlayLayer 안은 **세이프존 좌표계**(0..1080 × 0..2400)다 — 캔버스가 넓어지면 루트가
+  //   그만큼 밀려 있으므로 여기 W/H 는 저작 크기를 쓴다. 캔버스 전체를 덮는 딤은 overlayScrim 이 맡는다.
+  const W = SAFE_W;
+  const H = SAFE_H;
   const scale = W / SRC_W; // 종횡비가 캔버스와 동일 → scaleX≈scaleY.
-  const layer = scene.add.container(0, 0).setDepth(depth);
+  const layer = overlayLayer(scene, depth);
   opts.pinToUi?.(layer);
 
   // 딤 배경 — 유기체 연출 중 가장자리로 보이는 홈 화면을 어둡게 + 입력 하부 차단(탭 닫기는 아님, 기존 UX 유지).
-  const scrim = scene.add.rectangle(0, 0, W, H, 0x140a1e, 0.86).setOrigin(0, 0).setInteractive();
+  const scrim = overlayScrim(scene, 0x140a1e, 0.86, opts.uiCam);
   layer.add(scrim);
   // **유기체(젤리) 연출용 프레임**(popupFx) — 중심(W/2,H/2) 기준 스케일, inner 는 절대좌표 유지용 역오프셋.
   const frame = scene.add.container(W / 2, H / 2);
@@ -89,10 +100,10 @@ export function buildCollectionHub(scene: Phaser.Scene, opts: CollectionHubOpts)
     const bg = scene.add.image(W / 2, H / 2, BG_KEY).setDisplaySize(W, H);
     inner.add(bg);
   } else {
-    inner.add(scene.add.rectangle(0, 0, W, H, 0x140a1e, 0.9).setOrigin(0, 0));
+    inner.add(overlayScrim(scene, 0x140a1e, 0.9, opts.uiCam));
     inner.add(
       scene.add
-        .text(W / 2, H / 2, '콜렉션 카드 준비 중', { fontFamily: '"Jua", sans-serif', fontSize: '50px', color: '#ffffff' })
+        .text(W / 2, H / 2, '콜렉션 카드 준비 중', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '50px', color: '#ffffff' })
         .setOrigin(0.5),
     );
   }
@@ -110,7 +121,7 @@ export function buildCollectionHub(scene: Phaser.Scene, opts: CollectionHubOpts)
       const bx = (slot.x - CELL_W * 0.28) * scale;
       const by = (slot.y - CELL_H * 0.42) * scale;
       if (scene.textures.exists(NEW_BADGE_KEY)) {
-        const src = scene.textures.get(NEW_BADGE_KEY).getSourceImage() as { width: number; height: number };
+        const src = texSize(scene.textures.get(NEW_BADGE_KEY));
         inner.add(
           scene.add
             .image(bx, by, NEW_BADGE_KEY)
@@ -123,7 +134,7 @@ export function buildCollectionHub(scene: Phaser.Scene, opts: CollectionHubOpts)
         ribbon.add(scene.add.circle(0, 0, (NEW_BADGE_SIZE * scale) / 2, 0xe0453e).setStrokeStyle(3 * scale, 0xffffff));
         ribbon.add(
           scene.add
-            .text(0, 0, 'NEW', { fontFamily: '"Jua", sans-serif', fontSize: `${Math.round(15 * scale)}px`, color: '#ffffff' })
+            .text(0, 0, 'NEW', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: `${Math.round(15 * scale)}px`, color: '#ffffff' })
             .setOrigin(0.5),
         );
         inner.add(ribbon);
@@ -149,7 +160,7 @@ export function buildCollectionHub(scene: Phaser.Scene, opts: CollectionHubOpts)
     closeBtn = scene.add.image(W - 90, 90, CLOSE_KEY).setDisplaySize(110, 110).setInteractive({ useHandCursor: true });
   } else {
     closeBtn = scene.add
-      .text(W - 70, 60, '✕', { fontFamily: '"Jua", sans-serif', fontSize: '44px', color: '#ffffff', backgroundColor: '#c0392bcc', padding: { x: 18, y: 6 } })
+      .text(W - 70, 60, '✕', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: '44px', color: '#ffffff', backgroundColor: '#c0392bcc', padding: { x: 18, y: 6 } })
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true });
   }

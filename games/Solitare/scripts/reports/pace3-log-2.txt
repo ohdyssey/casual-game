@@ -1,0 +1,10 @@
+lv101 cur 11 → 13 win 93% left p90 6 short p90 3 (2s)
+lv125 cur 13 → 15 win 78% left p90 4 short p90 7 (84s)
+lv150 cur 12 → 12 win 57% left p90 3 short p90 8 (202s)
+lv175 cur 14 → 12 win 28% left p90 2 short p90 16 (307s)
+lv200 cur 14 → 14 win 57% left p90 4 short p90 6 (418s)
+
+레벨 100개 · 장수 평균 12.5 → 12.8
+승률 평균 58.6% · 잔여 p50/p90 평균 0.8/3.3 · 부족 p50/p90 평균 3.0/7.6 · 니어미스 0.11 · 구매 p90 평균 3.8
+잔여 p90 >1 레벨 82 · 부족 p90 >3 레벨 85 · 상한 도달 0
+→ scripts/reports/pace3-table-2.json · scripts/reports/pace3-tune-2.jsonl

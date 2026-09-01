@@ -162,6 +162,17 @@ export interface EconParams {
 
   // ── 초기값 ─────────────────────────────────────────────────────────
   readonly startCoins: number;
+  /**
+   * **라이브옵스 튜닝 노브**(PO 2026-08-25) — 투데이 리그·위클리 이벤트의 수익/비용을
+   * economy.json 수치 조정만으로(코드 배포 없이 JSON 재배포로) 조절한다.
+   *   배율 1 = 설계 기본표 그대로. econRuntime.setEconFromJson 이 각 모듈에 주입한다.
+   */
+  readonly leagueGoalMult: number;   // 리그 칸 목표 배율(↑=허들 상승)
+  readonly leagueCoinPerStar: number; // 리그 별당 코인(절대값 — 일수입 조절 주 노브)
+  readonly leagueGrandMult: number;  // 리그 완주 보상 배율
+  readonly eventGoalMult: number;    // 위클리 칸 목표 배율
+  readonly eventCoinMult: number;    // 위클리 칸 보상 배율
+  readonly eventGrandMult: number;   // 위클리 완주 보상 배율
   readonly startDiamonds: number;
 }
 
@@ -178,7 +189,10 @@ export interface EconParams {
  *     맨 위 "다이아 구조" 대시보드에서 조정하며 검토할 것.
  */
 export const DEFAULT_ECON: EconParams = {
-  feeBase: 2000, // PO 2026-07-17: 초기 게임비 2,000부터 시작(1,000에서 상향) — 전 경제가 비례 연동.
+  //   ⚠️ 게임비는 **전 경제의 기준 단위**다 — 별 보상·＋5·와일드·되돌리기·건설비가 모두 이 값의 배수라
+  //   여기를 내리면 지출과 수입이 **같은 비율로** 함께 내려간다(회수율은 그대로). 실제로 바뀌는 것은
+  //   ① 적자의 절대액과 ② 리그·이벤트처럼 **고정 코인**으로 주는 보상의 상대적 크기다.
+  feeBase: 1500, // PO 2026-08-23: 2,000 → 1,500 하향(판당 적자 -5,158 → -3,868, 1,500판 실측 기준).
   feeStepMult: 1.129, // 19단계(캡) 총 ×10 → Lv3000 = 20,000 정확히(시작값 비례).
   feeLevelStep: 150, // ⚠️2026-07-18: 레벨캡 3배(1000→3000) 확장에 맞춰 50→150(구 19단계·×10 배율을 그대로 유지).
   feeRound: 100, // PO: 골드 가격은 100 단위 — 미달 시 내림(상향 없음).
@@ -196,7 +210,7 @@ export const DEFAULT_ECON: EconParams = {
    * 실측 분포(클린 1★1% · 2★4.9% · 3★44.3% · 4★32.1% · 5★17.8%) 기준 **판당 기대 ≈ 게임비 ×1.59**
    *   (구 3칸 표는 ×2.13 — 26% 과지급. 세트 기반 구 별규칙 시절의 설계 의도는 ×1.44 였다.)
    */
-  starMult: [0.45, 0.85, 1.3, 1.75, 2.3],
+  starMult: [0.3, 0.65, 1.0, 1.35, 1.75], // PO 2026-08-23: 3★ = 손익분기(결제 모델 성립 조건 — save.ts 주석 참고).
   stockBonusRate: 0, // 남은카드 코인 보너스 **폐지**(PO 2026-07-17) — 남은 카드는 스타포인트(별 등급)로 전환.
   // 인게임 미션 보상(PlayScene 테이블 정합, PO 2026-07-17 하향): 코인 40%·게임비×**0.08**(구 0.15), 다이아 **6%**(구 10%)·1개.
   missionCoinChance: 0.4,
@@ -243,7 +257,13 @@ export const DEFAULT_ECON: EconParams = {
   compRoiDays: 4,
   compAuctionDiamonds: 60, // 낙찰 다이아 = 구간 수입(20개) 3구간 분량 — "많은 소모"(PO).
   compFloorDiamonds: 40, // 증축당 — 완공까지 총 60+40×3=180개.
-  startCoins: 40_000, // 시작값 연동(게임비 2,000 × 20판 분량 유지).
+  startCoins: 20_000, // PO 2026-08-25: 결제 유도 핀치 설계 — 40,000 → 20,000.
+  leagueGoalMult: 1,
+  leagueCoinPerStar: 53, // = dailyLeague COIN_PER_STAR 기본(320 ÷ STAR_SCALE 6 — 클리어 정산으로 별이 6배가 되며 함께 조정, 2026-08-30).
+  leagueGrandMult: 1,
+  eventGoalMult: 1,
+  eventCoinMult: 1,
+  eventGrandMult: 1,
   startDiamonds: 30,
 };
 

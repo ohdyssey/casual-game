@@ -61,14 +61,20 @@
     "dev:kimbaproll": "npm run dev --workspace games/kimbapRollMaster",
     "build:kimbaproll": "npm run build --workspace games/kimbapRollMaster",
     "build:soccergo": "npm run build --workspace games/SoccerGO",
-    "build:all": "npm run build:hub && npm run build:store && npm run build:eco01 && npm run build:bubblepong && npm run build:grillking && npm run build:sumoclash && npm run build:homerun && npm run build:dragonbeat && npm run build:archery && npm run build:zombiearrow && npm run build:duckhuntrush && npm run build:logistics && npm run build:soccerflick && npm run build:pathrush && npm run build:pawlink && npm run build:socialcasino && npm run build:flockgo && npm run build:solitaire && npm run build:fishing && npm run build:soccergo && npm run build:tictactoe && npm run build:kimbaproll",
+    "dev:bobblerunner": "npm run dev --workspace games/BobbleRunner",
+    "build:bobblerunner": "npm run build --workspace games/BobbleRunner",
+    "build:all": "npm run build:hub && npm run build:store && npm run build:eco01 && npm run build:bubblepong && npm run build:grillking && npm run build:sumoclash && npm run build:homerun && npm run build:dragonbeat && npm run build:archery && npm run build:zombiearrow && npm run build:duckhuntrush && npm run build:logistics && npm run build:soccerflick && npm run build:pathrush && npm run build:pawlink && npm run build:socialcasino && npm run build:flockgo && npm run build:solitaire && npm run build:fishing && npm run build:soccergo && npm run build:tictactoe && npm run build:kimbaproll && npm run build:bobblerunner",
+    "build:live": "node scripts/build-live.mjs",
+    "build:live:all": "node scripts/build-live.mjs --all",
+    "deploy:live": "npm run build:live && npm run deploy:assemble",
     "deploy:assemble": "node scripts/assemble-deploy.mjs",
     "deploy:static": "npm run build:all && npm run deploy:assemble",
-    "typecheck": "tsc -p packages/core/tsconfig.json && tsc -p packages/ttt-rules/tsconfig.json && tsc -p games/TICTACTOE/tsconfig.json && tsc -p services/api/tsconfig.json && tsc -p games/hub/tsconfig.json && tsc -p games/store/tsconfig.json && tsc -p games/eco01/tsconfig.json && tsc -p games/bubblepong/tsconfig.json && tsc -p games/Grillking/tsconfig.json && tsc -p games/SumoClash/tsconfig.json && tsc -p games/Homerun/tsconfig.json && tsc -p games/DragonBeat/tsconfig.json && tsc -p games/Archery/tsconfig.json && tsc -p games/ZombieArrow/tsconfig.json && tsc -p games/DuckhuntRush/tsconfig.json && tsc -p games/Logistics/tsconfig.json && tsc -p games/SoccerFlick/tsconfig.json && tsc -p games/PathRush/tsconfig.json && tsc -p games/PawLink/tsconfig.json && tsc -p games/Pickmeup/tsconfig.json && tsc -p games/SocialCasino/tsconfig.json && tsc -p games/FlockGo/tsconfig.json && tsc -p games/Solitare/tsconfig.json",
+    "typecheck": "tsc -p packages/core/tsconfig.json && tsc -p packages/ttt-rules/tsconfig.json && tsc -p games/TICTACTOE/tsconfig.json && tsc -p services/api/tsconfig.json && tsc -p games/hub/tsconfig.json && tsc -p games/store/tsconfig.json && tsc -p games/eco01/tsconfig.json && tsc -p games/bubblepong/tsconfig.json && tsc -p games/Grillking/tsconfig.json && tsc -p games/SumoClash/tsconfig.json && tsc -p games/Homerun/tsconfig.json && tsc -p games/DragonBeat/tsconfig.json && tsc -p games/Archery/tsconfig.json && tsc -p games/ZombieArrow/tsconfig.json && tsc -p games/DuckhuntRush/tsconfig.json && tsc -p games/Logistics/tsconfig.json && tsc -p games/SoccerFlick/tsconfig.json && tsc -p games/PathRush/tsconfig.json && tsc -p games/PawLink/tsconfig.json && tsc -p games/Pickmeup/tsconfig.json && tsc -p games/SocialCasino/tsconfig.json && tsc -p games/FlockGo/tsconfig.json && tsc -p games/Solitare/tsconfig.json && tsc -p games/BobbleRunner/tsconfig.json && tsc -p apps/api/tsconfig.json",
     "test": "vitest run",
     "build:tictactoe:msstore": "npm run build:msstore --workspace games/TICTACTOE",
     "assemble:tictactoe:msstore": "node scripts/assemble-ttt-store.mjs",
-    "deploy:tictactoe:msstore": "npm run build:tictactoe:msstore && npm run assemble:tictactoe:msstore"
+    "deploy:tictactoe:msstore": "npm run build:tictactoe:msstore && npm run assemble:tictactoe:msstore",
+    "test:api": "npm run test --workspace apps/api"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.8",

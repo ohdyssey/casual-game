@@ -10,6 +10,7 @@
 import Phaser from 'phaser';
 import { type Card, isRed, rankLabel, suitSymbol } from '../logic/types.js';
 import { CARD_BACK_KEY } from '../assets.js';
+import { drawCardFace, type CardFaceStyle } from './cardFace.js';
 
 const FACE = '#fffdf8';
 const RED = '#e8402f';
@@ -62,11 +63,16 @@ function newCanvas(): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D
 
 // **텍스처 캐시 키 = 카드 내용(무늬+랭크+하이라이트)** — id(b5·s3…)로 키하면 **레벨마다 같은 id 가 다른 카드로 재사용**돼
 //   이전 레벨의 낡은 얼굴 텍스처가 그대로 나오는 버그(표시 랭크≠논리 랭크 → K가 K로 매칭돼 보임). 내용 기반으로 고정.
-const faceKey = (card: Card, hl: boolean): string => `solc_${card.suit}${card.rank}${hl ? '_h' : ''}`;
+/**
+ * ⚠️ **스타일을 키에 넣는다.** 앞면 배치가 두 가지(classic=메인 · index=보너스)라, 키가 같으면
+ *   먼저 구운 쪽 그림이 다른 게임에도 그대로 나온다(캐시는 씬이 아니라 게임 전역이다).
+ */
+const faceKey = (card: Card, hl: boolean, style: CardFaceStyle): string =>
+  `solc_${card.suit}${card.rank}${hl ? '_h' : ''}${style === 'index' ? '_ix' : ''}`;
 const BACK_KEY = 'solc_back';
 
-function bakeFace(scene: Phaser.Scene, card: Card, hl: boolean): string {
-  const key = faceKey(card, hl);
+function bakeFace(scene: Phaser.Scene, card: Card, hl: boolean, style: CardFaceStyle): string {
+  const key = faceKey(card, hl, style);
   if (scene.textures.exists(key)) return key;
   const w = REF_W;
   const h = REF_H;
@@ -88,23 +94,7 @@ function bakeFace(scene: Phaser.Scene, card: Card, hl: boolean): string {
   ctx.fill();
   clearShadow(ctx);
 
-  const label = rankLabel(card.rank);
-  const sym = suitSymbol(card.suit);
-  ctx.fillStyle = color;
-  const draw = (str: string, x: number, y: number, size: number): void => {
-    ctx.font = `bold ${Math.round(size)}px Arial, sans-serif`;
-    ctx.fillText(str, x, y);
-  };
-  // 숫자(랭크) 표시를 **조금 크게** — 중앙 0.40→0.47, 모서리 0.16→0.19.
-  draw(label, 0, -h * 0.09, h * 0.47);
-  draw(sym, 0, h * 0.28, h * 0.3);
-  draw(label, -w * 0.33, -h * 0.33, h * 0.19);
-  draw(sym, -w * 0.33, -h * 0.15, h * 0.13);
-  ctx.save();
-  ctx.rotate(Math.PI);
-  draw(label, -w * 0.33, -h * 0.33, h * 0.19);
-  draw(sym, -w * 0.33, -h * 0.15, h * 0.13);
-  ctx.restore();
+  drawCardFace(ctx, rankLabel(card.rank), suitSymbol(card.suit), color, w, h, style);
 
   scene.textures.addCanvas(key, canvas);
   return key;
@@ -211,14 +201,20 @@ export class CardView extends Phaser.GameObjects.Image {
   private readonly cw: number;
   private faceUp = false;
   private flipping = false;
+  /** 지금 눌린 상태인가 — pressIn/pressOut/pressCancel 짝을 맞추는 유일한 근거(중복 연출 방지). */
+  private pressed = false;
   /** **지금 그려져 있는 내용의 서명**(back / face:<카드>:<하이라이트> / art:<키>) — 중복 갱신 판별용.
    *   같은 내용을 다시 그리면 setTexture+setDisplaySize 가 진행 중인 스케일 트윈(펄스 등)을 리셋해
    *   미세한 튐이 생긴다. 호출부가 isShowing* 로 먼저 확인하고 넘길 수 있게 서명을 유지한다. */
   private shownSig = 'back';
 
-  constructor(scene: Phaser.Scene, x: number, y: number, w: number, _h: number, interactive = true) {
+  /** 이 뷰가 쓰는 앞면 배치 — 보너스 게임만 'index'(모서리 인덱스). 기본은 메인 게임의 원래 디자인. */
+  private readonly faceStyle: CardFaceStyle;
+
+  constructor(scene: Phaser.Scene, x: number, y: number, w: number, _h: number, interactive = true, faceStyle: CardFaceStyle = 'classic') {
     bakeBack(scene);
     super(scene, x, y, BACK_KEY);
+    this.faceStyle = faceStyle;
     this.cw = w; // 표시 폭(높이는 비율 고정 REF_H/REF_W)
     this.applyDisplay();
     if (interactive) this.setInteractive({ pixelPerfect: true });
@@ -241,13 +237,23 @@ export class CardView extends Phaser.GameObjects.Image {
   showFace(card: Card, highlight = false): void {
     this.faceUp = true;
     this.shownSig = faceSig(card, highlight);
-    this.setTexture(bakeFace(this.scene, card, highlight));
+    this.setTexture(bakeFace(this.scene, card, highlight, this.faceStyle));
     this.applyDisplay();
   }
 
   /** 지금 이 카드(같은 하이라이트)를 앞면으로 보여주고 있는가 — 불필요한 재그리기 회피용. */
   isShowingFace(card: Card, highlight = false): boolean {
     return this.faceUp && this.shownSig === faceSig(card, highlight);
+  }
+
+  /**
+   * **지금 이 카드를 앞면으로 보여주고 있는가 — 하이라이트는 무시**.
+   *   탭 판정의 근거는 "무슨 카드인지 보이는가"이지 "골드 헤일로가 최신인가"가 아니다.
+   *   하이라이트까지 일치를 요구하면, 뒤집기 중 밀린 하이라이트 때문에 **매칭되는 카드가 안 눌리는**
+   *   새 잠금이 생긴다(실측으로 확인 — 자동 회귀가 교착으로 잡아냈다).
+   */
+  isShowingCard(card: Card): boolean {
+    return this.isShowingFace(card, true) || this.isShowingFace(card, false);
   }
 
   /** 지금 와일드 아트를 보여주고 있는가. */
@@ -277,13 +283,36 @@ export class CardView extends Phaser.GameObjects.Image {
     return this.faceUp;
   }
 
+  /** 지금 그려져 있는 내용의 서명 — 불변식 위반을 진단할 때 "무엇을 그리고 있었는지" 남기는 용도. */
+  shownSignature(): string {
+    return `${this.shownSig}${this.faceUp ? '' : '/down'}${this.flipping ? '/flip' : ''}`;
+  }
+
+  /**
+   * 뒤집기 연출이 진행 중인가 — 이 구간에는 하이라이트 갱신이 밀릴 수 있어 **불변식 검사에서 제외**한다(S3).
+   *   탭 허용 여부는 이 값이 아니라 `isShowingCard()`(무슨 카드가 보이는가)로 판정한다 —
+   *   그래야 연출이 중단돼도 카드가 영구히 안 눌리는 잠금이 생기지 않는다.
+   */
+  isFlipping(): boolean {
+    return this.flipping;
+  }
+
   /**
    * 뒷면 → 앞면 **뒤집기 연출** — 가로로 접었다가(scaleX→0, 엣지온) 앞면으로 펼친다(살짝 오버슛 팝).
    *   새로 노출되는 카드가 즉시 앞면으로 바뀌지 않고 실제로 뒤집혀 보이게 한다.
    */
-  flipToFace(card: Card, highlight = false): void {
+  /**
+   * @param onFaceShown 얼굴이 **드러나는 순간**(엣지온 통과) 호출 — 이때부터 플레이어는 무슨 카드인지 안다.
+   *   호출부가 여기서 **입력만** 푼다(그림을 다시 그리면 진행 중인 펼침 트윈이 끊기므로 손대면 안 된다).
+   * @param onDone 펼침까지 **완전히 끝난** 시점 — 뒤집는 동안 밀렸던 하이라이트 갱신을 여기서 반영한다.
+   */
+  flipToFace(card: Card, highlight = false, onDone?: () => void, onFaceShown?: () => void): void {
     if (this.faceUp || this.flipping) {
-      if (this.faceUp) this.showFace(card, highlight);
+      if (this.faceUp) {
+        this.showFace(card, highlight);
+        onFaceShown?.();
+        onDone?.();
+      }
       return;
     }
     this.flipping = true;
@@ -305,6 +334,9 @@ export class CardView extends Phaser.GameObjects.Image {
         this.showFace(card, highlight); // 엣지온 순간 앞면으로 교체(applyDisplay 가 배율 리셋)
         const full = this.scaleX; // 앞면 표시 후 자연 배율
         this.scaleX = 0.02;
+        // **얼굴이 보이는 순간 = 탭을 받아도 되는 순간**(S2). 펼침이 끝날 때까지 기다리면
+        //   "카드가 보이는데 안 눌리는" 100ms 남짓의 창이 남는다(자동 회귀가 실측으로 잡아냈다).
+        onFaceShown?.();
         this.scene.tweens.add({
           targets: this,
           scaleX: full,
@@ -317,6 +349,9 @@ export class CardView extends Phaser.GameObjects.Image {
             }
             this.scaleX = full;
             this.flipping = false;
+            // **공개 완료 통보**(S2) — 호출부가 이 시점에 입력 잠금을 풀고 밀렸던 하이라이트를 반영한다.
+            //   이게 없으면 뒤집기 중 잠긴 입력이 다음 refresh 까지 풀리지 않는다.
+            onDone?.();
           },
         });
       },
@@ -334,6 +369,7 @@ export class CardView extends Phaser.GameObjects.Image {
   /** 짧게 눌렀다 놓는 펄스(스톡 더미 "돌아가는 중" 신호 등) — 끝나면 **정상 배율로 복귀**한다. */
   pulse(depth = 0.9, duration = 60): void {
     if (!this.scene || this.flipping) return; // 뒤집기 중이면 배율을 건드리지 않는다(연출 충돌).
+    this.pressed = false; // 펄스가 배율을 되돌리므로 눌림 상태도 함께 소멸시킨다(뒤늦은 pressOut 방지).
     const base = this.baseScale;
     this.scene.tweens.killTweensOf(this);
     this.setScale(base);
@@ -348,6 +384,76 @@ export class CardView extends Phaser.GameObjects.Image {
         if (this.scene) this.setScale(base);
       },
     });
+  }
+
+  /**
+   * **누른 순간** — 살짝 눌려 들어간다(탭 피드백 1단계). `pressOut` 과 짝이며, 짝을 맞추지 않으면
+   *   카드가 작아진 채로 남는다. 뒤집기 중에는 배율 연출이 충돌하므로 건너뛴다.
+   */
+  pressIn(depth = 0.93, duration = 70): void {
+    if (!this.scene || this.flipping) return;
+    this.pressed = true;
+    const base = this.baseScale;
+    this.scene.tweens.killTweensOf(this);
+    this.scene.tweens.add({
+      targets: this,
+      scaleX: base * depth,
+      scaleY: base * depth,
+      duration,
+      ease: 'Quad.easeOut',
+    });
+  }
+
+  /**
+   * **손을 뗀 순간** — 눌린 상태에서 **정상 배율보다 크게 한 번 부풀었다가**(peak) 제자리로 가라앉는다.
+   *   "눌렸다 커지는" 감각의 본체다(PO 2026-08-30).
+   *
+   * ⚠️ `Back.easeOut` 의 되튐에 맡기면 안 된다 — 되튐 폭이 **이동 거리에 비례**하는데 여기선 거리가
+   *   7%(0.93→1.00)뿐이라 실측 최대 배율이 **1.001배**, 즉 눈에 보이지 않았다. 그래서 목표 배율을
+   *   직접 지정한 2단 트윈으로 간다: ① 눌림 → peak(확실히 크게) ② peak → 정상(가라앉기).
+   */
+  pressOut(peak = 1.06, upMs = 130, downMs = 150): void {
+    // ⚠️ **눌린 상태에서만** 튀어오른다 — 드래그로 끝난 카드는 pressCancel 로 이미 풀렸으므로, 여기서
+    //    걸러내지 않으면 카드를 놓은 직후에 뜬금없이 한 번 더 커진다(드롭 후 pointerup 이 이어서 온다).
+    if (!this.pressed) return;
+    this.pressed = false;
+    if (!this.scene || this.flipping) return;
+    const base = this.baseScale;
+    this.scene.tweens.killTweensOf(this);
+    this.scene.tweens.add({
+      targets: this,
+      scaleX: base * peak,
+      scaleY: base * peak,
+      duration: upMs,
+      ease: 'Quad.easeOut',
+      onComplete: () => {
+        // ⚠️ 씬이 이미 내려갔으면 두 번째 트윈을 걸지 않는다 — 파괴된 오브젝트의 트윈 콜백 예외 하나가
+        //    게임 루프를 영구 정지시킨 전례가 있다(전 게임 공통 함정).
+        if (!this.scene || this.flipping) return;
+        this.scene.tweens.add({
+          targets: this,
+          scaleX: base,
+          scaleY: base,
+          duration: downMs,
+          ease: 'Quad.easeOut',
+          onComplete: () => {
+            if (this.scene) this.setScale(base); // 오차 없이 정확히 정상 배율로 마감.
+          },
+        });
+      },
+    });
+  }
+
+  /**
+   * 눌림 연출 **취소** — 드래그 시작·입력 재배선처럼 "손을 뗀 게 아닌" 이유로 끝날 때. 즉시 정상 배율.
+   *   ⚠️ 이게 없으면 눌린 채 드래그로 넘어간 카드가 **작아진 상태로 끌려다닌다**(런의 다른 카드와 크기가 어긋난다).
+   */
+  pressCancel(): void {
+    if (!this.pressed) return;
+    this.pressed = false;
+    if (!this.scene || this.flipping) return;
+    this.scene.tweens.killTweensOf(this);
+    this.setScale(this.baseScale);
   }
 
   /** 진행 중인 뒤집기를 취소하고 **즉시** 앞면으로 — 자동 완성처럼 연출할 시간이 없는 구간용. */

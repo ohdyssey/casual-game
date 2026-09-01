@@ -19,8 +19,8 @@
 
 /** 런타임 뽑기 축소 계수(solvable.ts DYN_STOCK_REDUCE 와 반드시 일치). */
 export const DYN_STOCK_REDUCE = 0.35;
-/** 런타임 뽑기 하한(solvable.ts MIN_DYN_STOCK 과 일치). */
-export const MIN_DYN_STOCK = 5;
+/** 런타임 뽑기 하한(solvable.ts MIN_DYN_STOCK 과 **반드시 일치**). 5→3(2026-08-21)→2(2026-08-23 재설계). */
+export const MIN_DYN_STOCK = 2; // 2026-08-23 3→2(재설계·solvable.ts 와 일치).
 
 /** 레벨 → 보드 카드수 목표(1→24, 100→40, 그 이후 **40 하드 캡**). */
 export const MAX_BOARD_CARDS = 40;

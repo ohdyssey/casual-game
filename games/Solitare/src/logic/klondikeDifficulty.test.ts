@@ -10,10 +10,10 @@ import {
   greedyKlondikeWinRate,
   pickKlondikeDeal,
   dealKlondikeForLevel,
-  GRADE_TARGET_WINRATE,
-  GRADE_TARGET_EASE,
+  targetWinRateForRound,
+  targetEaseForRound,
   deepKeyCards,
-  MAX_DEEP_KEY_BY_GRADE,
+  maxDeepKeyForRound,
   type KlondikeDealBudget,
 } from './klondikeDifficulty.js';
 
@@ -46,20 +46,41 @@ describe('klondikeRound / gradeForKlondikeLevel', () => {
     expect(klondikeRound(0)).toBe(1);
   });
 
-  it('저레벨일수록 쉬운 등급 — 배치의 유일한 기준점', () => {
+  it('저레벨일수록 쉬운 등급(라벨) — 쉬움 구간이 5회차까지', () => {
     expect(gradeForKlondikeLevel(10)).toBe(1);
-    expect(gradeForKlondikeLevel(30)).toBe(1);
-    expect(gradeForKlondikeLevel(40)).toBe(2);
-    expect(gradeForKlondikeLevel(70)).toBe(2);
-    expect(gradeForKlondikeLevel(80)).toBe(3);
+    expect(gradeForKlondikeLevel(50)).toBe(1);
+    expect(gradeForKlondikeLevel(60)).toBe(2);
+    expect(gradeForKlondikeLevel(100)).toBe(2);
+    expect(gradeForKlondikeLevel(110)).toBe(3);
     expect(gradeForKlondikeLevel(200)).toBe(3);
   });
 
-  it('등급이 올라갈수록 목표 승률·목표 ease 가 낮아진다(= 어려워진다)', () => {
-    expect(GRADE_TARGET_WINRATE[1]).toBeGreaterThan(GRADE_TARGET_WINRATE[2]);
-    expect(GRADE_TARGET_WINRATE[2]).toBeGreaterThan(GRADE_TARGET_WINRATE[3]);
-    expect(GRADE_TARGET_EASE[1]).toBeGreaterThan(GRADE_TARGET_EASE[2]);
-    expect(GRADE_TARGET_EASE[2]).toBeGreaterThan(GRADE_TARGET_EASE[3]);
+  /**
+   * ⚠️ **계단이 아니라 램프여야 한다.** 예전 3단 등급은 3회차까지 평탄하다가 4회차에서 승률 목표가
+   *   0.94 → 0.58 로 뚝 떨어져 "갑자기 벽"이 됐다. 회차마다 조금씩만 내려가는지 여기서 지킨다.
+   */
+  it('목표 난이도는 회차마다 단조 감소하고, 한 회차 낙폭이 완만하다', () => {
+    let prevW = targetWinRateForRound(1);
+    let prevE = targetEaseForRound(1);
+    expect(prevW).toBe(1);
+    for (let r = 2; r <= 20; r++) {
+      const w = targetWinRateForRound(r);
+      const e = targetEaseForRound(r);
+      expect(w).toBeLessThanOrEqual(prevW);
+      expect(e).toBeLessThanOrEqual(prevE);
+      expect(prevW - w).toBeLessThan(0.08); // 한 회차 낙폭 상한 = 계단 방지선.
+      prevW = w;
+      prevE = e;
+    }
+    expect(targetWinRateForRound(20)).toBeCloseTo(0.3, 5);
+  });
+
+  /** 0 까지 조이면 후보가 말라 폴백(난이도 무통제)으로 빠진다 — 실효 하한은 1 이다. */
+  it('초반 회차는 묻힌 핵심 카드를 1장까지만 허용하고, 회차가 오를수록 느슨해진다', () => {
+    expect(maxDeepKeyForRound(1)).toBe(1);
+    expect(maxDeepKeyForRound(5)).toBe(1);
+    expect(maxDeepKeyForRound(6)).toBeGreaterThan(1);
+    for (let r = 2; r <= 15; r++) expect(maxDeepKeyForRound(r)).toBeGreaterThanOrEqual(maxDeepKeyForRound(r - 1));
   });
 });
 
@@ -148,14 +169,14 @@ describe('pickKlondikeDeal', () => {
 
   /** 난이도 배치 회귀 — 저레벨이 고레벨보다 쉬워야 한다(이 프로젝트가 PO에게 약속한 성질). */
   it('저레벨 딜이 고레벨 딜보다 평균 승률이 높다', () => {
-    // ⚠️ 예산이 작으면 **매몰 컷**(MAX_DEEP_KEY_BY_GRADE)이 저레벨 후보를 2~3개로 줄여 표본이 흔들린다 —
-    //    승률 성질을 보는 테스트이므로 후보를 넉넉히 준다(실게임 기본 예산은 이보다 더 크다).
+    // ⚠️ **예산을 넘기지 않는다** — 초반 회차는 목표 승률이 1.0 이라 후보를 더 많이 재봐야 그런 딜이
+    //    잡힌다(그래서 `dealBudgetForRound` 가 초반에만 넓은 예산을 쓴다). 테스트가 작은 예산을 강제하면
+    //    저레벨만 목표에 못 닿아 **성질이 뒤집힌 것처럼 보인다** — 실게임과 같은 경로로 재야 한다.
     const REPEAT = 6;
-    const wide: KlondikeDealBudget = { candidates: 24, finalists: 6, maxMeasured: 12, tries: 8 };
     const avgWinRate = (level: number): number => {
       const rng = seededRng(4242);
       let sum = 0;
-      for (let i = 0; i < REPEAT; i++) sum += pickKlondikeDeal(rng, level, wide).winRate;
+      for (let i = 0; i < REPEAT; i++) sum += pickKlondikeDeal(rng, level).winRate;
       return sum / REPEAT;
     };
     expect(avgWinRate(10)).toBeGreaterThan(avgWinRate(80));
@@ -187,9 +208,9 @@ describe('deepKeyCards — 깊이 묻힌 핵심 카드(A·2·J·Q·K)', () => {
     expect(deepKeyCards(stateOf([[up('H', 7)]], [card('S', 13), card('S', 1)]))).toBe(0);
   });
 
-  it('등급이 올라갈수록 허용 장수가 느슨해진다', () => {
-    expect(MAX_DEEP_KEY_BY_GRADE[1]).toBeLessThan(MAX_DEEP_KEY_BY_GRADE[2]);
-    expect(MAX_DEEP_KEY_BY_GRADE[2]).toBeLessThan(MAX_DEEP_KEY_BY_GRADE[3]);
+  it('회차가 올라갈수록 허용 장수가 느슨해진다', () => {
+    expect(maxDeepKeyForRound(1)).toBeLessThan(maxDeepKeyForRound(6));
+    expect(maxDeepKeyForRound(6)).toBeLessThan(maxDeepKeyForRound(12));
   });
 
   /** 회귀 — PO 2026-07-28 "K Q J 및 A 1 2가 끝까지 숨어 있는 판을 저레벨에 배치하지 말 것". */
@@ -203,4 +224,27 @@ describe('deepKeyCards — 깊이 묻힌 핵심 카드(A·2·J·Q·K)', () => {
     };
     expect(avgDeep(10)).toBeLessThan(avgDeep(80));
   });
+});
+
+/**
+ * **보너스 게임의 승리 가능 보장** — 검증 안 된 딜(`matched === false`)이 나가면 안 된다.
+ *
+ * 배경(2026-08-29 PO 신고 "못푸는 문제가 있다"): 3장 뽑기는 그리디가 승리를 증명해 내는 비율이
+ * **딜당 17%뿐**이라, 후보를 12개만 재던 예전 예산에서는 `0.83¹² ≈ 11%` 가 난이도 통제도 승리
+ * 보장도 없는 폴백으로 샜다(실측: lv150 3장 모드 40판 중 4판). `maxMeasured` 확대 + 확장 루프로
+ * 막았다. 시드가 고정이라 이 테스트는 흔들리지 않는다 — **깨지면 예산이 되돌아간 것이다.**
+ */
+describe('보너스 딜 — 검증 안 된 딜이 나가지 않는다', () => {
+  for (const draw of [1, 3] as const) {
+    for (const level of [10, 50, 150]) {
+      it(`${draw}장 뽑기 · lv${level}`, () => {
+        const rng = seededRng(7000 + level * 13 + draw);
+        for (let i = 0; i < 12; i++) {
+          const pick = pickKlondikeDeal(rng, level, undefined, draw);
+          expect(pick.matched).toBe(true);
+          expect(pick.winRate).toBeGreaterThan(0); // 그리디가 이긴 수순 = 승리 가능 증거.
+        }
+      }, 120_000);
+    }
+  }
 });

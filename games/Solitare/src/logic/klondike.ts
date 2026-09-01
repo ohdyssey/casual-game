@@ -24,10 +24,11 @@ import { shuffle } from './deck.js';
 export const TABLEAU_COLS = 7;
 
 /**
- * **보너스 라운드 발동 조건** — 10레벨 단위(10·20·30…)를 **완료한 직후** 한 번(PO 2026-07-27).
- *   ⚠️ 클론다이크는 **레벨이 아니라 보너스**다. 예전엔 `level % 10 === 0` 인 레벨 자체가 클론다이크라
- *      반드시 클리어해야 다음으로 갈 수 있었지만, 이제는 10레벨을 깬 뒤 끼어드는 **건너뛸 수 있는 덤**이다
- *      (게임비 없음, 실패·이탈해도 다음 레벨 진행에 영향 없음). 호출부는 전부 이 함수로만 분기한다.
+ * ⛔ **폐기**(2026-08-29) — 10레벨 단위로 보너스를 끼워 넣던 조건. 지금은 홈 좌측 '보너스 게임'
+ *   아이콘으로 언제든 들어가고 하루 판수로 제한한다(`logic/bonusGame.ts`).
+ *   ⚠️ 되살리지 말 것 — 메인 진행을 끊고 레벨 번호가 `10 → 10-1 → 11` 로 한 겹 늘어난다.
+ *   테스트가 "아무도 안 쓴다"는 것만 고정한다. 참조가 0이 되면 지워도 된다.
+ * @deprecated
  */
 export function hasBonusAfter(clearedLevel: number): boolean {
   return clearedLevel > 0 && clearedLevel % 10 === 0;
@@ -46,7 +47,11 @@ export const BONUS_ENTRY_FEE: number = 0;
  */
 export const BONUS_SKIPPABLE = true;
 
-/** 보너스 라운드 표시 라벨 — 10레벨 완료 후의 보너스는 `10-1`(PO 2026-07-27 "10-1 정도로 설정"). */
+/**
+ * ⛔ **폐기**(2026-08-29) — `10-1` 표시 규약. 보너스가 메인 레벨에 딸리지 않으므로 붙일 번호가 없다.
+ *   지금 헤더는 남은 판수를 보여준다(`bonusHeaderLabel`).
+ * @deprecated
+ */
 export function bonusLevelLabel(clearedLevel: number): string {
   return `${clearedLevel}-1`;
 }

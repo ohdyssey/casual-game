@@ -1,0 +1,645 @@
+{
+  "domain": "ui",
+  "unit": "blank_2",
+  "frame": {
+    "w": 1080,
+    "h": 2400
+  },
+  "render": {
+    "fit": "fit",
+    "origin": "center"
+  },
+  "nodes": [
+    {
+      "id": "layer_1",
+      "type": "image",
+      "label": "팝업창",
+      "rect": [
+        28,
+        501,
+        1024,
+        1371
+      ],
+      "center": [
+        540,
+        1187
+      ],
+      "z": 1,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Resurt_01",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_5",
+      "type": "image",
+      "label": "홈버튼",
+      "rect": [
+        191,
+        1641,
+        337,
+        115
+      ],
+      "center": [
+        359,
+        1699
+      ],
+      "z": 2,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Resurt_02",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_5_copy",
+      "type": "image",
+      "label": "넥스트레벨",
+      "rect": [
+        542,
+        1639,
+        337,
+        120
+      ],
+      "center": [
+        710,
+        1699
+      ],
+      "z": 3,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Resurt_03",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6",
+      "type": "image",
+      "label": "새 레이어",
+      "rect": [
+        273,
+        1367,
+        107,
+        111
+      ],
+      "center": [
+        327,
+        1423
+      ],
+      "z": 4,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_2-3_v5",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        487,
+        1376,
+        107,
+        94
+      ],
+      "center": [
+        541,
+        1423
+      ],
+      "z": 5,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_2-2_v5",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_6_copy2",
+      "type": "image",
+      "label": "새 레이어 복사",
+      "rect": [
+        708,
+        1369,
+        107,
+        107
+      ],
+      "center": [
+        762,
+        1423
+      ],
+      "z": 6,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v6",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2",
+      "type": "image",
+      "label": "별",
+      "rect": [
+        418,
+        396,
+        212,
+        212
+      ],
+      "center": [
+        524,
+        502
+      ],
+      "z": 7,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v5",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy",
+      "type": "image",
+      "label": "별",
+      "rect": [
+        284,
+        455,
+        154,
+        154
+      ],
+      "center": [
+        361,
+        532
+      ],
+      "z": 8,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v5",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy2",
+      "type": "image",
+      "label": "별",
+      "rect": [
+        615,
+        455,
+        154,
+        154
+      ],
+      "center": [
+        692,
+        532
+      ],
+      "z": 9,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v5",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy3",
+      "type": "image",
+      "label": "별",
+      "rect": [
+        178,
+        514,
+        122,
+        122
+      ],
+      "center": [
+        239,
+        575
+      ],
+      "z": 10,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v5",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_2_copy4",
+      "type": "image",
+      "label": "별",
+      "rect": [
+        755,
+        514,
+        122,
+        122
+      ],
+      "center": [
+        816,
+        575
+      ],
+      "z": 11,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_Solitare_UI_02_v5",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_3",
+      "type": "text",
+      "label": "잘했어요!",
+      "rect": [
+        338,
+        725,
+        405,
+        108
+      ],
+      "center": [
+        540,
+        779
+      ],
+      "rectApprox": true,
+      "z": 12,
+      "space": "auto",
+      "pin": "none",
+      "text": "잘했어요!",
+      "at": [
+        540,
+        779
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#000000",
+        "strokeW": 9,
+        "fontSize": 90,
+        "fontFamily": "\"Baloo 2\", \"Pretendard Variable\", \"M PLUS Rounded 1c\", \"Smiley Sans\", system-ui, sans-serif",
+        "color": "#ffffff",
+        "fontStyle": "700",
+        "align": "center",
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowX": 2,
+        "shadowY": 2,
+        "shadowBlur": 2,
+        "shadowAlpha": 0.4
+      }
+    },
+    {
+      "id": "layer_4",
+      "type": "text",
+      "label": "z",
+      "rect": [
+        393,
+        960,
+        300,
+        48
+      ],
+      "center": [
+        543,
+        984
+      ],
+      "rectApprox": true,
+      "z": 13,
+      "space": "auto",
+      "pin": "none",
+      "text": "컬렉션카드 획득",
+      "at": [
+        543,
+        984
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 40,
+        "fontFamily": "\"Baloo 2\", \"Pretendard Variable\", \"M PLUS Rounded 1c\", \"Smiley Sans\", system-ui, sans-serif",
+        "color": "#000000",
+        "fontStyle": "500",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_7",
+      "type": "image",
+      "label": "카드",
+      "rect": [
+        339,
+        1060,
+        161,
+        241
+      ],
+      "center": [
+        420,
+        1180
+      ],
+      "z": 14,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_02_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_7_copy",
+      "type": "image",
+      "label": "카드",
+      "rect": [
+        574,
+        1060,
+        161,
+        241
+      ],
+      "center": [
+        654,
+        1180
+      ],
+      "z": 15,
+      "space": "auto",
+      "pin": "none",
+      "asset": "up_06_v2",
+      "style": {
+        "tintable": true
+      }
+    },
+    {
+      "id": "layer_8",
+      "type": "text",
+      "label": "+1",
+      "rect": [
+        428,
+        1232,
+        50,
+        60
+      ],
+      "center": [
+        453,
+        1262
+      ],
+      "rectApprox": true,
+      "z": 16,
+      "space": "auto",
+      "pin": "none",
+      "text": "+1",
+      "at": [
+        453,
+        1262
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 4,
+        "fontSize": 50,
+        "fontFamily": "\"Baloo 2\", \"Pretendard Variable\", \"M PLUS Rounded 1c\", \"Smiley Sans\", system-ui, sans-serif",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_8_copy2",
+      "type": "text",
+      "label": "+1 복사",
+      "rect": [
+        277,
+        1503,
+        92,
+        55
+      ],
+      "center": [
+        323,
+        1531
+      ],
+      "rectApprox": true,
+      "z": 17,
+      "space": "auto",
+      "pin": "none",
+      "text": "4500",
+      "at": [
+        323,
+        1531
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 46,
+        "fontFamily": "\"Baloo 2\", \"Pretendard Variable\", \"M PLUS Rounded 1c\", \"Smiley Sans\", system-ui, sans-serif",
+        "color": "#0b0a0a",
+        "fontStyle": "500",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_8_copy4",
+      "type": "text",
+      "label": "+1 복사",
+      "rect": [
+        528,
+        1503,
+        23,
+        55
+      ],
+      "center": [
+        539,
+        1531
+      ],
+      "rectApprox": true,
+      "z": 18,
+      "space": "auto",
+      "pin": "none",
+      "text": "2",
+      "at": [
+        539,
+        1531
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 46,
+        "fontFamily": "\"Baloo 2\", \"Pretendard Variable\", \"M PLUS Rounded 1c\", \"Smiley Sans\", system-ui, sans-serif",
+        "color": "#050505",
+        "fontStyle": "500",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_8_copy5",
+      "type": "text",
+      "label": "+1 복사",
+      "rect": [
+        745,
+        1503,
+        46,
+        55
+      ],
+      "center": [
+        768,
+        1531
+      ],
+      "rectApprox": true,
+      "z": 19,
+      "space": "auto",
+      "pin": "none",
+      "text": "15",
+      "at": [
+        768,
+        1531
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 0,
+        "fontSize": 46,
+        "fontFamily": "\"Baloo 2\", \"Pretendard Variable\", \"M PLUS Rounded 1c\", \"Smiley Sans\", system-ui, sans-serif",
+        "color": "#000000",
+        "fontStyle": "500",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_8_copy3",
+      "type": "text",
+      "label": "+1 복사",
+      "rect": [
+        345,
+        1672,
+        80,
+        48
+      ],
+      "center": [
+        385,
+        1696
+      ],
+      "rectApprox": true,
+      "z": 20,
+      "space": "auto",
+      "pin": "none",
+      "text": "HOME",
+      "at": [
+        385,
+        1696
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 4,
+        "fontSize": 40,
+        "fontFamily": "\"Baloo 2\", \"Pretendard Variable\", \"M PLUS Rounded 1c\", \"Smiley Sans\", system-ui, sans-serif",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_8_copy6",
+      "type": "text",
+      "label": "+1 복사",
+      "rect": [
+        691,
+        1672,
+        80,
+        48
+      ],
+      "center": [
+        731,
+        1696
+      ],
+      "rectApprox": true,
+      "z": 21,
+      "space": "auto",
+      "pin": "none",
+      "text": "NEXT",
+      "at": [
+        731,
+        1696
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 4,
+        "fontSize": 40,
+        "fontFamily": "\"Baloo 2\", \"Pretendard Variable\", \"M PLUS Rounded 1c\", \"Smiley Sans\", system-ui, sans-serif",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    },
+    {
+      "id": "layer_8_copy",
+      "type": "text",
+      "label": "+1 복사",
+      "rect": [
+        671,
+        1232,
+        50,
+        60
+      ],
+      "center": [
+        696,
+        1262
+      ],
+      "rectApprox": true,
+      "z": 22,
+      "space": "auto",
+      "pin": "none",
+      "text": "+1",
+      "at": [
+        696,
+        1262
+      ],
+      "anchorX": "center",
+      "anchorY": "middle",
+      "style": {
+        "stroke": "#5a3210",
+        "strokeW": 4,
+        "fontSize": 50,
+        "fontFamily": "\"Baloo 2\", \"Pretendard Variable\", \"M PLUS Rounded 1c\", \"Smiley Sans\", system-ui, sans-serif",
+        "color": "#ffffff",
+        "align": "center"
+      }
+    }
+  ],
+  "refs": [
+    "asset:up_02_v2",
+    "asset:up_06_v2",
+    "asset:up_Resurt_01",
+    "asset:up_Resurt_02",
+    "asset:up_Resurt_03",
+    "asset:up_Solitare_UI_02_v5",
+    "asset:up_Solitare_UI_02_v6",
+    "asset:up_Solitare_UI_2-2_v5",
+    "asset:up_Solitare_UI_2-3_v5"
+  ],
+  "label": "결과화면",
+  "hints": {
+    "interactiveCandidates": [
+      {
+        "id": "layer_5",
+        "label": "홈버튼",
+        "confidence": 0.6,
+        "suggestedAction": null,
+        "evidence": [
+          "이름에 버튼/구매 표현 (\"홈버튼\")",
+          "인접 캡션 텍스트 \"HOME\" (layer_8_copy3)"
+        ]
+      }
+    ],
+    "note": "추정입니다 — 저작된 값이 아닙니다. 확정이 필요하면 에디터에서 「버튼」과 역할(action:이름)을 지정하세요. 구현 시에는 이 후보를 근거로 삼되, 코드에 TODO 로 남겨 사람이 확인할 수 있게 하세요."
+  },
+  "rev": "448098c3"
+}

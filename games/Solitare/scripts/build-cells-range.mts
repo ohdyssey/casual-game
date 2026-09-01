@@ -44,8 +44,8 @@
  */
 import fs from 'node:fs';
 import { bakeLevel } from './level-kit.mts';
-import { gridToSlots, validateGrid, openCellsOf } from './cell-grid.mts';
-import { CELLS, type CellShape } from './cell-library.mts';
+import { gridToSlots, validateGrid, openCellsOf, orphanCellsOf, weakCoveredCellsOf } from './cell-grid.mts';
+import { CELLS, LAYERED_CELLS, stacksOnto, type CellShape } from './cell-library.mts';
 import { assembleGroups, SKELETONS, STACKABLE, CENTER_STACKABLE, MAX_ROW_SPAN, type GroupSpec, type GroupRange } from './level-assembler.mts';
 import { targetCardsForLevel, stockRatioForLevel, authoredFromRuntime, MAX_BOARD_CARDS } from './level-curve.mts';
 
@@ -70,6 +70,29 @@ function rngOf(seed: number): () => number {
 
 const pick = <T>(arr: readonly T[], r: number): T => arr[Math.floor(r * arr.length) % arr.length];
 
+/**
+ * **계층 셀만 쓴다**(PO 2026-08-21 "각 카드는 계층화된 오픈 구조로 가능한 설계되어야 한다").
+ * 자체 계층이 깨진 20종(나선·ㄷ자·납작다이아·U자·상자…)은 셀 안에 이미 덮개 없는 카드를 품고 있어
+ * 어떻게 조립해도 고아가 생긴다 — 재료 단계에서 뺀다. 남는 97종으로도 실루엣 다양성은 충분하다.
+ */
+const layeredPool = (pool: readonly string[]): string[] => pool.filter((n) => LAYERED_CELLS.includes(n));
+
+/**
+ * 레벨 → **동시 오픈 예산**(시작 시 열려 있는 카드 수). 초반 넓게(7) → 후반 좁게(4).
+ *
+ * 이전 생성기는 "너무 적으면" 벌점만 주고 **상한이 없었다** — 그래서 오픈 16장(보드의 40%)짜리
+ * 레벨이 만점으로 통과했고(500 중 90개가 9장 이상), 레벨이 올라갈수록 오픈이 오히려 넓어지는
+ * 난이도 역행이 생겼다(실측 구간평균 5.3 → 7.4). 상·하한을 모두 걸고 방향을 뒤집는다.
+ */
+function openBudgetForLevel(level: number): { min: number; max: number } {
+  const lv = Math.max(1, Math.min(500, level));
+  const max = Math.round(7 - (2 * (lv - 1)) / 499); // 1→7 … 500→5
+  return { min: Math.max(4, max - 1), max };
+}
+
+/** 목표 카드수 대비 허용 미달(장) — 이보다 적은 후보는 채점 대상에서 뺀다. */
+const MAX_CARD_SHORTFALL = 2;
+
 const CHOKE = ['기둥1', '기둥2'];
 // 폭 5 이하만 — 두 벌이 겹치는 pair 그룹에서도(다른 그룹과 합쳐) 가로 11칸 한도를 넘기지 않는다.
 const BULGE = ['다이아5', '넓은봉우리3', '좁은봉우리3'];
@@ -88,29 +111,43 @@ const CONVERGE = ['계단좌3', '계단좌5'];
 function buildStack(pool: readonly string[], wantCards: number, maxRows: number, rnd: () => number, forceMid: 'bulge' | 'converge' | null): CellShape[] {
   const stack: CellShape[] = [];
   let cards = 0, rows = 0;
+  const push = (c: CellShape): void => { stack.push(c); cards += c.count; rows += c.rows; };
+  /**
+   * 이어붙일 수 있는 셀 — 크기(행·카드수)가 남은 예산에 맞고, **바로 위 셀이 이 셀의 최상단 행을
+   * 전부 덮어야** 한다(stacksOnto). 이 조건이 스택 안의 고아를 원천 차단한다: 스택의 첫 셀 최상단
+   * 행만 오픈이 되고 나머지 카드는 전부 위쪽에 덮개를 갖는다 → 한 그룹 = 하나의 계층 사슬.
+   */
+  const fitsFor = (names: readonly string[], slackCards: number): string[] => {
+    const above = stack.length ? stack[stack.length - 1] : null;
+    return names.filter(
+      (n) =>
+        CELLS[n].rows <= maxRows - rows &&
+        CELLS[n].count <= wantCards - cards + slackCards &&
+        (above === null || stacksOnto(above, CELLS[n])),
+    );
+  };
 
-  const chokeFits = CHOKE.filter((n) => pool.includes(n) && CELLS[n].rows <= maxRows - rows && CELLS[n].count <= wantCards - cards + 4);
-  if (chokeFits.length) { const c = CELLS[pick(chokeFits, rnd())]; stack.push(c); cards += c.count; rows += c.rows; }
+  const chokeFits = fitsFor(CHOKE.filter((n) => pool.includes(n)), 4);
+  if (chokeFits.length) push(CELLS[pick(chokeFits, rnd())]);
 
   if (forceMid) {
-    const midPool = forceMid === 'bulge' ? BULGE : CONVERGE;
-    const midFits = midPool.filter((n) => pool.includes(n) && CELLS[n].rows <= maxRows - rows && CELLS[n].count <= wantCards - cards + 6);
-    if (midFits.length) { const c = CELLS[pick(midFits, rnd())]; stack.push(c); cards += c.count; rows += c.rows; }
+    const midPool = (forceMid === 'bulge' ? BULGE : CONVERGE).filter((n) => pool.includes(n));
+    const midFits = fitsFor(midPool, 6);
+    if (midFits.length) push(CELLS[pick(midFits, rnd())]);
   }
 
   let guard = 0;
   while (cards < wantCards && rows < maxRows && guard++ < 30) {
-    const rowsLeft = maxRows - rows;
-    const cardsLeft = wantCards - cards;
-    const fits = pool.filter((n) => CELLS[n].rows <= rowsLeft && CELLS[n].count <= cardsLeft + 4);
+    const fits = fitsFor(pool, 4);
     if (fits.length === 0) break;
-    const chosen = CELLS[pick(fits, rnd())];
-    stack.push(chosen);
-    cards += chosen.count;
-    rows += chosen.rows;
+    push(CELLS[pick(fits, rnd())]);
   }
-  return stack;
+  // 카드 1장짜리 그룹(기둥1 하나로 끝난 스택)은 그 자체가 고아다 — 아무것도 덮지 않고 시작부터 열려 있다.
+  return cards >= 2 ? stack : [];
 }
+
+const SIDE_POOL = layeredPool(STACKABLE);
+const CENTER_POOL = layeredPool(CENTER_STACKABLE);
 
 /** 레벨별 확산 방향 모드 — 결정적으로 순환시켜 섞는다(위 docstring 참고. up 은 시도 후 폐기). */
 function modeOf(level: number): 'down' | 'converge' {
@@ -141,7 +178,7 @@ function composeLevel(level: number, target: number) {
       // 이 그룹이 맡을 카드 분량 + 지터(-1~+1) — 같은 목표라도 시도마다 다른 조합이 나오게.
       const wantCards = Math.max(1, Math.round((target - acc) / groupsLeft / mult) + Math.floor(rnd() * 3) - 1);
       const maxRows = MAX_ROW_SPAN + 1 - g.rowOff;
-      const stack = buildStack(g.kind === 'center' ? CENTER_STACKABLE : STACKABLE, wantCards, maxRows, rnd, i === forcedIdx ? forceKind : null);
+      const stack = buildStack(g.kind === 'center' ? CENTER_POOL : SIDE_POOL, wantCards, maxRows, rnd, i === forcedIdx ? forceKind : null);
       if (stack.length === 0) { failed = true; return; }
       groups.push({ kind: g.kind, stack, rowOff: g.rowOff });
       acc += stack.reduce((s, c) => s + c.count, 0) * mult;
@@ -154,14 +191,27 @@ function composeLevel(level: number, target: number) {
     // 짜리가 "그나마 나은 후보"로 뽑히는 사고가 났다(500레벨 중 61개가 40 초과, 최대 44). 상한을 넘는
     // 후보는 아예 채점 대상에서 뺀다 — 못 채운 미달(39장 등)이 40 초과보다 항상 낫다.
     if (res.cells.length > MAX_BOARD_CARDS) continue;
+    // **카드수 하한도 필터로** — 벌점만으로는 다른 점수 항(대각선 덮임 등)과 거래돼 보드가 통째로 작아진다
+    //   (실측: 대각선 벌점 도입 후 목표 미달 레벨이 97 → 250 개, 최대 −8장). 곡선이 정한 카드수는
+    //   난이도의 기준값이므로 −2장까지만 허용하고 그 아래는 후보에서 뺀다.
+    if (res.cells.length < target - MAX_CARD_SHORTFALL) continue;
     // 하한 미달은 초과보다 훨씬 나쁘다(카드수 곡선이 레벨 난이도 기준) — 미달에 10배 페널티.
     const delta = res.cells.length - target;
     let score = delta < 0 ? -delta * 10 : delta;
     // 시작 오픈이 너무 적으면(1~3장) 분기가 거의 없어 승리 경로가 잘 안 잡힌다(실측: 오픈 2~3인
     // lv14·lv17 이 8만 시드 탐색에도 해답 미확보). 보드 크기에 걸맞은 오픈 수를 점수에 반영한다.
     const opens = openCellsOf(res.cells).length;
-    const desiredOpens = Math.max(4, Math.round(res.cells.length / 8));
-    score += Math.max(0, desiredOpens - opens) * 6;
+    const budget = openBudgetForLevel(level);
+    // 하한 미달 벌점은 **카드수 미달(×10)보다 무겁게** — ×6 이던 1차 시도에서는 카드수 점수에 밀려
+    //   40장 보드가 오픈 2~3장짜리 좁은 기둥 조합으로 착지했다(실측 400레벨 평균 3.0, 요청은 후반 4~5).
+    score += Math.max(0, budget.min - opens) * 12;
+    // 상한 초과에는 더 무겁게 — 이번 재설계로 새로 생긴 게이트(이전엔 상한 자체가 없었다).
+    score += Math.max(0, opens - budget.max) * 10;
+    // 고아는 조립 단계에서 이미 막지만(계층 풀 + stacksOnto), 그룹 간 배치로도 생길 수 있으니 최종 배치에서 재확인한다.
+    score += orphanCellsOf(res.cells).length * 25;
+    // **대각선 모서리로만 덮인 카드**(18.3% 만 가려져 열림/가림이 눈으로 구분 안 되는 상태)를 최소화한다.
+    //   확산 가장자리에서는 구조상 불가피하므로 금지가 아니라 벌점이다(cell-grid#weakCoveredCellsOf 참고).
+    score += weakCoveredCellsOf(res.cells).length * 8;
     if (!best || score < best.score) {
       const label = groups.map((g) => g.stack.map((s) => s.name).join('-')).join('|');
       best = { cells: res.cells, key: `${skel.key}·${label}`, score, groupRanges: res.groupRanges };

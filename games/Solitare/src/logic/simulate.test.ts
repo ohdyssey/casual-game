@@ -74,8 +74,15 @@ describe('journey — 여정 몬테카를로', () => {
       expect(a.days[i].level).toBeGreaterThanOrEqual(a.days[i - 1].level);
       expect(a.days[i].floor).toBeGreaterThanOrEqual(a.days[i - 1].floor);
     }
-    // 기본 파라미터(승률 0.9·일 7판)면 30일 내 5층 이상 진행.
-    expect(a.days[29].floor).toBeGreaterThanOrEqual(5);
+    /**
+     * 기본 파라미터(승률 0.9·일 7판)의 30일 진행.
+     * ⚠️ 2026-08-23 별 보상 하향(3★ 흑자 → 본전)으로 의도적으로 느려졌다 — 5.0층 → 4.2층.
+     * ⚠️ 2026-08-25 시작 자금 40,000 → 20,000(결제 유도 핀치 설계)으로 한 번 더 느려졌다 — 3.2층.
+     *   플레이가 코인을 버는 곳이면 인앱결제 동기가 생기지 않기 때문이다(save.ts 주석).
+     *   이 값이 다시 4 이상으로 올라가면 그 하향이 어딘가에서 되돌려졌다는 뜻이다.
+     */
+    expect(a.days[29].floor).toBeGreaterThanOrEqual(3);
+    expect(a.days[29].floor).toBeLessThan(4);
   });
 
   it('극단 파라미터 → 문제 검출: 승률 0(+경쟁부지 투자 없음)이면 파산 플래그', () => {

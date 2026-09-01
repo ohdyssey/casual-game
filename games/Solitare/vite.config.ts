@@ -150,6 +150,33 @@ function serveLevelReport(): Plugin {
   };
 }
 
+/**
+ * 빌드 산출물의 **레벨 팩을 minify** 한다(빌드 전용 — dev/에디터가 쓰는 원본은 그대로 둔다).
+ *
+ * 레벨이 3,000판이 되면서 `public/levels/cardLevels.json` 이 **25.5MB** 가 됐다. 그 대부분이
+ * 들여쓰기 공백이다 — 사람이 여는 파일이 아니라 **에디터가 읽고 쓰는 데이터**라 배포본에서는
+ * 의미가 없다. minify 하면 25.5MB → **10.2MB**(gzip 1.12MB)로 줄고 파싱도 그만큼 빨라진다.
+ *
+ * ⚠️ 원본(`public/`)은 건드리지 않는다 — 카드 레벨 에디터가 저장할 때 `JSON.stringify(pack, null, 2)`
+ *   로 다시 쓰므로, 원본을 minify 해 봐야 다음 저장에 되돌아온다. 줄이는 자리는 **빌드 출력**이다.
+ * ⚠️ 호스트가 gzip 을 안 걸어 줄 수도 있으므로 **압축에 기대지 않고** 원본 바이트부터 줄인다.
+ */
+function minifyLevelPack(): Plugin {
+  return {
+    name: 'minify-level-pack',
+    apply: 'build',
+    closeBundle() {
+      const out = fileURLToPath(new URL('./dist/levels/cardLevels.json', import.meta.url));
+      if (!fs.existsSync(out)) return;
+      const before = fs.statSync(out).size;
+      fs.writeFileSync(out, JSON.stringify(JSON.parse(fs.readFileSync(out, 'utf8'))));
+      const after = fs.statSync(out).size;
+      const mb = (n: number): string => (n / 1048576).toFixed(2);
+      console.log(`  levels/cardLevels.json  ${mb(before)}MB → ${mb(after)}MB (minify)`);
+    },
+  };
+}
+
 export default defineConfig({
   base: './',
   resolve: {
@@ -169,5 +196,5 @@ export default defineConfig({
     rollupOptions: { output: { manualChunks: { phaser: ['phaser'] } } },
   },
   // 게임은 허브에서 실행되는 콘텐츠 → 자체 PWA/서비스워커 없음(배포 즉시 반영 + 더블로딩 방지).
-  plugins: [killSW(), saveFloorLevels(), saveCardLevels(), saveEconParams(), serveLevelReport()],
+  plugins: [killSW(), saveFloorLevels(), saveCardLevels(), saveEconParams(), serveLevelReport(), minifyLevelPack()],
 });

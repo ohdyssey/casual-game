@@ -23,6 +23,7 @@
 - **네이밍**: `sfx_<카테고리>_<이름>`, 배경음 `bgm_<이름>`. 경로 `public/audio/`.
 - **반복음 지터**: 카드 놓기 등 잦은 SFX는 **피치 ±6% 랜덤**(rate 0.94~1.06)으로 기관총 방지.
 - **햅틱 페어링**: 핵심 SFX는 코어 `haptics.ts`의 라이트 진동과 동시 트리거(카드 놓기·별 획득·건설).
+  → ✅ 2026-08-25 구현. 문법·표는 `src/haptics.ts` 헤더가 SSOT(콤보 길이별 light→medium→heavy, 판정=notify·조작=impact·탐색=selection, UI 는 무진동). 짝짓기 지점은 `audio.ts` 의 `sfx()/sfxCardPlace(combo)/sfxStar()`. 음소거와 독립, 설정 메뉴 `📳 진동` 토글(localStorage `solitaire.haptics`). iOS 는 네이티브 셸(Capacitor `@capacitor/haptics`)에서만 울린다 — 코어 `systems/haptics.ts` 가 `window.Capacitor.Plugins.Haptics` 를 탐지해 자동 분기.
 - **믹스**: SFX 피크 -6dB, 동시 다발음(승리 흩뿌림)은 살짝 덕킹. BGM은 -18dB 언저리 배경.
 
 ---

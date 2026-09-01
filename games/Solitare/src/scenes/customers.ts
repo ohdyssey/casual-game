@@ -1,7 +1,8 @@
 /**
  * customers.ts — 타워 각 점포를 방문하는 **손님 캐릭터** + **주문 말풍선** 연출.
  *
- * 손님 시트(customers/Custmer_01..10.png)는 한 손님의 **4포즈 가로 스프라이트**:
+ * 손님 시트(customers/Custmer_01..30.png)는 한 손님의 **4포즈 가로 스프라이트**(11~30 은 2026-08-31 추가 —
+ *   원본 1879×837 을 기존 시트 규격 540×240 으로 리사이즈해 이식):
  *   프레임 0=앞모습, 1=옆모습1(좌향), 2=뒷모습, 3=옆모습2(우향).
  *
  * 연출(요구사항):
@@ -13,15 +14,16 @@
  */
 import Phaser from 'phaser';
 import { sfx } from '../audio.js';
-import { uploadPath } from '../assets.js';
+import { uploadPath, loadUpload, texSize, whenAstcReady } from '../assets.js';
 
 /** 2-카메라 씬(HomeScene)에서 이 월드 오브젝트를 UI 카메라 렌더서 제외(UI에 섞여 고정되지 않게). 없는 씬이면 무해. */
 function pinWorld(scene: Phaser.Scene, o: Phaser.GameObjects.GameObject): void {
   (scene as { pinToWorld?: (x: Phaser.GameObjects.GameObject) => void }).pinToWorld?.(o);
 }
 
-/** 손님 시트 키(10종). */
-const KEYS = Array.from({ length: 10 }, (_, i) => `cust_${String(i + 1).padStart(2, '0')}`);
+/** 손님 시트 키(30종). */
+export const CUSTOMER_SHEET_COUNT = 30;
+const KEYS = Array.from({ length: CUSTOMER_SHEET_COUNT }, (_, i) => `cust_${String(i + 1).padStart(2, '0')}`);
 const FILE = (i: number): string => `customers/Custmer_${String(i + 1).padStart(2, '0')}.png`;
 
 // 4포즈 프레임 인덱스(시트 순서 = 앞·옆1(좌향)·뒤·옆2(우향)).
@@ -37,12 +39,18 @@ const BUBBLE_F = 'ord_bubble_f'; // UI_12 여성 주문 말풍선.
 const BUBBLE_DONE = 'ord_bubble_done'; // UI_13 결과(이모지) 말풍선.
 /** 말풍선별 **꼬리 x 위치**(폭 대비 비율) — 이 지점을 손님 머리(cx)에 맞춘다(꼬리 끝이 머리를 가리키게). PNG 실측값. */
 const BUBBLE_TAIL_X: Record<string, number> = { [BUBBLE_M]: 0.5, [BUBBLE_F]: 0.137, [BUBBLE_DONE]: 0.693 };
-const MALE_IDX = new Set([1, 2, 8, 9]); // 남성 손님 시트 번호(나머지=여성).
+/** 남성 손님 시트 번호(나머지=여성) — 주문 말풍선 종류(UI_11/12)를 가른다. 11~30 은 시트 앞모습을 보고 정했다. */
+const MALE_IDX = new Set([1, 2, 8, 9, 13, 15, 17, 20, 21, 23, 25, 27, 29]);
 /** **스테이지별** 층 주문 아이템 변형 수(Item_{스테이지2자리}_{층2자리}-N.png). */
 const ITEM_COUNTS: Record<number, Record<number, number>> = {
   1: { 1: 4, 2: 4, 3: 4, 4: 1, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4, 10: 2 },
   2: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4, 10: 4 },
+  3: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4, 10: 4 }, // 21~30F(2번 라인 상층), 2026-08-31.
+  // 호텔(스테이지 4) — **공용층만**(2F 리셉션·3F 다이닝·5F 웰니스·15F 스카이라운지). 1F 로비·객실은 아이템 없음(PO).
+  4: { 2: 4, 3: 4, 5: 4, 15: 4 },
 };
+/** 스테이지별 아이템이 있는 층 목록(프리로드용). */
+const ITEM_FLOORS_OF = (stage: number): number[] => Object.keys(ITEM_COUNTS[stage] ?? {}).map(Number);
 const itemCount = (stage: number, floor: number): number => ITEM_COUNTS[stage]?.[floor] ?? 4;
 const pad2c = (n: number): string => String(n).padStart(2, '0');
 const IMOJI_N = 20;
@@ -51,6 +59,26 @@ const IMOJI_GOOD = Array.from({ length: 15 }, (_, i) => i + 1); // 1..15 만족.
 const IMOJI_BAD = [16, 17, 18, 19, 20];
 const BAD_RATE = 10; // 불만 표시 비율(%).
 const itemKey = (stage: number, floor: number, v: number): string => `item_${stage}_${floor}_${v}`;
+/** 호텔 공용층 주문 아이템 키(2·3·5·15층만 있다) — 호텔에 손님 연출이 붙을 때 쓴다. */
+export const hotelOrderItemKey = (hotelFloor: number, v: number): string => itemKey(4, hotelFloor, ((Math.max(1, Math.floor(v)) - 1) % itemCount(4, hotelFloor)) + 1);
+
+/**
+ * **상품 층(1..20) → (스테이지, 층) 분해** — `config/floorItems.ts` 와 같은 규칙(1~10층=스테이지1, 11~20층=스테이지2).
+ *   2번 부지 점포는 itemFloor 가 11~20 이라, 그대로 층 번호로 쓰면 로드된 적 없는 키가 되어 **말풍선이 빈 채**로 뜬다
+ *   (PO 2026-08-25 신고: 플레이 진입 시 빈 말풍선).
+ */
+export function orderItemCountForFloor(itemFloor: number): number {
+  const f = ((Math.max(1, Math.floor(itemFloor)) - 1) % 30) + 1; // 1~10=스테이지1 · 11~20=2 · 21~30=3(config/floorItems 와 동일).
+  return itemCount(Math.floor((f - 1) / 10) + 1, ((f - 1) % 10) + 1);
+}
+/** 상품 층(1..20)의 v번째 변형 텍스처 키 — v 는 실제 변형 수 안으로 순환시킨다(4층=1종·10층=2종). */
+export function orderItemKeyForFloor(itemFloor: number, v: number): string {
+  const f = ((Math.max(1, Math.floor(itemFloor)) - 1) % 30) + 1;
+  const stage = Math.floor((f - 1) / 10) + 1;
+  const floor = ((f - 1) % 10) + 1;
+  const n = itemCount(stage, floor);
+  return itemKey(stage, floor, ((Math.max(1, Math.floor(v)) - 1) % n) + 1);
+}
 const imojiKey = (n: number): string => `imoji_${String(n).padStart(2, '0')}`;
 /** 결과 이모지 굴림 — 약 10%만 불만, 나머지는 만족. bad=불만(코인 없음). */
 function rollImoji(): { bad: boolean; key: string } {
@@ -92,18 +120,16 @@ export interface CustomerSpot {
   readonly coinYield?: number;
 }
 
-/** 손님 시트 10종 + 말풍선/아이템/이모지 로드(HomeScene.preload 에서 호출). */
+/** 손님 시트 30종 + 말풍선/아이템/이모지 로드(HomeScene.preload 에서 호출). */
 export function preloadCustomers(scene: Phaser.Scene): void {
-  KEYS.forEach((k, i) => {
-    if (!scene.textures.exists(k)) scene.load.image(k, FILE(i));
-  });
+  whenAstcReady(scene, () => KEYS.forEach((k, i) => loadUpload(scene, k, FILE(i), `cust:Custmer_${String(i + 1).padStart(2, '0')}`))); // ASTC 표 키 = cust:Custmer_NN.
   // 말풍선 3종(에디터 업로드 키 그대로 재사용).
   if (!scene.textures.exists(BUBBLE_M)) scene.load.image(BUBBLE_M, uploadPath('up_Solitare_UI_11'));
   if (!scene.textures.exists(BUBBLE_F)) scene.load.image(BUBBLE_F, uploadPath('up_Solitare_UI_12'));
   if (!scene.textures.exists(BUBBLE_DONE)) scene.load.image(BUBBLE_DONE, uploadPath('up_Solitare_UI_13'));
   // **스테이지별** 층 주문 아이템(Item_{스테이지}_{층}-N).
-  for (const stage of [1, 2]) {
-    for (let floor = 1; floor <= 10; floor++) {
+  for (const stage of [1, 2, 3, 4]) {
+    for (const floor of ITEM_FLOORS_OF(stage)) {
       for (let v = 1; v <= itemCount(stage, floor); v++) {
         const k = itemKey(stage, floor, v);
         if (!scene.textures.exists(k)) scene.load.image(k, `order/items/Item_${pad2c(stage)}_${pad2c(floor)}-${v}.png`);
@@ -127,7 +153,7 @@ export function registerCustomerFrames(scene: Phaser.Scene): void {
     if (!scene.textures.exists(k)) continue;
     const tex = scene.textures.get(k);
     if (tex.frameTotal > 1) continue; // 이미 등록됨(__BASE 만 있으면 1).
-    const src = tex.getSourceImage() as { width: number; height: number };
+    const src = texSize(tex);
     const fw = Math.floor(src.width / 4);
     for (let i = 0; i < 4; i++) tex.add(i, 0, i * fw, 0, fw, src.height);
   }
@@ -331,7 +357,7 @@ function dropCoins(scene: Phaser.Scene, x: number, y: number, baseDepth: number,
   if (amount != null && amount > 0) {
     const txt = scene.add
       .text(x, y - 26, `+${amount}`, {
-        fontFamily: '"Jua", sans-serif',
+        fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif',
         fontSize: '40px',
         color: '#ffd23f',
         stroke: '#5a3210',

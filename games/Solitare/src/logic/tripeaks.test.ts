@@ -3,6 +3,9 @@ import type { Card, Suit, Rank } from './types.js';
 import { buildPeakLayout, CLASSIC_TRIPEAKS } from './layouts.js';
 import { createDeck, shuffle, seededRng } from './deck.js';
 import { initLuck } from './luck.js';
+import { rankAdjacent } from './types.js';
+import { plus5AssistFor } from './economyRules.js';
+import { dealDynamic } from './solvable.js';
 import {
   deal,
   wasteTop,
@@ -289,5 +292,78 @@ describe('보너스 +N 카드 — 스톡 N장 추가', () => {
     expect(s2.stock).toHaveLength(before + 5);
     // 이미 cleared 면 원본.
     expect(consumeBonusCard(s2, 'r3c1', 5)).toBe(s2);
+  });
+});
+
+describe('＋5 로 되채운 카드(raw)는 매칭 유도 없이 균등 랜덤', () => {
+  /** MINI(3칸) 보드 + 웨이스트 1장 + 스톡 N장 딜. */
+  const mini = (stock: Card[], wasteRank: Rank) =>
+    deal(MINI, [C('S', 1), C('H', 2), C('D', 3), C('C', wasteRank), ...stock]);
+
+  it('refillStock 이 되돌린 카드에는 raw 표시가 붙는다', () => {
+    let s = mini([C('S', 6), C('H', 7)], 5);
+    s = drawStock(s); // 웨이스트에 1장 더 쌓아 되돌릴 후보 확보
+    const after = refillStock(s, 1, seededRng(1));
+    expect(after.stock.some((x) => x.raw === true)).toBe(true);
+  });
+
+  it('raw 카드는 적응형 럭(feed)을 무시하고 랭크가 고르게 나온다', () => {
+    // 등급 1 = feed 0.9(거의 항상 매칭을 준다). raw 면 그 편향이 사라져야 한다.
+    let matched = 0;
+    const N = 400;
+    for (let i = 0; i < N; i++) {
+      const base = mini([], 7);
+      const s = { ...base, luck: initLuck(1), stock: [{ ...C('S', 9), raw: true }] };
+      const after = drawStock(s, seededRng(1000 + i));
+      const top = after.waste[after.waste.length - 1];
+      const exposed = after.layout.slots.filter((sl) => !after.cleared.has(sl.id)).map((sl) => after.board[sl.id].rank);
+      const adj = (a: number, b: number) => { const d = Math.abs(a - b); return d === 1 || d === 12; };
+      if (exposed.some((r) => adj(r, top.rank))) matched++;
+    }
+    expect(matched / N).toBeLessThan(0.6); // 큐레이션(≥0.9)과 확연히 다른 수준
+  });
+});
+
+describe('＋5 구매 회차별 매칭 보조(PO 2026-08-25)', () => {
+  it('plus5AssistFor — 1차 0 · 2차 0.3 · 3차 이상 0.5', () => {
+    expect(plus5AssistFor(1)).toBe(0);
+    expect(plus5AssistFor(2)).toBe(0.3);
+    expect(plus5AssistFor(3)).toBe(0.5);
+    expect(plus5AssistFor(7)).toBe(0.5);
+  });
+
+  it('refillStock 에 assist 를 주면 돌아온 카드에 새겨진다(0이면 안 새김)', () => {
+    const s = dealDynamic(CLASSIC_TRIPEAKS, seededRng(11), 1);
+    // 웨이스트를 몇 장 만들어 되돌릴 풀 확보.
+    let g = s;
+    for (let i = 0; i < 4 && g.stock.length > 0; i++) g = drawStock(g, seededRng(20 + i));
+    const plain = refillStock(g, 3, seededRng(1));
+    expect(plain.stock.slice(-3).every((c) => c.raw === true && c.assist === undefined)).toBe(true);
+    const boosted = refillStock(g, 3, seededRng(1), 0.5);
+    expect(boosted.stock.slice(-3).every((c) => c.raw === true && c.assist === 0.5)).toBe(true);
+  });
+
+  it('assist=1 인 ＋5 카드는 뽑으면 반드시 노출 카드와 매칭된다', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      let g = dealDynamic(CLASSIC_TRIPEAKS, seededRng(seed), 1);
+      for (let i = 0; i < 3 && g.stock.length > 0; i++) g = drawStock(g, seededRng(seed * 7 + i));
+      g = refillStock(g, 3, seededRng(seed + 99), 1);
+      if (g.stock.length === 0) continue;
+      const exposed = g.layout.slots.filter((sl) => isExposed(g, sl.id) && !g.cleared.has(sl.id)).map((sl) => g.board[sl.id]!.rank);
+      if (exposed.length === 0) continue;
+      const after = drawStock(g, seededRng(seed + 500));
+      const top = after.waste[after.waste.length - 1]!;
+      expect(exposed.some((r) => rankAdjacent(r, top.rank))).toBe(true);
+    }
+  });
+
+  it('assist 미지정(1차 구매) ＋5 카드는 뽑을 때 assist 흔적 없이 랜덤 랭크로 공개된다', () => {
+    let g = dealDynamic(CLASSIC_TRIPEAKS, seededRng(5), 1);
+    for (let i = 0; i < 3 && g.stock.length > 0; i++) g = drawStock(g, seededRng(40 + i));
+    g = refillStock(g, 2, seededRng(6));
+    const after = drawStock(g, seededRng(7));
+    const top = after.waste[after.waste.length - 1]!;
+    expect(top.raw).not.toBe(true);
+    expect(top.assist).toBeUndefined();
   });
 });

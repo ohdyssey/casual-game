@@ -8,11 +8,15 @@
  *   함수로 통합해 두 씬 모두 이 모듈을 호출한다(topHeader.ts·missionRewardBanner.ts 와 동일 패턴).
  */
 import Phaser from 'phaser';
+import { bumpMetrics } from '../logic/dailyMetrics.js';
 import { sfx } from '../audio.js';
+import { uiButton } from '../ui/uiButton.js';
 import { loadSave, writeSave } from '../save.js';
 import { entryFeeFor, challengeOptions } from '../econRuntime.js';
-import { UI_ENTRY_KEY } from '../assets.js';
+import { UI_ENTRY_KEY, texSize } from '../assets.js';
 import { popupOrganicIn, popupOrganicOut } from './popupFx.js';
+import { SAFE_H, SAFE_W, popupScale } from '../logic/responsiveFrame.js';
+import { overlayLayer, overlayScrim } from '../ui/overlay.js';
 
 /** 진입 팝업(blank.json) 노드 — layoutLoader 의 LayoutNode 상위집합(텍스트 그림자 포함). 데일리미션 팝업도 재사용. */
 export interface EntryNode {
@@ -43,6 +47,12 @@ export interface EntryDoc {
 }
 
 export interface EntryPopupOpts {
+  /**
+   * 이 팝업이 붙는 **카메라**(선택). 홈 화면처럼 UI 전용 카메라가 따로 있으면 반드시 넘길 것 —
+   * 딤은 이 카메라가 보는 영역을 덮어야 한다. 안 넘기면 메인(월드) 카메라 기준으로 계산돼
+   * 화면 일부가 안 가려진다(실측: 홈 진입팝업 상·우·하 가장자리가 뚫림).
+   */
+  readonly uiCam?: Phaser.Cameras.Scene2D.Camera;
   readonly level: number;
   /** 직전 도전 배수 유지(해금 범위 밖이면 자동으로 가장 가까운 해금값) — 기본 1(홈에서 새로 여는 경우). */
   readonly initialMult?: number;
@@ -75,17 +85,23 @@ export function buildEntryPopup(scene: Phaser.Scene, opts: EntryPopupOpts): Entr
 
   const level = opts.level;
   const depth = opts.depth ?? 4000;
-  const W = scene.scale.width;
-  const H = scene.scale.height;
-  const scale = W / doc.frame.designW; // 720 → 1080 = 1.5.
-  const layer = scene.add.container(0, 0).setDepth(depth);
+  // overlayLayer 안은 **세이프존 좌표계**(0..1080 × 0..2400)다 — 캔버스가 넓어지면 루트가
+  //   그만큼 밀려 있으므로 여기 W/H 는 저작 크기를 쓴다. 캔버스 전체를 덮는 딤은 overlayScrim 이 맡는다.
+  const W = SAFE_W;
+  const H = SAFE_H;
+  // 배율은 **세이프존 기준 고정**(720 → 1080 = ×1.5). ⚠️ 예전엔 `W / designW` 였는데, 캔버스 폭이
+  //   가변이 되면(1520) 배율이 2.111 로 튀어 팝업이 41% 커지고 세로가 넘친다 — 넓어진 폭은 배율이
+  //   아니라 **배치(중앙정렬)** 가 흡수한다(inner 역오프셋 참조).
+  const scale = popupScale(doc.frame.designW);
+  const layer = overlayLayer(scene, depth);
   opts.pinToUi?.(layer);
 
   // 딤 배경 — 탭하면 취소(입력 하부 차단 겸용).
-  const scrim = scene.add.rectangle(0, 0, W, H, 0x140a1e, 0.86).setOrigin(0, 0).setInteractive();
+  const scrim = overlayScrim(scene, 0x140a1e, 0.86, opts.uiCam);
   layer.add(scrim);
   // **유기체(젤리) 연출용 프레임**(popupFx) — 중심(W/2,H/2) 기준으로 스케일해야 화면 가운데서 안착.
-  //   inner 는 저작 절대좌표(n.x*scale)를 그대로 쓰기 위한 역오프셋(−W/2,−H/2).
+  //   inner 는 저작 절대좌표(n.x*scale)를 그대로 쓰기 위한 역오프셋. **세이프존 기준**(−SAFE_W/2,−SAFE_H/2)
+  //   이라 캔버스가 넓어지면 팝업이 그 차이의 절반만큼 밀려 **자동으로 가운데** 온다(폭 1080 이면 종전과 동일).
   const frame = scene.add.container(W / 2, H / 2);
   layer.add(frame);
   const inner = scene.add.container(-W / 2, -H / 2);
@@ -126,7 +142,7 @@ export function buildEntryPopup(scene: Phaser.Scene, opts: EntryPopupOpts): Entr
       if (n.w && n.h) img.setDisplaySize(n.w * scale, n.h * scale);
       obj = img;
     } else if (n.type === 'text') {
-      const family = n.fontFamily ? `"${n.fontFamily}", "Jua", sans-serif` : '"Jua", sans-serif';
+      const family = n.fontFamily ? `"${n.fontFamily}", "Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif` : '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif';
       const t = scene.add.text(n.x * scale, n.y * scale, n.text ?? '', {
         fontFamily: family,
         fontSize: `${Math.round((n.fontSize ?? 20) * scale)}px`,
@@ -175,11 +191,14 @@ export function buildEntryPopup(scene: Phaser.Scene, opts: EntryPopupOpts): Entr
     const s = loadSave();
     if (s.coins < fee) {
       sfx('no_coin');
-      opts.toast('코인이 부족해요');
+      // 얼마가 모자란지 바로 알 수 있게 필요/보유를 함께 보여준다(PO 2026-08-21).
+      opts.toast(`코인이 부족해요
+필요 ${fee.toLocaleString()} · 보유 ${s.coins.toLocaleString()}`);
       return;
     }
     sfx('floor_select');
     s.coins = Math.max(0, s.coins - fee);
+    bumpMetrics({ fee, starts: 1, levelMax: level }); // 일일 지표 — 입장료·판 시작.
     writeSave(s);
     opts.onCoinsChanged?.(s.coins);
     closing = true; // 곧바로 씬 전환 — 닫힘 연출 없이 즉시 파괴(중복 입력만 차단).
@@ -206,7 +225,8 @@ export function buildEntryPopup(scene: Phaser.Scene, opts: EntryPopupOpts): Entr
 
   // **🏠 홈으로** — 패널 바깥 하단(PO 2026-07-29 스샷 위치). 이미지 버튼(UI_23_2)이 있으면 그것을, 없으면 텍스트.
   if (opts.onHome) {
-    const homeY = panel?.h ? (panel.y + panel.h * 0.5) * scale + 150 : H - 300;
+    // ⚠️ inner 는 **저작 절대 좌표계**(0..SAFE_W)다 — 캔버스 크기(W/H)를 쓰면 폭 가변 시 어긋난다.
+    const homeY = panel?.h ? (panel.y + panel.h * 0.5) * scale + 150 : SAFE_H - 300;
     const onHome = (): void => {
       if (closing) return;
       closing = true;
@@ -216,20 +236,16 @@ export function buildEntryPopup(scene: Phaser.Scene, opts: EntryPopupOpts): Entr
     };
     const homeKey = 'up_Solitare_UI_23_2';
     if (scene.textures.exists(homeKey)) {
-      const img = scene.add.image(W / 2, homeY, homeKey);
-      const src = img.texture.getSourceImage() as { width: number; height: number };
+      const img = scene.add.image(SAFE_W / 2, homeY, homeKey);
+      const src = texSize(img.texture);
       img.setDisplaySize(440, 440 * (src.height / src.width));
       img.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
         scene.tweens.add({ targets: img, y: '+=6', duration: 80, yoyo: true, onComplete: onHome });
       });
       inner.add(img);
     } else {
-      const t = scene.add
-        .text(W / 2, homeY, '🏠 홈으로', { fontFamily: '"Jua", sans-serif', fontSize: '44px', color: '#ffffff', backgroundColor: '#7a4a1a', padding: { x: 40, y: 18 } })
-        .setOrigin(0.5)
-        .setInteractive({ useHandCursor: true });
-      t.on('pointerdown', onHome);
-      inner.add(t);
+      // 저작 아트가 없을 때의 폴백도 **공용 버튼**으로(예전엔 네모 배경 텍스트라 혼자 튀었다).
+      inner.add(uiButton(scene, SAFE_W / 2, homeY, '🏠 홈으로', 'red', onHome, { width: 380, fontSize: 40, sound: null }));
     }
   }
 
@@ -259,7 +275,7 @@ export function wireChallengeBadge(
   const bh = badge.displayHeight;
   // 배지 위 '×N' 오버레이(아트 없는 배수용) — 기본 숨김.
   const overlay = scene.add
-    .text(badge.x, badge.y, '', { fontFamily: '"Jua", sans-serif', fontSize: `${Math.round(bh * 0.52)}px`, color: '#ffe14d' })
+    .text(badge.x, badge.y, '', { fontFamily: '"Baloo 2", "Pretendard Variable", "M PLUS Rounded 1c", system-ui, sans-serif', fontSize: `${Math.round(bh * 0.52)}px`, color: '#ffe14d' })
     .setOrigin(0.5)
     .setDepth(badge.depth + 1)
     .setVisible(false);
