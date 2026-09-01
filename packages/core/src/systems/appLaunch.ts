@@ -42,6 +42,20 @@ function isIOS(): boolean {
 }
 
 /**
+ * 터치 기기(모바일/태블릿)인가 — PC(마우스) 는 제외. 이 제품은 모바일 전용이라 설치 유도(배너·메뉴
+ * 항목·허브 버튼) 를 전부 여기로 게이트한다. PC 크롬도 `beforeinstallprompt` 를 주고 `.prompt()`
+ * 를 부르면 진짜 설치 대화상자가 뜨는데, PC 용 앱이 아니므로 그 자체를 막는다(2026-09-02 PO 신고:
+ * "설치 팝업창이 PC 에서도 뜬다"). `pwa.ts` `enableFullscreenOnFirstTap` 과 같은 판정 기준.
+ */
+export function isMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return (
+    (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)')?.matches) === true ||
+    navigator.maxTouchPoints > 0
+  );
+}
+
+/**
  * 지금 이 창이 설치된 PWA(홈 화면 앱)로 실행 중인가.
  *
  * ⚠️ **`display-mode: fullscreen` 을 곧이곧대로 믿지 않는다**(2026-09-01) — 이 코드베이스는 뒤로가기
@@ -93,7 +107,7 @@ function captureInstallPrompt(): void {
   if (typeof window === 'undefined') return;
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault(); // 브라우저 기본 미니 설치 배너를 억제 — 우리 배너/버튼으로만 유도.
-    deferredPrompt = e as BeforeInstallPromptEvent;
+    if (isMobileDevice()) deferredPrompt = e as BeforeInstallPromptEvent; // PC 는 잡아 두지 않는다.
   });
   window.addEventListener('appinstalled', () => {
     deferredPrompt = null;
@@ -341,7 +355,7 @@ async function handleInstallAction(): Promise<'prompted' | 'guide'> {
 
 /** 설치 안 됨 안내(닫기 있는 배너) — 이미 설치가 관측된 기기면 더는 권유하지 않는다. */
 function showInstallNag(): void {
-  if (isPlayPopInstalled()) return;
+  if (isPlayPopInstalled() || !isMobileDevice()) return; // PC 는 설치 유도 대상 밖(위 isMobileDevice 참고).
 
   if (isAndroid()) {
     // 이 화면 자체가 PlayPOP 매니페스트를 가리키도록 바꿔뒀으므로(retargetManifestToHub),
@@ -380,7 +394,7 @@ function showInstallNag(): void {
  * Phaser 무관이라 각 게임이 자기 UI(팝업 버튼 목록 등)에서 이 값만 보고 항목 표시 여부를 정한다.
  */
 export function canOfferInstall(): boolean {
-  return typeof window !== 'undefined' && !isPlayPopInstalled();
+  return typeof window !== 'undefined' && isMobileDevice() && !isPlayPopInstalled();
 }
 
 /**

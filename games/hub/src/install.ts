@@ -27,7 +27,7 @@
  *   조건은 실제 설치 관측(`markPlayPopInstalled`)이다. 이 기록은 게임 쪽(`@casual/core` appLaunch.ts)과
  *   **같은 키를 공유**해, 게임에서 먼저 설치를 관측했으면 허브도 다시 권유하지 않는다(반대도 마찬가지).
  */
-import { markPlayPopInstalled, isPlayPopInstalled, showBanner, dismissBanner } from '@casual/core/systems/appLaunch';
+import { markPlayPopInstalled, isPlayPopInstalled, isMobileDevice, showBanner, dismissBanner } from '@casual/core/systems/appLaunch';
 
 /** beforeinstallprompt 이벤트(표준 DOM 타입에 없어 직접 정의). */
 interface BeforeInstallPromptEvent extends Event {
@@ -179,6 +179,12 @@ export function mountInstall(btn: HTMLElement, toast: (msg: string) => void, opt
   if (isStandalone()) {
     btn.hidden = true;
     markPlayPopInstalled();
+    return;
+  }
+  // PC(마우스)는 설치 유도 대상이 아니다 — 이 제품은 모바일 전용인데 크롬 데스크톱도
+  // beforeinstallprompt 를 줘서 그냥 두면 PC 에서도 진짜 설치 대화상자가 떴다(PO 2026-09-02).
+  if (!isMobileDevice()) {
+    btn.hidden = true;
     return;
   }
 
