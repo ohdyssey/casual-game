@@ -3,19 +3,24 @@
  *
  * 플랫폼별 설치 경로가 달라 분기한다(우선순위: 설치됨 → 인앱 → iOS Safari → 설치 프롬프트):
  *   · 이미 설치(standalone/fullscreen) → 버튼 숨김.
- *   · 인앱 브라우저(카카오톡·라인·인스타·페북 WebView 등) → PWA 설치 불가 → 버튼 클릭 시
- *     '외부 브라우저(Safari/Chrome)로 열기' 안내. 카카오톡/라인은 외부 열기 딥링크 실행,
- *     그 외는 수동 안내 + 링크 복사.
- *   · iOS Safari → `beforeinstallprompt` 미지원 → '공유 → 홈 화면에 추가' 안내 시트.
- *   · Android/데스크톱 Chromium → `beforeinstallprompt` 가로채 저장 → 클릭 시 네이티브 설치 프롬프트.
+ *   · 인앱 브라우저(카카오톡·라인·인스타·페북 WebView 등) — **2026-09-01 재설계**(PO: "홈화면이 열리면
+ *     외부 브라우저로 바로 열려야 한다" — 버튼 눌러 모달 열고 또 눌러 탈출하는 4단계 구조 반려):
+ *     · 안드로이드 — **버튼 없이 즉시** 크롬으로 자동 탈출(안드로이드 인텐트, 앱 종류 무관 범용).
+ *       카카오톡/라인 전용 딥링크는 특정 앱에서만 먹혀 범용성이 떨어져 폐기.
+ *     · iOS — 애플 정책상 자동 탈출이 원천 불가능(플랫폼 한계, 소프트웨어로 못 없앤다) → **모달이
+ *       아니라 하단 배너**로 안내(PO: "버튼아이콘으로만 표시하지 말고 배너로 표시").
+ *   · iOS Safari(인앱 아님) → `beforeinstallprompt` 미지원 → 하단 배너에 '공유 → 홈 화면에 추가' 안내.
+ *   · Android/데스크톱 Chromium → `beforeinstallprompt` 가로채 저장 → 배너/버튼 클릭 시 네이티브 설치 프롬프트.
  *
- * 스타일은 index.html 의 전역 모달 클래스(.modal-layer/.modal-panel …)를 재사용한다.
+ * ⚠️ **배너는 하나만, 중복 없이**(PO 2026-09-01: "중복되지 않으면서도 강력어필") — 상단 아이콘
+ *   버튼(`btn`)은 보조 진입점으로 남기되, 실제 안내·설치 유도는 전부 하단 배너 하나(`showBanner`)로
+ *   통일한다. 상황별로 모달을 따로 띄우던 것(구 `showInAppGuide`)은 폐기 — 배너 하나가 그 내용을
+ *   전부 담는다.
  *
- * ⚠️ 하단 배너(`showInstallBanner`)는 **설치 전까지 매 방문 다시 뜬다**(PO 2026-09-01: "설치되어
- *   있지 않을 경우 계속 이 배너를 배치하라"). 닫기는 이번 노출만 없앨 뿐 localStorage 로 기억하지
- *   않는다 — 유일하게 사라지는 조건은 실제 설치 관측(`markPlayPopInstalled`)이다. 이 기록은
- *   게임 쪽(`@casual/core` appLaunch.ts)과 **같은 키를 공유**해, 게임에서 먼저 설치를 관측했으면
- *   허브도 다시 권유하지 않는다(반대도 마찬가지).
+ * ⚠️ 하단 배너는 **설치 전까지 매 방문 다시 뜬다**(PO 2026-09-01: "설치되어 있지 않을 경우 계속 이
+ *   배너를 배치하라"). 닫기는 이번 노출만 없앨 뿐 localStorage 로 기억하지 않는다 — 유일하게 사라지는
+ *   조건은 실제 설치 관측(`markPlayPopInstalled`)이다. 이 기록은 게임 쪽(`@casual/core` appLaunch.ts)과
+ *   **같은 키를 공유**해, 게임에서 먼저 설치를 관측했으면 허브도 다시 권유하지 않는다(반대도 마찬가지).
  */
 import { markPlayPopInstalled, isPlayPopInstalled } from '@casual/core/systems/appLaunch';
 
@@ -125,97 +130,92 @@ function showIosGuide(): void {
       : `<p class="modal-note ios-note">⚠️ iOS 에서는 <b>Safari</b> 브라우저에서 열어야 홈 화면에 추가할 수 있어요.</p>`);
 }
 
-/**
- * 하단 슬라이드업 설치 배너 — **미설치인 한 매 방문 다시 뜬다**(localStorage 로 억제하지 않음).
- *   닫기는 이번 노출만 지운다. CTA 는 상단 설치 버튼(`btn`)을 그대로 클릭시켜 플랫폼별 분기
- *   (인앱 안내 / 네이티브 설치 프롬프트 / iOS 안내)를 중복 구현하지 않고 재사용한다.
- */
-function showInstallBanner(btn: HTMLElement): void {
-  if (isPlayPopInstalled() || isStandalone()) return;
-  if (document.querySelector('.a2hs')) return;
+interface BannerOpts {
+  readonly title: string;
+  readonly message: string;
+  /** 스텝 목록 등 추가 HTML(예: IOS_STEPS_HTML). */
+  readonly extraHtml?: string;
+  readonly buttonLabel?: string;
+  readonly onButton?: () => void;
+  /** 기본 true. false 면 닫기 버튼 없음(인앱 자동탈출 중처럼 꼭 봐야 하는 안내). */
+  readonly dismissible?: boolean;
+  /** 아이폰 하단 공유버튼을 가리키는 화살표 힌트. */
+  readonly arrow?: boolean;
+}
 
-  const iphone = /iphone|ipod/i.test(navigator.userAgent); // 아이폰만 하단 공유버튼 방향 화살표
+/**
+ * 하단 슬라이드업 배너 — **허브의 안내·설치 유도는 전부 이 하나로 통일한다**(PO 2026-09-01:
+ *   "중복되지 않으면서도 강력어필"). 이미 하나 떠 있으면 새로 띄우지 않는다(중복 방지) — 대신
+ *   내용을 교체한다(더 급한 안내가 오면 이전 것을 갈아치운다).
+ */
+function showBanner(opts: BannerOpts): void {
+  document.querySelectorAll('.a2hs').forEach((el) => el.remove()); // 중복 없이 하나만.
+
   const el = document.createElement('div');
   el.className = 'a2hs';
   el.setAttribute('role', 'dialog');
-  el.setAttribute('aria-label', 'PlayPOP 홈 화면에 추가');
+  el.setAttribute('aria-label', opts.title);
   el.innerHTML =
-    `<div class="a2hs-head"><h3>📲 PlayPOP 홈 화면에 추가</h3><button class="a2hs-close" type="button" aria-label="닫기">✕</button></div>` +
-    `<p class="sub">홈 화면에 추가하면 브라우저 없이 더 빠르고 쾌적하게 즐길 수 있어요.</p>` +
-    `<button class="modal-cta" type="button">홈 화면에 설치</button>` +
-    (iphone ? `<div class="a2hs-arrow" aria-hidden="true">${DOWN_ARROW_SVG}</div>` : '');
+    `<div class="a2hs-head"><h3>${opts.title}</h3>` +
+    (opts.dismissible !== false ? `<button class="a2hs-close" type="button" aria-label="닫기">✕</button>` : '') +
+    `</div>` +
+    `<p class="sub">${opts.message}</p>` +
+    (opts.extraHtml ?? '') +
+    (opts.buttonLabel ? `<button class="modal-cta" type="button">${opts.buttonLabel}</button>` : '') +
+    (opts.arrow ? `<div class="a2hs-arrow" aria-hidden="true">${DOWN_ARROW_SVG}</div>` : '');
 
   const dismiss = (): void => {
     el.classList.remove('show');
     window.setTimeout(() => el.remove(), 400);
   };
-  el.querySelector('.a2hs-close')!.addEventListener('click', dismiss);
-  el.querySelector('.modal-cta')!.addEventListener('click', () => {
-    dismiss();
-    btn.click(); // 상단 설치 버튼과 동일한 플로우로 위임.
-  });
+  el.querySelector('.a2hs-close')?.addEventListener('click', dismiss);
+  if (opts.buttonLabel && opts.onButton) {
+    const onButton = opts.onButton;
+    el.querySelector('.modal-cta')!.addEventListener('click', () => {
+      dismiss();
+      onButton();
+    });
+  }
   document.body.appendChild(el);
   requestAnimationFrame(() => el.classList.add('show'));
 }
 
-/** 카카오톡/라인 외부 브라우저 열기 딥링크 실행. 성공 시 true. */
-function openExternalBrowser(app: InApp): boolean {
-  const url = window.location.href;
-  if (app === 'kakao') {
-    // 카카오톡 인앱 → 기기 기본 브라우저로 열고 인앱 닫힘(iOS·Android 공통).
-    window.location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url);
-    return true;
-  }
-  if (app === 'line') {
-    // 라인: URL 에 openExternalBrowser=1 을 붙여 다시 열면 외부 브라우저로 전환.
-    const sep = url.includes('?') ? '&' : '?';
-    window.location.href = url + sep + 'openExternalBrowser=1';
-    return true;
-  }
-  return false;
+/** 설치 유도 배너(미설치, 인앱 아님) — CTA 는 상단 설치 버튼(`btn`)을 그대로 클릭시켜 플랫폼별
+ *   분기(네이티브 설치 프롬프트 / iOS 안내)를 중복 구현하지 않고 재사용한다. */
+function showInstallBanner(btn: HTMLElement): void {
+  if (isPlayPopInstalled() || isStandalone()) return;
+  if (document.querySelector('.a2hs')) return;
+  const iphone = /iphone|ipod/i.test(navigator.userAgent);
+  showBanner({
+    title: '📲 PlayPOP 앱으로 설치하고 더 빠르게!',
+    message: '홈 화면에 추가하면 광고 없는 브라우저 화면 없이, 앱처럼 바로 실행돼요.',
+    buttonLabel: '홈 화면에 설치',
+    onButton: () => btn.click(),
+    arrow: iphone,
+  });
 }
 
-/** 인앱 브라우저용 '외부 브라우저로 열기' 안내 시트. */
-function showInAppGuide(app: InApp, toast: (msg: string) => void): void {
-  const body = overlay('브라우저에서 열어주세요');
-  const canDeepLink = app === 'kakao' || app === 'line';
-  body.innerHTML =
-    `<p class="modal-note">지금은 <b>${labelOf(app)} 인앱 브라우저</b>예요.<br>` +
-    `여기서는 앱 설치가 안 돼요 — <b>Safari · Chrome</b> 같은 기본 브라우저에서 열어야 설치할 수 있어요.</p>`;
+/** 안드로이드(또는 안드로이드 계열 인앱 WebView)에서 기본 브라우저(크롬)로 즉시 탈출.
+ *   특정 메신저 전용 딥링크가 아니라 **OS 인텐트**라 어떤 인앱 브라우저든 동일하게 통한다
+ *   (게임 쪽 `@casual/core/systems/appLaunch.ts` 와 같은 방식 — 실기기 검증됨). */
+function escapeToChromeAndroid(): void {
+  const stripped = location.href.replace(/^https?:\/\//, '');
+  location.href = `intent://${stripped}#Intent;scheme=https;package=com.android.chrome;end;`;
+}
 
-  if (canDeepLink) {
-    const cta = document.createElement('button');
-    cta.className = 'modal-cta';
-    cta.type = 'button';
-    cta.textContent = '🌐 외부 브라우저로 열기';
-    cta.addEventListener('click', () => openExternalBrowser(app));
-    body.appendChild(cta);
-    const hint = document.createElement('p');
-    hint.className = 'modal-note ios-note';
-    hint.innerHTML = '열리지 않으면 우측 상단 <b>⋯ 메뉴 → ‘다른 브라우저로 열기’</b> 를 눌러주세요.';
-    body.appendChild(hint);
-  } else {
-    const steps = document.createElement('ol');
-    steps.className = 'ios-steps';
-    steps.innerHTML =
-      `<li><span class="n">1</span><span>우측 상단(또는 하단) <b>⋯ 메뉴</b> 를 누르세요.</span></li>` +
-      `<li><span class="n">2</span><span><b>‘다른 브라우저로 열기’ / ‘Safari로 열기’ / ‘Chrome으로 열기’</b> 를 선택하세요.</span></li>`;
-    body.appendChild(steps);
-    const copy = document.createElement('button');
-    copy.className = 'modal-cta';
-    copy.type = 'button';
-    copy.textContent = '🔗 링크 복사';
-    copy.addEventListener('click', async () => {
-      const url = window.location.href;
-      try {
-        await navigator.clipboard.writeText(url);
-        toast('링크를 복사했어요 · 브라우저에 붙여넣기 하세요');
-      } catch {
-        window.prompt('아래 주소를 복사해 브라우저에 붙여넣으세요', url);
-      }
-    });
-    body.appendChild(copy);
-  }
+/** iOS 인앱 브라우저 — 자동 탈출이 안 되므로(애플 정책) 배너로 강하게 안내. */
+function showIosInAppEscapeBanner(app: InApp, toast: (msg: string) => void): void {
+  showBanner({
+    title: '🚀 설치하려면 브라우저에서 열어주세요',
+    message: `지금은 ${labelOf(app)} 인앱 브라우저라 앱 설치가 안 돼요. 우측 상단 ••• (또는 공유) 버튼을 눌러 <b>"다른 브라우저로 열기"</b>를 선택하면 PlayPOP 을 설치할 수 있어요.`,
+    buttonLabel: '🔗 링크 복사하기',
+    onButton: () => {
+      navigator.clipboard?.writeText(location.href).then(
+        () => toast('링크를 복사했어요 · Safari에 붙여넣기 하세요'),
+        () => window.prompt('아래 주소를 복사해 Safari 에 붙여넣으세요', location.href),
+      );
+    },
+  });
 }
 
 function labelOf(app: InApp): string {
@@ -235,12 +235,31 @@ export function mountInstall(btn: HTMLElement, toast: (msg: string) => void, opt
     return;
   }
 
-  let deferred: BeforeInstallPromptEvent | null = null;
   const app = inAppBrowser();
   const ios = isIOS();
 
-  // 인앱 브라우저·iOS 는 설치 이벤트가 없으므로 즉시 버튼 노출(클릭 시 각자 안내).
-  if (app || ios) btn.hidden = false;
+  if (app) {
+    if (!ios) {
+      // 안드로이드 인앱 — 버튼 클릭을 기다리지 않고 **즉시** 크롬으로 탈출한다(PO 2026-09-01).
+      showBanner({
+        title: `${labelOf(app)} 브라우저에서 열림`,
+        message: '더 나은 환경을 위해 크롬으로 이동합니다…',
+        dismissible: false,
+      });
+      escapeToChromeAndroid();
+      return; // 곧 페이지를 떠난다 — 아래 설치 플로우를 걸 필요 없음.
+    }
+    // iOS 인앱 — 자동 탈출이 안 되니 상단 아이콘 + 배너 둘 다로 안내(배너가 주된 안내).
+    btn.hidden = false;
+    showIosInAppEscapeBanner(app, toast);
+    btn.addEventListener('click', () => showIosInAppEscapeBanner(app, toast));
+    return;
+  }
+
+  let deferred: BeforeInstallPromptEvent | null = null;
+
+  // iOS(인앱 아님)는 설치 이벤트가 없으므로 즉시 버튼 노출(클릭 시 안내).
+  if (ios) btn.hidden = false;
 
   // 설치 전까지 매 방문 하단 배너로 안내(초기 렌더와 겹치지 않게 살짝 지연).
   //   ⚠️ `immediate`(게임의 "설치하러 가기" → `?install=1` 로 도착) 는 지연 없이 바로 띄운다 —
@@ -274,11 +293,6 @@ export function mountInstall(btn: HTMLElement, toast: (msg: string) => void, opt
   });
 
   btn.addEventListener('click', async () => {
-    // 인앱 브라우저 최우선 — 여기선 설치 불가라 외부 브라우저로 유도.
-    if (app) {
-      showInAppGuide(app, toast);
-      return;
-    }
     if (deferred) {
       // 네이티브 설치 프롬프트(사용자 제스처 안에서 호출해야 함).
       await deferred.prompt();
