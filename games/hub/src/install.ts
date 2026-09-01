@@ -227,7 +227,7 @@ function labelOf(app: InApp): string {
  *   btn   — 설치 버튼(기본 hidden). 설치 가능/안내 필요 시점에 노출한다.
  *   toast — 하단 안내 토스트.
  */
-export function mountInstall(btn: HTMLElement, toast: (msg: string) => void): void {
+export function mountInstall(btn: HTMLElement, toast: (msg: string) => void, opts: { immediate?: boolean } = {}): void {
   // 이미 설치돼 standalone 으로 실행 중이면 버튼 자체가 필요 없다.
   if (isStandalone()) {
     btn.hidden = true;
@@ -243,7 +243,9 @@ export function mountInstall(btn: HTMLElement, toast: (msg: string) => void): vo
   if (app || ios) btn.hidden = false;
 
   // 설치 전까지 매 방문 하단 배너로 안내(초기 렌더와 겹치지 않게 살짝 지연).
-  window.setTimeout(() => showInstallBanner(btn), 1200);
+  //   ⚠️ `immediate`(게임의 "설치하러 가기" → `?install=1` 로 도착) 는 지연 없이 바로 띄운다 —
+  //   그냥 두면 "허브로 이동만 하고 아무 일도 안 일어난다"로 보인다(사용자 신고 2026-09-01).
+  window.setTimeout(() => showInstallBanner(btn), opts.immediate ? 0 : 1200);
 
   // ⚠️ 모바일 크롬은 앱 전환 후 복귀를 **bfcache 복원**으로 처리하는 경우가 흔하다 — 스크립트가
   //   다시 실행되지 않고 DOM 이 그대로 살아 돌아온다(배너를 닫았던 상태 그대로). 그래서 "닫은 뒤

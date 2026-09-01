@@ -46,10 +46,16 @@ const menuBtn = document.getElementById('menu-btn');
 if (account && menuBtn) menuBtn.addEventListener('click', () => openMenu(account.ctrl));
 
 // PWA 설치 버튼 — 설치 가능(Android/데스크톱) 시 노출, iOS 는 수동 안내, 설치됨이면 숨김.
-// ⚠️ 임시 숨김(요청) — 복구하려면 SHOW_INSTALL 을 true 로.
-const SHOW_INSTALL = false;
+// ⚠️ 2026-09-01 재활성화 — 게임 쪽(솔리테어 등) "홈 화면에 추가"가 이제 게임 자신이 아니라
+//   이 허브(PlayPOP)로 리다이렉트하도록 바뀌었다(appLaunch.ts triggerInstallFlow → goHub).
+//   여기가 꺼져 있으면(SHOW_INSTALL=false) 리다이렉트만 되고 실제 설치 진입점이 없어서
+//   "설치하러 가기를 눌러도 아무 일도 안 일어난다"가 된다 — 반드시 true 로 유지할 것.
+const SHOW_INSTALL = true;
 const installBtn = document.getElementById('install-btn');
-if (SHOW_INSTALL && installBtn) mountInstall(installBtn, toast);
+// 게임의 "설치하러 가기"가 `?install=1` 을 붙여 보낸다 — 도착하자마자(지연 없이) 배너를 띄운다.
+const installIntent = new URLSearchParams(location.search).get('install') === '1';
+if (installIntent) history.replaceState(null, '', location.pathname); // 이후 내비게이션에 안 남게.
+if (SHOW_INSTALL && installBtn) mountInstall(installBtn, toast, { immediate: installIntent });
 
 const grid = document.getElementById('grid');
 const foot = document.getElementById('foot');

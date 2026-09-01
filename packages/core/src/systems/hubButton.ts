@@ -31,8 +31,13 @@ let installed = false;
 /** 허브 dev 서버 포트(games/hub/vite.config: 5180). 게임 dev 서버를 단독으로 열었을 때 X 복귀 대상. */
 const HUB_DEV_PORT = '5180';
 
-/** 메인(허브)으로 복귀 — 게임 내 자체 '뒤로가기' 버튼도 재사용할 수 있게 export. */
-export function goHub(hubPath = '../hub/'): void {
+/**
+ * 메인(허브)으로 복귀 — 게임 내 자체 '뒤로가기' 버튼도 재사용할 수 있게 export.
+ * `installIntent` 를 주면 허브 쪽에 `?install=1` 을 붙여, 도착하자마자 설치 배너를 지연 없이
+ * 띄우게 한다("설치하러 가기를 눌렀는데 허브로 이동만 하고 아무 일도 안 일어난다" 신고 대응).
+ */
+export function goHub(hubPath = '../hub/', installIntent = false): void {
+  const suffix = installIntent ? '?install=1' : '';
   try {
     if (window.opener && !window.opener.closed) {
       window.close();
@@ -43,16 +48,16 @@ export function goHub(hubPath = '../hub/'): void {
   }
   const hubOrigin = typeof location !== 'undefined' ? parseHubOrigin(location.search) : null;
   if (hubOrigin && hubOrigin !== location.origin) {
-    window.location.href = `${hubOrigin}/`;
+    window.location.href = `${hubOrigin}/${suffix}`;
     return;
   }
   // dev 단독 실행: 게임은 각자 포트(예: 6209)라 형제 `../hub/` 경로가 없음(404) → 허브 dev 서버(5180)로 복귀.
   //   (운영/빌드에선 DEV=false → 같은 오리진 형제 배포 경로 hubPath(`../hub/`) 사용 — 기존 동작 불변.)
   if (import.meta.env?.DEV && typeof location !== 'undefined' && location.port && location.port !== HUB_DEV_PORT) {
-    window.location.href = `${location.protocol}//${location.hostname}:${HUB_DEV_PORT}/`;
+    window.location.href = `${location.protocol}//${location.hostname}:${HUB_DEV_PORT}/${suffix}`;
     return;
   }
-  window.location.href = hubPath;
+  window.location.href = hubPath + suffix;
 }
 
 /** 최소 토스트(게임 공용 토스트가 없으므로 자체). */
