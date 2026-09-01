@@ -41,12 +41,26 @@ function isIOS(): boolean {
   return /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
-/** 지금 이 창이 설치된 PWA(홈 화면 앱)로 실행 중인가. */
+/**
+ * 지금 이 창이 설치된 PWA(홈 화면 앱)로 실행 중인가.
+ *
+ * ⚠️ **`display-mode: fullscreen` 을 곧이곧대로 믿지 않는다**(2026-09-01) — 이 코드베이스는 뒤로가기
+ *   방어 목적으로 첫 탭에 진짜 Fullscreen API 를 켠다(`pwa.ts` `enableFullscreenOnFirstTap`). 크로미움은
+ *   그 순간 `display-mode: fullscreen` 미디어쿼리도 함께 true 로 바꿔버려(PWA 로 설치됐을 때와 구분이
+ *   안 됨) — "설치 안 배너가 한 번 뜬 뒤 다시는 안 뜬다" 신고의 정체였다: 탭 한 번으로 이 매체쿼리가
+ *   true 가 됐고, 그걸 `markPlayPopInstalled()` 가 영구 기록해 버렸다. `document.fullscreenElement` 로
+ *   "지금 이 페이지가 Fullscreen API 로 들어간 것"과 "PWA 로 설치돼 그렇게 실행 중인 것"을 가른다 —
+ *   전자는 페이지 자신이 요청한 인페이지 API 상태라 `fullscreenElement` 가 채워지지만, 후자(진짜 설치된
+ *   PWA)는 브라우저 크롬 자체의 표시 모드일 뿐이라 `fullscreenElement` 는 비어 있다.
+ */
 export function isRunningStandalone(): boolean {
   if (typeof window === 'undefined') return false;
+  const standalone = window.matchMedia?.('(display-mode: standalone)')?.matches === true;
+  const fullscreenMode = window.matchMedia?.('(display-mode: fullscreen)')?.matches === true;
+  const viaFullscreenApi = typeof document !== 'undefined' && document.fullscreenElement != null;
   return (
-    window.matchMedia?.('(display-mode: standalone)')?.matches === true ||
-    window.matchMedia?.('(display-mode: fullscreen)')?.matches === true ||
+    standalone ||
+    (fullscreenMode && !viaFullscreenApi) ||
     (navigator as unknown as { standalone?: boolean }).standalone === true
   );
 }
@@ -243,7 +257,20 @@ export function mountAppLaunchGuard(opts: AppLaunchOptions = {}): void {
     return; // 데스크탑 등 — 인앱 탈출 개념 자체가 없음.
   }
 
-  // 인앱 브라우저가 아니다 — 이제 설치 상태를 본다. 이미 설치가 관측된 기기면 더는 권유하지 않는다.
+  // 인앱 브라우저가 아니다 — 이제 설치 상태를 본다.
+  showInstallNag();
+
+  // ⚠️ 모바일 크롬은 앱 전환 후 복귀를 **bfcache 복원**으로 처리하는 경우가 흔하다 — 스크립트가
+  //   다시 실행되지 않고 DOM 이 그대로 살아 돌아온다(배너를 닫았던 상태 그대로 남는다). 그래서
+  //   "배너가 한 번 뜬 뒤 다시는 안 뜬다"는 신고가 실제로는 진짜 재방문이 아니라 같은 페이지
+  //   인스턴스의 복원이었을 수 있다 — `pageshow` 의 `persisted` 로 이 경우를 잡아 다시 확인한다.
+  window.addEventListener('pageshow', (e) => {
+    if ((e as PageTransitionEvent).persisted && !isRunningStandalone()) showInstallNag();
+  });
+}
+
+/** 설치 안 됨 안내(닫기 있는 배너) — 이미 설치가 관측된 기기면 더는 권유하지 않는다. */
+function showInstallNag(): void {
   if (isPlayPopInstalled()) return;
 
   if (isAndroid()) {

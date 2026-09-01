@@ -8,7 +8,7 @@
  */
 import Phaser from 'phaser';
 import { ensure as ensureAssetGroup } from '../ui/assetBudget.js';
-import { loadGameAssets, preloadKoreanFonts } from '../assets.js';
+import { loadGameAssets, loadAssetsWithRetry, preloadKoreanFonts } from '../assets.js';
 import { preloadHomeAssets } from './HomeScene.js';
 import { loadSave } from '../save.js';
 import { SAFE_H as H, SAFE_W as W } from '../logic/responsiveFrame.js';
@@ -114,7 +114,9 @@ export class LoadScene extends Phaser.Scene {
       }
       beginFade(); // **자동 진입** — 탭을 기다리지 않는다.
     };
-    const assetsDone = new Promise<void>((r) => this.load.once('complete', () => r()));
+    // 배포 직후 첫 로딩에서 일부 파일이 실패해도(콜드 CDN 엣지) 몇 초 내로 자동 재시도한다
+    //   (assets.ts loadAssetsWithRetry — 반드시 load.start() 전에 걸어야 loaderror 를 놓치지 않는다).
+    const assetsDone = loadAssetsWithRetry(this, { retries: 2, delayMs: 1200 });
     const minDelay = new Promise<void>((r) => this.time.delayedCall(MIN_MS, () => r()));
     this.time.delayedCall(16000, markReady); // 상한(부지 그룹까지 포함) — 16초 뒤엔 무조건 진입한다(로딩이 늦어도 멈추지 않게).
 

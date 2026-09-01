@@ -173,6 +173,54 @@ export function loadGameAssets(scene: Phaser.Scene): void {
   scene.load.once('complete', tryHandleManifest); // 어떤 이유로든 이벤트를 놓쳤을 때의 안전망.
 }
 
+/**
+ * **배포 직후 첫 로딩 실패 자동 복구**(2026-09-01) — 라이브 배포 직후 첫 실행에서 카드·배경이 통째로
+ * 안 보이는(텍스트만 남는) 신고가 반복됐다. Phaser 자체도 파일당 재시도를 하지만(`loader.maxRetries`,
+ * 기본 2회) **지연 없이 즉시** 재요청이라, CDN 엣지가 아직 원본에서 못 받아온 "콜드" 상태처럼 몇 초간
+ * 지속되는 실패에는 듣지 않는다(세 번 다 같은 이유로 실패). 그래서 로더가 **한 번 다 돈 뒤**(=complete),
+ * 실패한 파일만 모아 짧은 지연을 두고 다시 큐에 얹는 걸 몇 차례 반복한다.
+ *
+ * ⚠️ **LoadScene 처럼 스스로 'complete' 를 기다렸다가 다음 씬으로 넘어가는 곳에서만 쓸 것.** 다른 씬들의
+ *   암묵적 preload→create 전환(Phaser 가 첫 'complete' 로 자동으로 create() 를 부르는 것)에 끼워 넣으면
+ *   create() 가 재시도보다 먼저 실행돼 텍스처 없는 채로 그려질 수 있다 — 그건 이 함수로 못 막는다.
+ */
+export function loadAssetsWithRetry(scene: Phaser.Scene, opts: { retries?: number; delayMs?: number } = {}): Promise<void> {
+  const retries = opts.retries ?? 2;
+  const delayMs = opts.delayMs ?? 1200;
+  const failed = new Map<string, { key: string; type: string; url: string }>();
+  scene.load.on('loaderror', (file: { key: string; type: string; src?: string; url?: string | object }) => {
+    const url = file.src ?? (typeof file.url === 'string' ? file.url : '');
+    if (url) failed.set(`${file.type}:${file.key}`, { key: file.key, type: file.type, url });
+  });
+
+  return new Promise((resolve) => {
+    const attempt = (attemptsLeft: number): void => {
+      if (failed.size === 0 || attemptsLeft <= 0) {
+        resolve();
+        return;
+      }
+      const batch = [...failed.values()];
+      failed.clear();
+      scene.time.delayedCall(delayMs, () => {
+        let queued = 0;
+        for (const f of batch) {
+          if (scene.textures.exists(f.key) || scene.cache.json.exists(f.key)) continue; // 다른 경로로 이미 성공.
+          if (f.type === 'image') { scene.load.image(f.key, f.url); queued++; }
+          else if (f.type === 'json') { scene.load.json(f.key, f.url); queued++; }
+          // spritesheet 등 옵션이 필요한 타입은 재시도 대상에서 뺀다(드묾 — 캐릭터 시트 3장뿐).
+        }
+        if (queued === 0) {
+          resolve();
+          return;
+        }
+        scene.load.once('complete', () => attempt(attemptsLeft - 1));
+        scene.load.start();
+      });
+    };
+    scene.load.once('complete', () => attempt(retries));
+  });
+}
+
 function handleManifest(scene: Phaser.Scene): void {
   {
     const manifest = (scene.cache.json.get(UI_MANIFEST_KEY) ?? {}) as Record<string, string>;

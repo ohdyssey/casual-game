@@ -28,11 +28,20 @@ interface BeforeInstallPromptEvent extends Event {
 /** 감지된 인앱 브라우저 종류. */
 type InApp = 'kakao' | 'line' | 'naver' | 'instagram' | 'facebook' | 'other';
 
-/** 홈 화면 설치형(주소창 없는 standalone)으로 실행 중인지 = 이미 설치됨. */
+/**
+ * 홈 화면 설치형(주소창 없는 standalone)으로 실행 중인지 = 이미 설치됨.
+ *
+ * ⚠️ `display-mode: fullscreen` 은 게임(각 game-shell.ts)이 뒤로가기 방어용으로 첫 탭에 켜는 진짜
+ *   Fullscreen API 와도 겹쳐 보인다(크로미움 특성) — 허브 자신은 그 API 를 쓰지 않지만, 판정 함수를
+ *   appLaunch.ts 와 같은 기준으로 맞춰 둔다(`document.fullscreenElement` 가 있으면 설치가 아니라
+ *   인페이지 Fullscreen API 로 판단).
+ */
 function isStandalone(): boolean {
+  const fullscreenMode = window.matchMedia?.('(display-mode: fullscreen)').matches === true;
+  const viaFullscreenApi = document.fullscreenElement != null;
   return (
-    window.matchMedia?.('(display-mode: standalone)').matches ||
-    window.matchMedia?.('(display-mode: fullscreen)').matches ||
+    window.matchMedia?.('(display-mode: standalone)').matches === true ||
+    (fullscreenMode && !viaFullscreenApi) ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true
   );
 }
@@ -235,6 +244,16 @@ export function mountInstall(btn: HTMLElement, toast: (msg: string) => void): vo
 
   // 설치 전까지 매 방문 하단 배너로 안내(초기 렌더와 겹치지 않게 살짝 지연).
   window.setTimeout(() => showInstallBanner(btn), 1200);
+
+  // ⚠️ 모바일 크롬은 앱 전환 후 복귀를 **bfcache 복원**으로 처리하는 경우가 흔하다 — 스크립트가
+  //   다시 실행되지 않고 DOM 이 그대로 살아 돌아온다(배너를 닫았던 상태 그대로). 그래서 "닫은 뒤
+  //   다시는 안 뜬다"는 신고가 실제로는 진짜 재방문이 아니라 같은 페이지 인스턴스의 복원이었을 수
+  //   있다 — `pageshow` 의 `persisted` 로 이 경우를 잡아 다시 안내한다.
+  window.addEventListener('pageshow', (e) => {
+    if ((e as PageTransitionEvent).persisted && !isStandalone() && !isPlayPopInstalled()) {
+      window.setTimeout(() => showInstallBanner(btn), 400);
+    }
+  });
 
   // Android/Chromium: 설치 가능 신호를 가로채 저장 + 버튼 노출.
   window.addEventListener('beforeinstallprompt', (e: Event) => {
